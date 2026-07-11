@@ -51,6 +51,13 @@ export function shouldFetchUpstream(args: string[]) {
   return !args.includes("--no-fetch")
 }
 
+export function assertCurrentUpstream(behind: string, args: string[]) {
+  if (behind === "0" || args.includes("--allow-behind")) return
+  throw new Error(
+    `Owned OpenCode is ${behind} commit(s) behind ${UPSTREAM_BRANCH}. Reconcile upstream before acceptance, or use --allow-behind only for diagnostics.`,
+  )
+}
+
 function assertGitHubRemote(label: string, remote: string, expectedRepository: string) {
   if (githubRepositoryFromRemote(remote) === expectedRepository.toLowerCase()) return
   throw new Error(
@@ -74,11 +81,15 @@ async function main() {
     throw new Error(`upstream push URL mismatch: expected DISABLED, received ${upstreamPushUrl || "(empty)"}`)
   }
 
-  const fetched = shouldFetchUpstream(process.argv.slice(2))
+  const args = process.argv.slice(2)
+  const fetched = shouldFetchUpstream(args)
   if (fetched) runVisible("git", ["fetch", "--prune", "upstream"])
   run("git", ["rev-parse", "--verify", UPSTREAM_BRANCH])
 
-  const sourceChecks = process.argv.includes("--checks")
+  const divergence = run("git", ["rev-list", "--left-right", "--count", `HEAD...${UPSTREAM_BRANCH}`]).split(/\s+/)
+  assertCurrentUpstream(divergence[1] ?? "unknown", args)
+
+  const sourceChecks = args.includes("--checks")
   if (sourceChecks) {
     const packageDirectory = path.join(process.cwd(), "packages", "opencode")
     runVisible("bun", ["run", "typecheck"], packageDirectory)
@@ -118,7 +129,6 @@ async function main() {
     throw new Error("Verification changed tracked or untracked source files.")
   }
 
-  const divergence = run("git", ["rev-list", "--left-right", "--count", `HEAD...${UPSTREAM_BRANCH}`]).split(/\s+/)
   console.log(
     JSON.stringify(
       {

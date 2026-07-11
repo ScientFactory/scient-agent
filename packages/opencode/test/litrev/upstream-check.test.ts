@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { githubRepositoryFromRemote, shouldFetchUpstream } from "../../../../script/litrev-upstream-check"
+import {
+  assertCurrentUpstream,
+  githubRepositoryFromRemote,
+  shouldFetchUpstream,
+} from "../../../../script/litrev-upstream-check"
 
 describe("LitRev upstream source check", () => {
   test("accepts equivalent GitHub SSH and HTTPS remote forms", () => {
@@ -18,5 +22,11 @@ describe("LitRev upstream source check", () => {
     expect(shouldFetchUpstream([])).toBe(true)
     expect(shouldFetchUpstream(["--checks"])).toBe(true)
     expect(shouldFetchUpstream(["--no-fetch"])).toBe(false)
+  })
+
+  test("rejects a behind fork unless diagnostic mode is explicit", () => {
+    expect(() => assertCurrentUpstream("0", [])).not.toThrow()
+    expect(() => assertCurrentUpstream("2", [])).toThrow("2 commit(s) behind upstream/dev")
+    expect(() => assertCurrentUpstream("2", ["--allow-behind"])).not.toThrow()
   })
 })
