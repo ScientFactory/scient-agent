@@ -82,17 +82,32 @@ async function main() {
   if (sourceChecks) {
     const packageDirectory = path.join(process.cwd(), "packages", "opencode")
     runVisible("bun", ["run", "typecheck"], packageDirectory)
-    // This PTY file is order-sensitive in the inherited suite: it passes alone but
-    // consistently stalls after earlier files on macOS. Run every test while giving
-    // that file a fresh process; no coverage is skipped.
+    // These inherited integration files are resource-sensitive: the PTY file
+    // stalls after earlier files on macOS, while the subprocess file can starve
+    // its own 15-second regression oracle on a two-core CI runner. Run every test
+    // while giving both files controlled fresh processes; no coverage is skipped.
     runVisible(
       "bun",
-      ["test", "--timeout", "60000", "--only-failures", "--path-ignore-patterns", "test/server/httpapi-v2-pty.test.ts"],
+      [
+        "test",
+        "--timeout",
+        "60000",
+        "--only-failures",
+        "--path-ignore-patterns",
+        "test/server/httpapi-v2-pty.test.ts",
+        "--path-ignore-patterns",
+        "test/cli/run/run-process.test.ts",
+      ],
       packageDirectory,
     )
     runVisible(
       "bun",
       ["test", "--timeout", "60000", "--only-failures", "test/server/httpapi-v2-pty.test.ts"],
+      packageDirectory,
+    )
+    runVisible(
+      "bun",
+      ["test", "--timeout", "60000", "--only-failures", "--max-concurrency", "2", "test/cli/run/run-process.test.ts"],
       packageDirectory,
     )
     runVisible("bun", ["run", "build"], packageDirectory)
