@@ -39,7 +39,11 @@ jobs:
 
       - name: Test OpenCode package
         working-directory: packages/opencode
-        run: bun test --timeout 60000 --only-failures
+        run: |
+          # The PTY file is order-sensitive in the inherited suite, so give it a
+          # fresh process while still running every test.
+          bun test --timeout 60000 --only-failures --path-ignore-patterns test/server/httpapi-v2-pty.test.ts
+          bun test --timeout 60000 --only-failures test/server/httpapi-v2-pty.test.ts
 
       - name: Build OpenCode package
         working-directory: packages/opencode

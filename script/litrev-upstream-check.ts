@@ -82,7 +82,19 @@ async function main() {
   if (sourceChecks) {
     const packageDirectory = path.join(process.cwd(), "packages", "opencode")
     runVisible("bun", ["run", "typecheck"], packageDirectory)
-    runVisible("bun", ["test", "--timeout", "60000", "--only-failures"], packageDirectory)
+    // This PTY file is order-sensitive in the inherited suite: it passes alone but
+    // consistently stalls after earlier files on macOS. Run every test while giving
+    // that file a fresh process; no coverage is skipped.
+    runVisible(
+      "bun",
+      ["test", "--timeout", "60000", "--only-failures", "--path-ignore-patterns", "test/server/httpapi-v2-pty.test.ts"],
+      packageDirectory,
+    )
+    runVisible(
+      "bun",
+      ["test", "--timeout", "60000", "--only-failures", "test/server/httpapi-v2-pty.test.ts"],
+      packageDirectory,
+    )
     runVisible("bun", ["run", "build"], packageDirectory)
     runVisible("bun", ["run", "dev", "--version"], packageDirectory)
   }
