@@ -1,0 +1,50 @@
+name: LitRev quality
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+  workflow_dispatch:
+
+concurrency:
+  group: litrev-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  source-quality:
+    name: LitRev source quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Bun and dependencies
+        uses: ./.github/actions/setup-bun
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.email "litrev-ci@users.noreply.github.com"
+          git config --global user.name "LitRev CI"
+
+      - name: Typecheck workspace
+        run: bun turbo typecheck
+
+      - name: Test OpenCode package
+        working-directory: packages/opencode
+        run: bun test --timeout 60000 --only-failures
+
+      - name: Build OpenCode package
+        working-directory: packages/opencode
+        run: bun run build
+
+      - name: Smoke OpenCode CLI
+        working-directory: packages/opencode
+        run: bun run dev --version
