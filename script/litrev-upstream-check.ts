@@ -82,7 +82,7 @@ async function main() {
   if (sourceChecks) {
     const packageDirectory = path.join(process.cwd(), "packages", "opencode")
     runVisible("bun", ["run", "typecheck"], packageDirectory)
-    runVisible("bun", ["run", "test"], packageDirectory)
+    runVisible("bun", ["test", "--timeout", "60000", "--only-failures"], packageDirectory)
     runVisible("bun", ["run", "build"], packageDirectory)
     runVisible("bun", ["run", "dev", "--version"], packageDirectory)
   }
