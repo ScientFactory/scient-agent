@@ -39,7 +39,14 @@ jobs:
 
       - name: Test OpenCode package
         working-directory: packages/opencode
-        run: bun test --timeout 60000 --only-failures
+        run: |
+          # These inherited integration files are resource-sensitive. Give them
+          # controlled fresh processes while still running every test.
+          bun test --timeout 60000 --only-failures \
+            --path-ignore-patterns test/server/httpapi-v2-pty.test.ts \
+            --path-ignore-patterns test/cli/run/run-process.test.ts
+          bun test --timeout 60000 --only-failures test/server/httpapi-v2-pty.test.ts
+          bun test --timeout 60000 --only-failures --max-concurrency 2 test/cli/run/run-process.test.ts
 
       - name: Build OpenCode package
         working-directory: packages/opencode
