@@ -3,9 +3,9 @@ import {
   assertCurrentUpstream,
   githubRepositoryFromRemote,
   shouldFetchUpstream,
-} from "../../../../script/litrev-upstream-check"
+} from "../../../../script/papilab-upstream-check"
 
-describe("LitRev upstream source check", () => {
+describe("PapiLab upstream source check", () => {
   test("accepts equivalent GitHub SSH and HTTPS remote forms", () => {
     expect(githubRepositoryFromRemote("git@github.com:yaacovcorcos/opencode.git")).toBe("yaacovcorcos/opencode")
     expect(githubRepositoryFromRemote("https://github.com/yaacovcorcos/opencode.git")).toBe("yaacovcorcos/opencode")

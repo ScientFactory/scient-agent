@@ -1,4 +1,4 @@
-name: LitRev quality
+name: PapiLab quality
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: litrev-quality-${{ github.event.pull_request.number || github.ref }}
+  group: papilab-quality-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -19,7 +19,7 @@ env:
 
 jobs:
   source-quality:
-    name: LitRev source quality
+    name: PapiLab source quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -31,8 +31,8 @@ jobs:
 
       - name: Configure Git identity
         run: |
-          git config --global user.email "litrev-ci@users.noreply.github.com"
-          git config --global user.name "LitRev CI"
+          git config --global user.email "papilab-ci@users.noreply.github.com"
+          git config --global user.name "PapiLab CI"
 
       - name: Typecheck workspace
         run: bun turbo typecheck
