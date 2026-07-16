@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import path from "node:path"
 
 const EXPECTED_ORIGIN_REPOSITORY = "yaacovcorcos/opencode"
@@ -138,8 +139,9 @@ async function main() {
         ahead: divergence[0],
         behind: divergence[1],
         upstreamFetched: fetched,
-        sourceVersion: JSON.parse(await Bun.file(path.join(process.cwd(), "packages/opencode/package.json")).text())
-          .version,
+        sourceVersion: JSON.parse(
+          readFileSync(path.join(process.cwd(), "packages/opencode/package.json"), "utf8"),
+        ).version,
         deterministicSourceChecksRun: sourceChecks,
         crossRepositorySynaraSmokeRun: false,
       },
