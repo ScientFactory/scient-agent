@@ -143,7 +143,7 @@ async function main() {
           readFileSync(path.join(process.cwd(), "packages/opencode/package.json"), "utf8"),
         ).version,
         deterministicSourceChecksRun: sourceChecks,
-        crossRepositorySynaraSmokeRun: false,
+        crossRepositoryScientDesktopSmokeRun: false,
       },
       null,
       2,
