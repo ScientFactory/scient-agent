@@ -3,13 +3,19 @@ import {
   assertCurrentUpstream,
   githubRepositoryFromRemote,
   shouldFetchUpstream,
-} from "../../../../script/papilab-upstream-check"
+} from "../../../../script/scient-upstream-check"
 
-describe("PapiLab upstream source check", () => {
+describe("Scient upstream source check", () => {
   test("accepts equivalent GitHub SSH and HTTPS remote forms", () => {
-    expect(githubRepositoryFromRemote("git@github.com:yaacovcorcos/opencode.git")).toBe("yaacovcorcos/opencode")
-    expect(githubRepositoryFromRemote("https://github.com/yaacovcorcos/opencode.git")).toBe("yaacovcorcos/opencode")
-    expect(githubRepositoryFromRemote("ssh://git@github.com/yaacovcorcos/opencode")).toBe("yaacovcorcos/opencode")
+    expect(githubRepositoryFromRemote("git@github.com:ScientFactory/scient-agent.git")).toBe(
+      "scientfactory/scient-agent",
+    )
+    expect(githubRepositoryFromRemote("https://github.com/ScientFactory/scient-agent.git")).toBe(
+      "scientfactory/scient-agent",
+    )
+    expect(githubRepositoryFromRemote("ssh://git@github.com/ScientFactory/scient-agent")).toBe(
+      "scientfactory/scient-agent",
+    )
   })
 
   test("rejects non-GitHub and malformed remotes", () => {

@@ -1,4 +1,4 @@
-name: PapiLab quality
+name: Scient quality
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: papilab-quality-${{ github.event.pull_request.number || github.ref }}
+  group: scient-quality-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -19,7 +19,7 @@ env:
 
 jobs:
   source-quality:
-    name: PapiLab source quality
+    name: Scient source quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -31,13 +31,13 @@ jobs:
 
       - name: Configure Git identity
         run: |
-          git config --global user.email "papilab-ci@users.noreply.github.com"
-          git config --global user.name "PapiLab CI"
+          git config --global user.email "scient-ci@users.noreply.github.com"
+          git config --global user.name "Scient CI"
 
       - name: Typecheck workspace
         run: bun turbo typecheck
 
-      - name: Test OpenCode package
+      - name: Test inherited agent core
         working-directory: packages/opencode
         run: |
           # These inherited integration files are resource-sensitive. Give them
@@ -48,10 +48,10 @@ jobs:
           bun test --timeout 60000 --only-failures test/server/httpapi-v2-pty.test.ts
           bun test --timeout 60000 --only-failures --max-concurrency 2 test/cli/run/run-process.test.ts
 
-      - name: Build OpenCode package
+      - name: Build Scient agent source
         working-directory: packages/opencode
         run: bun run build
 
-      - name: Smoke OpenCode CLI
+      - name: Smoke inherited CLI core
         working-directory: packages/opencode
         run: bun run dev --version
