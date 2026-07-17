@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 
-const EXPECTED_ORIGIN_REPOSITORY = "yaacovcorcos/opencode"
+const EXPECTED_ORIGIN_REPOSITORY = "ScientFactory/scient-agent"
 const EXPECTED_UPSTREAM_REPOSITORY = "anomalyco/opencode"
 const UPSTREAM_BRANCH = "upstream/dev"
 
@@ -55,7 +55,7 @@ export function shouldFetchUpstream(args: string[]) {
 export function assertCurrentUpstream(behind: string, args: string[]) {
   if (behind === "0" || args.includes("--allow-behind")) return
   throw new Error(
-    `Owned OpenCode is ${behind} commit(s) behind ${UPSTREAM_BRANCH}. Reconcile upstream before acceptance, or use --allow-behind only for diagnostics.`,
+    `Scient agent source is ${behind} commit(s) behind ${UPSTREAM_BRANCH}. Reconcile upstream before acceptance, or use --allow-behind only for diagnostics.`,
   )
 }
 
@@ -68,7 +68,7 @@ function assertGitHubRemote(label: string, remote: string, expectedRepository: s
 
 async function main() {
   const initialStatus = run("git", ["status", "--porcelain"])
-  if (initialStatus) throw new Error("Run the OpenCode source check from a clean worktree.")
+  if (initialStatus) throw new Error("Run the Scient agent source check from a clean worktree.")
 
   assertGitHubRemote("origin fetch URL", run("git", ["remote", "get-url", "origin"]), EXPECTED_ORIGIN_REPOSITORY)
   assertGitHubRemote(
