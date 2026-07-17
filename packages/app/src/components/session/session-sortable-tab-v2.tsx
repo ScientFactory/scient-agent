@@ -43,12 +43,12 @@ export function SortableTabV2(props: {
           closeButton={
             <TooltipV2
               value={
-                <>
+                <span class="flex items-center gap-1.5">
                   {language.t("common.closeTab")}
                   <Show when={closeTabKeybind().length > 0}>
                     <KeybindV2 keys={closeTabKeybind()} variant="neutral" />
                   </Show>
-                </>
+                </span>
               }
               placement="bottom"
               gutter={10}
