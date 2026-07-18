@@ -47,7 +47,7 @@ function commandFailureDetails(error: unknown) {
   return failure.stderr?.toString().trim() || failure.stdout?.toString().trim() || error.message
 }
 
-function run(command: string, args: string[], cwd = process.cwd()) {
+function run(command: string, args: readonly string[], cwd = process.cwd()) {
   try {
     return execFileSync(command, args, {
       cwd,
@@ -59,7 +59,7 @@ function run(command: string, args: string[], cwd = process.cwd()) {
   }
 }
 
-function runVisible(command: string, args: string[], cwd = process.cwd()) {
+function runVisible(command: string, args: readonly string[], cwd = process.cwd()) {
   try {
     execFileSync(command, args, { cwd, stdio: "inherit" })
   } catch (error) {
@@ -76,14 +76,14 @@ export function githubRepositoryFromRemote(remote: string) {
   return `${match[1]}/${match[2].replace(/\.git$/i, "")}`.toLowerCase()
 }
 
-export function shouldFetchUpstream(args: string[]) {
+export function shouldFetchUpstream(args: readonly string[]) {
   return !args.includes("--no-fetch")
 }
 
-export function resolveVerificationMode(args: string[]): VerificationMode {
-  const review = args.includes("--review-check")
+export function resolveVerificationMode(args: readonly string[]): VerificationMode {
+  const review = args.includes("--require-reviewed-tip") || args.includes("--review-check")
   const intake = args.includes("--intake") || args.includes("--checks")
-  if (review && intake) throw new Error("Choose either --review-check or --intake, not both.")
+  if (review && intake) throw new Error("Choose either strict review verification or --intake, not both.")
   if (intake) return "intake"
   if (review) return "review"
   return "report"
@@ -133,11 +133,16 @@ function requireString(value: Record<string, unknown>, key: string) {
   throw new Error(`${UPSTREAM_STATE_PATH} field ${key} must be a non-empty string.`)
 }
 
-function assertGitHubRemote(label: string, remote: string, expectedRepository: string) {
+export function assertGitHubRemote(label: string, remote: string, expectedRepository: string) {
   if (githubRepositoryFromRemote(remote) === expectedRepository.toLowerCase()) return
   throw new Error(
     `${label} mismatch: expected GitHub repository ${expectedRepository}, received ${remote || "(empty)"}`,
   )
+}
+
+export function assertUpstreamPushDisabled(remote: string) {
+  if (remote === "DISABLED") return
+  throw new Error(`upstream push URL mismatch: expected DISABLED, received ${remote || "(empty)"}`)
 }
 
 function assertStateIdentity(state: UpstreamState) {
@@ -155,12 +160,39 @@ function assertStateIdentity(state: UpstreamState) {
   }
 }
 
-function assertAncestor(ancestor: string, descendant: string, label: string) {
+function assertAncestor(ancestor: string, descendant: string, label: string, cwd: string) {
   try {
-    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { stdio: "ignore" })
+    execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd, stdio: "ignore" })
   } catch (error) {
     throw new Error(`${label}: ${ancestor} is not an ancestor of ${descendant}.`, { cause: error })
   }
+}
+
+export function verifyAncestry(input: {
+  readonly reviewedThrough: string
+  readonly integrationBase: string
+  readonly upstreamTip: string
+  readonly ownedHead: string
+  readonly cwd?: string
+}) {
+  const cwd = input.cwd ?? process.cwd()
+  run("git", ["cat-file", "-e", `${input.reviewedThrough}^{commit}`], cwd)
+  run("git", ["cat-file", "-e", `${input.integrationBase}^{commit}`], cwd)
+  assertAncestor(input.reviewedThrough, input.upstreamTip, "Invalid upstream review checkpoint", cwd)
+  assertAncestor(input.integrationBase, input.upstreamTip, "Integration base is not official upstream history", cwd)
+  assertAncestor(input.integrationBase, input.ownedHead, "Integration base is not present in owned history", cwd)
+}
+
+export function assertReviewCurrent(
+  mode: VerificationMode,
+  unreviewedCommits: number,
+  reviewedThrough: string,
+  upstreamTip: string,
+) {
+  if (mode !== "review" || unreviewedCommits === 0) return
+  throw new Error(
+    `Strict review verification requires reviewedThrough to equal the official tip. ${reviewedThrough} leaves ${unreviewedCommits} unreviewed commit(s) before ${upstreamTip}.`,
+  )
 }
 
 async function main() {
@@ -179,25 +211,23 @@ async function main() {
   )
   assertGitHubRemote("upstream fetch URL", run("git", ["remote", "get-url", "upstream"]), EXPECTED_UPSTREAM_REPOSITORY)
   const upstreamPushUrl = run("git", ["remote", "get-url", "--push", "upstream"])
-  if (upstreamPushUrl !== "DISABLED") {
-    throw new Error(`upstream push URL mismatch: expected DISABLED, received ${upstreamPushUrl || "(empty)"}`)
-  }
+  assertUpstreamPushDisabled(upstreamPushUrl)
 
   const fetched = shouldFetchUpstream(args)
   if (fetched) runVisible("git", ["fetch", "--prune", "upstream"])
   const upstreamTip = run("git", ["rev-parse", "--verify", UPSTREAM_BRANCH])
   const state = parseUpstreamState(JSON.parse(readFileSync(path.join(process.cwd(), UPSTREAM_STATE_PATH), "utf8")))
   assertStateIdentity(state)
-  run("git", ["cat-file", "-e", `${state.reviewedThrough}^{commit}`])
-  run("git", ["cat-file", "-e", `${state.integrationBase}^{commit}`])
-  assertAncestor(state.reviewedThrough, upstreamTip, "Invalid upstream review checkpoint")
-  assertAncestor(state.integrationBase, upstreamTip, "Integration base is not official upstream history")
-  assertAncestor(state.integrationBase, "HEAD", "Integration base is not present in owned history")
+  verifyAncestry({
+    reviewedThrough: state.reviewedThrough,
+    integrationBase: state.integrationBase,
+    upstreamTip,
+    ownedHead: "HEAD",
+  })
 
   const divergence = run("git", ["rev-list", "--left-right", "--count", `HEAD...${UPSTREAM_BRANCH}`]).split(/\s+/)
-  const unreviewedCommits = Number(
-    run("git", ["rev-list", "--count", `${state.reviewedThrough}..${upstreamTip}`]),
-  )
+  const unreviewedCommits = Number(run("git", ["rev-list", "--count", `${state.reviewedThrough}..${upstreamTip}`]))
+  assertReviewCurrent(mode, unreviewedCommits, state.reviewedThrough, upstreamTip)
 
   if (mode === "intake") {
     const packageDirectory = path.join(process.cwd(), "packages", "opencode")
@@ -258,9 +288,8 @@ async function main() {
         },
         integrationBase: state.integrationBase,
         updateMode: state.updateMode,
-        sourceVersion: JSON.parse(
-          readFileSync(path.join(process.cwd(), "packages/opencode/package.json"), "utf8"),
-        ).version,
+        sourceVersion: JSON.parse(readFileSync(path.join(process.cwd(), "packages/opencode/package.json"), "utf8"))
+          .version,
         deterministicSourceChecksRun: mode === "intake",
         crossRepositoryScientDesktopSmokeRun: false,
       },

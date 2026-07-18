@@ -15,6 +15,7 @@
     "lint": "oxlint",
     "scient:identity-check": "bun script/scient-public-identity-check.ts",
     "scient:upstream-check": "bun script/scient-upstream-check.ts",
+    "scient:workflow-check": "bun script/scient-workflow-check.ts",
     "typecheck": "bun turbo typecheck",
     "upgrade-opentui": "bun run script/upgrade-opentui.ts",
     "postinstall": "bun run --cwd packages/core fix-node-pty",
