@@ -13,6 +13,7 @@
     "dev:stats": "bun sst shell --stage=production -- bun run --cwd packages/stats/app dev",
     "dev:storybook": "bun --cwd packages/storybook storybook",
     "lint": "oxlint",
+    "scient:identity-check": "bun script/scient-public-identity-check.ts",
     "scient:upstream-check": "bun script/scient-upstream-check.ts",
     "typecheck": "bun turbo typecheck",
     "upgrade-opentui": "bun run script/upgrade-opentui.ts",
@@ -119,7 +120,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/anomalyco/opencode"
+    "url": "https://github.com/ScientFactory/scient-agent"
   },
   "license": "MIT",
   "prettier": {

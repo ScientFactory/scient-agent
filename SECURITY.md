@@ -1,47 +1,33 @@
-# Security
+# Security policy
 
-## IMPORTANT
+## Reporting a vulnerability
 
-We do not accept AI generated security reports. We receive a large number of
-these and we absolutely do not have the resources to review them all. If you
-submit one that will be an automatic ban from the project.
+Report suspected vulnerabilities privately through the
+[Scient agent security advisory form](https://github.com/ScientFactory/scient-agent/security/advisories/new).
+Do not open a public issue for an undisclosed vulnerability or include secrets,
+credentials, private repositories, or sensitive logs in a report.
 
-## Threat Model
+Include the affected revision, platform, configuration, reproduction steps,
+expected impact, and the smallest safe proof available. Clearly say whether the
+issue also reproduces in official OpenCode. A vulnerability that affects both
+projects may need coordinated reporting, but ScientFactory remains responsible
+for evaluating its owned source and release boundary.
 
-### Overview
+## Current security boundary
 
-OpenCode is an AI-powered coding assistant that runs locally on your machine. It provides an agent system with access to powerful tools including shell execution, file operations, and web access.
+This repository is an OpenCode-derived source foundation for the planned native
+Scient agent. It is not yet a released native Scient agent.
 
-### No Sandbox
+The inherited agent core can execute shell commands, read and write files, use
+network tools, and connect to configured providers. Its permission prompts are
+an interaction and approval mechanism, not a security sandbox. Use an operating
+system account, container, or virtual machine when stronger isolation is
+required.
 
-OpenCode does **not** sandbox the agent. The permission system exists as a UX feature to help users stay aware of what actions the agent is taking - it prompts for confirmation before executing commands, writing files, etc. However, it is not designed to provide security isolation.
+Server mode is opt-in. Any exposed server must use authentication and an
+appropriately restricted network boundary. Provider and MCP-server behavior
+remain governed by the services the operator chooses.
 
-If you need true isolation, run OpenCode inside a Docker container or VM.
-
-### Server Mode
-
-Server mode is opt-in only. When enabled, set `OPENCODE_SERVER_PASSWORD` to require HTTP Basic Auth. Without this, the server runs unauthenticated (with a warning). It is the end user's responsibility to secure the server - any functionality it provides is not a vulnerability.
-
-### Out of Scope
-
-| Category                        | Rationale                                                               |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| **Server access when opted-in** | If you enable server mode, API access is expected behavior              |
-| **Sandbox escapes**             | The permission system is not a sandbox (see above)                      |
-| **LLM provider data handling**  | Data sent to your configured LLM provider is governed by their policies |
-| **MCP server behavior**         | External MCP servers you configure are outside our trust boundary       |
-| **Malicious config files**      | Users control their own config; modifying it is not an attack vector    |
-
----
-
-# Reporting Security Issues
-
-We appreciate your efforts to responsibly disclose your findings, and will make every effort to acknowledge your contributions.
-
-To report a security issue, please use the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/anomalyco/opencode/security/advisories/new) tab.
-
-The team will send a response indicating the next steps in handling your report. After the initial reply to your report, the security team will keep you informed of the progress towards a fix and full announcement, and may ask for additional information or guidance.
-
-## Escalation
-
-If you do not receive an acknowledgement of your report within 6 business days, you may send an email to security@anoma.ly
+ScientFactory security decisions, credentials, sessions, permissions, and
+scientific project truth must remain separate from upstream service or account
+state.
