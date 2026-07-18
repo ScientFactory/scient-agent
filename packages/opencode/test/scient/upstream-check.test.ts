@@ -1,9 +1,24 @@
 import { describe, expect, test } from "bun:test"
 import {
-  assertCurrentUpstream,
   githubRepositoryFromRemote,
+  parseUpstreamState,
+  resolveVerificationMode,
   shouldFetchUpstream,
+  type UpstreamState,
 } from "../../../../script/scient-upstream-check"
+
+const validState = {
+  schemaVersion: 1,
+  ownedRepository: "ScientFactory/scient-agent",
+  ownedDefaultBranch: "dev",
+  officialRepository: "anomalyco/opencode",
+  officialDefaultBranch: "dev",
+  updateMode: "adapter-maintained",
+  reviewedThrough: "a".repeat(40),
+  reviewedAt: "2026-07-18",
+  integrationBase: "b".repeat(40),
+  reviewRecord: "ScientFactory/Scient:lab/external/upstream-reviews/2026-07-18-scient-agent.md",
+} satisfies UpstreamState
 
 describe("Scient upstream source check", () => {
   test("accepts equivalent GitHub SSH and HTTPS remote forms", () => {
@@ -26,13 +41,27 @@ describe("Scient upstream source check", () => {
 
   test("fetches upstream by default and requires an explicit offline opt-out", () => {
     expect(shouldFetchUpstream([])).toBe(true)
-    expect(shouldFetchUpstream(["--checks"])).toBe(true)
+    expect(shouldFetchUpstream(["--intake"])).toBe(true)
     expect(shouldFetchUpstream(["--no-fetch"])).toBe(false)
   })
 
-  test("rejects a behind fork unless diagnostic mode is explicit", () => {
-    expect(() => assertCurrentUpstream("0", [])).not.toThrow()
-    expect(() => assertCurrentUpstream("2", [])).toThrow("2 commit(s) behind upstream/dev")
-    expect(() => assertCurrentUpstream("2", ["--allow-behind"])).not.toThrow()
+  test("uses explicit report, review, and intake modes", () => {
+    expect(resolveVerificationMode([])).toBe("report")
+    expect(resolveVerificationMode(["--review-check"])).toBe("review")
+    expect(resolveVerificationMode(["--intake"])).toBe("intake")
+    expect(resolveVerificationMode(["--checks"])).toBe("intake")
+    expect(() => resolveVerificationMode(["--review-check", "--intake"])).toThrow(
+      "either --review-check or --intake",
+    )
+  })
+
+  test("validates machine-readable upstream review state", () => {
+    expect(parseUpstreamState(validState)).toEqual(validState)
+    expect(() => parseUpstreamState({ ...validState, reviewedThrough: "short" })).toThrow(
+      "full lowercase commit SHA",
+    )
+    expect(() => parseUpstreamState({ ...validState, updateMode: "always-merge" })).toThrow(
+      "unsupported updateMode",
+    )
   })
 })
