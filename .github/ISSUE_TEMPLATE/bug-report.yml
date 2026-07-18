@@ -1,66 +1,61 @@
 name: Bug report
-description: Report an issue that should be fixed (avoid pasting giant AI generated summaries or your issue may be closed/ignored)
+description: Report a reproducible problem in the Scient agent source foundation
+title: "[BUG]: "
 body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository contains the planned native Scient agent's source foundation. Current desktop application issues belong in `ScientFactory/scient-desktop`.
+
   - type: textarea
     id: description
     attributes:
       label: Description
-      description: Describe the bug you encountered
-      placeholder: What happened?
+      description: Describe what happened and what you expected instead.
     validations:
       required: true
 
   - type: input
-    id: plugins
+    id: revision
     attributes:
-      label: Plugins
-      description: What plugins are you using?
+      label: Scient agent source revision
+      description: Provide the commit SHA or branch where the problem occurs.
+      placeholder: 40-character commit SHA
     validations:
-      required: false
-
-  - type: input
-    id: opencode-version
-    attributes:
-      label: OpenCode version
-      description: What version of OpenCode are you using?
-    validations:
-      required: false
+      required: true
 
   - type: textarea
     id: reproduce
     attributes:
       label: Steps to reproduce
-      description: How can we reproduce this issue?
+      description: Provide the smallest repeatable sequence and relevant configuration with secrets removed.
       placeholder: |
-        1.
-        2.
-        3.
+        1. …
+        2. …
+        3. …
     validations:
-      required: false
+      required: true
 
-  - type: textarea
-    id: screenshot-or-link
+  - type: input
+    id: upstream
     attributes:
-      label: Screenshot and/or share link
-      description: Run `/share` to get a share link, or attach a screenshot
-      placeholder: Paste link or drag and drop screenshot here
+      label: Upstream comparison
+      description: If checked, say whether the issue also reproduces in official OpenCode.
     validations:
       required: false
-
   - type: input
     id: os
     attributes:
-      label: Operating System
-      description: what OS are you using?
-      placeholder: e.g., macOS 26.0.1, Ubuntu 22.04, Windows 11
+      label: Operating system
+      placeholder: macOS, Linux, or Windows version
     validations:
-      required: false
+      required: true
 
-  - type: input
-    id: terminal
+  - type: textarea
+    id: logs
     attributes:
-      label: Terminal
-      description: what terminal are you using?
-      placeholder: e.g., iTerm2, Ghostty, Alacritty, Windows Terminal
+      label: Relevant logs
+      description: Include only bounded, redacted output. Do not paste credentials or private data.
+      render: shell
     validations:
       required: false

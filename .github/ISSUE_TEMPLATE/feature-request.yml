@@ -1,19 +1,46 @@
-name: 🚀 Feature Request
-description: Suggest an idea, feature, or enhancement
-title: "[FEATURE]:"
-
+name: Feature request
+description: Propose a bounded improvement to the Scient agent source foundation
+title: "[FEATURE]: "
 body:
-  - type: checkboxes
-    id: verified
+  - type: markdown
     attributes:
-      label: Feature hasn't been suggested before.
-      options:
-        - label: I have verified this feature I'm about to request hasn't been suggested before.
-          required: true
+      value: |
+        The native Scient agent remains planned. Describe the source capability and evidence needed without presenting proposed product behavior as implemented.
 
   - type: textarea
+    id: problem
     attributes:
-      label: Describe the enhancement you want to request
-      description: What do you want to change or add? What are the benefits of implementing this? Try to be detailed so we can understand your request better :)
+      label: Problem
+      description: What concrete source-foundation or native-agent problem should be solved?
     validations:
       required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement
+      description: Describe the smallest useful behavior and its verification boundary.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: lane
+    attributes:
+      label: Source lane
+      options:
+        - Reliability or security
+        - Provider or protocol compatibility
+        - Native Scient agent capability
+        - Inherited core maintenance
+        - Developer experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and upstream context
+      description: Note affected inherited identifiers, upstream behavior, or desktop coupling.
+    validations:
+      required: false

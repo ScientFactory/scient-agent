@@ -31,6 +31,9 @@ jobs:
       - name: Setup Bun and dependencies
         uses: ./.github/actions/setup-bun
 
+      - name: Verify Scient public identity
+        run: bun run scient:identity-check
+
       - name: Verify Scient upstream ownership and review state
         run: |
           git remote add upstream https://github.com/anomalyco/opencode.git

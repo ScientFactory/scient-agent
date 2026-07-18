@@ -1,29 +1,18 @@
-### Issue for this PR
+### Summary
 
-Closes #
+Describe the problem, the change, and why this repository is the correct owner.
 
-### Type of change
+### Verification
 
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Refactor / code improvement
-- [ ] Documentation
+List the exact package-local tests, typechecks, builds, and manual checks run.
 
-### What does this PR do?
+### Boundaries
 
-Please provide a description of the issue, the changes you made to fix it, and why they work. It is expected that you understand why your changes work and if you do not understand why at least say as much so a maintainer knows how much to value the PR.
+- [ ] I kept ordinary Scient product work separate from upstream intake.
+- [ ] I preserved inherited OpenCode lineage and compatibility identifiers unless this PR includes a bounded migration.
+- [ ] I documented any desktop or parent-repository dependency.
+- [ ] I did not include secrets, private data, generated credentials, or unrelated changes.
 
-**If you paste a large clearly AI generated description here your PR may be IGNORED or CLOSED!**
+### User or maintainer impact
 
-### How did you verify your code works?
-
-### Screenshots / recordings
-
-_If this is a UI change, please include a screenshot or recording._
-
-### Checklist
-
-- [ ] I have tested my changes locally
-- [ ] I have not included unrelated changes in this PR
-
-_If you do not follow this template your PR will be automatically rejected._
+State what changes now and what remains planned, inherited, deferred, or unverified.
