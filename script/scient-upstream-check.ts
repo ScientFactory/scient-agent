@@ -191,7 +191,8 @@ async function main() {
   run("git", ["cat-file", "-e", `${state.reviewedThrough}^{commit}`])
   run("git", ["cat-file", "-e", `${state.integrationBase}^{commit}`])
   assertAncestor(state.reviewedThrough, upstreamTip, "Invalid upstream review checkpoint")
-  assertAncestor(state.integrationBase, "HEAD", "Invalid integrated upstream base")
+  assertAncestor(state.integrationBase, upstreamTip, "Integration base is not official upstream history")
+  assertAncestor(state.integrationBase, "HEAD", "Integration base is not present in owned history")
 
   const divergence = run("git", ["rev-list", "--left-right", "--count", `HEAD...${UPSTREAM_BRANCH}`]).split(/\s+/)
   const unreviewedCommits = Number(
