@@ -34,11 +34,14 @@ jobs:
       - name: Verify Scient public identity
         run: bun run scient:identity-check
 
+      - name: Verify workflow isolation and immutable actions
+        run: bun run scient:workflow-check
+
       - name: Verify Scient upstream ownership and review state
         run: |
           git remote add upstream https://github.com/anomalyco/opencode.git
           git remote set-url --push upstream DISABLED
-          bun run scient:upstream-check --review-check
+          bun run scient:upstream-check
 
       - name: Configure Git identity
         run: |

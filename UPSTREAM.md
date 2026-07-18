@@ -12,9 +12,11 @@ Scient's product direction, identity, or release schedule.
 - Canonical policy: `Scient/docs/operations/upstream-intake.md`
 
 Use `bun run scient:upstream-check` for topology, divergence, and review-state
-reporting. Use `--review-check` to validate the committed review checkpoint.
-Use `--intake` from a clean maintenance branch to run the deterministic source
-suite before proposing inherited code.
+reporting without treating new official changes as a product-CI failure. Use
+`--require-reviewed-tip` when closing a disposition review; the compatibility
+alias `--review-check` is equally strict. Use `--intake` from a clean
+maintenance branch to run the deterministic source suite before proposing
+inherited code.
 
 Being behind official OpenCode is not itself a failure. Unreviewed movement
 must be surfaced, classified, and dispositioned. Upstream intake must not be
