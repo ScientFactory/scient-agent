@@ -25,9 +25,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun and dependencies
         uses: ./.github/actions/setup-bun
+
+      - name: Verify Scient upstream ownership and review state
+        run: |
+          git remote add upstream https://github.com/anomalyco/opencode.git
+          git remote set-url --push upstream DISABLED
+          bun run scient:upstream-check --review-check
 
       - name: Configure Git identity
         run: |

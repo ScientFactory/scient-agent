@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "ownedRepository": "ScientFactory/scient-agent",
+  "ownedDefaultBranch": "dev",
+  "officialRepository": "anomalyco/opencode",
+  "officialDefaultBranch": "dev",
+  "updateMode": "adapter-maintained",
+  "reviewedThrough": "fab213312927ea64cf968832c527206e8c944f9e",
+  "reviewedAt": "2026-07-18",
+  "integrationBase": "69a80663a2ed7d671d2b4d5dd6f2d605714675a5",
+  "reviewRecord": "ScientFactory/Scient:lab/external/upstream-reviews/2026-07-18-scient-agent.md"
+}
