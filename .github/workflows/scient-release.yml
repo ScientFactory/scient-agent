@@ -1,0 +1,60 @@
+name: Scient release lane
+
+on:
+  pull_request:
+    branches: [release/stable]
+  workflow_dispatch:
+
+concurrency:
+  group: scient-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  release-policy:
+    name: Scient release policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify release promotion source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            case "$HEAD_BRANCH" in
+              dev|hotfix/*) ;;
+              *)
+                echo "release/stable accepts promotion PRs only from dev or emergency hotfix/* branches." >&2
+                exit 1
+                ;;
+            esac
+          elif [[ "$REF_NAME" != "release/stable" ]]; then
+            echo "Manual release validation must run from release/stable." >&2
+            exit 1
+          fi
+
+      - name: Verify Scient public identity
+        run: bun run scient:identity-check
+
+      - name: Verify workflow isolation and immutable actions
+        run: bun run scient:workflow-check
+
+      - name: Record validated source
+        run: |
+          echo "Validated release source: $(git rev-parse HEAD)"
+          echo "This workflow validates the promotion boundary; it does not publish agent artifacts."
