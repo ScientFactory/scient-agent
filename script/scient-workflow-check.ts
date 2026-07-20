@@ -5,6 +5,7 @@ import path from "node:path"
 
 const OWNED_WORKFLOWS = new Set([
   ".github/workflows/scient-quality.yml",
+  ".github/workflows/scient-release.yml",
   ".github/workflows/scient-upstream-monitor.yml",
 ])
 const UPSTREAM_REPOSITORY_GUARD =

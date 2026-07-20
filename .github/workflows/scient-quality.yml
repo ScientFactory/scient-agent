@@ -2,9 +2,9 @@ name: Scient quality
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, release/stable]
   pull_request:
-    branches: [dev]
+    branches: [dev, release/stable]
   workflow_dispatch:
 
 concurrency:
