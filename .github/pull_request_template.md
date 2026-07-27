@@ -4,7 +4,21 @@ Describe the problem, the change, and why this repository is the correct owner.
 
 ### Verification
 
-List the exact package-local tests, typechecks, builds, and manual checks run.
+List the exact package-local tests, typechecks, builds, and human manual checks
+run. For UI changes, record the candidate, human reviewer, environment, result,
+and visual evidence.
+
+### Quality Review
+
+Record findings and dispositions, or state that none remain. Treat reuse,
+quality, and efficiency as starting points rather than limits.
+
+### Integration Readiness Review
+
+Record reviewed head, reviewer arrangement, verdict, unresolved findings, and
+evidence gaps.
+
+- [ ] A human inspected any changed user-visible UI or interaction, or this is not applicable.
 
 ### Boundaries
 

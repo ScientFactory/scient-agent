@@ -27,6 +27,13 @@ development. For the current Scient application, use
   owns the current desktop application.
 - [`ScientFactory/scient-agent`](https://github.com/ScientFactory/scient-agent)
   owns this native-agent source foundation.
+- [`ScientFactory/ScientFactory-website`](https://github.com/ScientFactory/ScientFactory-website)
+  owns the public website and download experience.
+
+Internal contributors may keep these independent repositories as sibling
+checkouts in one plain local workspace for shared read context. Cross-repository
+changes still require separate branches, worktrees, commits, and pull requests,
+with dependencies stated explicitly.
 
 ## Development
 
