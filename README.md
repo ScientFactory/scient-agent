@@ -2,7 +2,7 @@
 
 This repository is reserved for the future native Scient agent.
 
-No native Scient agent is implemented or distributed from this repository today. Scient is first qualifying Oh My Pi through a separate external-agent integration. After that qualification gate, this repository will be rebootstrapped from the exact accepted OMP source revision and developed as an independently identified Scient product.
+Oh My Pi is the accepted source foundation for the native Scient agent. No native Scient agent is implemented or distributed from this repository today. Scient is first building a separate external OMP integration to establish the basic RPC seam. After that path is working, this repository will be rebootstrapped from an exact recorded OMP source revision and developed as an independently identified Scient product.
 
 External OMP support and the future native Scient agent are separate products with separate identity, configuration, state, and lifecycle.
 
