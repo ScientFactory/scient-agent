@@ -343,6 +343,8 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 		['["omp", "-x session"]', `["${PRODUCT}", "-x session"]`],
 	],
 	"packages/tui/src/native/backend.ts": [['title: "omp"', `title: "${PRODUCT}"`]],
+	// The stats dashboard's page title, written by its build script.
+	"packages/stats/build.ts": [["<title>omp stats</title>", `<title>${PRODUCT} stats</title>`]],
 	"crates/pi-natives/src/power.rs": [['"omp agent session"', `"${PRODUCT} session"`]],
 	"crates/pi-natives/src/desktop/win32/window.rs": [["run omp at the same", `run ${COMMAND} at the same`]],
 	// "Oh My Pi is handling ..." in these two files is about the other product, and stays.
