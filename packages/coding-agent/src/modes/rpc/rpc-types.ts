@@ -100,7 +100,8 @@ export type RpcCommand =
 
 	// Login
 	| { id?: string; type: "get_login_providers" }
-	| { id?: string; type: "login"; providerId: string };
+	| { id?: string; type: "login"; providerId: string }
+	| { id?: string; type: "logout"; providerId: string };
 
 // ============================================================================
 // RPC State
@@ -251,6 +252,19 @@ export interface RpcSubagentMessagesResult {
 	reset: boolean;
 	entries: FileEntry[];
 	messages: AgentMessage[];
+}
+
+/** One entry of the agent's sign-in list. */
+export interface RpcLoginProvider {
+	id: string;
+	name: string;
+	available: boolean;
+	/** Usable now, from a stored sign-in or from the environment. */
+	authenticated: boolean;
+	/** Scient: `account` signs in through a browser or device flow; `key` asks for a pasted API key. */
+	kind: "account" | "key";
+	/** Scient: a sign-in is stored for it, so `logout` has something to remove. */
+	stored: boolean;
 }
 
 // ============================================================================
@@ -433,9 +447,10 @@ export type RpcResponse =
 			type: "response";
 			command: "get_login_providers";
 			success: true;
-			data: { providers: Array<{ id: string; name: string; available: boolean; authenticated: boolean }> };
+			data: { providers: RpcLoginProvider[] };
 	  }
 	| { id?: string; type: "response"; command: "login"; success: true; data: { providerId: string } }
+	| { id?: string; type: "response"; command: "logout"; success: true; data: { providerId: string } }
 
 	// Error response (any command can fail); `code` is an optional machine-readable reason.
 	| { id?: string; type: "response"; command: string; success: false; error: string; code?: string };

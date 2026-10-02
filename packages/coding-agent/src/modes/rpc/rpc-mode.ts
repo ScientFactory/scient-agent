@@ -49,6 +49,7 @@ import { isRpcHostUriResult, RpcHostUriBridge } from "./host-uris";
 import { MAX_RPC_FRAME_BYTES, MAX_RPC_REASSEMBLED_BYTES, RpcFrameEncoder } from "./rpc-frame";
 import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
 import { reloadSignIns } from "./reload-sign-ins";
+import { listSignInProviders, removeStoredSignIn } from "./sign-in-providers";
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcOutputWriter } from "./rpc-output";
 import {
@@ -1700,13 +1701,22 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			// =================================================================
 
 			case "get_login_providers": {
-				const providers = getOAuthProviders().map(provider => ({
-					id: provider.id,
-					name: provider.name,
-					available: provider.available,
-					authenticated: session.modelRegistry.authStorage.keys.source(provider.id) !== undefined,
-				}));
-				return success(id, "get_login_providers", { providers });
+				return success(id, "get_login_providers", {
+					providers: listSignInProviders(session.modelRegistry.authStorage),
+				});
+			}
+
+			case "logout": {
+				try {
+					if (!(await removeStoredSignIn(session.modelRegistry.authStorage, command.providerId))) {
+						return error(id, "logout", `Unknown sign-in provider: ${command.providerId}`);
+					}
+					// This session must stop offering what the sign-in unlocked.
+					session.modelRegistry.reapplySignInProjections();
+					return success(id, "logout", { providerId: command.providerId });
+				} catch (err: unknown) {
+					return error(id, "logout", err instanceof Error ? err.message : String(err));
+				}
 			}
 
 			case "login": {

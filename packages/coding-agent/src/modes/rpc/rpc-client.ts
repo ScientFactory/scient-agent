@@ -33,6 +33,7 @@ import type {
 	RpcHostToolDefinition,
 	RpcHostToolResult,
 	RpcHostToolUpdate,
+	RpcLoginProvider,
 	RpcOpenSessionResult,
 	RpcPromptResultFrame,
 	RpcResponse,
@@ -1016,11 +1017,9 @@ export class RpcClient {
 	/**
 	 * Get list of OAuth providers available for login, with their current authentication status.
 	 */
-	async getLoginProviders(): Promise<Array<{ id: string; name: string; available: boolean; authenticated: boolean }>> {
+	async getLoginProviders(): Promise<RpcLoginProvider[]> {
 		const response = await this.#send({ type: "get_login_providers" });
-		return this.#getData<{
-			providers: Array<{ id: string; name: string; available: boolean; authenticated: boolean }>;
-		}>(response).providers;
+		return this.#getData<{ providers: RpcLoginProvider[] }>(response).providers;
 	}
 
 	/**

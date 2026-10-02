@@ -1,0 +1,87 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { AuthStorage } from "@oh-my-pi/pi-ai";
+import { listSignInProviders, removeStoredSignIn, signInStoreId } from "../src/modes/rpc/sign-in-providers";
+
+const ENV = ["OPENAI_API_KEY", "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY"];
+
+describe("sign-in providers", () => {
+	let dir: string;
+	let auth: AuthStorage;
+	const saved = new Map<string, string | undefined>();
+
+	beforeEach(async () => {
+		for (const name of ENV) {
+			saved.set(name, process.env[name]);
+			delete process.env[name];
+		}
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), "scient-sign-in-providers-"));
+		auth = await AuthStorage.create(path.join(dir, "agent.db"));
+	});
+
+	afterEach(() => {
+		auth.close();
+		fs.rmSync(dir, { recursive: true, force: true });
+		for (const [name, value] of saved) {
+			if (value === undefined) delete process.env[name];
+			else process.env[name] = value;
+		}
+	});
+
+	const entry = (id: string) => listSignInProviders(auth).find(provider => provider.id === id);
+
+	it("tells an account sign-in from a pasted key", () => {
+		expect(entry("openai-codex")?.kind).toBe("account");
+		expect(entry("openai-codex-device")?.kind).toBe("account");
+		expect(entry("deepseek")?.kind).toBe("key");
+	});
+
+	it("reports nothing as signed in on a new store", () => {
+		for (const id of ["openai-codex", "deepseek"]) {
+			expect(entry(id)).toMatchObject({ authenticated: false, stored: false });
+		}
+	});
+
+	it("reports a stored sign-in on every entry that shares its store", async () => {
+		expect(signInStoreId("openai-codex-device")).toBe("openai-codex");
+		await auth.credentials.set("openai-codex", {
+			type: "oauth",
+			access: "access-token",
+			refresh: "refresh-token",
+			expires: Date.now() + 60_000,
+		});
+		expect(entry("openai-codex")).toMatchObject({ authenticated: true, stored: true });
+		expect(entry("openai-codex-device")).toMatchObject({ authenticated: true, stored: true });
+		expect(entry("deepseek")).toMatchObject({ authenticated: false, stored: false });
+	});
+
+	it("tells a key from the environment from a stored one", () => {
+		process.env.DEEPSEEK_API_KEY = "sk-from-the-environment";
+		expect(entry("deepseek")).toMatchObject({ authenticated: true, stored: false });
+	});
+
+	it("removes a stored sign-in through either entry that shares its store", async () => {
+		await auth.credentials.set("openai-codex", { type: "api_key", key: "sk-test" });
+		expect(await removeStoredSignIn(auth, "openai-codex-device")).toBe(true);
+		expect(entry("openai-codex")).toMatchObject({ authenticated: false, stored: false });
+	});
+
+	it("removes a sign-in another process stored after this one started", async () => {
+		const otherProcess = await AuthStorage.create(path.join(dir, "agent.db"));
+		try {
+			await otherProcess.credentials.set("deepseek", { type: "api_key", key: "sk-test" });
+			expect(await removeStoredSignIn(auth, "deepseek")).toBe(true);
+			await otherProcess.credentials.reload();
+			expect(otherProcess.credentials.has("deepseek")).toBe(false);
+		} finally {
+			otherProcess.close();
+		}
+	});
+
+	it("does nothing for an entry it does not know", async () => {
+		expect(signInStoreId("no-such-provider")).toBeUndefined();
+		expect(await removeStoredSignIn(auth, "no-such-provider")).toBe(false);
+	});
+});
