@@ -3,7 +3,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { AuthStorage } from "@oh-my-pi/pi-ai";
-import { listSignInProviders, removeStoredSignIn, signInStoreId } from "../src/modes/rpc/sign-in-providers";
+import {
+	BROKER_SIGN_OUT_REFUSAL,
+	listSignInProviders,
+	removeStoredSignIn,
+	signInStoreId,
+} from "../src/modes/rpc/sign-in-providers";
 
 const ENV = ["OPENAI_API_KEY", "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY"];
 
@@ -124,6 +129,16 @@ describe("sign-in providers", () => {
 		} as unknown as Pick<AuthStorage, "credentials">;
 		await expect(removeStoredSignIn(stuck, "deepseek")).rejects.toThrow(/could not be removed/);
 		expect(entry("deepseek")).toMatchObject({ stored: true });
+	});
+
+	it("refuses to sign out when an auth broker holds the sign-ins, and lists them as not removable", async () => {
+		await auth.credentials.set("deepseek", { type: "api_key", key: "sk-test" });
+		const listed = listSignInProviders(auth, { brokerConfigured: true }).find(provider => provider.id === "deepseek");
+		expect(listed).toMatchObject({ authenticated: true, stored: false });
+		await expect(removeStoredSignIn(auth, "deepseek", { brokerConfigured: true })).rejects.toThrow(
+			BROKER_SIGN_OUT_REFUSAL,
+		);
+		expect(entry("deepseek")).toMatchObject({ authenticated: true, stored: true });
 	});
 
 	it("does nothing for an entry it does not know", async () => {

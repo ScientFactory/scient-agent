@@ -1,6 +1,7 @@
 import type { AuthStorage } from "@oh-my-pi/pi-ai";
 import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
 import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
+import { resolveAuthBrokerConfig } from "../../session/auth-broker-config";
 import type { RpcLoginProvider } from "./rpc-types";
 
 /**
@@ -33,8 +34,32 @@ export function signInKind(providerId: string): RpcLoginProvider["kind"] {
 	return login.kind === "custom" && KEY_HOOKS.has(login.hook) ? "key" : "account";
 }
 
+/**
+ * With an auth broker the broker holds the sign-ins, and this process only has
+ * a snapshot of them, in memory and cached on disk. Removing one here cannot
+ * promise that the next process will not find it again, so over RPC a broker's
+ * sign-ins are listed as not removable and a sign-out is refused.
+ */
+export const BROKER_SIGN_OUT_REFUSAL =
+	"Sign-ins are held by the auth broker this agent is connected to. Sign out there.";
+
+/**
+ * Whether an auth broker is configured. A broker that is named but cannot be
+ * used (no token) still counts: the agent was told the broker owns the sign-ins.
+ */
+export async function usesAuthBroker(): Promise<boolean> {
+	try {
+		return (await resolveAuthBrokerConfig()) !== null;
+	} catch {
+		return true;
+	}
+}
+
 /** The agent's sign-in list, as a host shows it. */
-export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[] {
+export function listSignInProviders(
+	authStorage: AuthStorage,
+	options: { readonly brokerConfigured?: boolean } = {},
+): RpcLoginProvider[] {
 	return getOAuthProviders().map(provider => {
 		const storeId = provider.storeCredentialsAs ?? provider.id;
 		return {
@@ -43,7 +68,7 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
 			available: provider.available,
 			authenticated: authStorage.keys.source(storeId) !== undefined,
 			kind: signInKind(provider.id),
-			stored: authStorage.credentials.has(storeId),
+			stored: options.brokerConfigured !== true && authStorage.credentials.has(storeId),
 		};
 	});
 }
@@ -53,7 +78,8 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
  * environment is not stored and stays; the entry then still lists as
  * `authenticated` with `stored: false`.
  *
- * Returns `false` for an entry the agent does not know. Throws when the store
+ * Returns `false` for an entry the agent does not know. Throws with an auth
+ * broker (see {@link BROKER_SIGN_OUT_REFUSAL}). Throws when the store
  * still holds the sign-in afterwards: both stores swallow a failed delete (a
  * locked database, a broker that refused), and a host must not be told a
  * sign-in is gone while the next process would still find it. `revalidate`
@@ -63,9 +89,11 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
 export async function removeStoredSignIn(
 	authStorage: Pick<AuthStorage, "credentials">,
 	providerId: string,
+	options: { readonly brokerConfigured?: boolean } = {},
 ): Promise<boolean> {
 	const storeId = signInStoreId(providerId);
 	if (storeId === undefined) return false;
+	if (options.brokerConfigured === true) throw new Error(BROKER_SIGN_OUT_REFUSAL);
 	await authStorage.credentials.revalidate();
 	await authStorage.credentials.remove(storeId);
 	// `remove` clears this process's copy whatever the store did. Read the store again.
