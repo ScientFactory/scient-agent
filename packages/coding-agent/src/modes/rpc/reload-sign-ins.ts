@@ -20,6 +20,17 @@ import type { ModelRegistry } from "../../config/model-registry";
  *
  * Never throws: the caller reports the model as missing if this did not help.
  */
+/**
+ * Whether this session holds models the provider's own discovery returned,
+ * fetched or read from its cache, rather than none or only the bundled list.
+ * A failed attempt keeps the record of the catalog it left in place, so this
+ * stays true after a timeout.
+ */
+function holdsDiscoveredCatalog(registry: ModelRegistry, providerId: string): boolean {
+	const discovery = registry.getProviderDiscoveryState(providerId);
+	return discovery !== undefined && discovery.models.length > 0 && discovery.source !== "bundled";
+}
+
 export async function reloadSignIns(registry: ModelRegistry, providerId: string): Promise<void> {
 	try {
 		await registry.authStorage.credentials.reload();
@@ -27,8 +38,7 @@ export async function reloadSignIns(registry: ModelRegistry, providerId: string)
 		logger.warn("Reloading sign-ins for a missing model failed", { provider: providerId, err });
 		return;
 	}
-	const discovery = registry.getProviderDiscoveryState(providerId)?.status;
-	if (discovery !== "ok" && discovery !== "cached") {
+	if (!holdsDiscoveredCatalog(registry, providerId)) {
 		try {
 			// Models this provider only lists for a signed-in account.
 			await registry.refreshDiscoverableProviders([providerId], "online");

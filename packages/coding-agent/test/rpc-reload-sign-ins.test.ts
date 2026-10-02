@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -71,6 +71,7 @@ describe("reloadSignIns", () => {
 	});
 
 	afterEach(() => {
+		vi.useRealTimers();
 		clearCustomApis();
 		unregisterOAuthProviders(EXTENSION);
 		session.close();
@@ -188,7 +189,11 @@ describe("reloadSignIns", () => {
 		contextWindow: 128_000,
 		maxTokens: 8192,
 	};
-	const registerDiscoveringProvider = (provider: string, fetches: { count: number }, bundled = false) =>
+	const registerDiscoveringProvider = (
+		provider: string,
+		fetches: { count: number; hanging?: boolean },
+		bundled = false,
+	) =>
 		registry.registerProvider(
 			provider,
 			{
@@ -198,6 +203,7 @@ describe("reloadSignIns", () => {
 				...(bundled ? { models: [{ ...listedModel, id: "bundled", name: "Bundled" }] } : {}),
 				fetchDynamicModels: async () => {
 					fetches.count++;
+					if (fetches.hanging) await Promise.withResolvers<never>().promise;
 					return [{ ...listedModel, id: "listed-by-the-service", name: "Listed by the service" }];
 				},
 			},
@@ -252,6 +258,34 @@ describe("reloadSignIns", () => {
 		await reloadSignIns(registry, provider);
 
 		expect(fetches.count).toBe(1);
+		expect(usable(provider)).toEqual(["listed-by-the-service"]);
+	});
+
+	it("does not rediscover a discovered catalog after a later attempt timed out", async () => {
+		const provider = "reload-sign-ins-timed-out";
+		const fetches: { count: number; hanging?: boolean } = { count: 0 };
+		registerDiscoveringProvider(provider, fetches);
+		session.keys.setRuntime(provider, "sk-runtime");
+		await registry.refreshRuntimeProviders("online");
+
+		// A second attempt that never answers. The catalog stays in place; only
+		// the provider's status changes.
+		fetches.hanging = true;
+		vi.useFakeTimers();
+		const timers = vi.getTimerCount();
+		const timedOut = registry.refreshRuntimeProviders("online");
+		for (let turn = 0; turn < 200 && vi.getTimerCount() === timers; turn++) await Promise.resolve();
+		vi.advanceTimersByTime(60_000);
+		await timedOut;
+		vi.useRealTimers();
+		fetches.hanging = false;
+		expect(fetches.count).toBe(2);
+		expect(registry.getProviderDiscoveryState(provider)?.status).toBe("unavailable");
+		expect(usable(provider)).toEqual(["listed-by-the-service"]);
+
+		await reloadSignIns(registry, provider);
+
+		expect(fetches.count).toBe(2);
 		expect(usable(provider)).toEqual(["listed-by-the-service"]);
 	});
 
