@@ -2,15 +2,17 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { AuthStorage } from "@oh-my-pi/pi-ai";
+import { type Api, type AssistantMessageEventStream, AuthStorage, clearCustomApis, type Model } from "@oh-my-pi/pi-ai";
+import { unregisterOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
 import { buildModel } from "@oh-my-pi/pi-catalog/build";
 import { writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
 import { resolveModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
-import { ModelRegistry } from "../src/config/model-registry";
+import { ModelRegistry, type ProviderConfigInput } from "../src/config/model-registry";
 import { reloadSignIns } from "../src/modes/rpc/reload-sign-ins";
 
 const PROVIDER = "anthropic";
 const PROVIDER_ENV = ["ANTHROPIC_API_KEY", "ANTHROPIC_OAUTH_TOKEN"];
+const EXTENSION = "ext://reload-sign-ins";
 
 describe("reloadSignIns", () => {
 	let dir: string;
@@ -34,6 +36,8 @@ describe("reloadSignIns", () => {
 	});
 
 	afterEach(() => {
+		clearCustomApis();
+		unregisterOAuthProviders(EXTENSION);
 		session.close();
 		otherProcess.close();
 		fs.rmSync(dir, { recursive: true, force: true });
@@ -92,6 +96,60 @@ describe("reloadSignIns", () => {
 
 		expect(available()).toBeGreaterThan(0);
 		expect(hasDiscovered()).toBe(true);
+	});
+
+	it("applies an extension provider's sign-in hook for a sign-in stored afterwards", async () => {
+		// An extension provider whose real catalog comes from its sign-in: the
+		// registered model is a placeholder, and the hook swaps in what the account
+		// has. It has no discovery of its own, so only a recomposition runs the hook.
+		const extensionProvider = "reload-sign-ins-provider";
+		const config: ProviderConfigInput = {
+			api: "reload-sign-ins-api",
+			baseUrl: "https://example.invalid/",
+			streamSimple: () => ({}) as unknown as AssistantMessageEventStream,
+			models: [
+				{
+					id: "placeholder",
+					name: "Placeholder",
+					reasoning: false,
+					input: ["text"],
+					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+					contextWindow: 128_000,
+					maxTokens: 8192,
+				},
+			],
+			oauth: {
+				name: "Reload sign-ins",
+				login: async () => ({ access: "a", refresh: "r", expires: Date.now() + 60_000 }),
+				refreshToken: async credentials => credentials,
+				getApiKey: credentials => credentials.access,
+				modifyModels: models => [
+					...models.filter(model => model.provider !== extensionProvider),
+					{
+						...(models.find(model => model.provider === extensionProvider) as Model<Api>),
+						id: "from-the-account",
+						name: "From the account",
+					},
+				],
+			},
+		};
+		registry.registerProvider(extensionProvider, config, EXTENSION);
+		const ids = () =>
+			registry
+				.getAvailable()
+				.filter(model => model.provider === extensionProvider)
+				.map(model => model.id);
+		expect(ids()).toEqual([]);
+
+		await otherProcess.credentials.set(extensionProvider, {
+			type: "oauth",
+			access: "access-token",
+			refresh: "refresh-token",
+			expires: Date.now() + 60_000,
+		});
+		await reloadSignIns(registry, extensionProvider);
+
+		expect(ids()).toEqual(["from-the-account"]);
 	});
 
 	it("leaves the registry as it was when nothing new was stored", async () => {

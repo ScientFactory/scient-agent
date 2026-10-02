@@ -15,9 +15,12 @@ import type { ModelRegistry } from "../../config/model-registry";
 export async function reloadSignIns(registry: ModelRegistry, providerId: string): Promise<void> {
 	try {
 		await registry.authStorage.credentials.reload();
-		// Only this provider's discovery: `refreshProvider` also reloads the static
-		// models, which drops what other providers discovered for their accounts.
-		await registry.refreshDiscoverableProviders([providerId], "online");
+		// What the registry does after a sign-in in this process: recompose the
+		// catalog (so sign-in hooks run again) and rediscover this provider.
+		await registry.refreshProvider(providerId, "online");
+		// That recomposition drops the catalogs other providers discovered for
+		// their signed-in accounts. They are in the model cache; read them back.
+		await registry.hydrateCredentialScopedModelCaches();
 	} catch (err) {
 		logger.warn("Reloading sign-ins for a missing model failed", { provider: providerId, err });
 	}
