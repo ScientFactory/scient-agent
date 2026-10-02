@@ -181,26 +181,24 @@ describe("reloadSignIns", () => {
 	});
 
 	/** An extension provider that lists its models by asking its service. */
-	const registerDiscoveringProvider = (provider: string, fetches: { count: number }) =>
+	const listedModel = {
+		reasoning: false,
+		input: ["text" as const],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 128_000,
+		maxTokens: 8192,
+	};
+	const registerDiscoveringProvider = (provider: string, fetches: { count: number }, bundled = false) =>
 		registry.registerProvider(
 			provider,
 			{
 				baseUrl: "https://example.invalid/v1",
 				apiKey: "RELOAD_SIGN_INS_UNSET_KEY",
 				api: "openai-completions",
+				...(bundled ? { models: [{ ...listedModel, id: "bundled", name: "Bundled" }] } : {}),
 				fetchDynamicModels: async () => {
 					fetches.count++;
-					return [
-						{
-							id: "listed-by-the-service",
-							name: "Listed by the service",
-							reasoning: false,
-							input: ["text"],
-							cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-							contextWindow: 128_000,
-							maxTokens: 8192,
-						},
-					];
+					return [{ ...listedModel, id: "listed-by-the-service", name: "Listed by the service" }];
 				},
 			},
 			EXTENSION,
@@ -210,6 +208,22 @@ describe("reloadSignIns", () => {
 			.getAvailable()
 			.filter(model => model.provider === provider)
 			.map(model => model.id);
+
+	it("discovers a provider this session never discovered, even when it has bundled models", async () => {
+		const provider = "reload-sign-ins-bundled";
+		const fetches = { count: 0 };
+		registerDiscoveringProvider(provider, fetches, true);
+		// The sign-in is already in this session's memory (the store adopts
+		// outside changes whenever a credential is resolved), so the bundled model
+		// is usable, but the account's own catalog was never fetched.
+		session.keys.setRuntime(provider, "sk-runtime");
+		expect(usable(provider)).toEqual(["bundled"]);
+
+		await reloadSignIns(registry, provider);
+
+		expect(fetches.count).toBe(1);
+		expect(usable(provider).toSorted()).toEqual(["bundled", "listed-by-the-service"]);
+	});
 
 	it("rediscovers a provider that had no usable model", async () => {
 		const provider = "reload-sign-ins-discovering";
@@ -224,7 +238,7 @@ describe("reloadSignIns", () => {
 		expect(usable(provider)).toEqual(["listed-by-the-service"]);
 	});
 
-	it("does not rediscover a provider that was already working", async () => {
+	it("does not rediscover a provider whose catalog this session already discovered", async () => {
 		const provider = "reload-sign-ins-working";
 		const fetches = { count: 0 };
 		registerDiscoveringProvider(provider, fetches);
