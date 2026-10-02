@@ -962,7 +962,8 @@ export const cfgToolsXdevInlineDevices = register({
 export const cfgDevAutoqa = register({
 	id: "dev.autoqa",
 	type: "boolean",
-	default: true,
+	// Reports go to Oh My Pi's service, so Scient Agent does not offer them by default.
+	default: false,
 	env: "PI_AUTO_QA",
 	ui: {
 		tab: "tools",

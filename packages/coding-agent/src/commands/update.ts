@@ -2,10 +2,10 @@
  * Check for and install updates.
  */
 
+import { APP_NAME } from "@oh-my-pi/pi-utils";
 import { Command, Flags } from "@oh-my-pi/pi-utils/cli";
 import { updateHelp as commandHelp } from "../cli/command-help";
 import * as pluginCli from "../cli/plugin-cli";
-import * as updateCli from "../cli/update-cli";
 import { CliUsageError } from "../cli/usage-error";
 import { initTheme } from "@oh-my-pi/pi-tui/theme";
 
@@ -19,12 +19,7 @@ export default class Update extends Command {
 		stable: Flags.boolean({ description: "Switch back to the stable channel", default: false }),
 	};
 
-	static examples = [
-		"omp update",
-		"omp update --check",
-		"omp update --canary",
-		"# If GitHub rate-limits release metadata, set GITHUB_TOKEN or GH_TOKEN\n  GITHUB_TOKEN=... omp update",
-	];
+	static examples = [`${APP_NAME} update --plugins`];
 
 	async run(): Promise<void> {
 		const { flags } = await this.parse(Update);
@@ -33,11 +28,11 @@ export default class Update extends Command {
 		if (flags.plugins) {
 			await pluginCli.runPluginCommand({ action: "upgrade", args: [], flags: {} });
 		} else {
-			await updateCli.runUpdateCommand({
-				force: flags.force,
-				check: flags.check,
-				channel: flags.canary ? "canary" : flags.stable ? "stable" : undefined,
-			});
+			// The inherited self-updater installs Oh My Pi releases; running it here
+			// would replace Scient Agent with a different product.
+			throw new CliUsageError(
+				`${APP_NAME} does not update itself. Scient updates it, or install a newer release. Use \`${APP_NAME} update --plugins\` for plugins.`,
+			);
 		}
 	}
 }
