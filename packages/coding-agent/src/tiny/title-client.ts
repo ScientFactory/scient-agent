@@ -12,8 +12,7 @@ import * as fs from "node:fs";
 import type * as net from "node:net";
 import * as path from "node:path";
 import type { Subprocess } from "bun";
-import { $env, getTinyWorkerRuntimeDir, logger, prompt } from "@oh-my-pi/pi-utils";
-import packageJson from "../../package.json" with { type: "json" };
+import { $env, getTinyWorkerRuntimeDir, logger, PRODUCT_VERSION, prompt } from "@oh-my-pi/pi-utils";
 import type { Setting } from "../config/registry";
 import { isSettingsInitialized, settings } from "../config/settings";
 
@@ -377,7 +376,9 @@ function spawnDetached(
 
 /** How to start the ONNX worker for `modelKey` with the resolved device/dtype env. @internal */
 export function onnxLaunch(modelKey: TinyLocalModelKey, modelEnv: Record<string, string>): WorkerLaunch {
-	const tag = `${packageJson.version}|onnx|${modelEnv.PI_TINY_DEVICE ?? ""}|${modelEnv.PI_TINY_DTYPE ?? ""}`;
+	// The product's version, not the upstream package's: two Scient Agent releases
+	// built on one upstream release must not share a worker.
+	const tag = `${PRODUCT_VERSION}|onnx|${modelEnv.PI_TINY_DEVICE ?? ""}|${modelEnv.PI_TINY_DTYPE ?? ""}`;
 	return {
 		backend: "onnx",
 		tag,
