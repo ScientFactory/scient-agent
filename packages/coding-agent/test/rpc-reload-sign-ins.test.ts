@@ -3,6 +3,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { AuthStorage } from "@oh-my-pi/pi-ai";
+import { buildModel } from "@oh-my-pi/pi-catalog/build";
+import { writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
+import { resolveModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
 import { ModelRegistry } from "../src/config/model-registry";
 import { reloadSignIns } from "../src/modes/rpc/reload-sign-ins";
 
@@ -51,6 +54,44 @@ describe("reloadSignIns", () => {
 		await reloadSignIns(registry, PROVIDER);
 
 		expect(available()).toBeGreaterThan(0);
+	});
+
+	it("keeps the models another provider discovered", async () => {
+		// A catalog that exists only for the signed-in account: it is not in the
+		// static configuration, so a reload of the static models would drop it.
+		const other = "opencode-go";
+		const otherKey = "opencode-go-test-key";
+		const discovered = buildModel({
+			id: "discovered-for-this-account",
+			name: "Discovered for this account",
+			api: "openai-responses",
+			provider: other,
+			baseUrl: "https://opencode.ai/zen/go/v1",
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128_000,
+			maxTokens: 16_384,
+		});
+		session.keys.setRuntime(other, otherKey);
+		writeModelCache(
+			resolveModelCacheProviderId(other, { apiKey: otherKey }),
+			Date.now(),
+			[discovered],
+			true,
+			"",
+			path.join(dir, "models.db"),
+		);
+		await registry.hydrateCredentialScopedModelCaches();
+		const hasDiscovered = () =>
+			registry.getAvailable().some(model => model.provider === other && model.id === discovered.id);
+		expect(hasDiscovered()).toBe(true);
+
+		await otherProcess.credentials.set(PROVIDER, { type: "api_key", key: "sk-test" });
+		await reloadSignIns(registry, PROVIDER);
+
+		expect(available()).toBeGreaterThan(0);
+		expect(hasDiscovered()).toBe(true);
 	});
 
 	it("leaves the registry as it was when nothing new was stored", async () => {
