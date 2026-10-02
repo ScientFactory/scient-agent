@@ -38,6 +38,17 @@ describe("sign-in providers", () => {
 		expect(entry("deepseek")?.kind).toBe("key");
 	});
 
+	it("goes by what a hook-implemented sign-in asks for, not by how it is implemented", () => {
+		// These hooks prompt for a pasted key or token.
+		for (const id of ["xiaomi", "cloudflare-ai-gateway", "alibaba-coding-plan", "alibaba-token-plan"]) {
+			expect(entry(id)?.kind, id).toBe("key");
+		}
+		// These run a browser, device or one-time-code flow.
+		for (const id of ["github-copilot", "cursor", "perplexity", "kilo"]) {
+			expect(entry(id)?.kind, id).toBe("account");
+		}
+	});
+
 	it("reports nothing as signed in on a new store", () => {
 		for (const id of ["openai-codex", "deepseek"]) {
 			expect(entry(id)).toMatchObject({ authenticated: false, stored: false });
@@ -80,13 +91,33 @@ describe("sign-in providers", () => {
 		}
 	});
 
+	it("asks the store itself, not its local copy, before and after the removal", async () => {
+		await auth.credentials.set("deepseek", { type: "api_key", key: "sk-test" });
+		const steps: string[] = [];
+		const watched = {
+			credentials: {
+				revalidate: async () => {
+					steps.push("revalidate");
+					await auth.credentials.revalidate();
+				},
+				remove: async (provider: string) => {
+					steps.push("remove");
+					await auth.credentials.remove(provider);
+				},
+				has: (provider: string) => auth.credentials.has(provider),
+			},
+		} as unknown as Pick<AuthStorage, "credentials">;
+		expect(await removeStoredSignIn(watched, "deepseek")).toBe(true);
+		expect(steps).toEqual(["revalidate", "remove", "revalidate"]);
+	});
+
 	it("fails when the store still holds the sign-in after the removal", async () => {
 		await auth.credentials.set("deepseek", { type: "api_key", key: "sk-test" });
 		// A store whose delete does not land, as when its database is locked: the
 		// in-memory copy goes, and the next read of the store brings it back.
 		const stuck = {
 			credentials: {
-				reload: () => auth.credentials.reload(),
+				revalidate: () => auth.credentials.revalidate(),
 				remove: async () => {},
 				has: (provider: string) => auth.credentials.has(provider),
 			},
