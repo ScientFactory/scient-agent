@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 /**
  * Checks that a built Scient Agent keeps its own state apart from a stock
- * `omp` on the same machine. It starts the executable in RPC mode twice, in
- * empty home directories, and fails when the agent:
+ * `omp` on the same machine, and inside the root a host gives it. It starts the
+ * executable in RPC mode in empty home directories and fails when the agent:
  *
  * - writes any of its own state outside its config root;
+ * - lets a `.env` in the project or the home directory move its state out of
+ *   a root a host assigned;
  * - follows one of Oh My Pi's state variables;
  * - creates or changes anything under an Oh My Pi location;
  * - hands its shell a variable that would steer a stock `omp`;
@@ -132,8 +134,12 @@ interface RpcRun {
 	readonly stderr: string;
 }
 
-/** Starts RPC mode, negotiates v2, runs `env` through the agent's shell, then closes stdin. */
-async function runRpc(env: Record<string, string>, cwd: string): Promise<RpcRun> {
+/**
+ * Starts RPC mode, negotiates v2, runs `env` through the agent's shell, then
+ * closes stdin. `session` lets the agent keep a session file, as it does under
+ * a host that passes no session directory.
+ */
+async function runRpc(env: Record<string, string>, cwd: string, session = false): Promise<RpcRun> {
 	const child = Bun.spawn(
 		[
 			executable!,
@@ -141,7 +147,7 @@ async function runRpc(env: Record<string, string>, cwd: string): Promise<RpcRun>
 			"rpc",
 			"--approval-mode",
 			"yolo",
-			"--no-session",
+			...(session ? [] : ["--no-session"]),
 			"--no-extensions",
 			"--no-skills",
 			"--no-rules",
@@ -315,6 +321,60 @@ try {
 			fail(
 				`host root: with SCIENT_AGENT_ROOT set, the agent still wrote into the home directory: ${strays.join(", ")}`,
 			);
+		}
+	}
+
+	// 3. Host-assigned root, with a project `.env` and a home `.env` that both name
+	//    other places for the agent's own state. The host's root must win.
+	{
+		const home = path.join(scratch, "dotenv-home");
+		const workspace = path.join(scratch, "dotenv-workspace");
+		const root = path.join(scratch, "dotenv-root");
+		const decoy = path.join(scratch, "dotenv-decoy");
+		fs.mkdirSync(home, { recursive: true });
+		fs.mkdirSync(workspace, { recursive: true });
+		writeStubModel(path.join(root, "agent"));
+		const dotenv = [
+			`SCIENT_AGENT_DIR=${path.join(decoy, "agent")}`,
+			`SCIENT_AGENT_SESSION_DIR=${path.join(decoy, "sessions")}`,
+			`SCIENT_AGENT_CONFIG_FILES=${path.join(decoy, "overlay.yml")}`,
+			"SCIENT_AGENT_CONFIG_DIR=.dotenv-decoy",
+			"SCIENT_AGENT_PROFILE=decoy",
+			`SCIENT_AGENT_WORKTREE_DIR=${path.join(decoy, "wt")}`,
+			`SCIENT_AGENT_GITHUB_CACHE_DB=${path.join(decoy, "github-cache.db")}`,
+			`SCIENT_AGENT_COMMIT_CACHE_DB=${path.join(decoy, "commit-inference.db")}`,
+			`SCIENT_AGENT_JUDGMENT_CACHE_DB=${path.join(decoy, "judgment-cache.db")}`,
+			`SCIENT_AGENT_AUTORESEARCH_DB_DIR=${path.join(decoy, "autoresearch")}`,
+			`XDG_DATA_HOME=${path.join(decoy, "xdg-data")}`,
+			`XDG_STATE_HOME=${path.join(decoy, "xdg-state")}`,
+			`XDG_CACHE_HOME=${path.join(decoy, "xdg-cache")}`,
+			"",
+		].join("\n");
+		fs.writeFileSync(path.join(workspace, ".env"), dotenv);
+		fs.writeFileSync(path.join(home, ".env"), dotenv);
+
+		const run = await runRpc({ ...baseEnv, HOME: home, USERPROFILE: home, SCIENT_AGENT_ROOT: root }, workspace, true);
+		checkProtocol("host root with .env files", run);
+		if (!fs.existsSync(path.join(root, "agent", "agent.db"))) {
+			fail("host root with .env files: the agent did not keep its state in SCIENT_AGENT_ROOT.");
+		}
+		if (fs.existsSync(decoy)) {
+			fail(`host root with .env files: a .env moved the agent's state to ${tree(decoy).join(", ")}.`);
+		}
+		const state = response(run, "state")?.data as { sessionFile?: string } | undefined;
+		if (!state?.sessionFile?.startsWith(root + path.sep)) {
+			fail(`host root with .env files: the session file is ${state?.sessionFile ?? "unset"}, outside the root.`);
+		}
+		if (tree(root).some(entry => entry.split(path.sep).includes("profiles"))) {
+			fail("host root with .env files: a .env activated a profile.");
+		}
+		const homeStrays = fs.readdirSync(home).filter(name => name !== ".env");
+		if (homeStrays.length > 0) {
+			fail(`host root with .env files: the agent wrote into the home directory: ${homeStrays.join(", ")}`);
+		}
+		const workspaceStrays = fs.readdirSync(workspace).filter(name => name !== ".env");
+		if (workspaceStrays.length > 0) {
+			fail(`host root with .env files: starting the agent wrote into the workspace: ${workspaceStrays.join(", ")}`);
 		}
 	}
 } finally {

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { parseEnv } from "node:util";
-import { getAgentDir, getConfigRootDir, getProjectDir, refreshDirsFromEnv } from "./dirs";
+import { getAgentDir, getConfigRootDir, getHostConfigRoot, getProjectDir, refreshDirsFromEnv } from "./dirs";
 
 export * from "./worker-host";
 
@@ -297,8 +297,17 @@ for (const key of Object.keys(Bun.env)) {
 	}
 }
 
+// A host that assigns the config root owns the agent's own variables: where
+// sessions, caches and settings overlays live, and which auth broker is used.
+// The project's and the home directory's `.env` are outside that root, so under
+// a host root they cannot set them. The `.env` files inside the root still can.
+const hostOwnsAgentEnv = getHostConfigRoot() !== undefined;
+const AGENT_ENV_PREFIX = "SCIENT_AGENT_";
+
 for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {
+	const outsideHostRoot = hostOwnsAgentEnv && (file === projectEnv || file === homeEnv);
 	for (const key in file) {
+		if (outsideHostRoot && key.startsWith(AGENT_ENV_PREFIX)) continue;
 		if (!isMacosMallocStackLoggingEnvName(key) && !Bun.env[key]) {
 			Bun.env[key] = file[key];
 			if (file === projectEnv) projectEnvNamesLoadedByOmp.add(key);
