@@ -951,6 +951,21 @@ export class ModelRegistry {
 	}
 
 	/**
+	 * Scient: run the sign-in hooks again after the sign-in store changed, keeping
+	 * every catalog as it is.
+	 *
+	 * A static reload would also run them, but it drops what providers discovered
+	 * and is skipped while `models.yml` is unchanged; a discovery refresh runs
+	 * them only when a provider returns models. This depends on neither.
+	 */
+	reapplySignInProjections(): void {
+		// Not composed yet: the next read composes with the current sign-ins.
+		if (!this.#hasFullSnapshot) return;
+		this.#models = this.#withCatalogMetrics(this.#applyRuntimeModelModifiers(this.#unprojectedModels));
+		this.#providerLookupSnapshots.clear();
+	}
+
+	/**
 	 * Re-apply the credential-aware projections registered by extension providers.
 	 *
 	 * Runtime overlays hold the pre-projection definitions, so the registry keeps

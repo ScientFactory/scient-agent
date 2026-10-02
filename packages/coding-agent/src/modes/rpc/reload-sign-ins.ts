@@ -10,18 +10,24 @@ import type { ModelRegistry } from "../../config/model-registry";
  * so its models look missing. A host asks for a model its own fresh check
  * listed; this lets a long-running session find it without a restart.
  *
+ * Nothing the registry already holds is discarded: no static reload runs, so
+ * the catalogs other providers discovered stay as they are.
+ *
  * Never throws: the caller reports the model as missing if this did not help.
  */
 export async function reloadSignIns(registry: ModelRegistry, providerId: string): Promise<void> {
 	try {
 		await registry.authStorage.credentials.reload();
-		// What the registry does after a sign-in in this process: recompose the
-		// catalog (so sign-in hooks run again) and rediscover this provider.
-		await registry.refreshProvider(providerId, "online");
-		// That recomposition drops the catalogs other providers discovered for
-		// their signed-in accounts. They are in the model cache; read them back.
-		await registry.hydrateCredentialScopedModelCaches();
 	} catch (err) {
 		logger.warn("Reloading sign-ins for a missing model failed", { provider: providerId, err });
+		return;
 	}
+	try {
+		// Models this provider only lists for a signed-in account.
+		await registry.refreshDiscoverableProviders([providerId], "online");
+	} catch (err) {
+		logger.warn("Rediscovering models after reloading sign-ins failed", { provider: providerId, err });
+	}
+	// Catalogs a provider builds from its sign-in, whether or not it discovers any.
+	registry.reapplySignInProjections();
 }

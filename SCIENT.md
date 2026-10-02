@@ -17,7 +17,7 @@ Everything else is upstream's code and behavior.
 | Updates | `scient-agent update` only updates plugins. The startup update check and the startup marketplace refresh are off. A host or installer replaces the executable. |
 | Reporting | Automatic tool-issue reports to OMP's service are off by default. |
 | Browser relay | The relay listens on port 9324 (OMP uses 9224), so each product runs its own. |
-| Sign-ins | Over RPC, `set_model` re-reads the sign-in store before it reports a model as missing, so a session that was already running finds a sign-in completed in another process. |
+| Sign-ins | Over RPC, `set_model` re-reads the sign-in store before it reports a model as missing, so a session that was already running finds a sign-in completed in another process. It re-reads the store, rediscovers that provider's models and runs the sign-in hooks again (`ModelRegistry.reapplySignInProjections`), without a static reload, so nothing another provider discovered is dropped. |
 
 Left as upstream, on purpose:
 
