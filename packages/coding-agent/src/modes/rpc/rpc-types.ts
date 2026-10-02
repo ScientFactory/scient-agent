@@ -126,7 +126,7 @@ export type RpcCommand =
 	| { id?: string; type: "get_login_providers" }
 	| { id?: string; type: "login"; providerId: string }
 	| { id?: string; type: "get_logout_accounts"; providerId: string }
-	| { id?: string; type: "logout"; providerId: string; credentialId: number }
+	| { id?: string; type: "logout"; providerId: string; credentialId?: number }
 
 	// Word prediction (composer ghost text); `cursor` is a UTF-16 offset into `text`
 	| { id?: string; type: "predict_word"; text: string; cursor: number }
@@ -361,6 +361,19 @@ export interface RpcSubagentMessagesResult {
 	messages: AgentMessage[];
 }
 
+/** One entry of the agent's sign-in list. */
+export interface RpcLoginProvider {
+	id: string;
+	name: string;
+	available: boolean;
+	/** Usable now, from a stored sign-in or from the environment. */
+	authenticated: boolean;
+	/** Scient: `account` signs in through a browser or device flow; `key` asks for a pasted API key. */
+	kind: "account" | "key";
+	/** Scient: a sign-in is stored for it, so `logout` has something to remove. */
+	stored: boolean;
+}
+
 // ============================================================================
 // RPC Responses (stdout)
 // ============================================================================
@@ -570,7 +583,7 @@ export type RpcResponse =
 			type: "response";
 			command: "get_login_providers";
 			success: true;
-			data: { providers: Array<{ id: string; name: string; available: boolean; authenticated: boolean }> };
+			data: { providers: RpcLoginProvider[] };
 	  }
 	| { id?: string; type: "response"; command: "login"; success: true; data: { providerId: string } }
 	| {
@@ -580,7 +593,7 @@ export type RpcResponse =
 			success: true;
 			data: { accounts: LogoutAccount[] };
 	  }
-	| { id?: string; type: "response"; command: "logout"; success: true; data: { remainingSource?: string } }
+	| { id?: string; type: "response"; command: "logout"; success: true; data: { remainingSource?: string; providerId?: string } }
 
 	// Word prediction
 	| { id?: string; type: "response"; command: "predict_word"; success: true; data: { suffix: string | null } }

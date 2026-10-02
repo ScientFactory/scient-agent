@@ -50,6 +50,7 @@ jobs:
            run: |
               bun --cwd=packages/utils test
               bun --cwd=packages/natives test
+              bun --cwd=packages/coding-agent test test/rpc-reload-sign-ins.test.ts test/rpc-sign-in-providers.test.ts
 
          - name: Build the binary
            run: bun --cwd=packages/coding-agent run build
