@@ -303,11 +303,15 @@ for (const key of Object.keys(Bun.env)) {
 // a host root they cannot set them. The `.env` files inside the root still can.
 const hostOwnsAgentEnv = getHostConfigRoot() !== undefined;
 const AGENT_ENV_PREFIX = "SCIENT_AGENT_";
+// The root itself is an assignment made at launch. No `.env` can make one: it
+// would arrive after the native addon and the logger had already chosen their
+// directories.
+const HOST_ROOT_ENV = "SCIENT_AGENT_ROOT";
 
 for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {
 	const outsideHostRoot = hostOwnsAgentEnv && (file === projectEnv || file === homeEnv);
 	for (const key in file) {
-		if (outsideHostRoot && key.startsWith(AGENT_ENV_PREFIX)) continue;
+		if (key === HOST_ROOT_ENV || (outsideHostRoot && key.startsWith(AGENT_ENV_PREFIX))) continue;
 		if (!isMacosMallocStackLoggingEnvName(key) && !Bun.env[key]) {
 			Bun.env[key] = file[key];
 			if (file === projectEnv) projectEnvNamesLoadedByOmp.add(key);

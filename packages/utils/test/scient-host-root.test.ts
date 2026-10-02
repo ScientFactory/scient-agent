@@ -157,6 +157,15 @@ describe("host-assigned config root", () => {
 		expect(result.env.SCIENT_AGENT_SESSION_DIR).toBe(sessions);
 	});
 
+	it("does not take a root from a .env", async () => {
+		const dirs = await scratch();
+		await Bun.write(path.join(dirs.project, ".env"), dotenv({ SCIENT_AGENT_ROOT: dirs.root }));
+		await Bun.write(path.join(dirs.home, ".env"), dotenv({ SCIENT_AGENT_ROOT: dirs.root }));
+		const result = await probe(dirs, {});
+		expect(result.env.SCIENT_AGENT_ROOT).toBeNull();
+		expect(result.configRoot).toBe(path.join(dirs.home, ".scient-agent"));
+	});
+
 	it("does not treat a relative root as an assignment", async () => {
 		const dirs = await scratch();
 		const agentDir = path.join(dirs.elsewhere, "agent");
