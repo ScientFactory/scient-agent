@@ -58,31 +58,19 @@ const UNEXPECTED_HOSTS = [
 const SHELL_ENV_MARKER = "isolation-check-env";
 
 /**
- * RPC mode exits when it finds no model. One stub model that is never called
- * lets the agent start on a machine with no keys and no local model server.
+ * No model is configured: over RPC the agent starts without one, and nothing
+ * here runs a turn. Local model servers are turned off so a machine that has
+ * one behaves like one that does not.
  */
-const STUB_MODELS = `providers:
-  isolation-check:
-    baseUrl: http://127.0.0.1:9/v1
-    api: openai-completions
-    auth: none
-    models:
-      - id: stub
-        name: Isolation check stub
-        input: [text]
-        contextWindow: 8192
-        maxTokens: 1024
-`;
-const STUB_CONFIG = `disabledProviders:
+const NO_LOCAL_MODELS_CONFIG = `disabledProviders:
   - ollama
   - llama.cpp
   - lm-studio
 `;
 
-function writeStubModel(agentDir: string): void {
+function writeAgentConfig(agentDir: string): void {
 	fs.mkdirSync(agentDir, { recursive: true });
-	fs.writeFileSync(path.join(agentDir, "models.yml"), STUB_MODELS);
-	fs.writeFileSync(path.join(agentDir, "config.yml"), STUB_CONFIG);
+	fs.writeFileSync(path.join(agentDir, "config.yml"), NO_LOCAL_MODELS_CONFIG);
 }
 
 const failures: string[] = [];
@@ -243,7 +231,7 @@ try {
 		const workspace = path.join(scratch, "default-workspace");
 		fs.mkdirSync(home, { recursive: true });
 		fs.mkdirSync(workspace, { recursive: true });
-		writeStubModel(path.join(home, ".scient-agent", "agent"));
+		writeAgentConfig(path.join(home, ".scient-agent", "agent"));
 		const decoy = path.join(scratch, "omp-decoy");
 		const ompEnv: Record<string, string> = {
 			PI_CONFIG_DIR: ".omp-decoy",
@@ -299,7 +287,7 @@ try {
 		const old = new Date(Date.now() - 24 * 60 * 60 * 1000);
 		fs.utimesSync(path.join(ompHome, "natives", "0.0.1"), old, old);
 		fs.mkdirSync(workspace, { recursive: true });
-		writeStubModel(path.join(root, "agent"));
+		writeAgentConfig(path.join(root, "agent"));
 		const before = tree(ompHome);
 
 		const run = await runRpc({ ...baseEnv, HOME: home, USERPROFILE: home, SCIENT_AGENT_ROOT: root }, workspace);
@@ -333,7 +321,7 @@ try {
 		const decoy = path.join(scratch, "dotenv-decoy");
 		fs.mkdirSync(home, { recursive: true });
 		fs.mkdirSync(workspace, { recursive: true });
-		writeStubModel(path.join(root, "agent"));
+		writeAgentConfig(path.join(root, "agent"));
 		const dotenv = [
 			`SCIENT_AGENT_DIR=${path.join(decoy, "agent")}`,
 			`SCIENT_AGENT_SESSION_DIR=${path.join(decoy, "sessions")}`,
