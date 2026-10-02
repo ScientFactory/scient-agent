@@ -741,6 +741,11 @@ export class CredentialPool implements CredentialsApi {
 		await this.reload();
 	}
 
+	/** Scient: only a broker-backed store re-fetches a snapshot. */
+	get heldByBroker(): boolean {
+		return this.#store.refreshSnapshot !== undefined;
+	}
+
 	/**
 	 * Disable the credential with the given id and emit a
 	 * {@link CredentialDisabledEvent}. Used by the auth-broker server to honour

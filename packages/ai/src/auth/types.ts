@@ -807,6 +807,12 @@ export interface CredentialsApi {
 	 */
 	revalidate(): Promise<void>;
 	/**
+	 * Scient: whether this store is a snapshot of sign-ins an auth broker holds,
+	 * rather than the place they are kept. It follows the store that is active,
+	 * not the configuration, which can disagree with it after a failed switch.
+	 */
+	readonly heldByBroker: boolean;
+	/**
 	 * Get credential for a provider (first entry if multiple).
 	 */
 	get(provider: string): AuthCredential | undefined;
