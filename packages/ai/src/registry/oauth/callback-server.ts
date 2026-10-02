@@ -15,6 +15,7 @@ import { logger } from "@oh-my-pi/pi-utils";
 import * as AIError from "../../error";
 import * as nativeSchemeCallback from "./native-scheme-callback";
 import type { NativeSchemeCallbackReceiver } from "./native-scheme-callback";
+import { SCIENT_AGENT_SYMBOL_SVG } from "@oh-my-pi/pi-utils/brand";
 import templateHtml from "./oauth.html" with { type: "text" };
 import type { OAuthController, OAuthCredentials } from "./types";
 
@@ -590,7 +591,9 @@ export abstract class OAuthCallbackFlow {
 		}
 
 		return new Response(
-			(templateHtml as unknown as string).replaceAll("__OAUTH_STATE__", JSON.stringify(resultState)),
+			(templateHtml as unknown as string)
+				.replace("__SCIENT_AGENT_SYMBOL__", SCIENT_AGENT_SYMBOL_SVG)
+				.replaceAll("__OAUTH_STATE__", JSON.stringify(resultState)),
 			{
 				status: resultState.ok ? 200 : 500,
 				headers: { "Content-Type": "text/html" },

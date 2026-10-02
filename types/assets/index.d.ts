@@ -43,6 +43,12 @@ declare module "*.bdf" {
 	export default content;
 }
 
+// Scient Agent's symbol (utils src/brand.ts), imported as text.
+declare module "*.svg" {
+	const content: string;
+	export default content;
+}
+
 // Session-export template assets imported as text (coding-agent src/export/html).
 // No `*.html` declaration: bun-types claims that pattern as HTMLBundle, so the
 // text import casts at the use site instead.
