@@ -15,6 +15,7 @@ Everything else is upstream's code and behavior.
 | State | The config root is `~/.scient-agent` (project folder `.scient-agent/`), or the absolute directory a host sets in `SCIENT_AGENT_ROOT`. User config lookups, the native addon cache, browser storage state and crash logs follow it. A host's root is authoritative: `SCIENT_AGENT_DIR` is ignored under it, and a `.env` in the project or the home directory cannot set any `SCIENT_AGENT_*` variable (a `.env` inside the root can). The root is taken only from the launch environment, never from a `.env`. Standalone use keeps upstream's `.env` overrides. |
 | Variables | The variables that choose where state lives have `SCIENT_AGENT_*` names: `CONFIG_DIR`, `CONFIG_FILES`, `DIR`, `PROFILE`, `SESSION_DIR`, `WORKTREE_DIR`, `AUTH_BROKER_*`, the cache database overrides, and the runtime directory, socket and configuration variables the agent hands its own workers. OMP's names for them are ignored. Tuning variables (`PI_*`) are unchanged. |
 | Native addon cache | A compiled binary extracts its addon into a directory named for the addon's content, so two builds on one upstream version never load each other's, and it loads only that addon: an addon found beside the executable is not a fallback. |
+| Symbol | The sign-in page every browser sign-in ends on and the `stats` dashboard show Scient Agent's symbol (`packages/utils/src/brand/scient-agent-symbol.svg`, the file Scient Desktop shows for the agent; copy it over when the symbol changes) in Scient's colors. |
 | Tiny model worker | Its launch tag carries the product version, not the upstream package version, so a new Scient Agent release replaces a worker an earlier release left running. |
 | Updates | `scient-agent update` only updates plugins. The startup update check and the startup marketplace refresh are off. A host or installer replaces the executable. |
 | Reporting | Automatic tool-issue reports to OMP's service are off by default. |
@@ -34,6 +35,7 @@ Left as upstream, on purpose:
 - The line a background process of the agent prints when it is ready (`omp lsp mux listening on ...`). The pattern that waits for it is saved with the process's record, so a later build must print what an earlier build waits for.
 - The message that says Oh My Pi holds a sign-in link: it is about the other product.
 - Benchmark tooling (`packages/metaharness`, `packages/typescript-edit-benchmark`) and the sentence about RoboOMP, upstream's issue bot: there `omp` is the agent they run.
+- The terminal interface's π logo and icon: the symbol has no terminal drawing yet. Scient drives the agent over RPC, where neither shows.
 - The built-in welcome image, changelogs and READMEs, and the names of tuning variables (`PI_*`, `OMP_*`) where the documentation mentions them.
 
 ## Branches and upstream intake
