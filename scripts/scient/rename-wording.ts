@@ -29,6 +29,7 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { parse } from "@babel/parser";
 import { $ } from "bun";
 import { textSpans } from "./lib/text-spans";
 
@@ -233,29 +234,49 @@ interface Edit {
 
 /**
  * Text written between JSX tags: `<span>omp</span>`. It is neither a string nor
- * a comment, so the lexer does not report it. A run between a `>` or `}` and
- * the next `<` or `{` that holds no operator is taken as text; the type check
- * catches a wrong guess.
+ * a comment, so the lexer does not report it; a parser finds the text nodes.
+ * A file the parser cannot read gets no JSX edits.
  */
-function jsxTextEdits(source: string, spans: readonly { start: number; end: number }[]): Edit[] {
-	const edits: Edit[] = [];
-	for (const match of source.matchAll(/(?<=[>}])[^<>{}]+(?=[<{])/g)) {
-		const text = match[0];
-		if (!/omp|OMP|Oh My Pi/.test(text) || /[=;&|]/.test(text)) continue;
-		const start = match.index;
-		const end = start + text.length;
-		if (spans.some(span => span.start < end && start < span.end)) continue;
-		const rewritten = fixArticles(rewrite(text, true));
-		if (rewritten !== text) edits.push({ start, end, text: rewritten });
+function jsxTextEdits(source: string): Edit[] {
+	let program: unknown;
+	try {
+		program = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] }).program;
+	} catch {
+		return [];
 	}
+	const edits: Edit[] = [];
+	const visit = (node: unknown): void => {
+		if (Array.isArray(node)) {
+			for (const child of node) visit(child);
+			return;
+		}
+		if (typeof node !== "object" || node === null) return;
+		const { type, start, end } = node as { type?: unknown; start?: unknown; end?: unknown };
+		if (type === "JSXText" && typeof start === "number" && typeof end === "number") {
+			const text = source.slice(start, end);
+			if (!/omp|OMP|Oh My Pi/.test(text)) return;
+			const rewritten = fixArticles(rewrite(text, true));
+			if (rewritten !== text) edits.push({ start, end, text: rewritten });
+			return;
+		}
+		for (const key in node) {
+			if (key !== "loc" && key !== "leadingComments" && key !== "trailingComments" && key !== "innerComments") {
+				visit((node as Record<string, unknown>)[key]);
+			}
+		}
+	};
+	visit(program);
 	return edits;
 }
 
 function rewriteCode(source: string, jsx: boolean): string {
 	const spans = textSpans(source);
-	const edits: Edit[] = jsx ? jsxTextEdits(source, spans) : [];
+	const jsxEdits = jsx ? jsxTextEdits(source) : [];
+	const edits: Edit[] = [...jsxEdits];
 	for (const span of spans) {
 		if (span.kind === "comment") continue;
+		// An apostrophe in JSX text looks like a string to the lexer. The text node wins.
+		if (jsxEdits.some(edit => edit.start < span.end && span.start < edit.end)) continue;
 		const text = source.slice(span.start, span.end);
 		if (!/omp|OMP|Oh My Pi/.test(text) || BANNER.test(text)) continue;
 		const names = /\bsetProcessName\(\s*.$/.test(source.slice(Math.max(0, span.start - 32), span.start));
