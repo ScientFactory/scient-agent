@@ -180,6 +180,67 @@ describe("reloadSignIns", () => {
 		expect(extensionModels()).toEqual(["from-the-account"]);
 	});
 
+	/** An extension provider that lists its models by asking its service. */
+	const registerDiscoveringProvider = (provider: string, fetches: { count: number }) =>
+		registry.registerProvider(
+			provider,
+			{
+				baseUrl: "https://example.invalid/v1",
+				apiKey: "RELOAD_SIGN_INS_UNSET_KEY",
+				api: "openai-completions",
+				fetchDynamicModels: async () => {
+					fetches.count++;
+					return [
+						{
+							id: "listed-by-the-service",
+							name: "Listed by the service",
+							reasoning: false,
+							input: ["text"],
+							cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+							contextWindow: 128_000,
+							maxTokens: 8192,
+						},
+					];
+				},
+			},
+			EXTENSION,
+		);
+	const usable = (provider: string) =>
+		registry
+			.getAvailable()
+			.filter(model => model.provider === provider)
+			.map(model => model.id);
+
+	it("rediscovers a provider that had no usable model", async () => {
+		const provider = "reload-sign-ins-discovering";
+		const fetches = { count: 0 };
+		registerDiscoveringProvider(provider, fetches);
+		expect(usable(provider)).toEqual([]);
+
+		await otherProcess.credentials.set(provider, { type: "api_key", key: "sk-test" });
+		await reloadSignIns(registry, provider);
+
+		expect(fetches.count).toBe(1);
+		expect(usable(provider)).toEqual(["listed-by-the-service"]);
+	});
+
+	it("does not rediscover a provider that was already working", async () => {
+		const provider = "reload-sign-ins-working";
+		const fetches = { count: 0 };
+		registerDiscoveringProvider(provider, fetches);
+		session.keys.setRuntime(provider, "sk-runtime");
+		await registry.refreshRuntimeProviders("online");
+		expect(fetches.count).toBe(1);
+		expect(usable(provider)).toEqual(["listed-by-the-service"]);
+
+		// A model this provider does not have: a failed rediscovery could replace
+		// its models with a partial cached list, so none is attempted.
+		await reloadSignIns(registry, provider);
+
+		expect(fetches.count).toBe(1);
+		expect(usable(provider)).toEqual(["listed-by-the-service"]);
+	});
+
 	it("leaves the registry as it was when nothing new was stored", async () => {
 		await reloadSignIns(registry, PROVIDER);
 		expect(available()).toBe(0);
