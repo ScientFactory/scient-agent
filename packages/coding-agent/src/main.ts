@@ -2486,7 +2486,11 @@ export async function runRootCommand(
 				notifs.push({ kind: "error", message: modelRegistryError.message });
 			}
 
-			if (!isInteractive && !session.model) {
+			// Scient: over RPC a host can sign in and pick a model after startup, so
+			// having none is not fatal there. A model named with --model that could
+			// not be resolved still ends the run with the explanation below.
+			const hostCanChooseModelLater = (mode === "rpc" || mode === "rpc-ui") && !parsedArgs.model;
+			if (!isInteractive && !session.model && !hostCanChooseModelLater) {
 				if (modelRegistryError) {
 					process.stderr.write(`${chalk.red(modelRegistryError.message)}\n\n`);
 				}
