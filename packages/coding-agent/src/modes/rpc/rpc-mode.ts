@@ -48,6 +48,7 @@ import { isRpcHostToolResult, isRpcHostToolUpdate, RpcHostToolBridge } from "./h
 import { isRpcHostUriResult, RpcHostUriBridge } from "./host-uris";
 import { MAX_RPC_FRAME_BYTES, MAX_RPC_REASSEMBLED_BYTES, RpcFrameEncoder } from "./rpc-frame";
 import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
+import { reloadSignIns } from "./reload-sign-ins";
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcOutputWriter } from "./rpc-output";
 import {
@@ -1480,6 +1481,13 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 					// the bundled catalog skip this await entirely so the RPC
 					// queue is not stalled behind unrelated discovery.
 					await session.modelRegistry.awaitBackgroundRefresh();
+					models = session.getAvailableModels();
+					model = models.find(m => m.provider === command.provider && m.id === command.modelId);
+				}
+				if (!model) {
+					// Scient: the model may belong to a sign-in another process stored
+					// after this session started.
+					await reloadSignIns(session.modelRegistry, command.provider);
 					models = session.getAvailableModels();
 					model = models.find(m => m.provider === command.provider && m.id === command.modelId);
 				}
