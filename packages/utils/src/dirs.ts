@@ -125,8 +125,13 @@ function readProfileFromEnvSafe(): string | undefined {
  * An absolute directory a host (Scient Desktop) assigns as the config root, so
  * every file the agent owns lives where the host put it. Unset or relative
  * values are ignored.
+ *
+ * The assignment is authoritative: under a host root the agent directory is
+ * always derived from it (`SCIENT_AGENT_DIR` is ignored, see `DirResolver`),
+ * and dotenv files outside the root cannot set the agent's own variables (see
+ * `env.ts`).
  */
-function getHostConfigRoot(): string | undefined {
+export function getHostConfigRoot(): string | undefined {
 	const root = process.env.SCIENT_AGENT_ROOT;
 	return root && path.isAbsolute(root) ? root : undefined;
 }
@@ -363,7 +368,10 @@ class DirResolver {
 		this.configRoot = getProfileConfigRoot(profile);
 
 		const defaultAgent = path.join(this.configRoot, "agent");
-		const agentDirOverride = profile ? undefined : options.agentDirOverride;
+		// A host-assigned root decides where the agent directory is. An override
+		// that reached the environment some other way (a project or home `.env`,
+		// an inherited variable) must not move settings and sign-ins out of it.
+		const agentDirOverride = profile || getHostConfigRoot() ? undefined : options.agentDirOverride;
 		this.agentDir = agentDirOverride ? path.resolve(agentDirOverride) : defaultAgent;
 		const isDefault = this.agentDir === defaultAgent;
 
