@@ -449,7 +449,7 @@ describe("CodexSessionStore", () => {
 });
 
 describe("foreign session persistence", () => {
-	it("writes a fresh OMP identity with source provenance", async () => {
+	it("writes a fresh Scient Agent identity with source provenance", async () => {
 		const { info, store } = await createClaudeFixture();
 		const sessionDir = path.join(tempRoot, "omp-sessions");
 

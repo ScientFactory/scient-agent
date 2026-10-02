@@ -16,9 +16,9 @@ import { removeWithRetries } from "@oh-my-pi/pi-utils";
 const OMP_AGENT_MD = [
 	"---",
 	"name: omp-test-agent",
-	"description: OMP-native test agent.",
+	"description: Scient Agent-native test agent.",
 	"---",
-	"You are an OMP task agent.",
+	"You are a Scient Agent task agent.",
 ].join("\n");
 
 const OMP_PLUGIN_AGENT_MD = [
@@ -136,7 +136,7 @@ describe("discoverAgents", () => {
 		await removeWithRetries(tempHome);
 	});
 
-	test("loads OMP agents but skips Claude Code custom agents", async () => {
+	test("loads Scient Agent agents but skips Claude Code custom agents", async () => {
 		await fs.mkdir(path.join(projectDir, ".scient-agent", "agents"), { recursive: true });
 		await fs.writeFile(path.join(projectDir, ".scient-agent", "agents", "omp-test-agent.md"), OMP_AGENT_MD);
 
@@ -153,7 +153,7 @@ describe("discoverAgents", () => {
 		expect(projectAgentsDir).toBe(path.join(projectDir, ".scient-agent", "agents"));
 	});
 
-	test("loads agents from OMP npm plugins under <home>/.scient-agent/plugins/node_modules", async () => {
+	test("loads agents from Scient Agent npm plugins under <home>/.scient-agent/plugins/node_modules", async () => {
 		await writeOmpPluginAgent(tempHome);
 
 		const { agents } = await discoverAgents(projectDir, tempHome);
@@ -162,7 +162,7 @@ describe("discoverAgents", () => {
 		expect(names).toContain("loom-verify-spec");
 	});
 
-	test("excludes OMP npm plugin agents when omp-plugins is disabled", async () => {
+	test("excludes Scient Agent npm plugin agents when omp-plugins is disabled", async () => {
 		await writeOmpPluginAgent(tempHome);
 		disableProvider("omp-plugins");
 
@@ -260,7 +260,7 @@ describe("discoverAgents", () => {
 		expect(names).toContain("plugin-dir-agent");
 	});
 
-	test("honors model frontmatter of OMP-native omp-installed marketplace plugin agents (#12028)", async () => {
+	test("honors model frontmatter of Scient Agent-native omp-installed marketplace plugin agents (#12028)", async () => {
 		// omp-installed marketplace plugins ride the shared plugin registry as
 		// origin "omp" roots. An OMP-native package (no Claude manifest) uses OMP
 		// model selectors, so `model:` must survive discovery.
@@ -278,7 +278,7 @@ describe("discoverAgents", () => {
 		expect(agent?.model).toEqual(["@advisor", "@smol"]);
 	});
 
-	test("drops model frontmatter of a Claude-format plugin installed via the OMP registry (#12031 review)", async () => {
+	test("drops model frontmatter of a Claude-format plugin installed via the Scient Agent registry (#12031 review)", async () => {
 		// origin "omp" but a `.claude-plugin` package: its `model: sonnet` is a
 		// Claude alias, not an OMP selector, so it must still be stripped.
 		enableProvider("claude-plugins");
@@ -295,7 +295,7 @@ describe("discoverAgents", () => {
 		expect(agent?.model).toBeUndefined();
 	});
 
-	test("honors model frontmatter when a plugin declares both OMP and Claude manifests (#12031 review)", async () => {
+	test("honors model frontmatter when a plugin declares both Scient Agent and Claude manifests (#12031 review)", async () => {
 		// `.omp-plugin/plugin.json` wins over a sibling `.claude-plugin/plugin.json`,
 		// mirroring the MCP-config precedence, so OMP selectors survive.
 		enableProvider("claude-plugins");

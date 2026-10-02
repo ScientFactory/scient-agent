@@ -113,7 +113,7 @@ describe("InputController Python prompt prefix", () => {
 		]);
 	});
 
-	it("submits pasted shell-prompt transcripts with OMP chrome as a normal prompt", async () => {
+	it("submits pasted shell-prompt transcripts with Scient Agent chrome as a normal prompt", async () => {
 		const transcript =
 			"$ cd ~/project && sudo ./build-and-push.sh o5.7 2>&1 | tail -4\n" +
 			" |\n" +

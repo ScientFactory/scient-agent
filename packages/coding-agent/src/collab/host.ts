@@ -477,9 +477,12 @@ export class CollabHost {
 			publication => publication,
 			err => {
 				logger.warn("Collab host registry publication failed", { error: String(err) });
-				this.#ctx.showStatus("Collab host discovery unavailable (omp collab list will not show this session)", {
-					dim: true,
-				});
+				this.#ctx.showStatus(
+					"Collab host discovery unavailable (scient-agent collab list will not show this session)",
+					{
+						dim: true,
+					},
+				);
 				return null;
 			},
 		);

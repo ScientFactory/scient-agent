@@ -437,7 +437,7 @@ fn desktop_file(snapshot: &Snapshot) -> anyhow::Result<String> {
 	Ok([
 		"[Desktop Entry]".to_owned(),
 		"Type=Application".to_owned(),
-		"Name=omp OAuth Callback".to_owned(),
+		"Name=Scient Agent OAuth Callback".to_owned(),
 		"NoDisplay=true".to_owned(),
 		"Terminal=false".to_owned(),
 		format!(
@@ -545,8 +545,8 @@ pub(super) fn prepare(context: &Context) -> anyhow::Result<Snapshot> {
 	}
 	if original_effective.starts_with(OMP_DESKTOP_ID_PREFIX) {
 		bail!(
-			"Oh My Pi is handling {} links for a sign-in of its own; finish or cancel that sign-in and \
-			 retry",
+			"Oh My Pi is handling {} links for a sign-in of its own; finish or cancel that sign-in \
+			 and retry",
 			context.scheme
 		);
 	}

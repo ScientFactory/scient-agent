@@ -560,7 +560,7 @@ describe("Composer prepaint", () => {
 			expect(mode.editor.getExpandedText()).toBe(draft);
 			expect(draft.split("\n")).toHaveLength(18);
 			expect(mode.editor.render(80).length).toBeLessThanOrEqual(4);
-			expect(terminal.getViewport().join("\n")).not.toContain("Starting OMP");
+			expect(terminal.getViewport().join("\n")).not.toContain("Starting Scient Agent");
 		} finally {
 			mode.stop();
 			lease.dispose();
@@ -646,7 +646,7 @@ describe("Composer prepaint", () => {
 		expect(output).toContain("omp");
 		expect(output).toContain("9.9.9");
 		expect(output).toContain("prior work");
-		expect(output).not.toContain("Starting OMP");
+		expect(output).not.toContain("Starting Scient Agent");
 		expect(output).toContain("╭");
 		const initialEditorRow = terminal
 			.getViewport()

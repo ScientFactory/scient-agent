@@ -66,7 +66,7 @@ export function Shell({ section, onSectionChange, range, onRangeChange, children
 						</defs>
 						<path fill="url(#omp-mark-grad)" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
 					</svg>
-					<span>omp</span>
+					<span>Scient Agent</span>
 					<span className="topbar-slash">/</span>
 					<span className="topbar-title">stats</span>
 				</div>

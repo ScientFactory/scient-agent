@@ -295,7 +295,7 @@ Built-in tool wrapping appends the model-facing recovery notice automatically, f
 
 This component is wired by `CommandController.handleBashCommand()` and fed from `AgentSession.executeBash()`.
 
-Interactive `!` calls request configured user-shell execution. zsh/fish commands can run on a headless PTY and replay ANSI output in the component; bash uses the snapshot/embedded-shell path. A simple successful `cd` command runs through the persistent shell and can relocate the OMP session cwd; this relocation is refused while an agent response is streaming. `!!` excludes the execution message from model context.
+Interactive `!` calls request configured user-shell execution. zsh/fish commands can run on a headless PTY and replay ANSI output in the component; bash uses the snapshot/embedded-shell path. A simple successful `cd` command runs through the persistent shell and can relocate the Scient Agent session cwd; this relocation is refused while an agent response is streaming. `!!` excludes the execution message from model context.
 
 ## Mode-specific behavior differences
 

@@ -233,7 +233,7 @@ describe("Factory Droid completions wire (Droid Core)", () => {
 		const captured: CapturedRequest[] = [];
 		const result = await streamFactoryDroid(
 			model(),
-			{ systemPrompt: ["OMP system prompt"], messages: [{ role: "user", content: "hello", timestamp: 1 }] },
+			{ systemPrompt: ["Scient Agent system prompt"], messages: [{ role: "user", content: "hello", timestamp: 1 }] },
 			{ apiKey: WORKOS_TOKEN, fetch: captureFetch(captured, [...chunks]), sessionId: "019fd-test-session" },
 		).result();
 
@@ -251,7 +251,7 @@ describe("Factory Droid completions wire (Droid Core)", () => {
 			instructions ?? system ?? systemInstruction ?? (messages as Array<{ role: string }>)[0],
 		);
 		expect(systemChannel).toContain(DROID_IDENTITY);
-		expect(systemChannel).toContain("OMP system prompt");
+		expect(systemChannel).toContain("Scient Agent system prompt");
 		// Toolless requests leave parallel tool calls at the API default.
 		expect(request.body.parallel_tool_calls).toBeUndefined();
 	});

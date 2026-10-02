@@ -38,7 +38,7 @@ async function firstRequestHeaders(model: Model<Api>, headers?: Record<string, s
 }
 
 describe("Vercel AI Gateway app attribution", () => {
-	it("credits omp on the Anthropic and OpenAI-compatible routes", async () => {
+	it("credits Scient Agent on the Anthropic and OpenAI-compatible routes", async () => {
 		for (const model of [
 			vercelModel("anthropic-messages", "https://ai-gateway.vercel.sh"),
 			vercelModel("openai-completions", "https://ai-gateway.vercel.sh/v1"),

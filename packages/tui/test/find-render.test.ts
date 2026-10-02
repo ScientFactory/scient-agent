@@ -71,7 +71,7 @@ describe("findToolRenderer", () => {
 		expect(uris.filter(uri => uri.endsWith("/repo/src/other.ts"))).toHaveLength(2);
 	});
 
-	it("links omp hits to their doc URL instead of joining them onto cwd", async () => {
+	it("links Scient Agent hits to their doc URL instead of joining them onto cwd", async () => {
 		applyHyperlinkSetting("always");
 		const uiTheme = (await getThemeByName("dark"))!;
 		const ompDetails: FindToolDetails = {

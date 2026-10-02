@@ -125,7 +125,7 @@ describe("global --profile flag", () => {
 			configPath: "/home/me/.bashrc",
 			aliasName: "omp-work",
 			profile: "work",
-			command: "omp --profile=work",
+			command: "scient-agent --profile=work",
 			reloadedWith: ". '/home/me/.bashrc'",
 		});
 		const outSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
@@ -255,7 +255,7 @@ describe("global --profile flag", () => {
 			]);
 
 			expect(stdout, stderr).toContain("HANDLED");
-			expect(stderr).toContain("Invalid OMP profile");
+			expect(stderr).toContain("Invalid Scient Agent profile");
 			expect(exitCode).toBe(1);
 		} finally {
 			await removeWithRetries(root);

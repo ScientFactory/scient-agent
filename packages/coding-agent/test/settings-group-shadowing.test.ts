@@ -22,7 +22,7 @@ describe("dropSettingsGroupShadows", () => {
 		expect(result).toEqual({ auth: {}, autoResume: true });
 	});
 
-	it("drops Claude Code's top-level model string, which would shadow omp's model.* group", () => {
+	it("drops Claude Code's top-level model string, which would shadow Scient Agent's model.* group", () => {
 		// Claude Code writes `"model": "opus"` at the top level; omp has no bare
 		// `model` leaf, only `model.*` settings, so the string is a shadow too.
 		const result = dropSettingsGroupShadows({ model: "opus" }, "/proj/.claude/settings.json");

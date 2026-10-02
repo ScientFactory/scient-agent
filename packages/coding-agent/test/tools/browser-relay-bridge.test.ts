@@ -206,7 +206,7 @@ describe("RelayBridge target discovery", () => {
 });
 
 describe("RelayBridge tab grouping", () => {
-	it("groups nothing on hello or tab lifecycle events — only claimed tabs join the omp group", () => {
+	it("groups nothing on hello or tab lifecycle events — only claimed tabs join the Scient Agent group", () => {
 		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
 		const socket = new FakeExtSocket();
 		connect(bridge, socket, [tab({ tabId: 1 }), tab({ tabId: 2 }), tab({ tabId: 3, url: "about:blank" })]);
@@ -283,7 +283,7 @@ describe("RelayBridge tab grouping", () => {
 		expect(groups[0]!.tabIds).toEqual([9]);
 	});
 
-	it("never re-groups a tab the user pulled out of the omp group", async () => {
+	it("never re-groups a tab the user pulled out of the Scient Agent group", async () => {
 		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);

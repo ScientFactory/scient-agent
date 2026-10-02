@@ -37,7 +37,7 @@ export function HeaderBar({ snapshot, subCount, railOpen, onToggleRail, onLeave 
 	return (
 		<header className="sh-header">
 			<div className="sh-header-left">
-				<span className="sh-brand" aria-label="omp collab">
+				<span className="sh-brand" aria-label="scient-agent collab">
 					<OmpMark />
 					<span className="sh-brand-slash">/</span>
 				</span>

@@ -69,7 +69,7 @@ async function getEmbeddedClientFiles(): Promise<Map<string, Blob>> {
 
 	if (!EMBEDDED_CLIENT_ARCHIVE) {
 		throw new Error(
-			"Embedded stats client bundle missing. Rebuild the omp binary or npm bundle with embedded stats assets.",
+			"Embedded stats client bundle missing. Rebuild the Scient Agent binary or npm bundle with embedded stats assets.",
 		);
 	}
 

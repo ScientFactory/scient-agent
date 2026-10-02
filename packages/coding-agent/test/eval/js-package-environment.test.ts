@@ -100,7 +100,7 @@ describe("persistent JavaScript package environments", () => {
 		expect(JSON.parse(retained.output.trim())).toEqual([13, await fs.realpath(workspace.path()), 2]);
 	});
 
-	it("does not resolve a missing project package from OMP's own dependencies", async () => {
+	it("does not resolve a missing project package from Scient Agent's own dependencies", async () => {
 		// Dynamic import is the behavior under test: a static import would be
 		// resolved by this test module's own dependency graph.
 		using workspace = TempDir.createSync("@omp-js-package-missing-");

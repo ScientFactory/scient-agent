@@ -57,7 +57,7 @@ describe("TernSocketClient", () => {
 		expect(failure).toBeInstanceOf(TernBrowserError);
 		expect((failure as TernBrowserError).kind).toBe("refused");
 		expect((failure as TernBrowserError).message).toContain("protocol 7");
-		expect((failure as TernBrowserError).message).toContain("omp speaks Tern protocol 9");
+		expect((failure as TernBrowserError).message).toContain("Scient Agent speaks Tern protocol 9");
 		expect(isTernUnavailable(failure)).toBe(true);
 	});
 

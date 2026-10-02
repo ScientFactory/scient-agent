@@ -225,7 +225,7 @@ describe("browser init deadline carry-over", () => {
 	);
 });
 
-describe("OMP-owned browser evaluation", () => {
+describe("Scient Agent-owned browser evaluation", () => {
 	it.skipIf(!CHROMIUM_AVAILABLE)(
 		"adopts isolated element arguments into the main world without consuming caller handles",
 		async () => {
@@ -318,7 +318,7 @@ describe("OMP-owned browser evaluation", () => {
 	);
 });
 
-describe("OMP-owned browser input", () => {
+describe("Scient Agent-owned browser input", () => {
 	it.skipIf(!CHROMIUM_AVAILABLE)(
 		"clicks background tabs through selector, observed handle, and raw Puppeteer actions",
 		async () => {
@@ -364,7 +364,7 @@ describe("OMP-owned browser input", () => {
 	);
 });
 
-describe("visible OMP-owned browser tabs", () => {
+describe("visible Scient Agent-owned browser tabs", () => {
 	it.skipIf(!VISIBLE_BROWSER_AVAILABLE)(
 		"creates independent pages without pinning the resizable window viewport",
 		async () => {

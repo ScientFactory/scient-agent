@@ -63,7 +63,7 @@ export function getExtraHelpText(): string {
 
   ${chalk.dim("# Configuration")}
   SCIENT_AGENT_PROFILE                 - Named profile for isolated agent state (same as --profile)
-  Use \`omp --profile <name> --alias <command>\` to create a shell shortcut for a profile
+  Use \`scient-agent --profile <name> --alias <command>\` to create a shell shortcut for a profile
   SCIENT_AGENT_DIR        - Session storage directory (default: ~/${CONFIG_DIR_NAME}/agent)
   PI_PACKAGE_DIR             - Override package directory (for Nix/Guix store paths)
   PI_SMOL_MODEL              - Override smol/fast model (see --smol)
@@ -93,6 +93,6 @@ ${chalk.bold("Plugin Options:")}
   --plugin-dir <path>        Load plugin from directory (repeatable)
 
 ${chalk.bold("Useful Commands:")}
-  omp agents unpack           - Export bundled subagents to ~/.scient-agent/agent/agents (default)
-  omp agents unpack --project - Export bundled subagents to ./.scient-agent/agents`;
+  scient-agent agents unpack           - Export bundled subagents to ~/.scient-agent/agent/agents (default)
+  scient-agent agents unpack --project - Export bundled subagents to ./.scient-agent/agents`;
 }

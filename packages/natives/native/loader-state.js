@@ -762,9 +762,9 @@ export function validateLoadedBindings(ctx, bindings, candidate) {
 	if (residentVersion && diskHasExpectedStamp) {
 		throw new Error(
 			`Loaded ${candidate}, which reports @oh-my-pi/pi-natives@${residentVersion}, but this loader is ` +
-				`@${ctx.packageVersion}. omp was upgraded to ${ctx.packageVersion} while this session was running; ` +
+				`@${ctx.packageVersion}. Scient Agent was upgraded to ${ctx.packageVersion} while this session was running; ` +
 				`the ${residentVersion} addon is still resident in this process. Disk is already consistent — ` +
-				`restart omp to pick up ${ctx.packageVersion} (reinstalling changes nothing).`,
+				`restart Scient Agent to pick up ${ctx.packageVersion} (reinstalling changes nothing).`,
 		);
 	}
 	throw new Error(

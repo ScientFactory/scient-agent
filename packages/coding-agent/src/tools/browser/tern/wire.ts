@@ -447,7 +447,7 @@ export class TernSocketClient {
 					this.#fail(
 						new TernBrowserError(
 							"refused",
-							`Tern refused omp's browser connection: ${reply.reason} (omp speaks Tern protocol ${TERN_WIRE_VERSION})`,
+							`Tern refused Scient Agent's browser connection: ${reply.reason} (Scient Agent speaks Tern protocol ${TERN_WIRE_VERSION})`,
 						),
 					);
 					return;

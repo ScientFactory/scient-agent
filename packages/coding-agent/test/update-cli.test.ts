@@ -217,13 +217,13 @@ describe("update-cli install target detection", () => {
 		expect(method).toBe("nix");
 	});
 
-	it("uses bun update when prioritized omp is inside bun global bin", () => {
+	it("uses bun update when prioritized Scient Agent is inside bun global bin", () => {
 		const method = resolveUpdateMethodForTest("/Users/test/.bun/bin/omp", "/Users/test/.bun/bin");
 
 		expect(method).toBe("bun");
 	});
 
-	it("uses npm update when prioritized omp is inside an npm global bin", () => {
+	it("uses npm update when prioritized Scient Agent is inside an npm global bin", () => {
 		const method = resolveUpdateMethodForTest("/Users/test/.npm-global/bin/omp", undefined, {
 			npmBinDir: "/Users/test/.npm-global/bin",
 		});
@@ -426,7 +426,7 @@ describe("update-cli install target detection", () => {
 	);
 
 	it.skipIf(process.platform === "win32")(
-		"refuses a foreign native target that does not report an OMP version",
+		"refuses a foreign native target that does not report a Scient Agent version",
 		async () => {
 			const dir = await makeTempDir();
 			const aliasPath = path.join(dir, "omp");
@@ -443,7 +443,7 @@ describe("update-cli install target detection", () => {
 					fetchImpl,
 					validateExistingTarget: target.validateExistingTarget,
 				}),
-			).rejects.toThrow("does not report an OMP version when run directly");
+			).rejects.toThrow("does not report a Scient Agent version when run directly");
 			expect(fetchImpl).not.toHaveBeenCalled();
 		},
 	);
@@ -499,7 +499,7 @@ describe("update-cli install target detection", () => {
 		expect(await Bun.file(checkoutCli).text()).toBe("linked checkout");
 	});
 
-	it("uses binary update when prioritized omp is outside bun global bin", () => {
+	it("uses binary update when prioritized Scient Agent is outside bun global bin", () => {
 		const method = resolveUpdateMethodForTest("/Users/test/.local/bin/omp", "/Users/test/.bun/bin");
 
 		expect(method).toBe("binary");
@@ -511,7 +511,7 @@ describe("update-cli install target detection", () => {
 		expect(method).toBe("binary");
 	});
 
-	it("uses Homebrew update when prioritized omp resolves into the Homebrew formula", async () => {
+	it("uses Homebrew update when prioritized Scient Agent resolves into the Homebrew formula", async () => {
 		const dir = await makeTempDir();
 		const prefix = path.join(dir, "opt", "omp");
 		const linkedBin = path.join(dir, "bin");
@@ -527,7 +527,7 @@ describe("update-cli install target detection", () => {
 		expect(method).toBe("brew");
 	});
 
-	it("uses mise update when prioritized omp is in an active mise bin path", () => {
+	it("uses mise update when prioritized Scient Agent is in an active mise bin path", () => {
 		const method = resolveUpdateMethodForTest(
 			"/Users/test/.local/share/mise/installs/github-can1357-oh-my-pi/latest/bin/omp",
 			undefined,
@@ -539,7 +539,7 @@ describe("update-cli install target detection", () => {
 		expect(method).toBe("mise");
 	});
 
-	it("uses mise update when prioritized omp is a mise shim", () => {
+	it("uses mise update when prioritized Scient Agent is a mise shim", () => {
 		const method = resolveUpdateMethodForTest("/Users/test/.local/share/mise/shims/omp", undefined, {
 			miseDataDir: "/Users/test/.local/share/mise",
 		});
@@ -1218,7 +1218,7 @@ describe("update-cli binary replacement", () => {
 				expectedVersion: "15.1.8",
 				verifyInstalledVersion: async () => ({ ok: false, path: targetPath }),
 			}),
-		).rejects.toThrow("restored previous omp binary");
+		).rejects.toThrow("restored previous Scient Agent binary");
 
 		expect(await Bun.file(targetPath).text()).toBe("old binary");
 		expect(await Bun.file(tempPath).exists()).toBe(false);
@@ -1598,7 +1598,7 @@ describe("update-cli script-shim takeover", () => {
 				fetchImpl: makeFetch(exe),
 				githubToken: "test-token",
 			}),
-		).rejects.toThrow(/still reports 17\.2\.12 \(expected 18\.0\.0\); restored previous omp launcher/);
+		).rejects.toThrow(/still reports 17\.2\.12 \(expected 18\.0\.0\); restored previous Scient Agent launcher/);
 
 		expect(await Bun.file(path.join(dir, "omp.exe")).exists()).toBe(false);
 		for (const name in shims) {
@@ -1653,7 +1653,7 @@ describe("update-cli script-shim takeover", () => {
 					fetchImpl: makeFetch(exe),
 					githubToken: "test-token",
 				}),
-			).rejects.toThrow("restored previous omp launcher");
+			).rejects.toThrow("restored previous Scient Agent launcher");
 		} finally {
 			renameSpy.mockRestore();
 		}
