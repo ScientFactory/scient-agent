@@ -133,11 +133,22 @@ describe("sign-in providers", () => {
 
 	it("refuses to sign out when an auth broker holds the sign-ins, and lists them as not removable", async () => {
 		await auth.credentials.set("deepseek", { type: "api_key", key: "sk-test" });
-		const listed = listSignInProviders(auth, { brokerConfigured: true }).find(provider => provider.id === "deepseek");
-		expect(listed).toMatchObject({ authenticated: true, stored: false });
-		await expect(removeStoredSignIn(auth, "deepseek", { brokerConfigured: true })).rejects.toThrow(
-			BROKER_SIGN_OUT_REFUSAL,
-		);
+		// The same store, seen as a broker's snapshot.
+		const credentials = new Proxy(auth.credentials, {
+			get: (target, key) => {
+				if (key === "heldByBroker") return true;
+				const value = Reflect.get(target, key, target);
+				return typeof value === "function" ? value.bind(target) : value;
+			},
+		});
+		const brokerHeld = { keys: auth.keys, credentials } as unknown as AuthStorage;
+		expect(auth.credentials.heldByBroker).toBe(false);
+
+		expect(listSignInProviders(brokerHeld).find(provider => provider.id === "deepseek")).toMatchObject({
+			authenticated: true,
+			stored: false,
+		});
+		await expect(removeStoredSignIn(brokerHeld, "deepseek")).rejects.toThrow(BROKER_SIGN_OUT_REFUSAL);
 		expect(entry("deepseek")).toMatchObject({ authenticated: true, stored: true });
 	});
 

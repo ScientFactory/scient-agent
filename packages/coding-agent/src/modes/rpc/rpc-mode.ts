@@ -71,7 +71,7 @@ import { isRpcHostToolResult, isRpcHostToolUpdate, RpcHostToolBridge } from "./h
 import { isRpcHostUriResult, RpcHostUriBridge } from "./host-uris";
 import { MAX_RPC_FRAME_BYTES, MAX_RPC_REASSEMBLED_BYTES, RpcFrameEncoder } from "./rpc-frame";
 import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
-import { listSignInProviders, removeStoredSignIn, usesAuthBroker } from "./sign-in-providers";
+import { listSignInProviders, removeStoredSignIn } from "./sign-in-providers";
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcBtwController } from "./rpc-btw";
 import { RpcGoalController } from "./rpc-goal";
@@ -2471,9 +2471,7 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 
 			case "get_login_providers": {
 				return success(id, "get_login_providers", {
-					providers: listSignInProviders(session.modelRegistry.authStorage, {
-						brokerConfigured: await usesAuthBroker(),
-					}),
+					providers: listSignInProviders(session.modelRegistry.authStorage),
 				});
 			}
 
