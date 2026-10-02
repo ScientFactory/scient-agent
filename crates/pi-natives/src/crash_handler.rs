@@ -51,7 +51,7 @@ const DEFAULT_CONFIG_DIR: &str = ".scient-agent";
 /// App name used as the XDG-root subdirectory (`$XDG_STATE_HOME/omp/`),
 /// matching `APP_NAME` in `packages/utils/src/dirs.ts`.
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-const APP_NAME: &str = "omp";
+const APP_NAME: &str = "scient-agent";
 
 static INSTALL: Once = Once::new();
 static ALLOC_HOOK_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -265,6 +265,12 @@ fn build_crash_log_path(dir: &Path, kind: CrashKind, pid: u32, now_ms: u128) -> 
 }
 
 fn logs_dir() -> Option<PathBuf> {
+	// A host-assigned absolute root is authoritative, as in `dirs.ts`.
+	if let Some(root) = std::env::var_os("SCIENT_AGENT_ROOT").map(PathBuf::from)
+		&& root.is_absolute()
+	{
+		return Some(root.join("logs"));
+	}
 	let home = home_dir()?;
 	let config_override = std::env::var_os("SCIENT_AGENT_CONFIG_DIR");
 	let xdg_logs = xdg_state_logs_from_env(&home, config_override.as_deref());

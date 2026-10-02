@@ -18,7 +18,7 @@ const thirdDay = process.argv[4];
 
 const sink = new RotatingFileSink({
 	directory,
-	filenamePrefix: "omp",
+	filenamePrefix: "scient-agent",
 	filenameSuffix: String(process.pid),
 	auditFile: path.join(directory, `.scient-agent.${process.pid}-audit.json`),
 	maxBytes: 10 * 1024 * 1024,

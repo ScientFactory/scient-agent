@@ -1,19 +1,14 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { CONFIG_DIR_NAME, getConfigAgentDirName, getProjectDir } from "@oh-my-pi/pi-utils";
+import { CONFIG_DIR_NAME, getAgentDir, getProjectDir } from "@oh-my-pi/pi-utils";
 import { isUserSourceEnabled } from "./capability";
 import { resolveClaudePaths } from "./config/claude-paths";
 import { expandTilde } from "./tools/path-utils";
 
 export * from "./config/config-file";
 
-const priorityList = [
-	{ dir: CONFIG_DIR_NAME, globalAgentDir: getConfigAgentDirName },
-	{ dir: ".claude" },
-	{ dir: ".codex" },
-	{ dir: ".gemini" },
-];
+const priorityList = [{ dir: CONFIG_DIR_NAME }, { dir: ".claude" }, { dir: ".codex" }, { dir: ".gemini" }];
 
 // =============================================================================
 // Package Directory (for optional external docs/examples)
@@ -81,9 +76,15 @@ export function getChangelogPath(): string | undefined {
  * User-level: ~/.scient-agent/agent, Claude's active config directory, ~/.codex, ~/.gemini
  * Project-level: .scient-agent, .claude, .codex, .gemini
  */
-const USER_CONFIG_BASES = priorityList.map(({ dir, globalAgentDir }) => ({
+const USER_CONFIG_BASES = priorityList.map(({ dir }) => ({
+	// The agent's own directory comes from the active root, profile and
+	// overrides, never from a path rebuilt under the home directory.
 	base: () =>
-		dir === ".claude" ? resolveClaudePaths().configDir : path.join(os.homedir(), globalAgentDir?.() ?? dir),
+		dir === CONFIG_DIR_NAME
+			? getAgentDir()
+			: dir === ".claude"
+				? resolveClaudePaths().configDir
+				: path.join(os.homedir(), dir),
 	name: dir,
 }));
 
