@@ -31,7 +31,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "@babel/parser";
 import { $ } from "bun";
-import { type SkippedRange, textSpans } from "./lib/text-spans";
+import { type TextSpan, textSpans } from "./lib/text-spans";
 
 const PRODUCT = "Scient Agent";
 const COMMAND = "scient-agent";
@@ -233,19 +233,19 @@ interface Edit {
 }
 
 /**
- * Where text is written between JSX tags: `<span>omp</span>`. It is neither a
- * string nor a comment, so the lexer does not report it, and a quote in it is
- * not the start of a string; a parser finds the text nodes. A file the parser
- * cannot read has none.
+ * The text of a file that holds JSX, from a parser: string literals (attribute
+ * values among them), template string parts, regular expression literals, and
+ * the text written between tags. The lexer does not know JSX, where `</b>` is
+ * not a division and an apostrophe is not a quote, so it is not used here.
  */
-function jsxTextRanges(source: string): SkippedRange[] {
+function jsxFileSpans(file: string, source: string): TextSpan[] {
 	let program: unknown;
 	try {
 		program = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] }).program;
-	} catch {
-		return [];
+	} catch (error) {
+		throw new Error(`${file} cannot be parsed, so its wording cannot be rewritten: ${String(error)}`);
 	}
-	const ranges: SkippedRange[] = [];
+	const spans: TextSpan[] = [];
 	const visit = (node: unknown): void => {
 		if (Array.isArray(node)) {
 			for (const child of node) visit(child);
@@ -253,9 +253,19 @@ function jsxTextRanges(source: string): SkippedRange[] {
 		}
 		if (typeof node !== "object" || node === null) return;
 		const { type, start, end } = node as { type?: unknown; start?: unknown; end?: unknown };
-		if (type === "JSXText" && typeof start === "number" && typeof end === "number") {
-			ranges.push({ start, end });
-			return;
+		if (typeof type === "string" && typeof start === "number" && typeof end === "number") {
+			if (type === "JSXText" || type === "TemplateElement") {
+				spans.push({ start, end, kind: type === "JSXText" ? "jsx" : "template" });
+				return;
+			}
+			if (type === "StringLiteral" || type === "DirectiveLiteral") {
+				spans.push({ start: start + 1, end: end - 1, kind: "string" });
+				return;
+			}
+			if (type === "RegExpLiteral") {
+				spans.push({ start: start + 1, end: source.lastIndexOf("/", end - 1), kind: "regex" });
+				return;
+			}
 		}
 		for (const key in node) {
 			if (key !== "loc" && key !== "leadingComments" && key !== "trailingComments" && key !== "innerComments") {
@@ -264,26 +274,19 @@ function jsxTextRanges(source: string): SkippedRange[] {
 		}
 	};
 	visit(program);
-	return ranges;
+	return spans;
 }
 
-function rewriteCode(source: string, jsx: boolean): string {
-	const jsxText = jsx ? jsxTextRanges(source) : [];
+function rewriteCode(file: string, source: string): string {
+	const spans = /\.[jt]sx$/.test(file) ? jsxFileSpans(file, source) : textSpans(source);
 	const edits: Edit[] = [];
-	for (const range of jsxText) {
-		const text = source.slice(range.start, range.end);
-		if (!/omp|OMP|Oh My Pi/.test(text)) continue;
-		const rewritten = fixArticles(rewrite(text, true));
-		if (rewritten !== text) edits.push({ start: range.start, end: range.end, text: rewritten });
-	}
-	// The lexer steps over JSX text, so an apostrophe in it does not open a string.
-	for (const span of textSpans(source, jsxText)) {
+	for (const span of spans) {
 		if (span.kind === "comment") continue;
 		const text = source.slice(span.start, span.end);
 		if (!/omp|OMP|Oh My Pi/.test(text) || BANNER.test(text)) continue;
 		const names = /\bsetProcessName\(\s*.$/.test(source.slice(Math.max(0, span.start - 32), span.start));
 		// A string with no space in it is a value (an id, a key, a name on the wire).
-		const rewritten = fixArticles(rewrite(text, /\s/.test(text), names));
+		const rewritten = fixArticles(rewrite(text, /\s/.test(text) || span.kind === "jsx", names));
 		if (rewritten !== text) edits.push({ start: span.start, end: span.end, text: rewritten });
 	}
 	edits.sort((left, right) => left.start - right.start);
@@ -387,7 +390,7 @@ for (const file of files) {
 	const source = await Bun.file(path.join(repoRoot, file)).text();
 	let next = source;
 	if (/omp|OMP|Oh My Pi/.test(source)) {
-		next = PROSE.test(file) ? rewriteProse(file, source, missing) : rewriteCode(source, /\.[jt]sx$/.test(file));
+		next = PROSE.test(file) ? rewriteProse(file, source, missing) : rewriteCode(file, source);
 	}
 	results.set(file, { source, next });
 	if (file.endsWith(".md") && next !== source) anchors.set(file, renamedAnchors(source, next));

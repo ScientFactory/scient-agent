@@ -11,7 +11,8 @@ export interface TextSpan {
 	readonly start: number;
 	/** Offset just past the last character of the text (before the closing quote). */
 	readonly end: number;
-	readonly kind: "string" | "template" | "regex" | "comment";
+	/** `jsx` is text between JSX tags; only a parser reports it. */
+	readonly kind: "string" | "template" | "regex" | "comment" | "jsx";
 }
 
 /** Tokens after which a `/` starts a regular expression rather than a division. */
@@ -39,17 +40,9 @@ const REGEX_PRECEDERS = new Set([
 ]);
 const REGEX_KEYWORDS = /(?:^|[^A-Za-z0-9_$])(?:return|typeof|case|in|of|do|else|void|throw|new|delete|await|yield)$/;
 
-/** A stretch of the source the lexer steps over: JSX text, where a quote is just a character. */
-export interface SkippedRange {
-	readonly start: number;
-	readonly end: number;
-}
-
-export function textSpans(source: string, skipped: readonly SkippedRange[] = []): TextSpan[] {
+export function textSpans(source: string): TextSpan[] {
 	const spans: TextSpan[] = [];
 	const length = source.length;
-	const skipTo = new Map<number, number>();
-	for (const range of skipped) if (range.end > range.start) skipTo.set(range.start, range.end);
 	// Each entry is the brace depth at which a `${` substitution of an open template ends.
 	const templates: number[] = [];
 	let depth = 0;
@@ -92,12 +85,6 @@ export function textSpans(source: string, skipped: readonly SkippedRange[] = [])
 	};
 
 	while (index < length) {
-		const resume = skipTo.get(index);
-		if (resume !== undefined) {
-			index = resume;
-			gap();
-			continue;
-		}
 		const char = source[index];
 		const next = source[index + 1];
 		if (char === "/" && next === "/") {
