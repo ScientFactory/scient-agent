@@ -40,6 +40,9 @@ jobs:
          - name: Check that no Oh My Pi state name remains
            run: bun scripts/scient/rename-identity.ts --check
 
+         - name: Check that the agent's wording names Scient Agent
+           run: bun scripts/scient/rename-wording.ts --check
+
          - name: Type check and lint
            run: bun run check:ts
 
