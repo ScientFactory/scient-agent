@@ -33,6 +33,7 @@ const embeddedAddonTypedefs = `/** @typedef {"modern" | "baseline" | "default"} 
  * @typedef {Object} EmbeddedAddon
  * @property {string} platformTag
  * @property {string} version
+ * @property {string=} buildId
  * @property {EmbeddedAddonFile[]} files
  * @property {EmbeddedAddonArchive=} archive
  */`;
@@ -114,6 +115,7 @@ export async function embedNativeAddon({
 	const archiveFilename = `${archivePrefix}${platformTag}${archiveSuffix}`;
 	const archivePath = path.join(nativeDir, archiveFilename);
 	const archiveEntries: Record<string, Uint8Array> = {};
+	const contentHash = new Bun.CryptoHasher("sha256");
 	for (const addon of available) {
 		const bytes = await fs.readFile(addon.path);
 		// Pre-stamp addons (npm releases and main builds before the stamp slot)
@@ -126,7 +128,11 @@ export async function embedNativeAddon({
 			);
 		}
 		archiveEntries[addon.filename] = bytes;
+		contentHash.update(addon.filename);
+		contentHash.update(bytes);
 	}
+	// Names the directory this build extracts into, so builds never share one.
+	const buildId = contentHash.digest("hex").slice(0, 16);
 	await Bun.write(archivePath, await new Bun.Archive(archiveEntries, { compress: "gzip", level: 9 }).bytes());
 
 	const files = available
@@ -147,6 +153,7 @@ import archivePath from ${JSON.stringify(`../native/${archiveFilename}`)} with {
 export const embeddedAddon = {
 \tplatformTag: ${JSON.stringify(platformTag)},
 \tversion: ${JSON.stringify(version)},
+\tbuildId: ${JSON.stringify(buildId)},
 \tarchive: {
 \t\tformat: "tar.gz",
 \t\tfilename: ${JSON.stringify(archiveFilename)},
