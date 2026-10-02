@@ -31,7 +31,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "@babel/parser";
 import { $ } from "bun";
-import { textSpans } from "./lib/text-spans";
+import { type SkippedRange, textSpans } from "./lib/text-spans";
 
 const PRODUCT = "Scient Agent";
 const COMMAND = "scient-agent";
@@ -233,18 +233,19 @@ interface Edit {
 }
 
 /**
- * Text written between JSX tags: `<span>omp</span>`. It is neither a string nor
- * a comment, so the lexer does not report it; a parser finds the text nodes.
- * A file the parser cannot read gets no JSX edits.
+ * Where text is written between JSX tags: `<span>omp</span>`. It is neither a
+ * string nor a comment, so the lexer does not report it, and a quote in it is
+ * not the start of a string; a parser finds the text nodes. A file the parser
+ * cannot read has none.
  */
-function jsxTextEdits(source: string): Edit[] {
+function jsxTextRanges(source: string): SkippedRange[] {
 	let program: unknown;
 	try {
 		program = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] }).program;
 	} catch {
 		return [];
 	}
-	const edits: Edit[] = [];
+	const ranges: SkippedRange[] = [];
 	const visit = (node: unknown): void => {
 		if (Array.isArray(node)) {
 			for (const child of node) visit(child);
@@ -253,10 +254,7 @@ function jsxTextEdits(source: string): Edit[] {
 		if (typeof node !== "object" || node === null) return;
 		const { type, start, end } = node as { type?: unknown; start?: unknown; end?: unknown };
 		if (type === "JSXText" && typeof start === "number" && typeof end === "number") {
-			const text = source.slice(start, end);
-			if (!/omp|OMP|Oh My Pi/.test(text)) return;
-			const rewritten = fixArticles(rewrite(text, true));
-			if (rewritten !== text) edits.push({ start, end, text: rewritten });
+			ranges.push({ start, end });
 			return;
 		}
 		for (const key in node) {
@@ -266,17 +264,21 @@ function jsxTextEdits(source: string): Edit[] {
 		}
 	};
 	visit(program);
-	return edits;
+	return ranges;
 }
 
 function rewriteCode(source: string, jsx: boolean): string {
-	const spans = textSpans(source);
-	const jsxEdits = jsx ? jsxTextEdits(source) : [];
-	const edits: Edit[] = [...jsxEdits];
-	for (const span of spans) {
+	const jsxText = jsx ? jsxTextRanges(source) : [];
+	const edits: Edit[] = [];
+	for (const range of jsxText) {
+		const text = source.slice(range.start, range.end);
+		if (!/omp|OMP|Oh My Pi/.test(text)) continue;
+		const rewritten = fixArticles(rewrite(text, true));
+		if (rewritten !== text) edits.push({ start: range.start, end: range.end, text: rewritten });
+	}
+	// The lexer steps over JSX text, so an apostrophe in it does not open a string.
+	for (const span of textSpans(source, jsxText)) {
 		if (span.kind === "comment") continue;
-		// An apostrophe in JSX text looks like a string to the lexer. The text node wins.
-		if (jsxEdits.some(edit => edit.start < span.end && span.start < edit.end)) continue;
 		const text = source.slice(span.start, span.end);
 		if (!/omp|OMP|Oh My Pi/.test(text) || BANNER.test(text)) continue;
 		const names = /\bsetProcessName\(\s*.$/.test(source.slice(Math.max(0, span.start - 32), span.start));
