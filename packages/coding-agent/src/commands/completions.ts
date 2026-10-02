@@ -5,7 +5,7 @@
  * (see `cli/completion-gen.ts`), so it never drifts from the actual CLI surface.
  */
 
-import { APP_NAME, postmortem, VERSION } from "@oh-my-pi/pi-utils";
+import { APP_NAME, PRODUCT_VERSION, postmortem } from "@oh-my-pi/pi-utils";
 import { Args, type CliConfig, Command, type CommandCtor } from "@oh-my-pi/pi-utils/cli";
 import { completionsHelp as commandHelp } from "../cli/command-help";
 import { buildSpec, generateCompletion, type Shell } from "../cli/completion-gen";
@@ -26,7 +26,7 @@ export async function generateLiveCompletion(shell: Shell): Promise<string> {
 		aliasMap.set(entry.name, [...merged]);
 	}
 
-	const config: CliConfig = { bin: APP_NAME, version: VERSION, commands: map };
+	const config: CliConfig = { bin: APP_NAME, version: PRODUCT_VERSION, commands: map };
 	return generateCompletion(shell, buildSpec(config, ROOT_COMMAND, aliasMap));
 }
 

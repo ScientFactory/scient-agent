@@ -3,7 +3,11 @@
 import * as fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as path from "node:path";
-import { COMPILED_EXTERNAL_DEPENDENCIES, compileCodingAgent } from "../packages/coding-agent/scripts/compile-binary";
+import {
+	COMPILED_EXTERNAL_DEPENDENCIES,
+	compileCodingAgent,
+	resolveBuildId,
+} from "../packages/coding-agent/scripts/compile-binary";
 
 interface BinaryTarget {
 	id: string;
@@ -16,6 +20,7 @@ interface BinaryTarget {
 const repoRoot = path.join(import.meta.dir, "..");
 const binariesDir = path.join(repoRoot, "packages", "coding-agent", "binaries");
 const entrypoint = path.join(repoRoot, "packages", "coding-agent", "src", "cli.ts");
+const buildId = await resolveBuildId(repoRoot);
 const transformersManifest: unknown = createRequire(import.meta.url)("@huggingface/transformers/package.json");
 if (
 	typeof transformersManifest !== "object" ||
@@ -34,56 +39,56 @@ const targets: BinaryTarget[] = [
 		platform: "darwin",
 		arch: "arm64",
 		target: "bun-darwin-arm64",
-		outfile: "packages/coding-agent/binaries/omp-darwin-arm64",
+		outfile: "packages/coding-agent/binaries/scient-agent-darwin-arm64",
 	},
 	{
 		id: "darwin-x64",
 		platform: "darwin",
 		arch: "x64",
 		target: "bun-darwin-x64",
-		outfile: "packages/coding-agent/binaries/omp-darwin-x64",
+		outfile: "packages/coding-agent/binaries/scient-agent-darwin-x64",
 	},
 	{
 		id: "linux-x64",
 		platform: "linux",
 		arch: "x64",
 		target: "bun-linux-x64-baseline",
-		outfile: "packages/coding-agent/binaries/omp-linux-x64",
+		outfile: "packages/coding-agent/binaries/scient-agent-linux-x64",
 	},
 	{
 		id: "linux-arm64",
 		platform: "linux",
 		arch: "arm64",
 		target: "bun-linux-arm64",
-		outfile: "packages/coding-agent/binaries/omp-linux-arm64",
+		outfile: "packages/coding-agent/binaries/scient-agent-linux-arm64",
 	},
 	{
 		id: "linux-musl-x64",
 		platform: "linux",
 		arch: "x64",
 		target: "bun-linux-x64-musl-baseline",
-		outfile: "packages/coding-agent/binaries/omp-linux-musl-x64",
+		outfile: "packages/coding-agent/binaries/scient-agent-linux-musl-x64",
 	},
 	{
 		id: "linux-musl-arm64",
 		platform: "linux",
 		arch: "arm64",
 		target: "bun-linux-arm64-musl",
-		outfile: "packages/coding-agent/binaries/omp-linux-musl-arm64",
+		outfile: "packages/coding-agent/binaries/scient-agent-linux-musl-arm64",
 	},
 	{
 		id: "win32-x64",
 		platform: "win32",
 		arch: "x64",
 		target: "bun-windows-x64-baseline",
-		outfile: "packages/coding-agent/binaries/omp-windows-x64.exe",
+		outfile: "packages/coding-agent/binaries/scient-agent-windows-x64.exe",
 	},
 	{
 		id: "win32-arm64",
 		platform: "win32",
 		arch: "arm64",
 		target: "bun-windows-arm64",
-		outfile: "packages/coding-agent/binaries/omp-windows-arm64.exe",
+		outfile: "packages/coding-agent/binaries/scient-agent-windows-arm64.exe",
 	},
 ];
 
@@ -140,6 +145,7 @@ async function buildBinary(target: BinaryTarget): Promise<void> {
 		target: target.target,
 		minifyIdentifiers: true,
 		skipBuiltinCodesign: shouldAdhocSignDarwinBinary(target),
+		buildId,
 	});
 	// Bun 1.3.12 emits a truncated Mach-O signature on darwin builds.
 	if (shouldAdhocSignDarwinBinary(target)) {

@@ -28,7 +28,7 @@ use winreg::{
 use super::context::Context;
 
 const SNAPSHOT_VERSION: u32 = 1;
-const MARKER_NAME: &str = "omp OAuth Callback Transaction";
+const MARKER_NAME: &str = "Scient Agent OAuth Callback Transaction";
 const DEFAULT_VALUE: &str = "";
 
 /// Complete pre-registration state for the HKCU values touched by this backend.

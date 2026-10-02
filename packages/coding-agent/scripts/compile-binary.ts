@@ -32,6 +32,20 @@ export interface CodingAgentCompileOptions {
 	readonly minifyIdentifiers?: boolean;
 	/** Disable Bun's built-in Darwin signing before the caller re-signs. */
 	readonly skipBuiltinCodesign?: boolean;
+	/** Source revision from {@link resolveBuildId}. */
+	readonly buildId: string;
+}
+
+/**
+ * The source revision a binary is built from, reported by `--runtime-info`.
+ * Resolve it before the build's generation steps: they rewrite tracked
+ * placeholder files, which would mark every build dirty.
+ */
+export async function resolveBuildId(repoRoot: string): Promise<string> {
+	const revision = (await Bun.$`git -C ${repoRoot} rev-parse --short=12 HEAD`.quiet().nothrow().text()).trim();
+	if (!revision) return "unknown";
+	const dirty = (await Bun.$`git -C ${repoRoot} status --porcelain`.quiet().nothrow().text()).trim().length > 0;
+	return dirty ? `${revision}-dirty` : revision;
 }
 
 /**
@@ -51,6 +65,7 @@ export async function compileCodingAgent(options: CodingAgentCompileOptions): Pr
 			files: options.native ? await embeddedAddonFiles(options.native) : {},
 			define: {
 				"process.env.PI_COMPILED": JSON.stringify("true"),
+				"process.env.SCIENT_AGENT_BUILD_ID": JSON.stringify(options.buildId),
 				"process.env.PI_TINY_TRANSFORMERS_VERSION": JSON.stringify(options.transformersVersion),
 				"process.env.PI_DOCS_EMBED": JSON.stringify((await buildDocsIndexPayload()).payload),
 			},

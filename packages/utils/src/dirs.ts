@@ -15,14 +15,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { expandWindowsLongPath } from "@oh-my-pi/pi-natives/path";
+import scient from "../../../scient.json" with { type: "json" };
 import { engines, version } from "../package.json" with { type: "json" };
 import { isEnoent, isEnotdir } from "./fs-error";
 
-/** App name (e.g. "omp") */
-export const APP_NAME: string = "omp";
+/** App name: the executable, process title, and XDG directory name. */
+export const APP_NAME: string = scient.name;
 
-/** Public homepage that inference gateways (OpenRouter, Vercel AI Gateway) credit omp traffic to. */
-export const APP_URL: string = "https://omp.sh/";
+/** Public homepage that inference gateways (OpenRouter, Vercel AI Gateway) credit Scient Agent traffic to. */
+export const APP_URL: string = "https://scientfactory.com/";
 
 /** Config directory name (e.g. ".scient-agent") */
 export const CONFIG_DIR_NAME: string = ".scient-agent";
@@ -30,11 +31,20 @@ export const CONFIG_DIR_NAME: string = ".scient-agent";
 /** Ordered main settings filenames: canonical write target first, legacy-compatible YAML fallback second. */
 export const MAIN_CONFIG_FILENAMES = ["config.yml", "config.yaml"] as const;
 
-/** Version (e.g. "1.0.0") */
+/**
+ * Version of the inherited Oh My Pi packages (e.g. "18.4.8"). Internal
+ * compatibility checks, including the native addon stamp, compare against it.
+ */
 export const VERSION: string = version;
 
-/** Default User-Agent header string (e.g. "omp/17.2.12") */
-export const USER_AGENT = `omp/${VERSION}`;
+/** Scient Agent's own release version (e.g. "0.1.0"): what `--version` and the User-Agent report. */
+export const PRODUCT_VERSION: string = scient.version;
+
+/** The Oh My Pi release this build derives from. */
+export const UPSTREAM: { readonly name: string; readonly version: string; readonly commit: string } = scient.upstream;
+
+/** Default User-Agent header string (e.g. "scient-agent/0.1.0") */
+export const USER_AGENT = `${APP_NAME}/${PRODUCT_VERSION}`;
 
 /** Minimum Bun version */
 export const MIN_BUN_VERSION: string = engines.bun.replace(/[^0-9.]/g, "");
@@ -111,9 +121,19 @@ function readProfileFromEnvSafe(): string | undefined {
 	}
 }
 
-/** Profile-independent config root (~/.scient-agent), shared by every omp profile. */
+/**
+ * An absolute directory a host (Scient Desktop) assigns as the config root, so
+ * every file the agent owns lives where the host put it. Unset or relative
+ * values are ignored.
+ */
+function getHostConfigRoot(): string | undefined {
+	const root = process.env.SCIENT_AGENT_ROOT;
+	return root && path.isAbsolute(root) ? root : undefined;
+}
+
+/** Profile-independent config root (~/.scient-agent, or the host-assigned root), shared by every profile. */
 export function getBaseConfigRoot(): string {
-	return path.join(os.homedir(), getConfigDirName());
+	return getHostConfigRoot() ?? path.join(os.homedir(), getConfigDirName());
 }
 
 function getProfileConfigRoot(profile: string | undefined): string {
@@ -364,7 +384,8 @@ class DirResolver {
 		let xdgState: string | undefined;
 		let xdgCache: string | undefined;
 		const xdgPlatform = process.platform === "linux" || process.platform === "darwin";
-		if (xdgPlatform && isDefault) {
+		// A host-assigned root is authoritative; XDG never redirects away from it.
+		if (xdgPlatform && isDefault && !getHostConfigRoot()) {
 			const resolveIf = (envVar: string) => {
 				const value = process.env[envVar];
 				if (!value) return undefined;
@@ -1174,7 +1195,7 @@ const INSTALL_ID_FILE = "install-id";
  */
 export function getAppName(): string {
 	const value = process.env.OMP_APP_NAME?.trim();
-	return value ? value : "omp";
+	return value ? value : APP_NAME;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
