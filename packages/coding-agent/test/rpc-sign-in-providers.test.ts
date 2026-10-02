@@ -80,6 +80,21 @@ describe("sign-in providers", () => {
 		}
 	});
 
+	it("fails when the store still holds the sign-in after the removal", async () => {
+		await auth.credentials.set("deepseek", { type: "api_key", key: "sk-test" });
+		// A store whose delete does not land, as when its database is locked: the
+		// in-memory copy goes, and the next read of the store brings it back.
+		const stuck = {
+			credentials: {
+				reload: () => auth.credentials.reload(),
+				remove: async () => {},
+				has: (provider: string) => auth.credentials.has(provider),
+			},
+		} as unknown as Pick<AuthStorage, "credentials">;
+		await expect(removeStoredSignIn(stuck, "deepseek")).rejects.toThrow(/could not be removed/);
+		expect(entry("deepseek")).toMatchObject({ stored: true });
+	});
+
 	it("does nothing for an entry it does not know", async () => {
 		expect(signInStoreId("no-such-provider")).toBeUndefined();
 		expect(await removeStoredSignIn(auth, "no-such-provider")).toBe(false);

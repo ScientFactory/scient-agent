@@ -33,11 +33,24 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
  * Removes every stored sign-in of one entry. A key that comes from the
  * environment is not stored and stays; the entry then still lists as
  * `authenticated` with `stored: false`.
+ *
+ * Returns `false` for an entry the agent does not know. Throws when the store
+ * still holds the sign-in afterwards: the store swallows a failed delete (a
+ * locked database, for one), and a host must not be told a sign-in is gone
+ * while the next process would still find it.
  */
-export async function removeStoredSignIn(authStorage: AuthStorage, providerId: string): Promise<boolean> {
+export async function removeStoredSignIn(
+	authStorage: Pick<AuthStorage, "credentials">,
+	providerId: string,
+): Promise<boolean> {
 	const storeId = signInStoreId(providerId);
 	if (storeId === undefined) return false;
 	await authStorage.credentials.reload();
 	await authStorage.credentials.remove(storeId);
+	// `remove` clears this process's copy whatever the store did. Read the store again.
+	await authStorage.credentials.reload();
+	if (authStorage.credentials.has(storeId)) {
+		throw new Error(`The stored sign-in for ${providerId} could not be removed. Try again.`);
+	}
 	return true;
 }
