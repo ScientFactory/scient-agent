@@ -1792,7 +1792,7 @@ export async function runRootCommand(
 			stopPendingStartupComposer();
 		}
 		// Account routing must use the effective settings, including `--config` and
-		// `PI_CONFIG_FILES` overlays, rather than independently re-reading only the
+		// `SCIENT_AGENT_CONFIG_FILES` overlays, rather than independently re-reading only the
 		// main config file during auth discovery.
 		const settingsPromise = deps.settings
 			? Promise.resolve(deps.settings)

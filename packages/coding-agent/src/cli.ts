@@ -466,7 +466,7 @@ async function runIpcSubprocessWorker<In, Out>(
 
 /**
  * Hidden subcommand that boots the ONNX tiny-model worker for one model: a
- * detached process owning that model's socket (`OMP_TINY_WORKER_SOCKET`),
+ * detached process owning that model's socket (`SCIENT_AGENT_TINY_WORKER_SOCKET`),
  * shared by every omp process on the machine and exiting on its own when
  * idle. It exists so `onnxruntime-node` (loaded transitively by
  * `@huggingface/transformers`) never runs in an omp address space — its NAPI
@@ -489,22 +489,22 @@ export async function runCli(argv: string[]): Promise<void> {
 		if (extracted.profile !== undefined) {
 			setProfile(extracted.profile);
 		} else {
-			// No explicit --profile: activate any OMP_PROFILE/PI_PROFILE inherited
+			// No explicit --profile: activate any SCIENT_AGENT_PROFILE/SCIENT_AGENT_PROFILE_FALLBACK inherited
 			// from the environment. Module-load resolution deliberately swallows an
 			// invalid value to avoid an uncaught throw before this try/catch is in
 			// scope (see `readProfileFromEnvSafe` in dirs.ts), and callers may set
-			// OMP_PROFILE after importing this module (profile aliases/tests). Surfacing
-			// validation here turns `OMP_PROFILE=.. omp --version` into a clean error;
+			// SCIENT_AGENT_PROFILE after importing this module (profile aliases/tests). Surfacing
+			// validation here turns `SCIENT_AGENT_PROFILE=.. omp --version` into a clean error;
 			// calling setProfile keeps every later path helper on the env-selected
 			// profile instead of the default agent directory.
-			setProfile(resolveProfileEnv(process.env.OMP_PROFILE, process.env.PI_PROFILE));
+			setProfile(resolveProfileEnv(process.env.SCIENT_AGENT_PROFILE, process.env.SCIENT_AGENT_PROFILE_FALLBACK));
 		}
 		if (extracted.aliasName !== undefined) {
 			// Command boundary: shell/path setup is used only by --alias.
 			const { installProfileAlias, resolveProfileAliasCommandFromProcess } = await import("./cli/profile-alias");
 			const profile = extracted.profile ?? getActiveProfile();
 			if (!profile) {
-				throw new Error("--alias requires --profile <name> or OMP_PROFILE");
+				throw new Error("--alias requires --profile <name> or SCIENT_AGENT_PROFILE");
 			}
 			const result = await installProfileAlias({
 				profile,

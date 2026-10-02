@@ -7,17 +7,17 @@ A minimal `omp` extension that demonstrates the two most common authoring patter
 **Option A — drop into user extensions directory:**
 
 ```
-cp -r . ~/.omp/agent/extensions/hello-extension
+cp -r . ~/.scient-agent/agent/extensions/hello-extension
 ```
 
 Restart `omp`. You will see the startup notification immediately.
 
-With `omp --profile <name>`, use `~/.omp/profiles/<name>/agent/extensions/hello-extension` under the default layout. `PI_CODING_AGENT_DIR` changes the default profile's agent directory, not a named profile's. Initialized XDG roots can change these locations.
+With `omp --profile <name>`, use `~/.scient-agent/profiles/<name>/agent/extensions/hello-extension` under the default layout. `SCIENT_AGENT_DIR` changes the default profile's agent directory, not a named profile's. Initialized XDG roots can change these locations.
 
 **Option B — point the settings `extensions` array at it:**
 
 ```yaml
-# ~/.omp/agent/config.yml
+# ~/.scient-agent/agent/config.yml
 extensions:
   - /path/to/hello-extension
 ```

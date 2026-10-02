@@ -474,7 +474,7 @@ export async function releaseIdaDatabases(): Promise<void> {
 export async function smokeTestIdaHost(): Promise<void> {
 	const dir = path.join(os.tmpdir(), `omp-ida-smoke-${process.pid.toString(36)}`);
 	const endpoint =
-		process.platform === "win32" ? `\\\\.\\pipe\\omp-ida-smoke-${process.pid.toString(16)}` : `${dir}.sock`;
+		process.platform === "win32" ? `\\\\.\\pipe\\scient-agent-ida-smoke-${process.pid.toString(16)}` : `${dir}.sock`;
 	// A missing source makes the open fail after the host listens; `ping` still answers.
 	const config: IdaHostConfig = {
 		endpoint,

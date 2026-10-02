@@ -82,7 +82,7 @@ describe("multiprocess file logging", () => {
 			await Bun.write(path.join(logsDir, rolloverName), rolloverName);
 			await fs.utimes(path.join(logsDir, rolloverName), 2, 2);
 			retainedNames.push(rolloverName);
-			await Bun.write(path.join(logsDir, `.omp.${pid}-audit.json`), "{}");
+			await Bun.write(path.join(logsDir, `.scient-agent.${pid}-audit.json`), "{}");
 		}
 
 		let currentPid = 0;
@@ -101,6 +101,6 @@ describe("multiprocess file logging", () => {
 		for (const expected of retainedNames) expect(entries).toContain(expected);
 		for (const expired of expiredNames) expect(entries).not.toContain(expired);
 		expect(entries.filter(name => name.endsWith(".log.1"))).toHaveLength(exitedPids.length);
-		expect(entries.filter(name => name.endsWith("-audit.json"))).toEqual([`.omp.${currentPid}-audit.json`]);
+		expect(entries.filter(name => name.endsWith("-audit.json"))).toEqual([`.scient-agent.${currentPid}-audit.json`]);
 	});
 });

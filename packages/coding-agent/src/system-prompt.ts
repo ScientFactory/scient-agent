@@ -98,8 +98,8 @@ const PERSONALITY_SPECS: Record<Exclude<Personality, "none">, string> = {
 
 /**
  * Load the user-level PERSONALITY.md override for the system prompt's
- * personality block from `<agentDir>/PERSONALITY.md` (`~/.omp/agent` by
- * default; profile, XDG, and `PI_CODING_AGENT_DIR` aware). Returns null when
+ * personality block from `<agentDir>/PERSONALITY.md` (`~/.scient-agent/agent` by
+ * default; profile, XDG, and `SCIENT_AGENT_DIR` aware). Returns null when
  * the file is absent, empty, or unreadable; callers then render the configured
  * preset. Read failures other than a missing file warn instead of failing the
  * build.

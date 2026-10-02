@@ -159,7 +159,7 @@ export class CollabLinkError extends Error {
 
 /**
  * Discovery metadata directory. Deliberately under the profile-independent
- * config root (`~/.omp/run/collab-hosts`) — unlike the launch broker's
+ * config root (`~/.scient-agent/run/collab-hosts`) — unlike the launch broker's
  * profile-scoped runtime dir — so hosts started under any profile are
  * discoverable from any other (issue #6099 user story 18).
  */
@@ -415,7 +415,7 @@ function socketFallbackDir(dir: string, base: string): string {
 /**
  * Where this publication's Unix socket lives. The canonical location is next
  * to the metadata, but a deep config root (long home directory, nested
- * `PI_CONFIG_DIR`) can push that past `sun_path`, and a host that cannot bind
+ * `SCIENT_AGENT_CONFIG_DIR`) can push that past `sun_path`, and a host that cannot bind
  * would silently stay absent from `omp collab list`. Listers never guess the
  * relocated path; the metadata records the endpoint.
  */
@@ -453,7 +453,7 @@ export async function publishCollabHost(
 	const token = crypto.randomBytes(32).toString("hex");
 	const endpoint =
 		process.platform === "win32"
-			? `\\\\.\\pipe\\omp-collab-${entryId}`
+			? `\\\\.\\pipe\\scient-agent-collab-${entryId}`
 			: await resolveSocketEndpoint(dir, entryId, options?.socketFallbackBase ?? DEFAULT_SOCKET_FALLBACK_BASE);
 	const metaPath = path.join(dir, `${entryId}.json`);
 

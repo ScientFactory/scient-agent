@@ -49,9 +49,9 @@ async function runScenario(scenario: string): Promise<ScenarioResult> {
 				// os.homedir() on Windows reads USERPROFILE, not HOME: without
 				// this the default-file scenario logs into the real profile.
 				USERPROFILE: primaryDir,
-				PI_CONFIG_DIR: ".omp",
-				OMP_PROFILE: "",
-				PI_PROFILE: "",
+				SCIENT_AGENT_CONFIG_DIR: ".scient-agent",
+				SCIENT_AGENT_PROFILE: "",
+				SCIENT_AGENT_PROFILE_FALLBACK: "",
 				XDG_DATA_HOME: "",
 				XDG_STATE_HOME: "",
 				XDG_CACHE_HOME: "",
@@ -131,7 +131,9 @@ describe("central logger byte contract", () => {
 		].join("");
 		expect(log.text).toBe(expected);
 		expect(log.text.endsWith(os.EOL)).toBe(true);
-		expect(await fs.readFile(path.join(result.primaryDir, `.omp.${result.pid}-audit.json`), "utf8")).not.toBe("");
+		expect(
+			await fs.readFile(path.join(result.primaryDir, `.scient-agent.${result.pid}-audit.json`), "utf8"),
+		).not.toBe("");
 	});
 
 	test("treats Winston format tokens as a splat branch and omits context", async () => {
@@ -179,7 +181,7 @@ describe("central logger transport lifecycle", () => {
 		const result = await runScenario("default-file");
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
-		const defaultLogsDir = path.join(result.primaryDir, ".omp", "logs");
+		const defaultLogsDir = path.join(result.primaryDir, ".scient-agent", "logs");
 		const log = await readSingleLog(defaultLogsDir);
 		expect(log.text).toBe(expectedLine(result.pid, "info", "mode-default", { mode: "default" }));
 	});
@@ -292,7 +294,7 @@ describe("DailyRotateFile option and retention contract", () => {
 			);
 		}
 
-		const auditPath = path.join(result.primaryDir, `.omp.${result.pid}-audit.json`);
+		const auditPath = path.join(result.primaryDir, `.scient-agent.${result.pid}-audit.json`);
 		const audit = JSON.parse(await fs.readFile(auditPath, "utf8")) as AuditFile;
 		expect(audit.keep).toEqual({ days: false, amount: 5 });
 		expect(audit.auditLog).toBe(auditPath);
@@ -329,7 +331,7 @@ describe("DailyRotateFile option and retention contract", () => {
 			expectedLine(result.pid, "info", "rotation-trigger"),
 		);
 		const audit = JSON.parse(
-			await fs.readFile(path.join(result.primaryDir, `.omp.${result.pid}-audit.json`), "utf8"),
+			await fs.readFile(path.join(result.primaryDir, `.scient-agent.${result.pid}-audit.json`), "utf8"),
 		) as AuditFile;
 		expect(audit.keep).toEqual({ days: false, amount: 5 });
 		expect(audit.files.map(file => path.basename(file.name))).toEqual([baseName, rotatedName]);

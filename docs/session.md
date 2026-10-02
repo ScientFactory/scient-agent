@@ -39,7 +39,7 @@ Does not cover `/tree` UI rendering behavior beyond semantics that affect sessio
 Default file-session location:
 
 ```text
-~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<sessionId>.jsonl
+~/.scient-agent/agent/sessions/<encoded-cwd>/<timestamp>_<sessionId>.jsonl
 ```
 
 `<encoded-cwd>` is derived from the canonicalized cwd (so symlink aliases share a bucket): `-<relative>` for directories under home, `-tmp-<relative>` for directories under the temp root, and `--<encoded-absolute>--` for anything else, with path separators replaced by `-`.
@@ -49,13 +49,13 @@ On access, buckets written by the short-lived hashed scheme (`<scope>-<project-b
 Blob store location:
 
 ```text
-~/.omp/agent/blobs/<sha256>
+~/.scient-agent/agent/blobs/<sha256>
 ```
 
 Terminal breadcrumb files are written under:
 
 ```text
-~/.omp/agent/terminal-sessions/<terminal-id>
+~/.scient-agent/agent/terminal-sessions/<terminal-id>
 ```
 
 Breadcrumb content begins with cwd and session file path. Optional extra lines are `fresh` and `cwdstat <device> <inode>`. A fresh breadcrumb preserves an initially created, lazy session whose JSONL file does not exist yet, preventing `continueRecent()` from reopening the previous session. Explicit `newSession()` boundaries materialize their header before returning. The directory identity permits automatic re-rooting after a same-filesystem project rename; a missing cwd alone is not move evidence. Writes are synchronous, ordered, and best-effort.
@@ -593,7 +593,7 @@ Discovery helpers live in `session-listing.ts`; `SessionManager` exposes project
 
 `HistoryStorage` (`history-storage.ts`) is a separate SQLite subsystem for prompt recall/search, not session replay.
 
-- DB: `~/.omp/agent/history.db`
+- DB: `~/.scient-agent/agent/history.db`
 - Table: `history(id, prompt, created_at, cwd, session_id, use_count)`, with unique `prompt`
 - FTS5 index: `history_fts`; new prompts are indexed by an insert trigger
 - Normalizes line endings and surrounding/trailing whitespace, then deduplicates prompts across the database

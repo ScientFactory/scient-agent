@@ -49,12 +49,12 @@ describe("global --profile flag", () => {
 	beforeEach(() => {
 		originalProfile = getActiveProfile();
 		originalAgentDir = getAgentDir();
-		originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfileEnv = process.env.OMP_PROFILE;
-		originalPiProfileEnv = process.env.PI_PROFILE;
-		originalConfigDir = process.env.PI_CONFIG_DIR;
-		configDir = `.omp-profile-cli-test-${Snowflake.next()}`;
-		process.env.PI_CONFIG_DIR = configDir;
+		originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
+		originalOmpProfileEnv = process.env.SCIENT_AGENT_PROFILE;
+		originalPiProfileEnv = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
+		originalConfigDir = process.env.SCIENT_AGENT_CONFIG_DIR;
+		configDir = `.scient-agent-profile-cli-test-${Snowflake.next()}`;
+		process.env.SCIENT_AGENT_CONFIG_DIR = configDir;
 		process.exitCode = 0;
 	});
 
@@ -62,9 +62,9 @@ describe("global --profile flag", () => {
 		vi.restoreAllMocks();
 		setProfile(undefined);
 		if (originalConfigDir === undefined) {
-			delete process.env.PI_CONFIG_DIR;
+			delete process.env.SCIENT_AGENT_CONFIG_DIR;
 		} else {
-			process.env.PI_CONFIG_DIR = originalConfigDir;
+			process.env.SCIENT_AGENT_CONFIG_DIR = originalConfigDir;
 		}
 		if (originalProfile) {
 			setProfile(originalProfile);
@@ -74,19 +74,19 @@ describe("global --profile flag", () => {
 			setProfile(undefined);
 		}
 		if (originalOmpProfileEnv === undefined) {
-			delete process.env.OMP_PROFILE;
+			delete process.env.SCIENT_AGENT_PROFILE;
 		} else {
-			process.env.OMP_PROFILE = originalOmpProfileEnv;
+			process.env.SCIENT_AGENT_PROFILE = originalOmpProfileEnv;
 		}
 		if (originalPiProfileEnv === undefined) {
-			delete process.env.PI_PROFILE;
+			delete process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		} else {
-			process.env.PI_PROFILE = originalPiProfileEnv;
+			process.env.SCIENT_AGENT_PROFILE_FALLBACK = originalPiProfileEnv;
 		}
 		if (originalAgentDirEnv === undefined) {
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		} else {
-			process.env.PI_CODING_AGENT_DIR = originalAgentDirEnv;
+			process.env.SCIENT_AGENT_DIR = originalAgentDirEnv;
 		}
 		__resetProfileSnapshotForTests();
 		process.exitCode = 0;
@@ -104,11 +104,11 @@ describe("global --profile flag", () => {
 		expect(getAgentDir()).toBe(path.join(os.homedir(), configDir, "profiles", "work", "agent"));
 	});
 
-	it("activates a profile inherited from OMP_PROFILE at run time", async () => {
+	it("activates a profile inherited from SCIENT_AGENT_PROFILE at run time", async () => {
 		const writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
 		setProfile(undefined);
-		process.env.OMP_PROFILE = "work";
-		delete process.env.PI_PROFILE;
+		process.env.SCIENT_AGENT_PROFILE = "work";
+		delete process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 
 		await runCli(["--version"]);
 
@@ -161,7 +161,7 @@ describe("global --profile flag", () => {
 		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-profile-cli-env-"));
 		try {
 			const home = path.join(root, "home");
-			const configDir = ".omp-profile-cli-env";
+			const configDir = ".scient-agent-profile-cli-env";
 			const defaultAgentDir = path.join(home, configDir, "agent");
 			const profileAgentDir = path.join(home, configDir, "profiles", "work", "agent");
 			await fs.mkdir(defaultAgentDir, { recursive: true });
@@ -182,13 +182,13 @@ describe("global --profile flag", () => {
 			const childEnv: Record<string, string | undefined> = {
 				...process.env,
 				HOME: home,
-				PI_CONFIG_DIR: configDir,
+				SCIENT_AGENT_CONFIG_DIR: configDir,
 				PI_NO_TITLE: "1",
 				NO_COLOR: "1",
 			};
-			delete childEnv.OMP_PROFILE;
-			delete childEnv.PI_PROFILE;
-			delete childEnv.PI_CODING_AGENT_DIR;
+			delete childEnv.SCIENT_AGENT_PROFILE;
+			delete childEnv.SCIENT_AGENT_PROFILE_FALLBACK;
+			delete childEnv.SCIENT_AGENT_DIR;
 			delete childEnv.OMP_PROFILE_BOOTSTRAP_SENTINEL;
 
 			const proc = Bun.spawn([process.execPath, probePath], {
@@ -213,7 +213,7 @@ describe("global --profile flag", () => {
 		// transpile of the CLI graph, not latency under test.
 	}, 30_000);
 
-	it("surfaces an invalid OMP_PROFILE env as a clean error, not an import crash", async () => {
+	it("surfaces an invalid SCIENT_AGENT_PROFILE env as a clean error, not an import crash", async () => {
 		const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-profile-cli-env-bad-"));
 		try {
 			const home = path.join(root, "home");
@@ -235,12 +235,12 @@ describe("global --profile flag", () => {
 			const childEnv: Record<string, string | undefined> = {
 				...process.env,
 				HOME: home,
-				PI_CONFIG_DIR: ".omp-profile-cli-env-bad",
-				OMP_PROFILE: "..",
+				SCIENT_AGENT_CONFIG_DIR: ".scient-agent-profile-cli-env-bad",
+				SCIENT_AGENT_PROFILE: "..",
 				NO_COLOR: "1",
 			};
-			delete childEnv.PI_PROFILE;
-			delete childEnv.PI_CODING_AGENT_DIR;
+			delete childEnv.SCIENT_AGENT_PROFILE_FALLBACK;
+			delete childEnv.SCIENT_AGENT_DIR;
 
 			const proc = Bun.spawn([process.execPath, probePath], {
 				cwd: repoRoot,
