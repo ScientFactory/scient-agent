@@ -88,6 +88,14 @@ export interface CleanupStaleNativeVersionsInput {
 
 export function cleanupStaleNativeVersions(input: CleanupStaleNativeVersionsInput): string[];
 
+export interface CleanupStaleNativeBuildsInput {
+	/** The package version's directory, holding one directory per build. */
+	versionDir: string;
+	currentBuildId: string;
+}
+
+export function cleanupStaleNativeBuilds(input: CleanupStaleNativeBuildsInput): string[];
+
 export function prepareNativeVersionDir(versionedDir: string): void;
 
 export interface ExtractEmbeddedAddonArchiveInput {

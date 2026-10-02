@@ -56,7 +56,14 @@ function startupMarker(text) {
 	}
 }
 
+/**
+ * Local copy of the pi-utils config-root rules (this loader cannot depend on
+ * pi-utils): a host-assigned `SCIENT_AGENT_ROOT`, then the XDG data directory
+ * once it exists, then `~/.scient-agent`.
+ */
 function getNativesDir() {
+	const hostRoot = process.env.SCIENT_AGENT_ROOT;
+	if (hostRoot && path.isAbsolute(hostRoot)) return path.join(hostRoot, "natives");
 	// Match pi-utils directory overrides without depending on pi-utils.
 	const override = process.env.SCIENT_AGENT_NATIVES_DIR?.trim();
 	if (override) {
@@ -66,10 +73,10 @@ function getNativesDir() {
 		if (path.isAbsolute(dir)) return path.normalize(dir);
 	}
 	const xdgDataHome = process.env.XDG_DATA_HOME;
-	if (xdgDataHome && fs.existsSync(path.join(xdgDataHome, "omp"))) {
-		return path.join(xdgDataHome, "omp", "natives");
+	if (xdgDataHome && fs.existsSync(path.join(xdgDataHome, "scient-agent"))) {
+		return path.join(xdgDataHome, "scient-agent", "natives");
 	}
-	return path.join(os.homedir(), ".scient-agent", "natives");
+	return path.join(os.homedir(), process.env.SCIENT_AGENT_CONFIG_DIR || ".scient-agent", "natives");
 }
 
 function resolveLeafPackageDir(platformTag) {
@@ -254,6 +261,45 @@ export function cleanupStaleNativeVersions({ nativesDir, currentVersion }) {
 		try {
 			const stat = fs.statSync(targetPath);
 			if (Date.now() - stat.mtimeMs < NATIVE_CACHE_CLEANUP_GRACE_MS) continue;
+			fs.rmSync(targetPath, { recursive: true, force: true });
+			removed.push(targetPath);
+		} catch {
+			// Stale caches are opportunistic cleanup only.
+		}
+	}
+	return removed;
+}
+
+/**
+ * How long another build's extraction directory may sit unused before it is
+ * removed. Every start refreshes its own directory's timestamp, so builds in
+ * regular use (a stable app beside a development one) keep theirs.
+ */
+const NATIVE_BUILD_CLEANUP_GRACE_MS = 7 * 24 * 60 * 60_000;
+
+/**
+ * Remove other builds' extraction directories under this package version once
+ * they have been idle past the grace period. Best-effort, like
+ * {@link cleanupStaleNativeVersions}.
+ *
+ * @param {{ versionDir: string; currentBuildId: string }} input
+ * @returns {string[]}
+ */
+export function cleanupStaleNativeBuilds({ versionDir, currentBuildId }) {
+	const removed = [];
+	let entries;
+	try {
+		entries = fs.readdirSync(versionDir, { withFileTypes: true });
+	} catch {
+		return removed;
+	}
+
+	for (const entry of entries) {
+		if (!entry.isDirectory() || entry.name === currentBuildId) continue;
+		const targetPath = path.join(versionDir, entry.name);
+		try {
+			const stat = fs.statSync(targetPath);
+			if (Date.now() - stat.mtimeMs < NATIVE_BUILD_CLEANUP_GRACE_MS) continue;
 			fs.rmSync(targetPath, { recursive: true, force: true });
 			removed.push(targetPath);
 		} catch {
@@ -578,6 +624,9 @@ function maybeExtractEmbeddedAddon(ctx, errors) {
 	startupMarker("native:extractEmbeddedAddon:start");
 	try {
 		prepareNativeVersionDir(ctx.versionedDir);
+		// Version cleanup reads the version directory's own timestamp; a build
+		// directory inside it does not refresh that.
+		if (ctx.versionDir !== ctx.versionedDir) prepareNativeVersionDir(ctx.versionDir);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		errors.push(`embedded addon dir: ${message}`);
@@ -871,11 +920,15 @@ export function initLoaderContext(overrides = {}) {
 	const nativeDir = overrides.nativeDir ?? path.join(import.meta.dir, "..", "native");
 	const execDir = path.dirname(process.execPath);
 	const nativesDir = getNativesDir();
-	const versionedDir = path.join(nativesDir, packageVersion);
+	const versionDir = path.join(nativesDir, packageVersion);
+	// A compiled binary extracts into a directory named for its embedded addons'
+	// content. Two builds on one package version can embed different addons of
+	// equal size, and a size check alone would let one build load the other's.
+	const versionedDir = embeddedAddon?.buildId ? path.join(versionDir, embeddedAddon.buildId) : versionDir;
 	const userDataDir =
 		platform === "win32"
-			? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "omp")
-			: path.join(os.homedir(), ".local", "bin");
+			? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "scient-agent")
+			: path.join(os.homedir(), ".local", "share", "scient-agent");
 
 	const isCompiledBinary =
 		overrides.isCompiledBinary ??
@@ -937,6 +990,7 @@ export function initLoaderContext(overrides = {}) {
 		candidates,
 		isWorkspaceLoad,
 		nativesDir,
+		versionDir,
 	};
 }
 
@@ -949,7 +1003,15 @@ export function loadNative() {
 	const embeddedCandidate = maybeExtractEmbeddedAddon(ctx, errors);
 	const stagedCandidate = embeddedCandidate ? null : maybeStageNodeModulesAddon(ctx, errors);
 	const prepended = [embeddedCandidate, stagedCandidate].filter(c => typeof c === "string");
-	const runtimeCandidates = prepended.length > 0 ? [...prepended, ...ctx.candidates] : ctx.candidates;
+	// A binary that embeds its addon loads that addon or nothing. The other
+	// candidates are found by file name and package version alone, so an addon
+	// another product left beside the executable would pass for this one's.
+	const embedsAddon = ctx.isCompiledBinary && embeddedAddon?.platformTag === ctx.platformTag;
+	const runtimeCandidates = embedsAddon
+		? prepended
+		: prepended.length > 0
+			? [...prepended, ...ctx.candidates]
+			: ctx.candidates;
 
 	for (const candidate of runtimeCandidates) {
 		try {
@@ -959,6 +1021,9 @@ export function loadNative() {
 			installNativeTokioRuntime(bindings);
 			loadedAddon = describeLoadedAddon(bindings, candidate, ctx);
 	        cleanupStaleNativeVersions({ nativesDir: ctx.nativesDir, currentVersion: ctx.packageVersion });
+			if (embeddedAddon?.buildId) {
+				cleanupStaleNativeBuilds({ versionDir: ctx.versionDir, currentBuildId: embeddedAddon.buildId });
+			}
 			startupMarker("native:loadNative:done");
 			return bindings;
 		} catch (err) {

@@ -62,6 +62,7 @@ export async function embeddedAddonFiles({
 		const expected = candidates.map(candidate => `  - ${candidate.filename}`).join("\n");
 		throw new Error(`No native addons found for ${platformTag}. Expected one of:\n${expected}`);
 	}
+	const contentHash = new Bun.CryptoHasher("sha256");
 	for (const { filename, bytes } of available) {
 		// Pre-stamp addons (npm releases and main builds before the stamp slot)
 		// identify their release by the legacy export, which the loader accepts.
@@ -75,6 +76,11 @@ export async function embeddedAddonFiles({
 		}
 	}
 
+	for (const { filename, bytes } of available) {
+		contentHash.update(filename);
+		contentHash.update(bytes);
+	}
+	const buildId = contentHash.digest("hex").slice(0, 16);
 	const archiveFilename = `embedded-addons.${platformTag}.tar.gz`;
 	const archive = new Bun.Archive(Object.fromEntries(available.map(({ filename, bytes }) => [filename, bytes])), {
 		compress: "gzip",
@@ -86,6 +92,7 @@ export async function embeddedAddonFiles({
 export const embeddedAddon = {
 	platformTag: ${JSON.stringify(platformTag)},
 	version: ${JSON.stringify(version)},
+	buildId: ${JSON.stringify(buildId)},
 	archive: { format: "tar.gz", filename: ${JSON.stringify(archiveFilename)}, filePath },
 	files: ${JSON.stringify(files)},
 };
