@@ -1,0 +1,115 @@
+name: Scient Agent
+
+# Builds the macOS Apple silicon binary on every push to a Scient branch and
+# checks that it keeps its state apart from a stock omp. A `v*` tag also
+# drafts a GitHub release with the binary and its checksum; a person
+# publishes the draft.
+
+on:
+   push:
+      branches: ["scient/**"]
+      tags: ["v*"]
+   pull_request:
+      branches: ["scient/**"]
+
+permissions:
+   contents: read
+
+concurrency:
+   group: scient-${{ github.ref }}
+   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+   build:
+      name: Build and check (darwin-arm64)
+      runs-on: macos-15
+      timeout-minutes: 120
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - name: Install build tools
+           run: brew install ninja
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Check that no Oh My Pi state name remains
+           run: bun scripts/scient/rename-identity.ts --check
+
+         - name: Type check and lint
+           run: bun run check:ts
+
+         - name: Build the native addon
+           run: bun run build:native
+
+         - name: Test the packages Scient changes
+           run: |
+              bun --cwd=packages/utils test
+              bun --cwd=packages/natives test
+
+         - name: Build the binary
+           run: bun --cwd=packages/coding-agent run build
+
+         - name: Check the release matches its tag
+           if: startsWith(github.ref, 'refs/tags/')
+           run: |
+              version="$(./packages/coding-agent/dist/scient-agent --version)"
+              test "$version" = "scient-agent/${GITHUB_REF_NAME#v}"
+
+         - name: Check state isolation
+           run: bun scripts/scient/isolation-check.ts packages/coding-agent/dist/scient-agent
+
+         - name: Sign and notarize
+           if: startsWith(github.ref, 'refs/tags/')
+           env:
+              APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+              APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+              APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+              APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+              APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+           run: |
+              if [ -z "$APPLE_CERTIFICATE_P12" ]; then
+                 echo "::error::A release needs the Apple signing secrets; an ad-hoc signed binary is not publishable."
+                 exit 1
+              fi
+              bash scripts/ci-macos-sign.sh packages/coding-agent/dist/scient-agent
+
+         - name: Package
+           run: |
+              mkdir -p release
+              cp packages/coding-agent/dist/scient-agent release/scient-agent-darwin-arm64
+              cd release
+              shasum -a 256 scient-agent-darwin-arm64 > scient-agent-darwin-arm64.sha256
+              cat scient-agent-darwin-arm64.sha256
+
+         - uses: actions/upload-artifact@v4
+           with:
+              name: scient-agent-darwin-arm64
+              path: release/
+              if-no-files-found: error
+
+   release:
+      name: Draft release
+      if: startsWith(github.ref, 'refs/tags/')
+      needs: build
+      runs-on: ubuntu-24.04
+      permissions:
+         contents: write
+      steps:
+         - uses: actions/download-artifact@v4
+           with:
+              name: scient-agent-darwin-arm64
+              path: release
+         - name: Create the draft release
+           env:
+              GH_TOKEN: ${{ github.token }}
+           run: |
+              gh release create "$GITHUB_REF_NAME" release/* \
+                 --repo "$GITHUB_REPOSITORY" \
+                 --draft \
+                 --title "Scient Agent ${GITHUB_REF_NAME#v}" \
+                 --notes "Built from ${GITHUB_SHA}."
