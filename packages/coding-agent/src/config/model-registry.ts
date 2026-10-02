@@ -959,10 +959,14 @@ export class ModelRegistry {
 	 * them only when a provider returns models. This depends on neither.
 	 */
 	reapplySignInProjections(): void {
-		// Not composed yet: the next read composes with the current sign-ins.
+		// Both caches hold models composed with the old sign-ins, and both outlive
+		// a full snapshot: per-provider lookups, and the interned objects a later
+		// composition would hand back in place of the hooks' output.
+		this.#providerLookupSnapshots.clear();
+		this.#internedStaticModels.clear();
+		// Not composed: the next read composes with the current sign-ins.
 		if (!this.#hasFullSnapshot) return;
 		this.#models = this.#withCatalogMetrics(this.#applyRuntimeModelModifiers(this.#unprojectedModels));
-		this.#providerLookupSnapshots.clear();
 	}
 
 	/**

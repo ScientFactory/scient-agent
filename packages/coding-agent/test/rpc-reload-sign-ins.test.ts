@@ -14,6 +14,41 @@ const PROVIDER = "anthropic";
 const PROVIDER_ENV = ["ANTHROPIC_API_KEY", "ANTHROPIC_OAUTH_TOKEN"];
 const EXTENSION = "ext://reload-sign-ins";
 
+/** An extension provider whose real catalog comes from its sign-in: the
+ * registered model is a placeholder, and the hook swaps in what the account
+ * has. It has no discovery of its own. */
+const EXTENSION_PROVIDER = "reload-sign-ins-provider";
+const extensionProviderConfig = (): ProviderConfigInput => ({
+	api: "reload-sign-ins-api",
+	baseUrl: "https://example.invalid/",
+	streamSimple: () => ({}) as unknown as AssistantMessageEventStream,
+	models: [
+		{
+			id: "placeholder",
+			name: "Placeholder",
+			reasoning: false,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128_000,
+			maxTokens: 8192,
+		},
+	],
+	oauth: {
+		name: "Reload sign-ins",
+		login: async () => ({ access: "a", refresh: "r", expires: Date.now() + 60_000 }),
+		refreshToken: async credentials => credentials,
+		getApiKey: credentials => credentials.access,
+		modifyModels: models => [
+			...models.filter(model => model.provider !== EXTENSION_PROVIDER),
+			{
+				...(models.find(model => model.provider === EXTENSION_PROVIDER) as Model<Api>),
+				id: "from-the-account",
+				name: "From the account",
+			},
+		],
+	},
+});
+
 describe("reloadSignIns", () => {
 	let dir: string;
 	let session: AuthStorage;
@@ -95,6 +130,19 @@ describe("reloadSignIns", () => {
 		expect(hasDiscovered()).toBe(true);
 	});
 
+	const signInElsewhere = () =>
+		otherProcess.credentials.set(EXTENSION_PROVIDER, {
+			type: "oauth",
+			access: "access-token",
+			refresh: "refresh-token",
+			expires: Date.now() + 60_000,
+		});
+	const extensionModels = () =>
+		registry
+			.getAvailable()
+			.filter(model => model.provider === EXTENSION_PROVIDER)
+			.map(model => model.id);
+
 	it.each([
 		["no models file", false],
 		["an unchanged models file", true],
@@ -107,59 +155,30 @@ describe("reloadSignIns", () => {
 				fs.writeFileSync(path.join(dir, "models.yaml"), "providers: {}\n");
 				registry = new ModelRegistry(session, path.join(dir, "models.yaml"));
 			}
-			// An extension provider whose real catalog comes from its sign-in: the
-			// registered model is a placeholder, and the hook swaps in what the account
-			// has. It has no discovery of its own, so only a recomposition runs the hook.
-			const extensionProvider = "reload-sign-ins-provider";
-			const config: ProviderConfigInput = {
-				api: "reload-sign-ins-api",
-				baseUrl: "https://example.invalid/",
-				streamSimple: () => ({}) as unknown as AssistantMessageEventStream,
-				models: [
-					{
-						id: "placeholder",
-						name: "Placeholder",
-						reasoning: false,
-						input: ["text"],
-						cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-						contextWindow: 128_000,
-						maxTokens: 8192,
-					},
-				],
-				oauth: {
-					name: "Reload sign-ins",
-					login: async () => ({ access: "a", refresh: "r", expires: Date.now() + 60_000 }),
-					refreshToken: async credentials => credentials,
-					getApiKey: credentials => credentials.access,
-					modifyModels: models => [
-						...models.filter(model => model.provider !== extensionProvider),
-						{
-							...(models.find(model => model.provider === extensionProvider) as Model<Api>),
-							id: "from-the-account",
-							name: "From the account",
-						},
-					],
-				},
-			};
-			registry.registerProvider(extensionProvider, config, EXTENSION);
-			const ids = () =>
-				registry
-					.getAvailable()
-					.filter(model => model.provider === extensionProvider)
-					.map(model => model.id);
-			expect(ids()).toEqual([]);
+			registry.registerProvider(EXTENSION_PROVIDER, extensionProviderConfig(), EXTENSION);
+			expect(extensionModels()).toEqual([]);
 
-			await otherProcess.credentials.set(extensionProvider, {
-				type: "oauth",
-				access: "access-token",
-				refresh: "refresh-token",
-				expires: Date.now() + 60_000,
-			});
-			await reloadSignIns(registry, extensionProvider);
+			await signInElsewhere();
+			await reloadSignIns(registry, EXTENSION_PROVIDER);
 
-			expect(ids()).toEqual(["from-the-account"]);
+			expect(extensionModels()).toEqual(["from-the-account"]);
 		},
 	);
+
+	it("applies that hook when the registry had gone back to composing lazily", async () => {
+		registry.registerProvider(EXTENSION_PROVIDER, extensionProviderConfig(), EXTENSION);
+		// A refresh with no models file leaves the registry without a full
+		// snapshot; a lookup then caches the placeholder for this provider.
+		await registry.refresh("offline");
+		expect(registry.find(EXTENSION_PROVIDER, "placeholder")).toBeDefined();
+
+		await signInElsewhere();
+		await reloadSignIns(registry, EXTENSION_PROVIDER);
+
+		expect(registry.find(EXTENSION_PROVIDER, "from-the-account")).toBeDefined();
+		expect(registry.find(EXTENSION_PROVIDER, "placeholder")).toBeUndefined();
+		expect(extensionModels()).toEqual(["from-the-account"]);
+	});
 
 	it("leaves the registry as it was when nothing new was stored", async () => {
 		await reloadSignIns(registry, PROVIDER);
