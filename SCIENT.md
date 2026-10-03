@@ -38,24 +38,30 @@ Left as upstream, on purpose:
 - The terminal interface's π logo and icon: the symbol has no terminal drawing yet. Scient drives the agent over RPC, where neither shows.
 - The built-in welcome image, changelogs and READMEs, and the names of tuning variables (`PI_*`, `OMP_*`) where the documentation mentions them.
 
-## Branches and upstream intake
+## Branches, releases and upstream updates
 
-- `upstream` is a fetch-only remote. Scient work lives on one branch per upstream release, named `scient/<upstream version>`: the upstream tag plus Scient's commits. Published branches and tags are never rewritten.
-- Scient's commits come in three kinds: the scripts under `scripts/scient/`, the two generated commits (the output of `rename-identity.ts`, and the output of `rename-wording.ts`, each with nothing else in it), and hand-written changes.
+- `main` holds Scient Agent. Changes reach it through pull requests that keep their commits (rebase merge; history stays linear). A release is a `v<version>` tag on `main` that matches `scient.json`: `v0.1.0`, `v0.1.1`, ...
+- Scient's commits come in three kinds: the scripts under `scripts/scient/`, generated commits (the output of `rename-identity.ts` or `rename-wording.ts` and nothing else, subject ending in `(generated)`), and hand-written changes. A pull request that changes what a script produces carries the output as its own `(generated)` commit.
+- `upstream` is a fetch-only remote for Oh My Pi. `scient/18.4.8` is the branch the work started on, kept as it was.
 
-To move to a newer upstream release:
+Taking a newer Oh My Pi release is one pull request. Scient's work is replayed onto the new release, generated commits are regenerated rather than replayed, and the result replaces `main`'s tree:
 
 ```sh
 git fetch --no-tags upstream "refs/tags/v<new>:refs/upstream-tags/v<new>"
-git switch -c scient/<new> refs/upstream-tags/v<new>
+git switch -c omp-sync/v<new> refs/upstream-tags/v<new>
 git cherry-pick <the commits that add the scripts>
 bun install --frozen-lockfile
-bun scripts/scient/rename-identity.ts      # regenerates the first generated commit; commit the result
+bun scripts/scient/rename-identity.ts      # commit the result as "(generated)"
 git cherry-pick <each hand-written commit, in order>
-bun scripts/scient/rename-wording.ts       # regenerates the second generated commit; commit the result
+bun scripts/scient/rename-wording.ts       # commit the result as "(generated)"
+# update scient.json, run the checks, then:
+git tag omp-sync/v<new>                    # keeps the replayed commits for the next update
+git switch -c sync/omp-v<new> main
+git read-tree -u --reset omp-sync/v<new>
+git commit -m "sync: Oh My Pi <new>"       # open the pull request from this branch
 ```
 
-Then update `scient.json`, and run the checks below. Do not cherry-pick a generated commit: regenerate it. `rename-wording.ts` stops when a label it lists by hand is no longer in the source; look at what upstream did with it and fix the list.
+The commits to replay are the Scient commits of the last `omp-sync/*` tag (or of `scient/18.4.8` before the first update) followed by the commits on `main` after its last `sync:` commit, leaving out generated ones. `rename-wording.ts` stops when a text it lists by hand is no longer in the source; look at what upstream did with it and fix the list.
 
 ## Build
 
@@ -86,4 +92,6 @@ Upstream's tests are rewritten together with the wording they expect. The rest o
 
 ## Release
 
-`.github/workflows/scient.yml` builds and checks macOS Apple silicon on every push to a `scient/**` branch. Pushing a `v<version>` tag that matches `scient.json` also signs, notarizes and drafts a GitHub release with the binary and its SHA-256. A person publishes the draft. Other platforms are not built yet.
+`.github/workflows/scient.yml` builds and checks macOS Apple silicon on every push to `main` and on every pull request into it. Pushing a `v<version>` tag that matches `scient.json` also signs, notarizes and drafts a GitHub release with the binary and its SHA-256. A person publishes the draft. Other platforms are not built yet.
+
+Signing uses the same five repository secrets, in the same form, as Scient Desktop's release: `CSC_LINK` (the Developer ID Application certificate as a base64 `.p12`), `CSC_KEY_PASSWORD`, `APPLE_API_KEY` (the App Store Connect `.p8` key's text), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`.
