@@ -67,9 +67,18 @@ export function detectHostMusl(): boolean {
 	}
 }
 
-/** Detect whether this x86-64 host can run the modern AVX2 addon. */
+/**
+ * Detect whether this x86-64 host can run the modern AVX2 addon.
+ *
+ * Scient: `PI_NATIVE_X64_VARIANT` (`baseline` or `modern`) overrides the
+ * detection, so a release build on an AVX2 machine can also produce the
+ * baseline addon that older processors need.
+ */
 export function detectHostAvx2Support(): boolean {
 	if (process.arch !== "x64") return false;
+	const forced = Bun.env.PI_NATIVE_X64_VARIANT;
+	if (forced === "baseline" || forced === "modern") return forced === "modern";
+	if (forced) throw new Error(`PI_NATIVE_X64_VARIANT must be "baseline" or "modern", not ${JSON.stringify(forced)}`);
 
 	if (process.platform === "linux") {
 		try {
