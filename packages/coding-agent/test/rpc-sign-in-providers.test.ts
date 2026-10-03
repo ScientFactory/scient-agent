@@ -68,8 +68,13 @@ describe("sign-in providers", () => {
 			refresh: "refresh-token",
 			expires: Date.now() + 60_000,
 		});
-		expect(entry("openai-codex")).toMatchObject({ authenticated: true, stored: true });
-		expect(entry("openai-codex-device")).toMatchObject({ authenticated: true, stored: true });
+		// One account, two ways to sign in: a host shows it once by `store`.
+		expect(entry("openai-codex")).toMatchObject({ authenticated: true, stored: true, store: "openai-codex" });
+		expect(entry("openai-codex-device")).toMatchObject({
+			authenticated: true,
+			stored: true,
+			store: "openai-codex",
+		});
 		expect(entry("deepseek")).toMatchObject({ authenticated: false, stored: false });
 	});
 

@@ -265,6 +265,12 @@ export interface RpcLoginProvider {
 	kind: "account" | "key";
 	/** Scient: a sign-in is stored for it, so `logout` has something to remove. */
 	stored: boolean;
+	/**
+	 * Scient: the id its sign-in is stored under. Entries with the same `store`
+	 * are ways to sign in to one account (the ChatGPT browser and device flows
+	 * both store `openai-codex`), and share their status and their sign-out.
+	 */
+	store: string;
 }
 
 // ============================================================================

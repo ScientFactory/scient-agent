@@ -56,6 +56,7 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
 			authenticated: authStorage.keys.source(storeId) !== undefined,
 			kind: signInKind(provider.id),
 			stored: !heldByBroker && authStorage.credentials.has(storeId),
+			store: storeId,
 		};
 	});
 }
