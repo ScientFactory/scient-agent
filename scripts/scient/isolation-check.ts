@@ -194,11 +194,16 @@ function checkProtocol(label: string, run: RpcRun): void {
 	}
 }
 
-/** The agent shell's environment, from the `env` output of the bash response. */
+/**
+ * The agent shell's environment, from the `env` output of the bash response.
+ * Reads the decoded output, not the JSON text, so values keep their own
+ * characters (Windows paths carry backslashes that JSON would escape).
+ */
 function shellEnvironment(run: RpcRun): string[] {
-	const text = JSON.stringify(response(run, "env") ?? {});
+	const data = response(run, "env")?.data as { output?: unknown } | undefined;
+	const text = typeof data?.output === "string" ? data.output : "";
 	const start = text.indexOf(SHELL_ENV_MARKER);
-	return start === -1 ? [] : text.slice(start).split("\\n");
+	return start === -1 ? [] : text.slice(start).split(/\r?\n/);
 }
 
 function checkShellEnvironment(label: string, run: RpcRun, inherited: Record<string, string>): void {
