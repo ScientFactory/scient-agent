@@ -1,8 +1,9 @@
 name: Scient Agent
 
-# Builds the macOS Apple silicon binary on every push to main and every pull
-# request into it, and checks that it keeps its state apart from a stock omp. A `v*` tag also
-# drafts a GitHub release with the binary and its checksum; a person
+# Builds Scient Agent for every platform it supports on every push to main and
+# every pull request into it, and checks that each build keeps its state apart
+# from a stock omp. A `v*` tag also signs and notarizes the macOS builds and
+# drafts a GitHub release with every binary and its checksum; a person
 # publishes the draft.
 
 on:
@@ -19,11 +20,26 @@ concurrency:
    group: scient-${{ github.ref }}
    cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
+defaults:
+   run:
+      # Windows runners default to PowerShell.
+      shell: bash
+
 jobs:
    build:
-      name: Build and check (darwin-arm64)
-      runs-on: macos-15
-      timeout-minutes: 120
+      name: Build and check (${{ matrix.id }})
+      runs-on: ${{ matrix.runner }}
+      timeout-minutes: 150
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { id: darwin-arm64, runner: macos-15, x64: false }
+               - { id: darwin-x64, runner: macos-15-intel, x64: true }
+               - { id: linux-x64, runner: ubuntu-22.04, x64: true }
+               - { id: linux-arm64, runner: ubuntu-22.04-arm, x64: false }
+               - { id: windows-x64, runner: windows-2022, x64: true }
+               - { id: windows-arm64, runner: windows-11-arm, x64: false }
       steps:
          - uses: actions/checkout@v4
 
@@ -32,24 +48,37 @@ jobs:
               bun-version: 1.4.2
 
          - name: Install build tools
-           run: brew install ninja
+           run: |
+              case "$RUNNER_OS" in
+                 macOS) brew install ninja ;;
+                 Linux) sudo apt-get update && sudo apt-get install -y ninja-build ;;
+                 Windows) choco install ninja -y --no-progress ;;
+              esac
+              rustup show active-toolchain || rustup toolchain install
 
          - name: Install dependencies
            run: bun install --frozen-lockfile
 
-         - name: Check that no Oh My Pi state name remains
-           run: bun scripts/scient/rename-identity.ts --check
+         - name: Check the generated commits and types
+           if: matrix.id == 'darwin-arm64'
+           run: |
+              bun scripts/scient/rename-identity.ts --check
+              bun scripts/scient/rename-wording.ts --check
+              bun run check:ts
 
-         - name: Check that the agent's wording names Scient Agent
-           run: bun scripts/scient/rename-wording.ts --check
-
-         - name: Type check and lint
-           run: bun run check:ts
-
+         # On x86-64 the binary carries two addons and picks one at startup:
+         # `modern` (AVX2) and `baseline`, for processors without AVX2.
          - name: Build the native addon
-           run: bun run build:native
+           run: |
+              if [ "${{ matrix.x64 }}" = "true" ]; then
+                 PI_NATIVE_X64_VARIANT=baseline bun run build:native
+                 PI_NATIVE_X64_VARIANT=modern bun run build:native
+              else
+                 bun run build:native
+              fi
 
          - name: Test the packages Scient changes
+           if: matrix.id == 'darwin-arm64'
            run: |
               bun --cwd=packages/utils test
               bun --cwd=packages/natives test
@@ -57,19 +86,24 @@ jobs:
               bun --cwd=packages/ai test test/scient-callback-page.test.ts
 
          - name: Build the binary
-           run: bun --cwd=packages/coding-agent run build
+           run: |
+              bun --cwd=packages/coding-agent run build
+              binary=packages/coding-agent/dist/scient-agent
+              [ -f "$binary.exe" ] && binary="$binary.exe"
+              echo "BINARY=$binary" >> "$GITHUB_ENV"
+              "$binary" --version < /dev/null
 
          - name: Check the release matches its tag
            if: startsWith(github.ref, 'refs/tags/')
            run: |
-              version="$(./packages/coding-agent/dist/scient-agent --version)"
+              version="$("$BINARY" --version < /dev/null)"
               test "$version" = "scient-agent/${GITHUB_REF_NAME#v}"
 
          - name: Check state isolation
-           run: bun scripts/scient/isolation-check.ts packages/coding-agent/dist/scient-agent
+           run: bun scripts/scient/isolation-check.ts "$BINARY"
 
          - name: Sign and notarize
-           if: startsWith(github.ref, 'refs/tags/')
+           if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS'
            # The same secrets, in the same form, as Scient Desktop's release.
            env:
               CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -89,19 +123,20 @@ jobs:
               APPLE_CERTIFICATE_PASSWORD="$CSC_KEY_PASSWORD" \
               APPLE_API_KEY="$(printf '%s' "$APPLE_API_KEY_TEXT" | base64 | tr -d '\n')" \
               APPLE_API_ISSUER_ID="$APPLE_API_ISSUER" \
-                 bash scripts/ci-macos-sign.sh packages/coding-agent/dist/scient-agent
+                 bash scripts/ci-macos-sign.sh "$BINARY"
 
          - name: Package
            run: |
+              name="scient-agent-${{ matrix.id }}"
+              [ "${{ runner.os }}" = "Windows" ] && name="$name.exe"
               mkdir -p release
-              cp packages/coding-agent/dist/scient-agent release/scient-agent-darwin-arm64
-              cd release
-              shasum -a 256 scient-agent-darwin-arm64 > scient-agent-darwin-arm64.sha256
-              cat scient-agent-darwin-arm64.sha256
+              cp "$BINARY" "release/$name"
+              bun -e 'const [file] = process.argv.slice(1); const hash = new Bun.CryptoHasher("sha256"); hash.update(await Bun.file(file).arrayBuffer()); console.log(`${hash.digest("hex")}  ${file.split("/").pop()}`);' "release/$name" > "release/$name.sha256"
+              cat "release/$name.sha256"
 
          - uses: actions/upload-artifact@v4
            with:
-              name: scient-agent-darwin-arm64
+              name: scient-agent-${{ matrix.id }}
               path: release/
               if-no-files-found: error
 
@@ -115,12 +150,14 @@ jobs:
       steps:
          - uses: actions/download-artifact@v4
            with:
-              name: scient-agent-darwin-arm64
+              pattern: scient-agent-*
               path: release
+              merge-multiple: true
          - name: Create the draft release
            env:
               GH_TOKEN: ${{ github.token }}
            run: |
+              ls -l release
               gh release create "$GITHUB_REF_NAME" release/* \
                  --repo "$GITHUB_REPOSITORY" \
                  --draft \
