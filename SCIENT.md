@@ -92,6 +92,6 @@ Upstream's tests are rewritten together with the wording they expect. The rest o
 
 ## Release
 
-`.github/workflows/scient.yml` builds and checks macOS Apple silicon on every push to `main` and on every pull request into it. Pushing a `v<version>` tag that matches `scient.json` also signs, notarizes and drafts a GitHub release with the binary and its SHA-256. A person publishes the draft. Other platforms are not built yet.
+`.github/workflows/scient.yml` builds and checks every platform on every push to `main` and on every pull request into it: macOS (Apple silicon and Intel), Linux (x86-64 and ARM64, glibc) and Windows (x86-64 and ARM64), each on its own GitHub-hosted runner, each with the isolation check. On x86-64 the binary carries the `modern` (AVX2) and `baseline` native addons (`PI_NATIVE_X64_VARIANT` builds each). Pushing a `v<version>` tag that matches `scient.json` also signs and notarizes the macOS builds and drafts a GitHub release with every binary and its SHA-256. A person publishes the draft. Not built yet: Linux with musl (Alpine). The Windows builds are not code-signed.
 
 Signing uses the same five repository secrets, in the same form, as Scient Desktop's release: `CSC_LINK` (the Developer ID Application certificate as a base64 `.p12`), `CSC_KEY_PASSWORD`, `APPLE_API_KEY` (the App Store Connect `.p8` key's text), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`.
