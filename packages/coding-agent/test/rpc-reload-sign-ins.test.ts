@@ -145,6 +145,51 @@ describe("reloadSignIns", () => {
 			.filter(model => model.provider === EXTENSION_PROVIDER)
 			.map(model => model.id);
 
+	it("reprojects a removed account even when its scoped discovery rejects", async () => {
+		const config = extensionProviderConfig();
+		if (!config.oauth) throw new Error("Missing OAuth fixture");
+		config.oauth.modifyModels = (models, credential) => [
+			...models.filter(model => model.provider !== EXTENSION_PROVIDER),
+			{
+				...(models.find(model => model.provider === EXTENSION_PROVIDER) as Model<Api>),
+				id: credential.access,
+				name: credential.access,
+			},
+		];
+		registry.registerProvider(EXTENSION_PROVIDER, config, EXTENSION);
+		for (const access of ["reject-account-a", "reject-account-b"]) {
+			await session.credentials.upsert(EXTENSION_PROVIDER, {
+				type: "oauth",
+				access,
+				refresh: access,
+				accountId: access,
+				expires: Date.now() + 60_000,
+			});
+		}
+		const before = session.credentials.getOAuth(EXTENSION_PROVIDER);
+		if (!before) throw new Error("Missing selected account");
+		expect(extensionModels()).toEqual([before.access]);
+		const row = session.credentials
+			.list(EXTENSION_PROVIDER)
+			.find(candidate => candidate.credential.type === "oauth" && candidate.credential.access === before.access);
+		if (!row) throw new Error("Missing row");
+		const discovery = vi
+			.spyOn(registry, "refreshDiscoverableProviders")
+			.mockRejectedValueOnce(new Error("Discovery unavailable"));
+		try {
+			await expect(logoutCredential(registry, EXTENSION_PROVIDER, row.id, "reject-proof")).rejects.toThrow(
+				"Discovery unavailable",
+			);
+			const after = session.credentials.getOAuth(EXTENSION_PROVIDER);
+			if (!after) throw new Error("Remaining account disappeared");
+			expect(after.access).not.toBe(before.access);
+			expect(extensionModels()).toEqual([after.access]);
+			expect(registry.find(EXTENSION_PROVIDER, before.access)).toBeUndefined();
+		} finally {
+			discovery.mockRestore();
+		}
+	});
+
 	it.each([false, true])(
 		"account logout reprojects hooks and preserves unrelated discovery (models file: %s)",
 		async modelsFile => {
