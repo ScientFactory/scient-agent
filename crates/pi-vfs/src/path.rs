@@ -532,8 +532,7 @@ impl PathBuilder {
 			let mut out = self
 				.root
 				.clone()
-				.map(PathBuf::into_os_string)
-				.unwrap_or_default();
+				.map_or_else(OsString::new, PathBuf::into_os_string);
 			for (i, seg) in self.segments.iter().enumerate() {
 				if i > 0 {
 					out.push("/");
