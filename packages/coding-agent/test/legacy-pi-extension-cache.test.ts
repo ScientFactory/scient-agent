@@ -11,15 +11,20 @@ const tempDirs: TempDir[] = [];
 
 async function runProbe(cacheRoot: string, script: string = probePath, args: string[] = []): Promise<string> {
 	const env: Record<string, string | undefined> = { ...process.env, XDG_CACHE_HOME: cacheRoot };
-	for (const key of ["PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE", "PI_CONFIG_DIR"]) {
+	for (const key of [
+		"SCIENT_AGENT_DIR",
+		"SCIENT_AGENT_PROFILE",
+		"SCIENT_AGENT_PROFILE_FALLBACK",
+		"SCIENT_AGENT_CONFIG_DIR",
+	]) {
 		delete env[key];
 	}
 	// XDG is honored only on Linux/macOS; elsewhere point the config root
-	// (home/PI_CONFIG_DIR) at the same `<cacheRoot>/omp` layout.
+	// (home/SCIENT_AGENT_CONFIG_DIR) at the same `<cacheRoot>/omp` layout.
 	if (process.platform === "win32") {
 		env.HOME = cacheRoot;
 		env.USERPROFILE = cacheRoot;
-		env.PI_CONFIG_DIR = "omp";
+		env.SCIENT_AGENT_CONFIG_DIR = "omp";
 	}
 	const proc = Bun.spawn([process.execPath, script, ...args], {
 		cwd: path.resolve(import.meta.dir, "../.."),

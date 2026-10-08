@@ -83,7 +83,7 @@ describe("multiprocess file logging", () => {
 			await Bun.write(path.join(logsDir, rolloverName), rolloverName);
 			await fs.utimes(path.join(logsDir, rolloverName), 2, 2);
 			retainedNames.push(rolloverName);
-			await Bun.write(path.join(logsDir, `.omp.${pid}-audit.json`), "{}");
+			await Bun.write(path.join(logsDir, `.scient-agent.${pid}-audit.json`), "{}");
 		}
 
 		for (let restart = 0; restart < 2; restart++) {

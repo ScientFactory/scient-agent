@@ -322,7 +322,7 @@ export async function connectSharedLspTransport(opts: {
 export async function smokeTestLspMux(): Promise<void> {
 	const endpoint =
 		process.platform === "win32"
-			? `\\\\.\\pipe\\omp-lsp-mux-smoke-${process.pid.toString(16)}`
+			? `\\\\.\\pipe\\scient-agent-lsp-mux-smoke-${process.pid.toString(16)}`
 			: path.join(os.tmpdir(), `omp-lsp-mux-smoke-${process.pid.toString(36)}.sock`);
 	const spawn = resolveWorkerSpawnCmd(LSP_MUX_WORKER_ARG);
 	const proc = ptree.spawn(spawn.cmd, {

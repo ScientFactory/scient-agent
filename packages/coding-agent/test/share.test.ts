@@ -632,7 +632,7 @@ describe("share command", () => {
 			env: {
 				...process.env,
 				NO_COLOR: "1",
-				PI_CODING_AGENT_DIR: path.join(tempDir.path(), "agent"),
+				SCIENT_AGENT_DIR: path.join(tempDir.path(), "agent"),
 			},
 			stdout: "pipe",
 			stderr: "pipe",

@@ -7,11 +7,11 @@ import { __resetDirsFromEnvForTests, getAgentDir, getNativesDir } from "@oh-my-p
 const ENV_KEYS = [
 	"HOME",
 	"USERPROFILE",
-	"OMP_PROFILE",
-	"PI_PROFILE",
-	"PI_CONFIG_DIR",
-	"PI_CODING_AGENT_DIR",
-	"PI_NATIVES_DIR",
+	"SCIENT_AGENT_PROFILE",
+	"SCIENT_AGENT_PROFILE_FALLBACK",
+	"SCIENT_AGENT_CONFIG_DIR",
+	"SCIENT_AGENT_DIR",
+	"SCIENT_AGENT_NATIVES_DIR",
 	"XDG_DATA_HOME",
 	"XDG_STATE_HOME",
 	"XDG_CACHE_HOME",
@@ -57,8 +57,8 @@ describe("native directory override", () => {
 		await fs.mkdir(path.join(data, "omp", "profiles", "isolated"), { recursive: true });
 		process.env.XDG_CACHE_HOME = cache;
 		process.env.XDG_DATA_HOME = data;
-		process.env.PI_CONFIG_DIR = ".alternate";
-		process.env.OMP_PROFILE = "isolated";
+		process.env.SCIENT_AGENT_CONFIG_DIR = ".alternate";
+		process.env.SCIENT_AGENT_PROFILE = "isolated";
 		__resetDirsFromEnvForTests();
 		const defaultNatives = path.join(
 			xdgPlatform ? path.join(cache, "omp") : path.join(home, ".alternate"),
@@ -69,18 +69,18 @@ describe("native directory override", () => {
 		const agent = getAgentDir();
 		expect(getNativesDir()).toBe(defaultNatives);
 
-		process.env.PI_NATIVES_DIR = " " + shared + " ";
+		process.env.SCIENT_AGENT_NATIVES_DIR = " " + shared + " ";
 		expect(getNativesDir()).toBe(shared);
 		expect(getAgentDir()).toBe(agent);
 
-		delete process.env.PI_NATIVES_DIR;
+		delete process.env.SCIENT_AGENT_NATIVES_DIR;
 		expect(getNativesDir()).toBe(defaultNatives);
 	});
 
 	it("expands home-relative overrides instead of treating tilde as a cwd-relative path", () => {
-		process.env.PI_NATIVES_DIR = "~";
+		process.env.SCIENT_AGENT_NATIVES_DIR = "~";
 		expect(getNativesDir()).toBe(home);
-		process.env.PI_NATIVES_DIR = " ~/unused/../shared ";
+		process.env.SCIENT_AGENT_NATIVES_DIR = " ~/unused/../shared ";
 		expect(getNativesDir()).toBe(path.join(home, "shared"));
 	});
 
@@ -89,7 +89,7 @@ describe("native directory override", () => {
 		["whitespace", " \t "],
 		["relative", "relative/natives"],
 	])("keeps the existing cache root when the override is %s", (_label, override) => {
-		process.env.PI_NATIVES_DIR = override;
-		expect(getNativesDir()).toBe(path.join(home, ".omp", "natives"));
+		process.env.SCIENT_AGENT_NATIVES_DIR = override;
+		expect(getNativesDir()).toBe(path.join(home, ".scient-agent", "natives"));
 	});
 });

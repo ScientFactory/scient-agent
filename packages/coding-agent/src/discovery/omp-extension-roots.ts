@@ -159,7 +159,7 @@ interface ScopeDirs {
 
 function scopeDirs(ctx: LoadContext): ScopeDirs {
 	return {
-		project: path.join(ctx.cwd, ".omp"),
+		project: path.join(ctx.cwd, ".scient-agent"),
 		user: getAgentDir(),
 	};
 }
@@ -176,7 +176,7 @@ async function readSettingsExtensions(settingsPath: string): Promise<string[] | 
 	return readExtensionsArray(parsed?.extensions);
 }
 
-/** Project native config filename; matches the single `.omp/config.yml` the settings loader reads. */
+/** Project native config filename; matches the single `.scient-agent/config.yml` the settings loader reads. */
 const PROJECT_CONFIG_FILENAMES = ["config.yml"] as const;
 
 interface YamlExtensions {
@@ -267,8 +267,8 @@ async function isDirectory(p: string): Promise<boolean> {
  *    `merge` mode. Its provenance (`configuredLevel`) is carried from
  *    `Settings` (the authority that merges every project provider, incl.
  *    `.claude/settings.json`, and honors overlays/overrides), never re-derived
- *    from a partial `.omp` disk scan; scopeless callers read the persisted
- *    `.omp` config, which supplies its own level.
+ *    from a partial `.scient-agent` disk scan; scopeless callers read the persisted
+ *    `.scient-agent` config, which supplies its own level.
  * 3. Installed npm/link plugins under `<plugins>/node_modules/`, added only in
  *    `merge` mode. Marketplace installs load via the `claude-plugins` provider.
  *
@@ -300,7 +300,7 @@ export async function listOmpExtensionRoots(ctx: LoadContext): Promise<OmpExtens
 		// `Settings` — the authority that merges every project provider (incl.
 		// `.claude/settings.json`) and honors overlays/overrides — so trust the
 		// carried `configuredLevel` verbatim. When no session value is present,
-		// read the persisted `.omp` config on disk, which is the authoritative
+		// read the persisted `.scient-agent` config on disk, which is the authoritative
 		// source (and its own provenance) in that scopeless path.
 		const configuredEntries = ctx.extensionRoots?.configured ?? scopedRoots?.configuredExtensions;
 		const configured =

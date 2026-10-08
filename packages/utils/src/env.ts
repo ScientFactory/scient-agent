@@ -306,7 +306,7 @@ for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {
 	}
 }
 
-// Directory-affecting keys (XDG_*_HOME, and in default mode PI_CODING_AGENT_DIR)
+// Directory-affecting keys (XDG_*_HOME, and in default mode SCIENT_AGENT_DIR)
 // may have just arrived from the profile/agent `.env` applied above. The dirs
 // resolver cached its paths at module load — before this file ran — so rebuild
 // it now from the updated env. `getAgentDir()` already located the `.env` from

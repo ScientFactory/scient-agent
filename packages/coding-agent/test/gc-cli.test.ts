@@ -120,7 +120,7 @@ async function writeConfig(agentDir: string, body: string): Promise<void> {
 }
 
 async function writeProjectConfig(projectDir: string, body: string): Promise<void> {
-	const configDir = path.join(projectDir, ".omp");
+	const configDir = path.join(projectDir, ".scient-agent");
 	await fs.mkdir(configDir, { recursive: true });
 	await Bun.write(path.join(configDir, "config.yml"), body);
 }
@@ -294,7 +294,7 @@ describe("runGcCommand blob sweep", () => {
 
 		// A relative --session-dir transcript stored outside the managed roots.
 		const projectDir = path.join(root, "project");
-		const externalDir = path.join(projectDir, ".omp-sessions");
+		const externalDir = path.join(projectDir, ".scient-agent-sessions");
 		await fs.mkdir(externalDir, { recursive: true });
 		const externalFile = path.join(externalDir, "work.jsonl");
 		await Bun.write(

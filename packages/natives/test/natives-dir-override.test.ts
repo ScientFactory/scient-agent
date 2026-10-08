@@ -8,7 +8,7 @@ import packageJson from "../package.json" with { type: "json" };
 const ENV_KEYS = [
 	"HOME",
 	"USERPROFILE",
-	"PI_NATIVES_DIR",
+	"SCIENT_AGENT_NATIVES_DIR",
 	"XDG_DATA_HOME",
 	"PI_NATIVE_VARIANT",
 	"__PI_NATIVE_VARIANT_CACHE",
@@ -48,7 +48,7 @@ describe("native addon directory override", () => {
 		const shared = path.join(tempRoot, "shared");
 		const xdgData = path.join(tempRoot, "data");
 		await fs.mkdir(path.join(xdgData, "omp"), { recursive: true });
-		process.env.PI_NATIVES_DIR = ` ${shared} `;
+		process.env.SCIENT_AGENT_NATIVES_DIR = ` ${shared} `;
 
 		const ctx = initLoaderContext({ isCompiledBinary: true });
 		prepareNativeVersionDir(ctx.versionedDir);
@@ -62,10 +62,10 @@ describe("native addon directory override", () => {
 	});
 
 	it("expands home-relative overrides before appending the package version", () => {
-		process.env.PI_NATIVES_DIR = "~";
+		process.env.SCIENT_AGENT_NATIVES_DIR = "~";
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(path.join(home, packageJson.version));
 
-		process.env.PI_NATIVES_DIR = " ~/unused/../shared ";
+		process.env.SCIENT_AGENT_NATIVES_DIR = " ~/unused/../shared ";
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(
 			path.join(home, "shared", packageJson.version),
 		);
@@ -79,7 +79,7 @@ describe("native addon directory override", () => {
 		const xdgData = path.join(tempRoot, "data");
 		await fs.mkdir(path.join(xdgData, "omp"), { recursive: true });
 		process.env.XDG_DATA_HOME = xdgData;
-		process.env.PI_NATIVES_DIR = override;
+		process.env.SCIENT_AGENT_NATIVES_DIR = override;
 
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(
 			path.join(xdgData, "omp", "natives", packageJson.version),

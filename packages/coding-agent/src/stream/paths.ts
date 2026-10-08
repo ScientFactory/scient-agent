@@ -15,7 +15,7 @@ export async function streamSocketEndpoint(projectDir: string, options?: { creat
 	const canonical = await canonicalProjectDir(projectDir);
 	if (process.platform === "win32") {
 		const key = Bun.hash.wyhash(canonical).toString(16).padStart(16, "0");
-		return `\\\\.\\pipe\\omp-stream-${key}`;
+		return `\\\\.\\pipe\\scient-agent-stream-${key}`;
 	}
 	const runtimeDir = getDaemonRuntimeDir(canonical);
 	if (options?.create) await fs.mkdir(runtimeDir, { recursive: true, mode: 0o700 });

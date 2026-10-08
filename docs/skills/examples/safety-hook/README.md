@@ -13,12 +13,12 @@ This deliberately narrow regex also blocks targets such as `/tmp/example`. It do
 ## Install
 
 ```
-cp -r . ~/.omp/agent/extensions/safety-hook
+cp -r . ~/.scient-agent/agent/extensions/safety-hook
 ```
 
 Restart `omp`. The hook is active in sessions that load this extension.
 
-For a named profile, use that profile's agent extensions directory. `PI_CODING_AGENT_DIR` overrides the default profile's agent directory, not a named profile's. Initialized XDG roots can change these locations.
+For a named profile, use that profile's agent extensions directory. `SCIENT_AGENT_DIR` overrides the default profile's agent directory, not a named profile's. Initialized XDG roots can change these locations.
 
 Or load once:
 

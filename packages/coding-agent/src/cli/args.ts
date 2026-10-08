@@ -211,7 +211,7 @@ export function parseArgs(inputArgs: string[], extensionFlags?: Map<string, { ty
 		unknownFlags: new Map(),
 		unrecognizedFlags: [],
 		invalidFlagValues: [],
-		sessionDir: $env.PI_CODING_AGENT_SESSION_DIR || undefined,
+		sessionDir: $env.SCIENT_AGENT_SESSION_DIR || undefined,
 	};
 
 	// `--` ends option parsing (POSIX end-of-options). Everything after it is

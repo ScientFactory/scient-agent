@@ -22,7 +22,7 @@ describe("RPC queued-message editing", () => {
 		return new RpcClient({
 			command: [process.execPath, path.join(import.meta.dir, "fixtures", "queued-message-rpc-agent.ts")],
 			cwd: directory,
-			env: { PI_CODING_AGENT_DIR: directory, PI_NO_TITLE: "1", QUEUED_RPC_SCRIPT: script ?? "" },
+			env: { SCIENT_AGENT_DIR: directory, PI_NO_TITLE: "1", QUEUED_RPC_SCRIPT: script ?? "" },
 		});
 	}
 
@@ -336,7 +336,7 @@ describe("RPC queued-message editing", () => {
 				[process.execPath, path.join(import.meta.dir, "fixtures", "queued-message-rpc-agent.ts")],
 				{
 					cwd: directory,
-					env: { ...Bun.env, PI_CODING_AGENT_DIR: directory, PI_NO_TITLE: "1", QUEUED_RPC_SCRIPT: "hold" },
+					env: { ...Bun.env, SCIENT_AGENT_DIR: directory, PI_NO_TITLE: "1", QUEUED_RPC_SCRIPT: "hold" },
 					stdin: "pipe",
 					stdout: "pipe",
 					stderr: "ignore",

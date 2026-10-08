@@ -743,7 +743,8 @@ export const cfgGithubCacheEnabled = register({
 		tab: "tools",
 		group: "GitHub",
 		label: "GitHub View Cache",
-		description: "Cache rendered issue/PR view output in ~/.omp/cache/github-cache.db so repeated reads are free",
+		description:
+			"Cache rendered issue/PR view output in ~/.scient-agent/cache/github-cache.db so repeated reads are free",
 	},
 });
 

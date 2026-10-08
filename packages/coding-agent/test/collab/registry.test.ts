@@ -126,7 +126,7 @@ function rawRequest(endpoint: string, request: object): Promise<string> {
 function auxEndpoint(dir: string, label: string): string {
 	const id = crypto.randomBytes(4).toString("hex");
 	return process.platform === "win32"
-		? `\\\\.\\pipe\\omp-collab-test-${label}-${id}`
+		? `\\\\.\\pipe\\scient-agent-collab-test-${label}-${id}`
 		: path.join(dir, `${label}-${id}.sock`);
 }
 

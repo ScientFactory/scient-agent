@@ -56,7 +56,7 @@ describe("RPC goal command", () => {
 			command: [process.execPath, path.join(import.meta.dir, "fixtures", "goal-rpc-agent.ts")],
 			cwd: directory,
 			env: {
-				PI_CODING_AGENT_DIR: directory,
+				SCIENT_AGENT_DIR: directory,
 				PI_NO_TITLE: "1",
 				GOAL_RPC_CONTINUATION: options.continuation ? "1" : "0",
 				GOAL_RPC_SCRIPT: options.script ?? "complete",

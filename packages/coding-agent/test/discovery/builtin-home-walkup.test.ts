@@ -1,7 +1,7 @@
 /**
- * The native project walk-up must never treat `~/.omp` as a project config dir.
+ * The native project walk-up must never treat `~/.scient-agent` as a project config dir.
  * A cwd under home with no closer repo root (Windows temp dirs, scratch folders)
- * otherwise loads the user's ~/.omp/SYSTEM.md, RULES.md and AGENTS.md as project
+ * otherwise loads the user's ~/.scient-agent/SYSTEM.md, RULES.md and AGENTS.md as project
  * config, even when the agent dir points elsewhere (profiles, isolated runs).
  */
 import { afterEach, beforeEach, expect, test } from "bun:test";
@@ -22,7 +22,7 @@ import { __resetDirsFromEnvForTests, removeSyncWithRetries, setAgentDir } from "
 let tempDir: string;
 let home: string;
 // setAgentDir() rewrites these; restore them all so later test files see the original resolver.
-const ENV_KEYS = ["PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE"] as const;
+const ENV_KEYS = ["SCIENT_AGENT_DIR", "SCIENT_AGENT_PROFILE", "SCIENT_AGENT_PROFILE_FALLBACK"] as const;
 let savedEnv: Record<(typeof ENV_KEYS)[number], string | undefined>;
 
 function writeFile(filePath: string, content: string): void {
@@ -43,11 +43,11 @@ beforeEach(() => {
 	tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-home-walkup-"));
 	home = path.join(tempDir, "home");
 	// The user config root holds operator files; the active agent dir is isolated elsewhere.
-	writeFile(path.join(home, ".omp", "SYSTEM.md"), "operator system prompt\n");
-	writeFile(path.join(home, ".omp", "RULES.md"), "operator rule\n");
-	writeFile(path.join(home, ".omp", "AGENTS.md"), "operator agents\n");
+	writeFile(path.join(home, ".scient-agent", "SYSTEM.md"), "operator system prompt\n");
+	writeFile(path.join(home, ".scient-agent", "RULES.md"), "operator rule\n");
+	writeFile(path.join(home, ".scient-agent", "AGENTS.md"), "operator agents\n");
 	writeFile(
-		path.join(home, ".omp", "skills", "operator", "SKILL.md"),
+		path.join(home, ".scient-agent", "skills", "operator", "SKILL.md"),
 		"---\nname: operator\ndescription: operator skill\n---\nbody\n",
 	);
 	setAgentDir(path.join(tempDir, "isolated-agent"));
@@ -63,7 +63,7 @@ afterEach(() => {
 	removeSyncWithRetries(tempDir);
 });
 
-test("a cwd under home without a repo does not load ~/.omp files as project config", async () => {
+test("a cwd under home without a repo does not load ~/.scient-agent files as project config", async () => {
 	const cwd = path.join(home, "AppData", "Local", "Temp", "work");
 	fs.mkdirSync(cwd, { recursive: true });
 	const ctx: LoadContext = { cwd, home, repoRoot: null };
@@ -73,22 +73,22 @@ test("a cwd under home without a repo does not load ~/.omp files as project conf
 	const contexts = await loadNative<ContextFile>(contextFileCapability.id, ctx);
 	const skills = await loadNative<Skill>(skillCapability.id, ctx);
 
-	const fromHome = (p: string) => p.startsWith(path.join(home, ".omp") + path.sep);
+	const fromHome = (p: string) => p.startsWith(path.join(home, ".scient-agent") + path.sep);
 	expect(prompts.filter(p => fromHome(p.path))).toEqual([]);
 	expect(rules.filter(r => fromHome(r.path))).toEqual([]);
 	expect(contexts.filter(c => fromHome(c.path))).toEqual([]);
 	expect(skills.filter(s => fromHome(s.path))).toEqual([]);
 });
 
-test("a project .omp between cwd and home is still found", async () => {
+test("a project .scient-agent between cwd and home is still found", async () => {
 	const project = path.join(home, "scratch");
 	const cwd = path.join(project, "nested");
 	fs.mkdirSync(cwd, { recursive: true });
-	writeFile(path.join(project, ".omp", "SYSTEM.md"), "project system prompt\n");
+	writeFile(path.join(project, ".scient-agent", "SYSTEM.md"), "project system prompt\n");
 
 	const prompts = await loadNative<SystemPrompt>(systemPromptCapability.id, { cwd, home, repoRoot: null });
 
-	expect(prompts.map(p => [p.path, p.level])).toEqual([[path.join(project, ".omp", "SYSTEM.md"), "project"]]);
+	expect(prompts.map(p => [p.path, p.level])).toEqual([[path.join(project, ".scient-agent", "SYSTEM.md"), "project"]]);
 });
 
 test("noncanonical home never becomes a native project config root", async () => {
@@ -97,7 +97,7 @@ test("noncanonical home never becomes a native project config root", async () =>
 	const link = path.join(tempDir, "home-link");
 	fs.mkdirSync(cwd, { recursive: true });
 	fs.symlinkSync(home, link, "dir");
-	writeFile(path.join(project, ".omp", "SYSTEM.md"), "project system prompt\n");
+	writeFile(path.join(project, ".scient-agent", "SYSTEM.md"), "project system prompt\n");
 
 	for (const alias of [`${home}${path.sep}`, link]) {
 		const ctx: LoadContext = { cwd, home: alias, repoRoot: null };
@@ -105,11 +105,11 @@ test("noncanonical home never becomes a native project config root", async () =>
 		const rules = await loadNative<Rule>(ruleCapability.id, ctx);
 		const skills = await loadNative<Skill>(skillCapability.id, ctx);
 
-		expect(prompts.map(p => p.path)).toEqual([path.join(project, ".omp", "SYSTEM.md")]);
-		expect(rules.filter(rule => rule.path === path.join(home, ".omp", "RULES.md"))).toEqual([]);
-		expect(skills.filter(skill => skill.path === path.join(home, ".omp", "skills", "operator", "SKILL.md"))).toEqual(
-			[],
-		);
+		expect(prompts.map(p => p.path)).toEqual([path.join(project, ".scient-agent", "SYSTEM.md")]);
+		expect(rules.filter(rule => rule.path === path.join(home, ".scient-agent", "RULES.md"))).toEqual([]);
+		expect(
+			skills.filter(skill => skill.path === path.join(home, ".scient-agent", "skills", "operator", "SKILL.md")),
+		).toEqual([]);
 	}
 
 	const atHome: LoadContext = { cwd: home, home: link, repoRoot: null };
