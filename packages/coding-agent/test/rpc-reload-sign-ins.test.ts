@@ -166,6 +166,7 @@ describe("reloadSignIns", () => {
 				expires: Date.now() + 60_000,
 			});
 		}
+		registry.reapplySignInProjections();
 		const before = session.credentials.getOAuth(EXTENSION_PROVIDER);
 		if (!before) throw new Error("Missing selected account");
 		expect(extensionModels()).toEqual([before.access]);
