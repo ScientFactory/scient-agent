@@ -9,6 +9,7 @@ const ENV_KEYS = [
 	"HOME",
 	"USERPROFILE",
 	"SCIENT_AGENT_NATIVES_DIR",
+	"SCIENT_AGENT_ROOT",
 	"XDG_DATA_HOME",
 	"PI_NATIVE_VARIANT",
 	"__PI_NATIVE_VARIANT_CACHE",
@@ -47,7 +48,7 @@ describe("native addon directory override", () => {
 	it("places the versioned cache outside a fresh HOME and takes precedence over initialized XDG", async () => {
 		const shared = path.join(tempRoot, "shared");
 		const xdgData = path.join(tempRoot, "data");
-		await fs.mkdir(path.join(xdgData, "omp"), { recursive: true });
+		await fs.mkdir(path.join(xdgData, "scient-agent"), { recursive: true });
 		process.env.SCIENT_AGENT_NATIVES_DIR = ` ${shared} `;
 
 		const ctx = initLoaderContext({ isCompiledBinary: true });
@@ -58,7 +59,7 @@ describe("native addon directory override", () => {
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(ctx.versionedDir);
 		expect(await fs.readdir(shared)).toEqual([packageJson.version]);
 		expect(await fs.readdir(home)).toEqual([]);
-		expect(await fs.readdir(path.join(xdgData, "omp"))).toEqual([]);
+		expect(await fs.readdir(path.join(xdgData, "scient-agent"))).toEqual([]);
 	});
 
 	it("expands home-relative overrides before appending the package version", () => {
@@ -77,12 +78,21 @@ describe("native addon directory override", () => {
 		["relative", "relative/natives"],
 	])("falls back to XDG when the override is %s", async (_label, override) => {
 		const xdgData = path.join(tempRoot, "data");
-		await fs.mkdir(path.join(xdgData, "omp"), { recursive: true });
+		await fs.mkdir(path.join(xdgData, "scient-agent"), { recursive: true });
 		process.env.XDG_DATA_HOME = xdgData;
 		process.env.SCIENT_AGENT_NATIVES_DIR = override;
 
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(
-			path.join(xdgData, "omp", "natives", packageJson.version),
+			path.join(xdgData, "scient-agent", "natives", packageJson.version),
+		);
+	});
+
+	it("does not let a native cache override escape the host-assigned root", () => {
+		const hostRoot = path.join(tempRoot, "host-root");
+		process.env.SCIENT_AGENT_ROOT = hostRoot;
+		process.env.SCIENT_AGENT_NATIVES_DIR = path.join(tempRoot, "elsewhere");
+		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(
+			path.join(hostRoot, "natives", packageJson.version),
 		);
 	});
 });
