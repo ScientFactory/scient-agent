@@ -73,7 +73,9 @@ describe("XDG-aware runtime paths", () => {
 			expect(getSkillDescriptionsDbPath()).toBe(path.join(xdgData, "scient-agent", "skill-descriptions.db"));
 			expect(getPredictStateDir(undefined, "ngram")).toBe(path.join(xdgData, "scient-agent", "predict", "ngram"));
 			// The daemon passes its agent dir explicitly; the default dir still resolves to XDG.
-			expect(getPredictStateDir(defaultAgentDir, "ngram")).toBe(path.join(xdgData, "scient-agent", "predict", "ngram"));
+			expect(getPredictStateDir(defaultAgentDir, "ngram")).toBe(
+				path.join(xdgData, "scient-agent", "predict", "ngram"),
+			);
 		},
 	);
 
