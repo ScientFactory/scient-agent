@@ -86,7 +86,7 @@ After acceptance, preserve the exact replay commit under an immutable `omp-sync/
 
 ### First alignment intake — 2026-10-08
 
-This is a **local candidate under qualification, not a merged or published alignment**:
+This is a **locally qualified macOS ARM64 candidate, not a merged or published alignment**:
 
 - Owned `main`: `25bce7b1c4094b8fd588327857cea7f7497abc56`; published Scient Agent `v0.1.0`.
 - Accepted source baseline: OMP `18.4.8`, `717f97f4d22b3d65c4a4eef6a744255d46f4d1a6`.
@@ -99,14 +99,78 @@ Adaptations implemented in the candidate:
 | Seam | Incoming change and required preservation |
 |---|---|
 | Sign-in/sign-out | Retained `get_logout_accounts` and account-specific sign-out, and preserved Desktop's `{ type: "logout", providerId }` contract plus Scient sign-in metadata. Both sign-out paths refuse broker-owned credentials. Updated the wire command owner and regenerated its TypeScript, Python, Rust and Go artifacts. |
-| Model/session ownership | Retained model-less RPC startup without overriding an explicit missing model. Adapted sign-in refresh to upstream's registry caches and local/broker `revalidate()`, retaining discovered catalogs. Shared model lookup covers `set_model` and session restore. Session compatibility still requires the separate persisted-state proof. |
-| Native state | Renamed new `PI_NATIVES_DIR` to `SCIENT_AGENT_NATIVES_DIR`; host roots override it in both native loader and shared directory resolver. Retained content-addressed loading while adopting upstream's in-memory addon embedding API. Added decoy and host-root tests. |
+| Model/session ownership | Retained model-less RPC startup without overriding an explicit missing model. Adapted sign-in refresh to upstream's registry caches and local/broker `revalidate()`, retaining discovered catalogs. Account logout refreshes only its discovery and always reapplies credential hooks. Shared model lookup covers `set_model` and session restore; the disposable 0.1.0 persisted-session proof passed. |
+| Native state | Renamed new `PI_NATIVES_DIR` to `SCIENT_AGENT_NATIVES_DIR`; host roots override it in both native loader and shared directory resolver. Global daemon and session-owner paths also honor each host root under XDG. Retained content-addressed loading while adopting upstream's in-memory addon embedding API. Added decoy and two-host regression tests. |
 | SDK identity | Moved the Python client's Scient executable default with the upstream relocation to `sdk/python/omp-rpc`. Kept plugin/package/wire identities that are compatibility formats. |
 | Build/release | Built the addon with pinned Rust `nightly-2026-10-06` and Bun `1.4.2`, adapting the compile/embedding API without restoring obsolete on-disk generation. Replaced three ungated unstable `map_or_default` calls in `pi-vfs` with equivalent stable expressions. Preserved Scient's six-platform workflow and release authority; no upstream publisher was activated. |
 
-Source replay and a macOS ARM64 compiled candidate are implemented. Qualification results and remaining omissions are recorded below when finalized; no PR, accepted sync tag, merge or release has been created. The running Scient Agent Review app and its state remain untouched.
+Source replay, native compilation and local source/Desktop qualification are implemented. Results and omissions are recorded below; no PR, accepted sync tag, merge or release has been created. The running Scient Agent Review app and its state remain untouched.
 
 The inherited human-written PR-sentence requirement was removed from `CONTRIBUTING.md`, `AGENTS.md` and the PR template. AI-assisted descriptions are allowed with contributor accountability. The broader contribution policy remains for a later Scient-specific review.
+
+#### Patch disposition
+
+Every one of the 38 prior owned commits is accounted for. The 35 non-generated patches remain implemented; eight related model-refresh patches were consolidated for the new registry rather than copied mechanically. Three old generated commits were replaced by fresh output. No inherited execution capability was retired.
+
+| Prior Scient commit | Replay commit | Disposition |
+|---|---|---|
+| `3d7f0af372` | `5f44b60e41` | Retained generator |
+| `cc3f77c252` | `3cd8f9b0bb` | Retained generator |
+| `02029f031c` | `ebd2928504` | Retained generator |
+| `38a33a6180` | `adac5baad1` | Retained generator |
+| `8bb54a64d7` | `16058ddb90` | Retained generator |
+| `a508bfce8e` | `3dedfc0bf8` | Retained generator |
+| `68a787f969` | `df70c4fb8d` | Adapted native embedding/cache |
+| `c8481cc944` | `f765fa1086` | Adapted upstream product services |
+| `cd9b01626c` | `229650fc0e` | Retained prompt identity |
+| `5f3f6d6520` | `9d9c1be0b8` | Adapted product/root identity |
+| `945d731c08` | `b6310ba102` | Adapted guide/isolation/CI |
+| `48d1c171f6` | `ae12d1ccf1` | Adapted authoritative host root |
+| `6530b80988` | `fe24f51c5d` | Retained launch-only root |
+| `26852fcaef` | `3a1007d8dd` | Adapted model-less RPC startup |
+| `e23903f51e` | `fba85f9926` | Adapted dual sign-out contract |
+| `39018d18e3` | `4f59a9aae9` | Retained sign-out failure reporting |
+| `66bf579f0a` | `921e062a27` | Adapted stored sign-in/key metadata |
+| `169a90dd39` | `16fadc9197` | Retained broker sign-out refusal |
+| `489d51c369` | `e0f6845883` | Retained active-store authority |
+| `4dbf8d00bb` | `3a74c9aa77` | Retained shared-store metadata |
+| `d090039a59` | `e90f2f0921` | Adapted relocated Python SDK |
+| `37af107f0c` | `0c38d77720` | Retained worker product version |
+| `e9304567c9` | `e716cfba9c` | Retained wording checks |
+| `1ae7672c8f` | `3edc2b8131` | Retained Scient symbol |
+| `8cb3166c15` | `4c21c6c468` | Retained owned branch/signing policy |
+| `d7b2aac071` | `1829c053dd` | Adapted six-platform release |
+| `25bce7b1c4` | `76a7ff129c` | Retained textual shell-environment probe |
+| `17b762c73e`, `cd6b9b9aca`, `680d94d9de`, `eaff1658ce`, `1490480ef0`, `60bcddebd8`, `0efc9cd7a5`, `9a22de8fd4` | `8f4d3840f3` | Consolidated credential-aware model refresh; later account logout fix in `ebf2b611df`. |
+| `ce474c5892`, `ebb2c264e1`, `c4656a2a71` | `a208f89f23`, `e5b8e79dee` | Regenerated identity and wording. |
+
+Additional fixes cover the incoming native override, global daemon/session-owner XDG isolation, generated sign-in metadata, account logout catalog preservation, portable VFS defaults, native branding expectations and the pinned formatter. Independent source review found three ownership/contract defects; all were fixed and independently re-reviewed. Regression tests also cover discovery rejection after account removal.
+
+#### Local qualification
+
+Runtime code was qualified with the macOS ARM64 compiled binary reporting build ID `b1883a7ab17b`, product `0.1.1`, upstream `18.8.4`, RPC `[1,2]`, SHA-256 `8826e0a62aa5ee6cf2711e26dc5dfd46c680b1c0de677c963c44f9d8a8bae822`. Subsequent receipt and probe/test changes do not alter that compiled runtime code; rebuild and record the final source/artifact identity before delivery.
+
+| Check | Observed result |
+|---|---|
+| Frozen install, identity/wording generation, TypeScript lint/format and package types | Passed. |
+| Rust format/clippy, forced with `CI=1` | Passed using the pinned toolchain. |
+| Rust tests, `CI=1 NEXTEST_TEST_THREADS=1 bun run test:rs` | 3,232 passed, 5 skipped; one runnable doctest passed. |
+| Utils / native JavaScript packages | 842 passed, 13 skipped / 154 passed, 1 skipped. |
+| Affected model/RPC/session seams / auth seams | 861 passed / 56 passed. |
+| Focused Skills, eval, delegation and MCP source cases | 130 passed; overlaps some sign-in coverage below. |
+| Final sign-in/reload/wire regressions | 26 passed, including remaining-account reprojection, unrelated catalog preservation and rejected-discovery handling. |
+| Desktop RPC/session/content controls / orchestration cases | 166 passed / 159 passed. |
+| Nine actual-binary Desktop suites | 22 passed: custom models/refresh/barrier, Scient MCP and authority, native delegation, background wake/Stop/message, fork/restart and large image/frame handling. |
+| Scient identity/state/sign-in and stock OMP coexistence | 7 passed, 1 real-model case skipped; includes six conversations per product, independent stop and no remaining child processes. |
+| Desktop managed-runtime/connection/driver checks | 44 passed, including actual candidate checksum, materialization, identity smoke, RPC-v2 qualification and activation. Only download was supplied locally. |
+| Compiled startup isolation probe | Passed; contacts are reported, not claimed absent. |
+| Maintained compiled capability/upgrade probe | Passed: native Skill text reaches the model, JavaScript computes 42, shell produces an artifact, two children overlap and complete, published 0.1.0 sessions reopen and continue. Pre-upgrade snapshot rollback passed. |
+
+Counts are per suite and must not be summed as unique coverage. Desktop qualification uses the frozen base above plus **test-only** changes through `6bc8f39bd07c625f0bbea4012b6ab0670d30c6a5` on `qualify/scient-agent-omp1884-20261008`; production Desktop code is unchanged. The fixtures supply a guarded empty app-owned-child Stop obligation, ephemeral custom-model endpoints, explicitly configured uncalled models, and a local-download/real-managed-qualification case. The endpoint assertions check actual POST path, model, streamed request, synthetic authorization and user text; managed installation checks the selected version as well as executable bytes and process admission. Both strengthened files pass all 14 cases. The local managed artifact proves installation/qualification behavior, not a published catalog's checksum provenance or a real release download.
+
+Failure history remains part of the evidence: the old Stop fixture failed identically on published 0.1.0 because a mock method was absent; repaired baseline and candidate pass. Two prior live cases required an unavailable Ollama model; their registration/refresh/adapter assertions now use a loopback SSE stub. Credential-free setup/coexistence needed explicit model configuration. Initial native timestamp and Desktop process timeouts passed on focused reruns and complete confirmation runs. Parallel Rust desktop-input tests contended on their real machine-global lock; serial qualification passes without weakening it. Logs from this run are local under `/tmp/scient-agent1884-qualification.tKoGnA`; the repeatable compiled proof is [capability-check.ts](scripts/scient/capability-check.ts).
+
+This is not a complete correctness/security audit of all 2,093 incoming commits. Real hosted-model/OAuth completion, Python runtime provisioning, Electron visual acceptance, Linux/Windows/Intel-macOS execution, signed/notarized artifacts and hosted six-platform CI were not performed here. New upstream RPC categories are inherited, not automatically exposed in Desktop. Directly running 0.1.0 against upgraded state was **not** qualified: use the retained pre-upgrade snapshot for rollback. No PR, push, accepted sync tag, merge or publication has occurred, and no running app/profile was restarted or migrated.
 
 ### Recurring cadence
 
@@ -128,6 +192,8 @@ bun --cwd=packages/coding-agent run build     # packages/coding-agent/dist/scien
 bun scripts/scient/rename-identity.ts --check   # no OMP state name is left in the source
 bun scripts/scient/rename-wording.ts --check    # the agent's words name Scient Agent
 bun run check:ts
+CI=1 bun run check:rs                         # force checks even on a clean committed tree
+CI=1 NEXTEST_TEST_THREADS=1 bun run test:rs    # native desktop-input tests share a machine lock
 bun --cwd=packages/utils test
 bun --cwd=packages/natives test
 bun scripts/scient/isolation-check.ts packages/coding-agent/dist/scient-agent
@@ -136,6 +202,8 @@ bun scripts/scient/isolation-check.ts packages/coding-agent/dist/scient-agent
 `isolation-check.ts` starts the built binary in empty home directories, with every OMP state variable pointing at a decoy and a proxy recording what it tries to reach. It fails if the agent writes its own state outside its config root, follows one of OMP's variables, touches an OMP home, hands its shell a variable that would steer a stock `omp`, or contacts an OMP service or update source unasked. It prints the hosts contacted. It does not limit what a task may write or reach.
 
 It runs without a model, so it covers startup, the RPC handshake and the agent's shell. Scient Desktop's live suites (`OMP_QUALIFY_TARGET=scient`) cover model turns, subagents, background work and sessions against the same executable.
+
+`capability-check.ts` accepts absolute candidate and previous-binary paths. Run its controller with a disposable HOME as well. It uses isolated child roots and a loopback model stub, and retains synthetic fixture receipts for inspection. It exercises actual native Skill reads, JavaScript eval, shell artifacts, two concurrent children, old-session upgrade and pre-upgrade-snapshot rollback. It does not call a paid model or validate hosted-model judgment. For Desktop coexistence, use a **stock OMP** binary in `OMP_QUALIFY_BINARY` and the native candidate in `SCIENT_AGENT_QUALIFY_BINARY`; `OMP_QUALIFY_TARGET=scient` is for the separate common-suite run, not the coexistence suite.
 
 Upstream's tests are rewritten together with the wording they expect. The rest of upstream's suite is not part of Scient's checks yet: some of its tests assert behavior Scient changed on purpose (state locations, updates, the startup checks).
 
