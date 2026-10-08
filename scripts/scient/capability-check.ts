@@ -10,7 +10,7 @@ const candidate = process.argv[2];
 const previous = process.argv[3];
 if (!candidate || !previous || !path.isAbsolute(candidate) || !path.isAbsolute(previous))
 	throw new Error("Usage: bun scripts/scient/capability-check.ts <absolute-candidate> <absolute-previous>");
-// Never inherit credentials or other agents\' discovery variables in this probe.
+// Never inherit credentials or other agents' discovery variables in this probe.
 for (const name of Object.keys(process.env))
 	if (!["PATH", "TMPDIR", "TMP", "TEMP", "SystemRoot", "WINDIR", "COMSPEC"].includes(name)) delete process.env[name];
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "scient-agent-capability-"));
@@ -27,10 +27,8 @@ fs.writeFileSync(
 let phase = "old";
 const requests: Array<{ phase: string; child: boolean; tools: string[]; body: string }> = [];
 let childStarts = 0;
-let releaseChildren: () => void = () => {};
-const bothChildren = new Promise<void>(resolve => {
-	releaseChildren = resolve;
-});
+const childGate = Promise.withResolvers<void>();
+const bothChildren = childGate.promise;
 const server = Bun.serve({
 	hostname: "127.0.0.1",
 	port: 0,
@@ -53,12 +51,13 @@ const server = Bun.serve({
 		else if (child) {
 			if (results.length === 0) {
 				childStarts++;
-				if (childStarts === 2) releaseChildren();
+				if (childStarts === 2) childGate.resolve();
 				await bothChildren;
 				call = { name: "bash", args: { command: "printf CHILD_COMPUTED_42", timeout: 5 } };
-			} else if (!results.some(message => message.tool_call_id?.startsWith("yield-")))
+			} else if (!results.some(message => message.tool_call_id?.startsWith("yield-"))) {
+				assert.ok(output.includes("CHILD_COMPUTED_42"), "actual child shell result must reach its model");
 				call = { name: "yield", args: { data: { proof: "CHILD_COMPUTED_42" } } };
-			else answer = "CHILD_DONE";
+			} else answer = "CHILD_DONE";
 		} else if (!results.some(message => message.tool_call_id?.startsWith("eval-")))
 			call = {
 				name: "eval",
