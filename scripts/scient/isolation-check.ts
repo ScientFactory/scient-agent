@@ -300,7 +300,9 @@ try {
 		const run = await runRpc({ ...baseEnv, HOME: home, USERPROFILE: home, SCIENT_AGENT_ROOT: root }, workspace);
 		checkProtocol("host root", run);
 		checkShellEnvironment("host root", run, {});
-		for (const expected of ["agent", "logs", "natives"]) {
+		// Logging initializes on the first record. A quiet startup need not
+		// create logs/; all writes still face the home/decoy checks below.
+		for (const expected of ["agent", "natives"]) {
 			if (!fs.existsSync(path.join(root, expected)))
 				fail(`host root: ${expected}/ is missing from SCIENT_AGENT_ROOT.`);
 		}

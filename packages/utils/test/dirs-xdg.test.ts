@@ -6,6 +6,7 @@ import {
 	__resetProfileSnapshotForTests,
 	getAgentDir,
 	getGlobalDaemonRuntimeDir,
+	getLogsDir,
 	getPredictStateDir,
 	getSessionOwnersDir,
 	getSkillDescriptionsDbPath,
@@ -127,7 +128,7 @@ describe("XDG-aware runtime paths", () => {
 		expect(getPredictStateDir(custom, "ngram")).toBe(path.join(custom, "predict", "ngram"));
 	});
 
-	it.skipIf(!xdgPlatform)("keeps global daemon and session-owner state inside each host root", async () => {
+	it.skipIf(!xdgPlatform)("keeps global daemon, session-owner and log paths inside each host root", async () => {
 		const xdgState = path.join(tempRoot, "state");
 		await fs.mkdir(path.join(xdgState, "scient-agent"), { recursive: true });
 		process.env.XDG_STATE_HOME = xdgState;
@@ -140,6 +141,7 @@ describe("XDG-aware runtime paths", () => {
 				path.join(root, "run", "daemons", "global", "text-predict"),
 			);
 			expect(getSessionOwnersDir().startsWith(`${root}${path.sep}`)).toBe(true);
+			expect(getLogsDir()).toBe(path.join(root, "logs"));
 		}
 	});
 });
