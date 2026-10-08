@@ -59,7 +59,7 @@ Key integration points:
 
 User-level bases:
 
-- OMP native: `~/<SCIENT_AGENT_CONFIG_DIR>/agent` (normally `~/.scient-agent/agent`; a named profile changes this as described below)
+- Scient Agent native: `~/<SCIENT_AGENT_CONFIG_DIR>/agent` (normally `~/.scient-agent/agent`; a named profile changes this as described below)
 - Claude's active config directory (`~/.claude` by default; `CLAUDE_CONFIG_DIR` overrides it)
 - `~/.codex`
 - `~/.gemini`
@@ -71,17 +71,17 @@ Project-level bases:
 - `<cwd>/.codex`
 - `<cwd>/.gemini`
 
-`CONFIG_DIR_NAME` is `.scient-agent` (`packages/utils/src/dirs.ts`). `SCIENT_AGENT_CONFIG_DIR` changes the OMP user root used by the generic helpers. `SCIENT_AGENT_DIR` is different: for the default profile it changes `getAgentDir()` consumers such as native discovery, settings, and runtime state, but it does **not** change the generic `getConfigDirs()` / `findConfigFile()` OMP base. Named profiles ignore `SCIENT_AGENT_DIR`.
+`CONFIG_DIR_NAME` is `.scient-agent` (`packages/utils/src/dirs.ts`). `SCIENT_AGENT_CONFIG_DIR` changes the Scient Agent user root used by the generic helpers. `SCIENT_AGENT_DIR` is different: for the default profile it changes `getAgentDir()` consumers such as native discovery, settings, and runtime state, but it does **not** change the generic `getConfigDirs()` / `findConfigFile()` Scient Agent base. Named profiles ignore `SCIENT_AGENT_DIR`.
 
 ## Profiles
 
-A named profile (`omp --profile <name>`, `SCIENT_AGENT_PROFILE`, or the legacy fallback `SCIENT_AGENT_PROFILE_FALLBACK`) relocates the OMP user base. `SCIENT_AGENT_PROFILE` wins when it is defined, including when it is explicitly empty; `default`, empty, or whitespace selects the default profile. When a profile is active, every OMP-native user-level path written here as `~/.scient-agent/agent/...` normally resolves to `~/.scient-agent/profiles/<name>/agent/...`. `--alias <command>` does not select a profile by itself: paired with `--profile`, it creates a shell shortcut for that profile.
+A named profile (`scient-agent --profile <name>`, `SCIENT_AGENT_PROFILE`, or the legacy fallback `SCIENT_AGENT_PROFILE_FALLBACK`) relocates the Scient Agent user base. `SCIENT_AGENT_PROFILE` wins when it is defined, including when it is explicitly empty; `default`, empty, or whitespace selects the default profile. When a profile is active, every Scient Agent-native user-level path written here as `~/.scient-agent/agent/...` normally resolves to `~/.scient-agent/profiles/<name>/agent/...`. `--alias <command>` does not select a profile by itself: paired with `--profile`, it creates a shell shortcut for that profile.
 
-The relocation is uniform across the native provider (`builtin.ts`) and the generic `config.ts` helpers, so it covers slash commands, rules, prompts, instructions, hooks, tools, extensions, settings, skills, and MCP, plus the top-level `SYSTEM.md` / `RULES.md` / `AGENTS.md` files and runtime state (sessions, blobs, `agent.db`). A profile sees only its own OMP config, never the default profile's agent config.
+The relocation is uniform across the native provider (`builtin.ts`) and the generic `config.ts` helpers, so it covers slash commands, rules, prompts, instructions, hooks, tools, extensions, settings, skills, and MCP, plus the top-level `SYSTEM.md` / `RULES.md` / `AGENTS.md` files and runtime state (sessions, blobs, `agent.db`). A profile sees only its own Scient Agent config, never the default profile's agent config.
 
 Keybindings are the one exception: a named profile merges the default profile's `~/.scient-agent/agent/keybindings.*` under its own `~/.scient-agent/profiles/<name>/agent/keybindings.*`, with the profile file overriding per binding ([#4867](https://github.com/can1357/oh-my-pi/issues/4867)). Keybindings describe the terminal/keyboard in front of the user, which doesn't change with the active profile, so user-level remaps keep working in every profile unless the profile explicitly overrides them. The inherited file is read-only for the profile process — legacy-format migration of the default profile's file only happens when the default profile itself runs.
 
-On macOS and Linux, an existing `$XDG_DATA_HOME/omp`, `$XDG_STATE_HOME/omp`, or `$XDG_CACHE_HOME/omp` can relocate the corresponding data, state, or cache paths. For a named profile, OMP uses an XDG category only when that category already contains `omp/profiles/<name>`; otherwise that category remains under `~/.scient-agent/profiles/<name>`. Run `omp config init-xdg` before relying on XDG paths.
+On macOS and Linux, an existing `$XDG_DATA_HOME/omp`, `$XDG_STATE_HOME/omp`, or `$XDG_CACHE_HOME/omp` can relocate the corresponding data, state, or cache paths. For a named profile, Scient Agent uses an XDG category only when that category already contains `omp/profiles/<name>`; otherwise that category remains under `~/.scient-agent/profiles/<name>`. Run `scient-agent config init-xdg` before relying on XDG paths.
 
 The other source bases are not profile-scoped and load identically under every profile: the external-tool bases (`~/.claude`, `~/.codex`, `~/.gemini`) belong to those tools, and the project-level bases (`<cwd>/.scient-agent`, `<cwd>/.claude`, ...) are keyed to the working directory. Throughout this document, read `~/.scient-agent/agent` as shorthand for the active profile's agent directory unless an environment override or XDG path is being discussed.
 
@@ -157,7 +157,7 @@ Each setting is declared once with `register({ id, type, default, env?, protocol
 
 - `cfgX.get(scope)` — effective value; `scope` is a `Settings` instance or anything carrying one (`AgentSession`, `ToolSession`). Reads are memoized per scope.
 - `cfgX.set(scope, v)` — writes the **global** layer and queues a background save; values the definition's type rejects throw.
-- `cfgX.unset(scope)` — removes the key from the global layer (what `omp config reset` and clearing a settings-panel text field do), so later default changes still apply.
+- `cfgX.unset(scope)` — removes the key from the global layer (what `scient-agent config reset` and clearing a settings-panel text field do), so later default changes still apply.
 - `cfgX.setEntry(scope, key, v)` / `cfgX.setMember(scope, item, { member })` — write one entry of a record setting (`undefined` removes it) or add/remove one item of a list setting in the global layer; the save changes only that entry or item in `config.yml`, so entries another layer (a `--config` overlay) supplies never land there.
 - `cfgX.override(scope, v)` / `cfgX.clearOverride(scope)` — runtime-only override, never persisted.
 - `cfgX.map(fn)` / `combine({...}, fn)` — memoized derived values; `.listen(scope, cb)` observes changes of a handle or derivation.
@@ -172,7 +172,7 @@ Effective precedence, highest first:
 
 1. Environment variable declared on the definition (`env: "NAME"`), parsed by the setting's type; unparseable text counts as unset. Booleans follow `parseFlag`: empty is unset, `1`/`y`/`true`/`yes`/`on` (lower or upper case) is true, any other text is false
 2. Runtime overrides: in-memory, non-persistent
-3. Config overlays: `SCIENT_AGENT_CONFIG_FILES` (platform path-list), followed by repeated `omp --config <path>` files; all are loaded as `config.yml`-style YAML for this process only
+3. Config overlays: `SCIENT_AGENT_CONFIG_FILES` (platform path-list), followed by repeated `scient-agent --config <path>` files; all are loaded as `config.yml`-style YAML for this process only
 4. Project settings: discovered via the settings capability (`settings.json` and `config.yml` from providers)
 5. Global settings: the first present file among `~/.scient-agent/agent/config.yml` and `config.yaml`
 6. Definition default
@@ -216,8 +216,8 @@ Most non-core config loading flows through the capability registry (`src/capabil
 
 Providers are sorted by numeric priority (higher first). Full set:
 
-- Native OMP (`builtin.ts`): `100`
-- OMP plugins (`omp-plugins`): `90`
+- Native Scient Agent (`builtin.ts`): `100`
+- Scient Agent plugins (`omp-plugins`): `90`
 - Claude: `80`
 - Agent Plugins standard (`agent-plugins`): `75`
 - Codex / agents / Claude plugins marketplace: `70`

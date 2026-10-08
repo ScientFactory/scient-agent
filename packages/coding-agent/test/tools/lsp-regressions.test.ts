@@ -3558,7 +3558,7 @@ describe("lsp regressions", () => {
 		}
 	});
 
-	it("skips disk reconciliation while an OMP write holds the overlay ahead of disk", async () => {
+	it("skips disk reconciliation while a Scient Agent write holds the overlay ahead of disk", async () => {
 		const tempDir = TempDir.createSync("@omp-lsp-pending-write-");
 		const filePath = path.join(tempDir.path(), "target.py");
 		const original = "def target():\n    return 1\n";
@@ -3953,14 +3953,14 @@ describe("lsp regressions", () => {
 	});
 
 	it("round-trips file URIs containing percent and hash characters", () => {
-		const tricky = path.resolve(os.tmpdir(), "omp uri", "100% #1.ts");
+		const tricky = path.resolve(os.tmpdir(), "Scient Agent uri", "100% #1.ts");
 		const uri = fileToUri(tricky);
 		// Percent-encoded so the server cannot misparse a fragment or escape.
 		expect(uri).not.toContain("#");
 		expect(uri).not.toContain(" ");
 		expect(uriToFile(uri)).toBe(tricky);
 		// Lax servers sending unencoded paths are tolerated.
-		const plain = path.resolve(os.tmpdir(), "omp uri", "plain.ts");
+		const plain = path.resolve(os.tmpdir(), "Scient Agent uri", "plain.ts");
 		expect(uriToFile(fileToUri(plain).replaceAll("%20", " "))).toBe(plain);
 	});
 

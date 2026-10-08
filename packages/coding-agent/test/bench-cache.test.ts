@@ -77,7 +77,7 @@ function successfulMessage(cacheRead: number, cacheWrite: number): AssistantMess
 }
 
 describe("bench cache mode", () => {
-	it("splits the cache breakpoint prefix from each variable suffix with native OMP messages", async () => {
+	it("splits the cache breakpoint prefix from each variable suffix with native Scient Agent messages", async () => {
 		const calls: Array<{ context: Context; options: SimpleStreamOptions }> = [];
 		let coldCompleted = false;
 		let stdout = "";

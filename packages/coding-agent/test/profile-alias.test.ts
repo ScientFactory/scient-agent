@@ -7,7 +7,7 @@ import {
 } from "../src/cli/profile-alias";
 
 describe("profile alias installer", () => {
-	it("writes a bash-compatible function that forwards subcommands through omp", async () => {
+	it("writes a bash-compatible function that forwards subcommands through Scient Agent", async () => {
 		const files = new Map<string, string>();
 
 		const result = await installProfileAlias({
@@ -78,7 +78,7 @@ describe("profile alias installer", () => {
 		expect(command.powerShell).toBe(`'${runtime}' '${expectedScriptPath}'`);
 	});
 
-	it("can target the current source invocation instead of the installed omp binary", async () => {
+	it("can target the current source invocation instead of the installed Scient Agent binary", async () => {
 		const files = new Map<string, string>();
 
 		const result = await installProfileAlias({
@@ -395,7 +395,7 @@ describe("profile alias installer", () => {
 					files.set(filePath, content);
 				},
 			}),
-		).rejects.toThrow("Invalid OMP profile");
+		).rejects.toThrow("Invalid Scient Agent profile");
 		expect(files.size).toBe(0);
 	});
 

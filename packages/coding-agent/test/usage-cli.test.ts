@@ -1216,7 +1216,7 @@ describe("usage command configuration", () => {
 	});
 });
 
-describe("omp usage accounts", () => {
+describe("scient-agent usage accounts", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});

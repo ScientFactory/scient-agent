@@ -599,7 +599,13 @@ export type RpcResponse =
 			success: true;
 			data: { accounts: LogoutAccount[] };
 	  }
-	| { id?: string; type: "response"; command: "logout"; success: true; data: { remainingSource?: string; providerId?: string } }
+	| {
+			id?: string;
+			type: "response";
+			command: "logout";
+			success: true;
+			data: { remainingSource?: string; providerId?: string };
+	  }
 
 	// Word prediction
 	| { id?: string; type: "response"; command: "predict_word"; success: true; data: { suffix: string | null } }

@@ -1,6 +1,6 @@
 # Plugin manager and installer plumbing
 
-This document describes how `omp plugin` npm/git/link and marketplace operations mutate plugin state on disk and become runtime capabilities. Marketplace installs keep their own registries and cache, then register the cached plugin through the same `node_modules` and `omp-plugins.lock.json` runtime surfaces used by npm/git/link installs; see `docs/marketplace.md`.
+This document describes how `scient-agent plugin` npm/git/link and marketplace operations mutate plugin state on disk and become runtime capabilities. Marketplace installs keep their own registries and cache, then register the cached plugin through the same `node_modules` and `omp-plugins.lock.json` runtime surfaces used by npm/git/link installs; see `docs/marketplace.md`.
 
 ## Scope and architecture
 
@@ -9,14 +9,14 @@ There are two plugin-management implementations in the codebase:
 1. **Active path used by CLI commands**: `PluginManager` (`src/extensibility/plugins/manager.ts`)
 2. **Legacy helper module**: installer functions (`src/extensibility/plugins/installer.ts`)
 
-`omp plugin` npm/git/link actions go through `PluginManager`; marketplace actions go through `MarketplaceManager`. `install` classifies each target (`classifyInstallTarget` in `cli/classify-install-target.ts`): local paths route to `PluginManager.link()`, and `name@marketplace` routes to the marketplace manager only when the marketplace is configured. Scoped npm specs, common npm dist-tags, and version-like suffixes remain npm targets. Git and npm specs go to `PluginManager.install()`.
+`scient-agent plugin` npm/git/link actions go through `PluginManager`; marketplace actions go through `MarketplaceManager`. `install` classifies each target (`classifyInstallTarget` in `cli/classify-install-target.ts`): local paths route to `PluginManager.link()`, and `name@marketplace` routes to the marketplace manager only when the marketplace is configured. Scoped npm specs, common npm dist-tags, and version-like suffixes remain npm targets. Git and npm specs go to `PluginManager.install()`.
 
 `installer.ts` still documents important safety checks and filesystem behavior, but it is not the path used by `src/commands/plugin.ts` + `src/cli/plugin-cli.ts`.
 
 ## Lifecycle: from CLI invocation to runtime availability
 
 ```text
-omp plugin <npm/link action> ...
+scient-agent plugin <npm/link action> ...
   -> src/commands/plugin.ts
   -> runPluginCommand(...) in src/cli/plugin-cli.ts
   -> PluginManager method (install/list/uninstall/link/...)
@@ -25,7 +25,7 @@ omp plugin <npm/link action> ...
   -> direct loaders resolve manifest-declared tool/extension entries
   -> `omp-plugins` capability discovery scans conventional skills/hooks/tools/commands/rules/prompts/MCP content; task discovery scans `agents/`
 
-omp plugin install name@marketplace / omp install name@marketplace
+scient-agent plugin install name@marketplace / scient-agent install name@marketplace
   -> MarketplaceManager
   -> mutate scope registry and shared cache
   -> symlink the cached package into the scope's node_modules and update omp-plugins.lock.json
@@ -43,7 +43,7 @@ omp plugin install name@marketplace / omp install name@marketplace
 
 ## On-disk model
 
-User plugin state lives under the plugins data root (`~/.scient-agent/plugins` by default). On Linux and macOS, `omp config init-xdg` initializes the XDG data, state, and cache roots but does not move existing plugin trees. With `XDG_DATA_HOME` set and its `omp/` directory initialized, default-profile state resolves under `$XDG_DATA_HOME/omp/plugins`. Named profiles use their own roots and require a profile-specific XDG directory to opt into that routing. The marketplace registry helper separately copies a legacy `marketplaces.json` best-effort when its XDG target is absent.
+User plugin state lives under the plugins data root (`~/.scient-agent/plugins` by default). On Linux and macOS, `scient-agent config init-xdg` initializes the XDG data, state, and cache roots but does not move existing plugin trees. With `XDG_DATA_HOME` set and its `omp/` directory initialized, default-profile state resolves under `$XDG_DATA_HOME/omp/plugins`. Named profiles use their own roots and require a profile-specific XDG directory to opt into that routing. The marketplace registry helper separately copies a legacy `marketplaces.json` best-effort when its XDG target is absent.
 
 The plugin root contains:
 
@@ -117,8 +117,8 @@ Malformed `package.json` JSON is a hard failure at read time; malformed manifest
 
 ### Update semantics
 
-- `omp plugin install pkg@newVersion` updates the dependency and runtime version. A plain reinstall resets enablement to true and feature selection to defaults unless explicitly supplied; settings remain in the separate settings map.
-- `omp plugin upgrade <package-name>` uses the source recorded in `plugins/package.json`: npm moves to the latest published version, while Git re-resolves its recorded ref. It preserves enablement and feature selection, removing selected features absent from a new feature map. Local links and `file:`/`link:`/`workspace:`/`portal:` dependencies have nothing to upgrade and are rejected.
+- `scient-agent plugin install pkg@newVersion` updates the dependency and runtime version. A plain reinstall resets enablement to true and feature selection to defaults unless explicitly supplied; settings remain in the separate settings map.
+- `scient-agent plugin upgrade <package-name>` uses the source recorded in `plugins/package.json`: npm moves to the latest published version, while Git re-resolves its recorded ref. It preserves enablement and feature selection, removing selected features absent from a new feature map. Local links and `file:`/`link:`/`workspace:`/`portal:` dependencies have nothing to upgrade and are rejected.
 - Upgrade compares both package version and Bun lockfile resolution, so a moving Git ref can report a changed revision without a version bump.
 - Install snapshots the prior package tree, `package.json`, and `bun.lock`. Failure during installation, feature/extension validation, or runtime-config save attempts to restore all three.
 - No separate npm-plugin startup update check or migration action exists.
@@ -144,7 +144,7 @@ If uninstall command fails, runtime state is not changed.
    - project overrides can replace feature selection
    - project `disabled` list masks the plugin as disabled
 
-`omp plugin list` combines this result with `MarketplaceManager.listInstalledPlugins()`.
+`scient-agent plugin list` combines this result with `MarketplaceManager.listInstalledPlugins()`.
 
 `PluginManager.getPlugin()` resolves one runtime package directly, including marketplace symlinks intentionally omitted from `list()`. An explicit trusted path wins; otherwise an enabled project package shadows the user package. Config commands use this path for manifest/schema lookup, while settings reads/writes still use the user lockfile plus read-only project overrides. `config validate` includes marketplace packages without duplicating marketplace entries in list/status output.
 

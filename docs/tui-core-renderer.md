@@ -163,7 +163,7 @@ terminal's acknowledgements instead of the render cadence. None of this
 document's history, viewport, resize-replay or CPR machinery runs on that path;
 SIGWINCH only refreshes the width used by `rows` fallback nodes. While a surface
 is live the nerd symbol preset is forced process-locally, and icon glyphs are
-sent as `icon` spans. Each surface receives omp's resolved theme (`t`: every
+sent as `icon` spans. Each surface receives Scient Agent's resolved theme (`t`: every
 theme token as hex, dark and light variants) after `o` and before its first
 frame, and again when the resolved palette changes. The first row paint waits
 up to 300 ms for the probe. Direct Tern sessions optimistically open a surface
@@ -173,7 +173,7 @@ debug socket's `doc` op returns the reference document
 
 #### Explicit composer submission
 
-omp's `q: "hello"` advertises `features: ["edit", "undo", "send"]`.
+Scient Agent's `q: "hello"` advertises `features: ["edit", "undo", "send"]`.
 The `editor`/`input` prop `sendable` is separate from text editability:
 `sendable: true` means the owner is ready to accept an atomic prompt submission.
 An absent or false value is not ready, even if the field is writable or focused.

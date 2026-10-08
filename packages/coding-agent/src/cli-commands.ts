@@ -313,22 +313,22 @@ export function isSubcommand(first: string | undefined): boolean {
 // fires vs. when the argv still falls through to `launch`.
 const RESERVED_TOP_LEVEL_WORDS: Record<string, string> = {
 	extensions:
-		'`omp extensions` is not a management command. Use `omp plugin list` / `omp plugin install`, or run `omp launch extensions` if you meant to send "extensions" as a prompt.',
-	list: '`omp list` is not a top-level command. Use `omp plugin list` to list installed plugins, or run `omp launch list` if you meant to send "list" as a prompt.',
+		'`scient-agent extensions` is not a management command. Use `scient-agent plugin list` / `scient-agent plugin install`, or run `scient-agent launch extensions` if you meant to send "extensions" as a prompt.',
+	list: '`scient-agent list` is not a top-level command. Use `scient-agent plugin list` to list installed plugins, or run `scient-agent launch list` if you meant to send "list" as a prompt.',
 	remove:
-		'`omp remove` is not a top-level command. Use `omp plugin uninstall <name>` to remove a plugin, or run `omp launch remove` if you meant to send "remove" as a prompt.',
+		'`scient-agent remove` is not a top-level command. Use `scient-agent plugin uninstall <name>` to remove a plugin, or run `scient-agent launch remove` if you meant to send "remove" as a prompt.',
 	uninstall:
-		'`omp uninstall` is not a top-level command. Use `omp plugin uninstall <name@marketplace>` to remove a plugin, or run `omp launch uninstall` if you meant to send "uninstall" as a prompt.',
+		'`scient-agent uninstall` is not a top-level command. Use `scient-agent plugin uninstall <name@marketplace>` to remove a plugin, or run `scient-agent launch uninstall` if you meant to send "uninstall" as a prompt.',
 	marketplace:
-		'`omp marketplace` is not a top-level command. Use `omp plugin marketplace <add|remove|update|list>` to manage marketplaces, or run `omp launch marketplace` if you meant to send "marketplace" as a prompt.',
+		'`scient-agent marketplace` is not a top-level command. Use `scient-agent plugin marketplace <add|remove|update|list>` to manage marketplaces, or run `scient-agent launch marketplace` if you meant to send "marketplace" as a prompt.',
 	discover:
-		'`omp discover` is not a top-level command. Use `omp plugin discover [marketplace]` to browse available plugins, or run `omp launch discover` if you meant to send "discover" as a prompt.',
+		'`scient-agent discover` is not a top-level command. Use `scient-agent plugin discover [marketplace]` to browse available plugins, or run `scient-agent launch discover` if you meant to send "discover" as a prompt.',
 	upgrade:
-		'`omp upgrade` is not a top-level command. Use `omp plugin upgrade [name]` to upgrade plugins, or run `omp launch upgrade` if you meant to send "upgrade" as a prompt.',
+		'`scient-agent upgrade` is not a top-level command. Use `scient-agent plugin upgrade [name]` to upgrade plugins, or run `scient-agent launch upgrade` if you meant to send "upgrade" as a prompt.',
 	enable:
-		'`omp enable` is not a top-level command. Use `omp plugin enable <name@marketplace>` to enable a plugin, or run `omp launch enable` if you meant to send "enable" as a prompt.',
+		'`scient-agent enable` is not a top-level command. Use `scient-agent plugin enable <name@marketplace>` to enable a plugin, or run `scient-agent launch enable` if you meant to send "enable" as a prompt.',
 	disable:
-		'`omp disable` is not a top-level command. Use `omp plugin disable <name@marketplace>` to disable a plugin, or run `omp launch disable` if you meant to send "disable" as a prompt.',
+		'`scient-agent disable` is not a top-level command. Use `scient-agent plugin disable <name@marketplace>` to disable a plugin, or run `scient-agent launch disable` if you meant to send "disable" as a prompt.',
 };
 
 // Sub-actions that make `omp marketplace <sub>` unambiguously a management

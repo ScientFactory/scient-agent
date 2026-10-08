@@ -314,7 +314,7 @@ describe("jfind cascade", () => {
 		);
 	});
 
-	it("searches a single omp doc in place and reports hits as its URL", async () => {
+	it("searches a single Scient Agent doc in place and reports hits as its URL", async () => {
 		const filesystem = urlFs(process.cwd());
 		const root = await resolveSearchRoot(filesystem, "omp://tools/read.md", process.cwd());
 		const result = await runCascade({
@@ -329,7 +329,7 @@ describe("jfind cascade", () => {
 		expect(result.hits.map(hit => resolveSearchResultPath(root.path, hit.rel))).toEqual(["omp://tools/read.md"]);
 	});
 
-	it("walks the omp root in place: every embedded doc is listed and hits resolve to doc URLs", async () => {
+	it("walks the Scient Agent root in place: every embedded doc is listed and hits resolve to doc URLs", async () => {
 		const completions = (await InternalUrlRouter.instance().complete("omp", "")) ?? [];
 		const docs = new Set(completions.map(completion => completion.value));
 		const filesystem = urlFs(process.cwd());

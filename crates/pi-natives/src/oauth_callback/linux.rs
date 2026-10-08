@@ -132,8 +132,7 @@ fn desktop_names(context: &Context) -> Vec<String> {
 			if name.is_empty()
 				|| !name.bytes().all(|byte| {
 					byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
-				})
-				|| !seen.insert(name.clone())
+				}) || !seen.insert(name.clone())
 			{
 				None
 			} else {
@@ -211,8 +210,7 @@ fn read_preference(path: &Path, mime_type: &str) -> anyhow::Result<PreferenceSta
 			let mode = fs::metadata(path)
 				.with_context(|| format!("failed to stat {}", path.display()))?
 				.permissions()
-				.mode()
-				& 0o777;
+				.mode() & 0o777;
 			let (default_section_present, entry) = parse_default_entry(&content, mime_type)?;
 			Ok(PreferenceState { content, default_section_present, entry, exists: true, mode })
 		},
@@ -425,7 +423,7 @@ fn desktop_file(snapshot: &Snapshot) -> anyhow::Result<String> {
 	Ok([
 		"[Desktop Entry]".to_owned(),
 		"Type=Application".to_owned(),
-		"Name=omp OAuth Callback".to_owned(),
+		"Name=Scient Agent OAuth Callback".to_owned(),
 		"NoDisplay=true".to_owned(),
 		"Terminal=false".to_owned(),
 		format!(
@@ -533,8 +531,8 @@ pub(super) fn prepare(context: &Context) -> anyhow::Result<Snapshot> {
 	}
 	if original_effective.starts_with(OMP_DESKTOP_ID_PREFIX) {
 		bail!(
-			"Oh My Pi is handling {} links for a sign-in of its own; finish or cancel that sign-in and \
-			 retry",
+			"Oh My Pi is handling {} links for a sign-in of its own; finish or cancel that sign-in \
+			 and retry",
 			context.scheme
 		);
 	}

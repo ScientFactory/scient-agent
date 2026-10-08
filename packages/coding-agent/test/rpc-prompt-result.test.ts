@@ -136,7 +136,7 @@ describe("RpcPromptResults", () => {
 		]);
 	});
 
-	test("reports provider failures without OMP-local diagnostics and classifies retryability", async () => {
+	test("reports provider failures without Scient Agent-local diagnostics and classifies retryability", async () => {
 		const { frames, session, results } = createHarness();
 		session.isStreaming = true;
 		// Still streaming when the results are written: the session is not settled.

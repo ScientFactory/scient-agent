@@ -31,7 +31,7 @@ interface Fixture {
 function fixture(): Fixture {
 	const disabled: string[] = [];
 	const providers: ExtensionProvider[] = [
-		{ id: "native", displayName: "OMP", enabled: true, userSourceEnabled: true, foreignUserSource: false },
+		{ id: "native", displayName: "Scient Agent", enabled: true, userSourceEnabled: true, foreignUserSource: false },
 		{ id: "claude", displayName: "Claude Code", enabled: true, userSourceEnabled: true, foreignUserSource: false },
 	];
 	const extensions = [extension("skill", "alpha", "native"), extension("slash-command", "gamma", "claude")];

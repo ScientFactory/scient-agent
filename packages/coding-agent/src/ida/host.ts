@@ -115,7 +115,7 @@ class IdaHost {
 		const { loc, runtime, idleCloseMs } = this.#config;
 		if (loc.kind === "store") await fs.promises.mkdir(loc.dir, { recursive: true });
 		const lock = await acquireFileLock(loc.lockTarget, { retries: 1 }).catch(() => {
-			throw new ToolError(`IDB ${loc.id} is in use by another omp process outside this project`);
+			throw new ToolError(`IDB ${loc.id} is in use by another Scient Agent process outside this project`);
 		});
 		try {
 			await prepareStoreDir(loc);
@@ -242,7 +242,7 @@ export async function startIdaHostFromEnvironment(): Promise<void> {
 	if (!raw) throw new Error("IDA host environment is incomplete");
 	delete process.env[IDA_HOST_CONFIG_ENV];
 	const config = parseIdaHostConfig(raw);
-	setProcessName(`omp ida ${config.loc.id}`);
+	setProcessName(`scient-agent ida ${config.loc.id}`);
 	const host = new IdaHost(config);
 	const cancelCleanup = postmortem.register("ida-host", () => host.shutdown());
 	let code: number;

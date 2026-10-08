@@ -40,15 +40,15 @@ export default class Usage extends Command {
 	};
 
 	static examples = [
-		"# Detailed per-account usage breakdown across all providers\n  omp usage",
-		"# Only Anthropic accounts\n  omp usage --provider anthropic",
-		"# Redact account identifiers for screenshots\n  omp usage --redact",
-		"# Machine-readable output\n  omp usage --json",
-		"# Usage-limit trend over the last 30 days\n  omp usage --history --days 30",
-		"# Per-client token burn (which machine/app spent what) over the last 30 days\n  omp usage clients --days 30",
-		"# OAuth identity keys for task.agentAccountPools (no tokens)\n  omp usage accounts",
-		"# Invalidate cached usage reports for all providers\n  omp usage invalidate",
-		"# Invalidate cached usage reports for a specific provider\n  omp usage invalidate --provider anthropic",
+		"# Detailed per-account usage breakdown across all providers\n  scient-agent usage",
+		"# Only Anthropic accounts\n  scient-agent usage --provider anthropic",
+		"# Redact account identifiers for screenshots\n  scient-agent usage --redact",
+		"# Machine-readable output\n  scient-agent usage --json",
+		"# Usage-limit trend over the last 30 days\n  scient-agent usage --history --days 30",
+		"# Per-client token burn (which machine/app spent what) over the last 30 days\n  scient-agent usage clients --days 30",
+		"# OAuth identity keys for task.agentAccountPools (no tokens)\n  scient-agent usage accounts",
+		"# Invalidate cached usage reports for all providers\n  scient-agent usage invalidate",
+		"# Invalidate cached usage reports for a specific provider\n  scient-agent usage invalidate --provider anthropic",
 	];
 
 	async run(): Promise<void> {

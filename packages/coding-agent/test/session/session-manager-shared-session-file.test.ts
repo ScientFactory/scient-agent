@@ -149,7 +149,7 @@ function sessionFilesIn(dir: string): string[] {
 		.sort();
 }
 
-describe("SessionManager on a session file another omp process writes", () => {
+describe("SessionManager on a session file another Scient Agent process writes", () => {
 	it("keeps the file with the process that wrote it first and moves the other to one sibling", async () => {
 		using tempDir = TempDir.createSync("@omp-shared-session-file-");
 		const original = await createSession(tempDir);

@@ -895,7 +895,7 @@ async function moveMissingCwdSessionIfNeeded(
 		// Its directory is gone, so it cannot be resumed in place either.
 		throw new SessionResolutionError(
 			err.message,
-			"Close the session in the other omp process, then resume it again.",
+			"Close the session in the other Scient Agent process, then resume it again.",
 		);
 	}
 	return { status: "moved", manager };

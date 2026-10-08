@@ -39,7 +39,7 @@ Native `extension-module` discovery comes from:
 - User directory: the active agent directory's `extensions/` (default `~/.scient-agent/agent/extensions`)
 - Native legacy/settings JSON entries: `<cwd>/.scient-agent/settings.json#extensions` and the active agent directory's `settings.json#extensions`
 
-The project root is the native provider's `.scient-agent` directory (`SOURCE_PATHS.native.projectDir`), cwd-only; it does not walk ancestors. Native discovery uses its `LoadContext.agentDir` when supplied, otherwise `getAgentDir()`. With the default user config root, `omp --profile <name>` selects `~/.scient-agent/profiles/<name>/agent/extensions`. `SCIENT_AGENT_CONFIG_DIR` changes that user config root; `SCIENT_AGENT_DIR` overrides the agent directory only in the default profile, not named profiles. See [Profiles](./config-usage.md#profiles).
+The project root is the native provider's `.scient-agent` directory (`SOURCE_PATHS.native.projectDir`), cwd-only; it does not walk ancestors. Native discovery uses its `LoadContext.agentDir` when supplied, otherwise `getAgentDir()`. With the default user config root, `scient-agent --profile <name>` selects `~/.scient-agent/profiles/<name>/agent/extensions`. `SCIENT_AGENT_CONFIG_DIR` changes that user config root; `SCIENT_AGENT_DIR` overrides the agent directory only in the default profile, not named profiles. See [Profiles](./config-usage.md#profiles).
 
 Notes:
 
@@ -120,10 +120,10 @@ Behavior split:
 - CLI: `--no-extensions` follows the same explicit-only contract. Explicit
   `-e/--extension` and `--hook` paths still load, and only sibling capability
   roots from explicitly named extension packages remain eligible. Project/user
-  `extensions:` settings and installed OMP extension packages are excluded from
+  `extensions:` settings and installed Scient Agent extension packages are excluded from
   that sibling surface.
 
-This flag governs extension factories and OMP extension-package sibling roots;
+This flag governs extension factories and Scient Agent extension-package sibling roots;
 it is not a whole-process capability-isolation switch. Skills, MCP servers,
 tools, prompts, and rules owned by other discovery subsystems retain their own
 enable/disable controls.

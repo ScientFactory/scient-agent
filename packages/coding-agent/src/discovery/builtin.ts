@@ -37,8 +37,8 @@ import {
 } from "./helpers";
 
 const PROVIDER_ID = "native";
-const DISPLAY_NAME = "OMP";
-const DESCRIPTION = "Native OMP configuration from ~/.scient-agent and .scient-agent/";
+const DISPLAY_NAME = "Scient Agent";
+const DESCRIPTION = "Native Scient Agent configuration from ~/.scient-agent and .scient-agent/";
 const PRIORITY = 100;
 
 const PATHS = SOURCE_PATHS.native;

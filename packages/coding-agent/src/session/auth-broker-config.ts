@@ -252,9 +252,9 @@ export async function describeAuthBrokerStartupError(error: unknown): Promise<st
 	const target = url ? ` at ${url}` : "";
 	return (
 		`Auth broker${target} is unreachable (${error.message}). ` +
-		"omp is configured to use this broker for credentials and will not fall back to local credentials automatically.\n" +
-		"Start the broker with `omp auth-broker serve`, or disable it with " +
-		"`omp config reset auth.broker.url` and `omp config reset auth.broker.token` " +
+		"Scient Agent is configured to use this broker for credentials and will not fall back to local credentials automatically.\n" +
+		"Start the broker with `scient-agent auth-broker serve`, or disable it with " +
+		"`scient-agent config reset auth.broker.url` and `scient-agent config reset auth.broker.token` " +
 		"(or unset SCIENT_AGENT_AUTH_BROKER_URL / SCIENT_AGENT_AUTH_BROKER_TOKEN)."
 	);
 }

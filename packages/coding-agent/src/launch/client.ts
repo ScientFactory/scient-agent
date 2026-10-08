@@ -311,7 +311,7 @@ class SocketDaemonClient implements DaemonBrokerClient {
 		throw new Error(
 			`Failed to start daemon broker at ${this.#endpoint} after ${CONNECT_TIMEOUT_MS / 1000}s: ` +
 				`${lastError?.message ?? "socket unavailable"}. Scope: ${this.#runtimeDir}. ` +
-				"Run `omp --smoke-test` to verify broker startup, or `omp ps` to inspect supervised processes.",
+				"Run `scient-agent --smoke-test` to verify broker startup, or `scient-agent ps` to inspect supervised processes.",
 		);
 	}
 
