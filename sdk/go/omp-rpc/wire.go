@@ -3292,10 +3292,13 @@ func (v *BtwHistoryRecord) decodeFrom(raw map[string]json.RawMessage) error {
 }
 
 type LoginProvider struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Available     bool   `json:"available"`
-	Authenticated bool   `json:"authenticated"`
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Available     bool              `json:"available"`
+	Authenticated bool              `json:"authenticated"`
+	Kind          LoginProviderKind `json:"kind"`
+	Stored        bool              `json:"stored"`
+	Store         string            `json:"store"`
 }
 
 func (v *LoginProvider) UnmarshalJSON(data []byte) error {
@@ -3309,11 +3312,34 @@ func (v *LoginProvider) decodeFrom(raw map[string]json.RawMessage) error {
 	d.required("name", &out.Name)
 	d.required("available", &out.Available)
 	d.required("authenticated", &out.Authenticated)
+	d.required("kind", &out.Kind)
+	d.required("stored", &out.Stored)
+	d.required("store", &out.Store)
 	if d.err != nil {
 		return d.err
 	}
 	*v = out
 	return nil
+}
+
+type LoginProviderKind string
+
+const (
+	LoginProviderKindAccount LoginProviderKind = "account"
+	LoginProviderKindKey     LoginProviderKind = "key"
+)
+
+func (v *LoginProviderKind) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "LoginProviderKind")
+	if err != nil {
+		return err
+	}
+	switch value := LoginProviderKind(s); value {
+	case LoginProviderKindAccount, LoginProviderKindKey:
+		*v = value
+		return nil
+	}
+	return unknownValue("LoginProviderKind", s)
 }
 
 // A stored credential `logout` can remove; `active` marks credentials the session may be using.

@@ -1020,9 +1020,9 @@ mod tests {
 		let root = TempDir::new();
 		let legacy_app = root
 			.0
-			.join("home/Applications/omp OAuth Callback abandoned.app");
+			.join("home/Applications/Scient Agent OAuth Callback abandoned.app");
 		fs::create_dir_all(&legacy_app).unwrap();
-		let legacy_bundle = "dev.omp.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+		let legacy_bundle = "com.scientfactory.agent.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 		let (context, state) = context(&root, found(&legacy_app, legacy_bundle));
 		let previous = found(root.0.join("Browser.app"), "com.example.browser");
 		let mut state_guard = state.lock();

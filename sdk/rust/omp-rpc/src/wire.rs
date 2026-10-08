@@ -3446,6 +3446,9 @@ pub struct LoginProvider {
 	pub name: String,
 	pub available: bool,
 	pub authenticated: bool,
+	pub kind: LoginProviderKind,
+	pub stored: bool,
+	pub store: String,
 }
 
 /// A stored credential `logout` can remove; `active` marks credentials the session may be using.
@@ -5697,6 +5700,24 @@ impl<'de> Deserialize<'de> for LitCompleted {
 			Ok(Self)
 		} else {
 			Err(D::Error::custom(format!("expected \"completed\", got {value}")))
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LoginProviderKind {
+	#[serde(rename = "account")]
+	Account,
+	#[serde(rename = "key")]
+	Key,
+}
+
+impl LoginProviderKind {
+	/// Wire value.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Account => "account",
+			Self::Key => "key",
 		}
 	}
 }

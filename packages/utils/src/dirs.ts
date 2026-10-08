@@ -419,7 +419,7 @@ class DirResolver {
 		// agrees on one location. These hold process-scoped runtime state
 		// (sockets, tokens), so there is no migration to protect.
 		const resolveBase = (envVar: string) => {
-			if (!xdgPlatform) return undefined;
+			if (!xdgPlatform || getHostConfigRoot()) return undefined;
 			const value = process.env[envVar];
 			if (!value) return undefined;
 			try {

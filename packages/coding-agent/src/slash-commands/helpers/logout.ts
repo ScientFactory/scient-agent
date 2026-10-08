@@ -137,6 +137,10 @@ export async function logoutCredential(
 	// default all-provider `online-if-uncached` would reuse the fresh
 	// authoritative cache row and keep showing models the credential
 	// unlocked (#5780). Other providers are left untouched.
-	await modelRegistry.refreshProvider(provider, "online");
+	try {
+		await modelRegistry.refreshDiscoverableProviders([provider], "online");
+	} finally {
+		modelRegistry.reapplySignInProjections();
+	}
 	return { removed: true, remainingSource: authStorage.keys.describe(provider, sessionId) };
 }

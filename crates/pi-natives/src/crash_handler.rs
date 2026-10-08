@@ -504,7 +504,7 @@ mod tests {
 			Path::new("/tmp/pi-natives-test-home/.scient-agent/agent"),
 			|_p| true,
 		);
-		assert_eq!(dir, Some(PathBuf::from("/xdg/state/omp/logs")));
+		assert_eq!(dir, Some(PathBuf::from("/xdg/state/scient-agent/logs")));
 	}
 
 	#[test]
@@ -533,7 +533,7 @@ mod tests {
 			Path::new("/tmp/pi-natives-test-home/.scient-agent/agent"),
 			|_p| true,
 		);
-		assert_eq!(dir, Some(PathBuf::from("/xdg/state/omp/logs")));
+		assert_eq!(dir, Some(PathBuf::from("/xdg/state/scient-agent/logs")));
 	}
 
 	#[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -580,7 +580,7 @@ mod tests {
 			&default_agent,
 			|_p| true,
 		);
-		assert_eq!(dir, Some(PathBuf::from("/xdg/state/omp/logs")));
+		assert_eq!(dir, Some(PathBuf::from("/xdg/state/scient-agent/logs")));
 	}
 
 	#[cfg(any(target_os = "linux", target_os = "macos"))]

@@ -3392,13 +3392,29 @@
 				},
 				"authenticated": {
 					"type": "boolean"
+				},
+				"kind": {
+					"enum": [
+						"account",
+						"key"
+					],
+					"type": "string"
+				},
+				"stored": {
+					"type": "boolean"
+				},
+				"store": {
+					"type": "string"
 				}
 			},
 			"required": [
 				"id",
 				"name",
 				"available",
-				"authenticated"
+				"authenticated",
+				"kind",
+				"stored",
+				"store"
 			]
 		},
 		"LogoutAccount": {

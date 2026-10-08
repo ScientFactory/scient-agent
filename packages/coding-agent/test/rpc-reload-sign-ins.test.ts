@@ -9,6 +9,7 @@ import { writeModelCache } from "@oh-my-pi/pi-catalog/model-cache";
 import { resolveModelCacheProviderId } from "@oh-my-pi/pi-catalog/provider-models";
 import { ModelRegistry, type ProviderConfigInput } from "../src/config/model-registry";
 import { reloadSignIns } from "../src/modes/rpc/reload-sign-ins";
+import { logoutCredential } from "../src/slash-commands/helpers/logout";
 
 const PROVIDER = "anthropic";
 const PROVIDER_ENV = ["ANTHROPIC_API_KEY", "ANTHROPIC_OAUTH_TOKEN"];
@@ -143,6 +144,74 @@ describe("reloadSignIns", () => {
 			.getAvailable()
 			.filter(model => model.provider === EXTENSION_PROVIDER)
 			.map(model => model.id);
+
+	it.each([false, true])(
+		"account logout reprojects hooks and preserves unrelated discovery (models file: %s)",
+		async modelsFile => {
+			if (modelsFile) fs.writeFileSync(path.join(dir, "models.yaml"), "providers: {}\n");
+			registry = new ModelRegistry(session, path.join(dir, "models.yaml"));
+			const config = extensionProviderConfig();
+			if (!config.oauth) throw new Error("Missing test OAuth config");
+			config.oauth.modifyModels = (models, credential) => [
+				...models.filter(model => model.provider !== EXTENSION_PROVIDER),
+				{
+					...(models.find(model => model.provider === EXTENSION_PROVIDER) as Model<Api>),
+					id: credential.access,
+					name: credential.access,
+				},
+			];
+			registry.registerProvider(EXTENSION_PROVIDER, config, EXTENSION);
+			for (const access of ["account-a", "account-b"]) {
+				await session.credentials.upsert(EXTENSION_PROVIDER, {
+					type: "oauth",
+					access,
+					refresh: access,
+					accountId: access,
+					expires: Date.now() + 60_000,
+				});
+			}
+			const other = "opencode-go";
+			const key = "logout-preservation-test-key";
+			const discovered = buildModel({
+				id: "unrelated-discovery",
+				name: "Unrelated",
+				api: "openai-responses",
+				provider: other,
+				baseUrl: "https://example.invalid/v1",
+				reasoning: false,
+				input: ["text"],
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+				contextWindow: 8192,
+				maxTokens: 1024,
+			});
+			session.keys.setRuntime(other, key);
+			const cacheId = resolveModelCacheProviderId(other, { apiKey: key });
+			writeModelCache(cacheId, Date.now(), [discovered], true, "", path.join(dir, "models.db"));
+			await registry.hydrateCredentialScopedModelCaches();
+			writeModelCache(cacheId, Date.now(), [], true, "", path.join(dir, "models.db"));
+			const before = session.credentials.getOAuth(EXTENSION_PROVIDER);
+			if (!before) throw new Error("Missing account fixture");
+			expect(extensionModels()).toEqual([before.access]);
+			expect(registry.find(EXTENSION_PROVIDER, before.access)).toBeDefined();
+			const row = session.credentials
+				.list(EXTENSION_PROVIDER)
+				.find(candidate => candidate.credential.type === "oauth" && candidate.credential.access === before.access);
+			if (!row) throw new Error("Missing stored row");
+			const result = await logoutCredential(registry, EXTENSION_PROVIDER, row.id, "logout-proof");
+			expect(result.removed).toBe(true);
+			const after = session.credentials.getOAuth(EXTENSION_PROVIDER);
+			if (!after) throw new Error("Remaining account disappeared");
+			expect(after.access).not.toBe(before.access);
+			expect(session.credentials.list(EXTENSION_PROVIDER)).toHaveLength(1);
+			expect(extensionModels()).toEqual([after.access]);
+			expect(registry.find(EXTENSION_PROVIDER, before.access)).toBeUndefined();
+			expect(registry.find(EXTENSION_PROVIDER, after.access)).toBeDefined();
+			expect(registry.getAll().some(model => model.provider === other && model.id === discovered.id)).toBe(true);
+			expect(registry.getAvailable().some(model => model.provider === other && model.id === discovered.id)).toBe(
+				true,
+			);
+		},
+	);
 
 	it.each([
 		["no models file", false],
