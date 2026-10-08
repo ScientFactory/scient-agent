@@ -36,6 +36,7 @@ if (!executable || !fs.existsSync(executable)) {
 const OMP_SELECTORS = [
 	"PI_CONFIG_DIR",
 	"PI_CONFIG_FILES",
+	"PI_NATIVES_DIR",
 	"PI_CODING_AGENT_DIR",
 	"PI_CODING_AGENT_SESSION_DIR",
 	"OMP_PROFILE",
@@ -241,6 +242,7 @@ try {
 		const ompEnv: Record<string, string> = {
 			PI_CONFIG_DIR: ".omp-decoy",
 			PI_CONFIG_FILES: path.join(decoy, "overlay.yml"),
+			PI_NATIVES_DIR: path.join(decoy, "natives"),
 			PI_CODING_AGENT_DIR: path.join(decoy, "agent"),
 			PI_CODING_AGENT_SESSION_DIR: path.join(decoy, "sessions"),
 			OMP_PROFILE: "decoy",
@@ -298,7 +300,9 @@ try {
 		const run = await runRpc({ ...baseEnv, HOME: home, USERPROFILE: home, SCIENT_AGENT_ROOT: root }, workspace);
 		checkProtocol("host root", run);
 		checkShellEnvironment("host root", run, {});
-		for (const expected of ["agent", "logs", "natives"]) {
+		// Logging initializes on the first record. A quiet startup need not
+		// create logs/; all writes still face the home/decoy checks below.
+		for (const expected of ["agent", "natives"]) {
 			if (!fs.existsSync(path.join(root, expected)))
 				fail(`host root: ${expected}/ is missing from SCIENT_AGENT_ROOT.`);
 		}

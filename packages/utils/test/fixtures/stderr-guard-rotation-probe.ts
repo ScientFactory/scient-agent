@@ -20,7 +20,6 @@ const sink = new RotatingFileSink({
 	directory,
 	filenamePrefix: "scient-agent",
 	filenameSuffix: String(process.pid),
-	auditFile: path.join(directory, `.scient-agent.${process.pid}-audit.json`),
 	maxBytes: 10 * 1024 * 1024,
 	maxFiles: 5,
 	onRotate: setStderrRedirectTarget,

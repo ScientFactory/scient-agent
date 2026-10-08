@@ -33,7 +33,7 @@ function holdsDiscoveredCatalog(registry: ModelRegistry, providerId: string): bo
 
 export async function reloadSignIns(registry: ModelRegistry, providerId: string): Promise<void> {
 	try {
-		await registry.authStorage.credentials.reload();
+		await registry.authStorage.credentials.revalidate();
 	} catch (err) {
 		logger.warn("Reloading sign-ins for a missing model failed", { provider: providerId, err });
 		return;

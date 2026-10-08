@@ -359,6 +359,7 @@ class DirResolver {
 	// With XDG on Linux, they point to $XDG_*_HOME/omp/.
 	readonly #rootDirs: Record<XdgCategory, string>;
 	readonly #agentDirs: Record<XdgCategory, string>;
+	readonly #baseRootDirs: Record<XdgCategory, string>;
 
 	readonly #rootCache = new Map<string, string>();
 	readonly #agentCache = new Map<string, string>();
@@ -390,8 +391,9 @@ class DirResolver {
 		let xdgData: string | undefined;
 		let xdgState: string | undefined;
 		let xdgCache: string | undefined;
+		const xdgPlatform = process.platform === "linux" || process.platform === "darwin";
 		// A host-assigned root is authoritative; XDG never redirects away from it.
-		if ((process.platform === "linux" || process.platform === "darwin") && isDefault && !getHostConfigRoot()) {
+		if (xdgPlatform && isDefault && !getHostConfigRoot()) {
 			const resolveIf = (envVar: string) => {
 				const value = process.env[envVar];
 				if (!value) return undefined;
@@ -399,14 +401,10 @@ class DirResolver {
 					const appRoot = path.join(value, APP_NAME);
 					if (profile) {
 						const profilePath = path.join(appRoot, "profiles", profile);
-						if (fs.existsSync(profilePath)) {
-							return profilePath;
-						}
+						if (fs.existsSync(profilePath)) return profilePath;
 						return undefined;
 					}
-					if (fs.existsSync(appRoot)) {
-						return appRoot;
-					}
+					return fs.existsSync(appRoot) ? appRoot : undefined;
 				} catch {}
 				return undefined;
 			};
@@ -414,6 +412,22 @@ class DirResolver {
 			xdgState = resolveIf("XDG_STATE_HOME");
 			xdgCache = resolveIf("XDG_CACHE_HOME");
 		}
+
+		// XDG choice for machine-global paths (daemon scopes shared by every
+		// process): keyed only on the base app root, independent of both the
+		// profile and any agent-dir override, so every omp process on the machine
+		// agrees on one location. These hold process-scoped runtime state
+		// (sockets, tokens), so there is no migration to protect.
+		const resolveBase = (envVar: string) => {
+			if (!xdgPlatform || getHostConfigRoot()) return undefined;
+			const value = process.env[envVar];
+			if (!value) return undefined;
+			try {
+				const appRoot = path.join(value, APP_NAME);
+				return fs.existsSync(appRoot) ? appRoot : undefined;
+			} catch {}
+			return undefined;
+		};
 
 		this.#rootDirs = {
 			data: xdgData ?? this.configRoot,
@@ -426,6 +440,17 @@ class DirResolver {
 			state: xdgState ?? this.agentDir,
 			cache: xdgCache ?? this.agentDir,
 		};
+		const baseRoot = getBaseConfigRoot();
+		this.#baseRootDirs = {
+			data: resolveBase("XDG_DATA_HOME") ?? baseRoot,
+			state: resolveBase("XDG_STATE_HOME") ?? baseRoot,
+			cache: resolveBase("XDG_CACHE_HOME") ?? baseRoot,
+		};
+	}
+
+	/** Profile-independent config-root subdirectory, with optional XDG override. Shared across profiles. */
+	baseRootSubdir(subdir: string, xdg?: XdgCategory): string {
+		return path.join(xdg ? this.#baseRootDirs[xdg] : getBaseConfigRoot(), subdir);
 	}
 
 	/** Config-root subdirectory, with optional XDG override. */
@@ -701,12 +726,14 @@ export function getRemoteDir(): string {
  * Expand a leading `~` and require an absolute result. Returns `undefined` for
  * empty/whitespace input or a path that is still relative after expansion.
  *
- * A worktree base is process-global and consumed by both creation
- * (PR checkout, task isolation) and cleanup (`omp worktree`). A relative value
- * would resolve against whatever cwd happened to launch `omp`, so checkout and
- * cleanup could disagree — we refuse it rather than silently bind it to cwd.
+ * Worktree bases and the natives directory are process-global: a worktree base
+ * is consumed by both creation (PR checkout, task isolation) and cleanup
+ * (`omp worktree`), and every launch extracts or loads the native addon from
+ * the same natives directory. A relative value would resolve against whatever
+ * cwd happened to launch `omp`, so those readers could disagree — we refuse it
+ * rather than silently bind it to cwd.
  */
-function resolveWorktreeBase(value: string | undefined): string | undefined {
+function resolveAbsoluteDir(value: string | undefined): string | undefined {
 	const trimmed = value?.trim();
 	if (!trimmed) return undefined;
 	let p = trimmed;
@@ -723,13 +750,13 @@ let worktreesDirOverride: string | undefined;
  * `worktree.base` setting in coding-agent; pass `undefined`/empty to clear and
  * fall back to `SCIENT_AGENT_WORKTREE_DIR` or the `~/.scient-agent/wt` default.
  *
- * `~` is expanded and a relative path is rejected (see {@link resolveWorktreeBase}).
+ * `~` is expanded and a relative path is rejected (see {@link resolveAbsoluteDir}).
  * Returns the absolute path that took effect, or `undefined` if the input was
  * cleared or rejected — callers can warn on a non-empty input that returns
  * `undefined`.
  */
 export function setWorktreesDir(dir: string | undefined): string | undefined {
-	worktreesDirOverride = resolveWorktreeBase(dir);
+	worktreesDirOverride = resolveAbsoluteDir(dir);
 	return worktreesDirOverride;
 }
 
@@ -742,9 +769,7 @@ export function setWorktreesDir(dir: string | undefined): string | undefined {
  */
 export function getWorktreesDir(): string {
 	return (
-		resolveWorktreeBase(process.env.SCIENT_AGENT_WORKTREE_DIR) ??
-		worktreesDirOverride ??
-		dirs.rootSubdir("wt", "data")
+		resolveAbsoluteDir(process.env.SCIENT_AGENT_WORKTREE_DIR) ?? worktreesDirOverride ?? dirs.rootSubdir("wt", "data")
 	);
 }
 
@@ -871,9 +896,11 @@ export function getFastembedRuntimeDir(): string {
 	return dirs.rootSubdir(path.join("cache", "fastembed-runtime"), "cache");
 }
 
-/** Get the natives directory (~/.scient-agent/natives). */
+/** Get the natives directory. SCIENT_AGENT_NATIVES_DIR overrides the usual cache root; relative values are ignored. */
 export function getNativesDir(): string {
-	return dirs.rootSubdir("natives", "cache");
+	const hostRoot = getHostConfigRoot();
+	if (hostRoot) return path.join(hostRoot, "natives");
+	return resolveAbsoluteDir(process.env.SCIENT_AGENT_NATIVES_DIR) ?? dirs.rootSubdir("natives", "cache");
 }
 
 /** Get the stats database path (~/.scient-agent/stats.db). */
@@ -947,6 +974,17 @@ export function getDocumentConversionCacheDir(agentDir?: string): string {
 /** Get the composer speculative cache database (~/.scient-agent/agent/cache/composer.db; XDG default: $XDG_CACHE_HOME/omp/cache/composer.db). */
 export function getComposerCacheDbPath(agentDir?: string): string {
 	return dirs.agentSubdir(agentDir, path.join("cache", "composer.db"), "cache");
+}
+/** Get the skill descriptions database (~/.scient-agent/agent/skill-descriptions.db; XDG default: $XDG_DATA_HOME/omp/skill-descriptions.db). */
+export function getSkillDescriptionsDbPath(agentDir?: string): string {
+	return dirs.agentSubdir(agentDir, "skill-descriptions.db", "data");
+}
+/** Get the text-predict engine state directory (~/.scient-agent/agent/predict/<method>; XDG default: $XDG_DATA_HOME/omp/predict/<method>). Adopts legacy engine state on first XDG resolution. */
+export function getPredictStateDir(agentDir: string | undefined, method: string): string {
+	const subdir = path.join("predict", method);
+	const stateDir = dirs.agentSubdir(agentDir, subdir, "data");
+	adoptLegacyDir(path.join(agentDir ?? dirs.agentDir, subdir), stateDir);
+	return stateDir;
 }
 
 /** Get the sessions directory (~/.scient-agent/agent/sessions). */
@@ -1033,6 +1071,29 @@ function adoptLegacyFile(legacyPath: string, targetPath: string): void {
 	}
 }
 
+/**
+ * Best-effort one-time copy of a legacy directory to its redirected XDG
+ * location, so learned state survives enabling XDG. The copy is staged next to
+ * the target and renamed into place, so a reader never sees a partial tree and
+ * a concurrent adopter cannot clobber a finished one. The legacy directory is
+ * left in place for older omp versions sharing the profile.
+ */
+function adoptLegacyDir(legacyPath: string, targetPath: string): void {
+	if (targetPath === legacyPath) return;
+	const staging = `${targetPath}.adopt-${process.pid}`;
+	try {
+		if (fs.existsSync(targetPath) || !fs.statSync(legacyPath, { throwIfNoEntry: false })?.isDirectory()) return;
+		fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+		fs.rmSync(staging, { recursive: true, force: true });
+		fs.cpSync(legacyPath, staging, { recursive: true });
+		fs.renameSync(staging, targetPath);
+	} catch {
+		// Opportunistic: a lost race or unwritable XDG dir falls back to fresh
+		// state at the new path — the pre-adoption behavior.
+		fs.rmSync(staging, { recursive: true, force: true });
+	}
+}
+
 /** Get the secret placeholder key path (~/.scient-agent/agent/secret-placeholder.key; XDG default: $XDG_STATE_HOME/omp/secret-placeholder.key). Adopts a legacy key on first XDG resolution. */
 export function getSecretPlaceholderKeyPath(): string {
 	const keyPath = dirs.agentSubdir(undefined, "secret-placeholder.key", "state");
@@ -1056,9 +1117,9 @@ export function getDaemonRuntimeDir(projectDir: string): string {
 	return path.join(getDaemonRuntimeRoot(), key);
 }
 
-/** Root directory containing every machine-global daemon service scope. */
+/** Root directory containing every machine-global daemon service scope (~/.scient-agent/run/daemons/global; XDG default: $XDG_STATE_HOME/omp/run/daemons/global). Shared across profiles. */
 export function getGlobalDaemonRuntimeRoot(): string {
-	return path.join(getBaseConfigRoot(), "run", "daemons", "global");
+	return dirs.baseRootSubdir(path.join("run", "daemons", "global"), "state");
 }
 
 /** Get a profile-independent runtime directory for a machine-global daemon service. */
@@ -1067,6 +1128,15 @@ export function getGlobalDaemonRuntimeDir(service: string): string {
 		throw new Error(`Invalid global daemon service name: ${JSON.stringify(service)}`);
 	}
 	return path.join(getGlobalDaemonRuntimeRoot(), service);
+}
+
+/**
+ * Directory naming session ownership leases (~/.scient-agent/run/session-owners; XDG
+ * default: $XDG_STATE_HOME/omp/run/session-owners). Shared across profiles:
+ * every omp process that opens a session must meet the same lease.
+ */
+export function getSessionOwnersDir(): string {
+	return dirs.baseRootSubdir(path.join("run", "session-owners"), "state");
 }
 
 /** Get the provider in-flight root directory (~/.scient-agent/run/provider-inflight; XDG default: $XDG_STATE_HOME/omp/run/provider-inflight). */

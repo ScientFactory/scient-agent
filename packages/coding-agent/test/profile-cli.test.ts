@@ -182,6 +182,8 @@ describe("global --profile flag", () => {
 			const childEnv: Record<string, string | undefined> = {
 				...process.env,
 				HOME: home,
+				// os.homedir() reads USERPROFILE on Windows, HOME elsewhere.
+				USERPROFILE: home,
 				SCIENT_AGENT_CONFIG_DIR: configDir,
 				PI_NO_TITLE: "1",
 				NO_COLOR: "1",
@@ -235,6 +237,7 @@ describe("global --profile flag", () => {
 			const childEnv: Record<string, string | undefined> = {
 				...process.env,
 				HOME: home,
+				USERPROFILE: home,
 				SCIENT_AGENT_CONFIG_DIR: ".scient-agent-profile-cli-env-bad",
 				SCIENT_AGENT_PROFILE: "..",
 				NO_COLOR: "1",

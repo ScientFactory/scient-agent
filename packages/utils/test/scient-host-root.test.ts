@@ -21,6 +21,7 @@ const AGENT_VARIABLES = [
 	"SCIENT_AGENT_PROFILE_FALLBACK",
 	"SCIENT_AGENT_SESSION_DIR",
 	"SCIENT_AGENT_AUTH_BROKER_URL",
+	"SCIENT_AGENT_NATIVES_DIR",
 	"XDG_DATA_HOME",
 	"XDG_STATE_HOME",
 	"XDG_CACHE_HOME",
@@ -29,6 +30,7 @@ const AGENT_VARIABLES = [
 interface Probe {
 	readonly agentDir: string;
 	readonly configRoot: string;
+	readonly nativesDir: string;
 	readonly env: Record<string, string | null>;
 }
 
@@ -56,9 +58,10 @@ async function scratch(): Promise<{ home: string; project: string; root: string;
 async function probe(dirs: { home: string; project: string }, launch: Record<string, string>): Promise<Probe> {
 	const script = [
 		`import { $env } from ${JSON.stringify(envUrl)};`,
-		`import { getAgentDir, getConfigRootDir } from ${JSON.stringify(dirsUrl)};`,
+		`import { getAgentDir, getConfigRootDir, getNativesDir } from ${JSON.stringify(dirsUrl)};`,
 		`const names = ${JSON.stringify(AGENT_VARIABLES)};`,
 		"process.stdout.write(JSON.stringify({",
+		"nativesDir: getNativesDir(),",
 		"	agentDir: getAgentDir(),",
 		"	configRoot: getConfigRootDir(),",
 		"	env: Object.fromEntries(names.map(name => [name, $env[name] ?? null])),",
@@ -116,6 +119,16 @@ describe("host-assigned config root", () => {
 			SCIENT_AGENT_DIR: path.join(dirs.elsewhere, "agent"),
 		});
 		expect(result.agentDir).toBe(path.join(dirs.root, "agent"));
+	});
+
+	it("keeps native state inside the host root despite native and XDG overrides", async () => {
+		const dirs = await scratch();
+		const result = await probe(dirs, {
+			SCIENT_AGENT_ROOT: dirs.root,
+			SCIENT_AGENT_NATIVES_DIR: path.join(dirs.elsewhere, "natives"),
+			XDG_CACHE_HOME: path.join(dirs.elsewhere, "cache"),
+		});
+		expect(result.nativesDir).toBe(path.join(dirs.root, "natives"));
 	});
 
 	it("does not take the agent's own variables from a .env outside the root", async () => {

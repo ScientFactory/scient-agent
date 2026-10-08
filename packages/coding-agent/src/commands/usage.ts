@@ -12,7 +12,7 @@ export default class Usage extends Command {
 		action: Args.string({
 			description: "Optional subcommand to execute",
 			required: false,
-			options: ["invalidate", "clients"],
+			options: ["invalidate", "clients", "accounts"],
 		}),
 	};
 
@@ -46,6 +46,7 @@ export default class Usage extends Command {
 		"# Machine-readable output\n  scient-agent usage --json",
 		"# Usage-limit trend over the last 30 days\n  scient-agent usage --history --days 30",
 		"# Per-client token burn (which machine/app spent what) over the last 30 days\n  scient-agent usage clients --days 30",
+		"# OAuth identity keys for task.agentAccountPools (no tokens)\n  scient-agent usage accounts",
 		"# Invalidate cached usage reports for all providers\n  scient-agent usage invalidate",
 		"# Invalidate cached usage reports for a specific provider\n  scient-agent usage invalidate --provider anthropic",
 	];

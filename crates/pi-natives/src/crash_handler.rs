@@ -22,8 +22,9 @@
 //! - The crash log path mirrors the JS side (`packages/utils/src/dirs.ts`):
 //!   `$XDG_STATE_HOME/omp/logs/` on Linux / macOS when the user has migrated to
 //!   XDG (i.e. that directory already exists and `SCIENT_AGENT_DIR` isn't
-//!   pointed somewhere custom), otherwise `<home>/<SCIENT_AGENT_CONFIG_DIR>/logs/`
-//!   (defaulting to `~/.scient-agent/logs/`).
+//!   pointed somewhere custom), otherwise
+//!   `<home>/<SCIENT_AGENT_CONFIG_DIR>/logs/` (defaulting to
+//!   `~/.scient-agent/logs/`).
 //! - Hook installation is idempotent across repeated module loads.
 
 use std::{
@@ -471,9 +472,9 @@ mod tests {
 	#[test]
 	fn resolve_logs_dir_reroots_absolute_pi_config_dir_under_home() {
 		// JS resolves the config root via `path.join(os.homedir(),
-		// getConfigDirName())`, which never honors an absolute SCIENT_AGENT_CONFIG_DIR — it
-		// is always re-rooted under `$HOME` (and `..` components are normalized
-		// away).
+		// getConfigDirName())`, which never honors an absolute
+		// SCIENT_AGENT_CONFIG_DIR — it is always re-rooted under `$HOME`
+		// (and `..` components are normalized away).
 		let dir = resolve_logs_dir(
 			Path::new("/tmp/pi-natives-test-home"),
 			Some(OsStr::new("/var/tmp/pi-natives-state")),
@@ -503,7 +504,7 @@ mod tests {
 			Path::new("/tmp/pi-natives-test-home/.scient-agent/agent"),
 			|_p| true,
 		);
-		assert_eq!(dir, Some(PathBuf::from("/xdg/state/omp/logs")));
+		assert_eq!(dir, Some(PathBuf::from("/xdg/state/scient-agent/logs")));
 	}
 
 	#[test]
@@ -532,7 +533,7 @@ mod tests {
 			Path::new("/tmp/pi-natives-test-home/.scient-agent/agent"),
 			|_p| true,
 		);
-		assert_eq!(dir, Some(PathBuf::from("/xdg/state/omp/logs")));
+		assert_eq!(dir, Some(PathBuf::from("/xdg/state/scient-agent/logs")));
 	}
 
 	#[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -579,7 +580,7 @@ mod tests {
 			&default_agent,
 			|_p| true,
 		);
-		assert_eq!(dir, Some(PathBuf::from("/xdg/state/omp/logs")));
+		assert_eq!(dir, Some(PathBuf::from("/xdg/state/scient-agent/logs")));
 	}
 
 	#[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -591,8 +592,10 @@ mod tests {
 	#[cfg(any(target_os = "linux", target_os = "macos"))]
 	#[test]
 	fn default_agent_dir_respects_pi_config_dir() {
-		let dir =
-			default_agent_dir(Path::new("/tmp/pi-natives-test-home"), Some(OsStr::new(".scient-agent-dev")));
+		let dir = default_agent_dir(
+			Path::new("/tmp/pi-natives-test-home"),
+			Some(OsStr::new(".scient-agent-dev")),
+		);
 		assert_eq!(dir, PathBuf::from("/tmp/pi-natives-test-home/.scient-agent-dev/agent"));
 	}
 
@@ -602,7 +605,9 @@ mod tests {
 		let panic_log = build_crash_log_path(dir, CrashKind::Panic, 4242, 1_700_000_000_000);
 		assert_eq!(
 			panic_log,
-			PathBuf::from("/tmp/pi-natives-test-home/.scient-agent/logs/native-panic-4242-1700000000000.log")
+			PathBuf::from(
+				"/tmp/pi-natives-test-home/.scient-agent/logs/native-panic-4242-1700000000000.log"
+			)
 		);
 		let alloc_log = build_crash_log_path(dir, CrashKind::Alloc, 99, 1);
 		assert_eq!(

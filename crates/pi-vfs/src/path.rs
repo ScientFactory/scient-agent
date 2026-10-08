@@ -54,10 +54,10 @@ fn subpath(path: &Path, end: usize) -> &Path {
 	}
 	#[cfg(not(unix))]
 	{
-		// SAFETY: `bytes` is a prefix of `path`'s encoded bytes that ends either at
-		// the end of the string or immediately before an ASCII '/' (or right after
-		// the ASCII `scheme://` root), which the `from_encoded_bytes_unchecked`
-		// contract permits as a split point.
+		// SAFETY: `bytes` is a prefix of `path`'s encoded bytes that ends either
+		// at the end of the string or immediately before an ASCII '/' (or
+		// right after the ASCII `scheme://` root), which the
+		// `from_encoded_bytes_unchecked` contract permits as a split point.
 		Path::new(unsafe { OsStr::from_encoded_bytes_unchecked(bytes) })
 	}
 }
@@ -75,8 +75,9 @@ fn url_segments(path: &Path, root: usize) -> impl Iterator<Item = &OsStr> {
 			}
 			#[cfg(not(unix))]
 			{
-				// SAFETY: `seg` is delimited by ASCII '/' bytes (or the string ends) inside
-				// `path`'s encoded bytes, a permitted split point.
+				// SAFETY: `seg` is delimited by ASCII '/' bytes (or the string
+				// ends) inside `path`'s encoded bytes, a permitted
+				// split point.
 				unsafe { OsStr::from_encoded_bytes_unchecked(seg) }
 			}
 		})
@@ -103,13 +104,20 @@ const fn needs_escape(byte: u8) -> bool {
 		|| matches!(
 			byte,
 			b' '
-				| b'"' | b'#'
-				| b'%' | b'<'
-				| b'>' | b'?'
-				| b'[' | b'\\'
-				| b']' | b'^'
-				| b'`' | b'{'
-				| b'|' | b'}'
+				| b'"'
+				| b'#'
+				| b'%'
+				| b'<'
+				| b'>'
+				| b'?'
+				| b'['
+				| b'\\'
+				| b']'
+				| b'^'
+				| b'`'
+				| b'{'
+				| b'|'
+				| b'}'
 		)
 }
 
@@ -524,8 +532,7 @@ impl PathBuilder {
 			let mut out = self
 				.root
 				.clone()
-				.map(PathBuf::into_os_string)
-				.unwrap_or_default();
+				.map_or_else(OsString::new, PathBuf::into_os_string);
 			for (i, seg) in self.segments.iter().enumerate() {
 				if i > 0 {
 					out.push("/");
