@@ -962,6 +962,14 @@ export class ModelRegistry {
 		this.#commandConfigsByProvider.clear();
 	}
 
+	/** Reapply credential-aware hooks without dropping any discovered catalog. */
+	reapplySignInProjections(): void {
+		this.#providerLookupSnapshots.clear();
+		this.#internedStaticModels.clear();
+		if (!this.#hasFullSnapshot) return;
+		this.#models = this.#withCatalogMetrics(this.#applyRuntimeModelModifiers(this.#unprojectedModels));
+	}
+
 	#knownStaticProviders(): string[] {
 		const providers = new Set<string>(getBundledProviders());
 		for (const provider of this.#pendingStandardCacheProviders) providers.add(provider);

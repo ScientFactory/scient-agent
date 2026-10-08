@@ -104,20 +104,13 @@ const fn needs_escape(byte: u8) -> bool {
 		|| matches!(
 			byte,
 			b' '
-				| b'"'
-				| b'#'
-				| b'%'
-				| b'<'
-				| b'>'
-				| b'?'
-				| b'['
-				| b'\\'
-				| b']'
-				| b'^'
-				| b'`'
-				| b'{'
-				| b'|'
-				| b'}'
+				| b'"' | b'#'
+				| b'%' | b'<'
+				| b'>' | b'?'
+				| b'[' | b'\\'
+				| b']' | b'^'
+				| b'`' | b'{'
+				| b'|' | b'}'
 		)
 }
 
@@ -529,7 +522,11 @@ impl PathBuilder {
 
 	pub(crate) fn to_path(&self) -> PathBuf {
 		if self.url {
-			let mut out = self.root.clone().map_or_default(PathBuf::into_os_string);
+			let mut out = self
+				.root
+				.clone()
+				.map(PathBuf::into_os_string)
+				.unwrap_or_default();
 			for (i, seg) in self.segments.iter().enumerate() {
 				if i > 0 {
 					out.push("/");

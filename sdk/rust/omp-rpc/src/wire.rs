@@ -3322,7 +3322,7 @@ pub struct AvailableSlashCommand {
 	pub subcommands: Option<Vec<SlashSubcommand>>,
 }
 
-/// OMP-native session entries in append order.
+/// Scient Agent-native session entries in append order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionEntries {
 	pub entries: Vec<Map<String, Value>>,
@@ -4014,7 +4014,7 @@ impl PromptStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromptError {
 	pub message: String,
-	/// Transient: resubmitting later may succeed (omp's own retries are exhausted).
+	/// Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).
 	pub retryable: bool,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub provider: Option<String>,
@@ -5416,14 +5416,16 @@ pub struct GetLogoutAccountsResult {
 pub struct LogoutParams {
 	#[serde(rename = "providerId")]
 	pub provider_id: String,
-	#[serde(rename = "credentialId")]
-	pub credential_id: i64,
+	#[serde(rename = "credentialId", default, skip_serializing_if = "Option::is_none")]
+	pub credential_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogoutResult {
 	#[serde(rename = "remainingSource", default, skip_serializing_if = "Option::is_none")]
 	pub remaining_source: Option<String>,
+	#[serde(rename = "providerId", default, skip_serializing_if = "Option::is_none")]
+	pub provider_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6878,13 +6880,13 @@ impl Command for GetLogoutAccountsCommand {
 	}
 }
 
-/// Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.
+/// Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogoutCommand {
 	#[serde(rename = "providerId")]
 	pub provider_id: String,
-	#[serde(rename = "credentialId")]
-	pub credential_id: i64,
+	#[serde(rename = "credentialId", default, skip_serializing_if = "Option::is_none")]
+	pub credential_id: Option<i64>,
 }
 
 impl Command for LogoutCommand {

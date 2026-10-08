@@ -71,7 +71,8 @@ import { isRpcHostToolResult, isRpcHostToolUpdate, RpcHostToolBridge } from "./h
 import { isRpcHostUriResult, RpcHostUriBridge } from "./host-uris";
 import { MAX_RPC_FRAME_BYTES, MAX_RPC_REASSEMBLED_BYTES, RpcFrameEncoder } from "./rpc-frame";
 import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
-import { listSignInProviders, removeStoredSignIn } from "./sign-in-providers";
+import { BROKER_SIGN_OUT_REFUSAL, listSignInProviders, removeStoredSignIn } from "./sign-in-providers";
+import { reloadSignIns } from "./reload-sign-ins";
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcBtwController } from "./rpc-btw";
 import { RpcGoalController } from "./rpc-goal";
@@ -959,6 +960,9 @@ async function findRpcModel(session: RpcModelLookupSession, provider: string, mo
 	const model = find();
 	if (model) return model;
 	await session.modelRegistry.awaitBackgroundRefresh();
+	const discovered = find();
+	if (discovered) return discovered;
+	await reloadSignIns(session.modelRegistry, provider);
 	return find();
 }
 
@@ -2548,6 +2552,25 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			}
 
 			case "logout": {
+				if (typeof command.providerId !== "string") {
+					return error(id, "logout", "providerId must be a string");
+				}
+				if (session.modelRegistry.authStorage.credentials.heldByBroker) {
+					return error(id, "logout", BROKER_SIGN_OUT_REFUSAL);
+				}
+				// Older Desktop hosts sign out a provider entry, not one credential.
+				// Keep that contract alongside upstream's account-specific command.
+				if (command.credentialId === undefined) {
+					try {
+						if (!(await removeStoredSignIn(session.modelRegistry.authStorage, command.providerId))) {
+							return error(id, "logout", `Unknown sign-in provider: ${command.providerId}`);
+						}
+						session.modelRegistry.reapplySignInProjections();
+						return success(id, "logout", { providerId: command.providerId });
+					} catch (err: unknown) {
+						return error(id, "logout", err instanceof Error ? err.message : String(err));
+					}
+				}
 				if (typeof command.providerId !== "string" || !Number.isInteger(command.credentialId)) {
 					return error(id, "logout", "providerId must be a string and credentialId an integer");
 				}

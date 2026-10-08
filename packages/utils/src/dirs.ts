@@ -898,6 +898,8 @@ export function getFastembedRuntimeDir(): string {
 
 /** Get the natives directory. SCIENT_AGENT_NATIVES_DIR overrides the usual cache root; relative values are ignored. */
 export function getNativesDir(): string {
+	const hostRoot = getHostConfigRoot();
+	if (hostRoot) return path.join(hostRoot, "natives");
 	return resolveAbsoluteDir(process.env.SCIENT_AGENT_NATIVES_DIR) ?? dirs.rootSubdir("natives", "cache");
 }
 
