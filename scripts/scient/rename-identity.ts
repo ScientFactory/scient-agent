@@ -30,6 +30,7 @@ const RENAMES: ReadonlyArray<readonly [RegExp, string]> = [
 	[/(?<=^|[/"'`(\\~])\.omp(?![A-Za-z0-9_]|-plugin)|(?<=\s)\.omp(?![A-Za-z0-9_-])/gm, ".scient-agent"],
 	[/\bPI_CONFIG_DIR\b/g, "SCIENT_AGENT_CONFIG_DIR"],
 	[/\bPI_CONFIG_FILES\b/g, "SCIENT_AGENT_CONFIG_FILES"],
+	[/\bPI_NATIVES_DIR\b/g, "SCIENT_AGENT_NATIVES_DIR"],
 	[/\bPI_CODING_AGENT_SESSION_DIR\b/g, "SCIENT_AGENT_SESSION_DIR"],
 	[/\bPI_CODING_AGENT_DIR\b/g, "SCIENT_AGENT_DIR"],
 	[/\bOMP_PROFILE\b/g, "SCIENT_AGENT_PROFILE"],

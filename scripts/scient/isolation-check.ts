@@ -36,6 +36,7 @@ if (!executable || !fs.existsSync(executable)) {
 const OMP_SELECTORS = [
 	"PI_CONFIG_DIR",
 	"PI_CONFIG_FILES",
+	"PI_NATIVES_DIR",
 	"PI_CODING_AGENT_DIR",
 	"PI_CODING_AGENT_SESSION_DIR",
 	"OMP_PROFILE",
@@ -241,6 +242,7 @@ try {
 		const ompEnv: Record<string, string> = {
 			PI_CONFIG_DIR: ".omp-decoy",
 			PI_CONFIG_FILES: path.join(decoy, "overlay.yml"),
+			PI_NATIVES_DIR: path.join(decoy, "natives"),
 			PI_CODING_AGENT_DIR: path.join(decoy, "agent"),
 			PI_CODING_AGENT_SESSION_DIR: path.join(decoy, "sessions"),
 			OMP_PROFILE: "decoy",

@@ -237,7 +237,7 @@ New authoring should use `ExtensionAPI`. Discovered JS/TS hook factories are loa
 
 ## Debugging
 
-Scient Agent writes structured logs under the active state root's `logs/` directory (by default `~/.scient-agent/logs/`; debug level is always on, and nothing is written to the console because that would corrupt the TUI). Each filename includes the process ID. Tail today's default-profile logs to see extension load diagnostics:
+Scient Agent writes structured logs under the active state root's `logs/` directory (by default `~/.scient-agent/logs/`; debug level is always on, and nothing is written to the console because that would corrupt the TUI). Records are written in batches, so a debug line can take up to a second to appear while `warn` and `error` lines are written immediately. Each filename includes the process ID, and a process creates its file only when it first logs. Tail today's default-profile logs to see extension load diagnostics:
 
 ```
 tail -f ~/.scient-agent/logs/omp.$(date +%F).*.log

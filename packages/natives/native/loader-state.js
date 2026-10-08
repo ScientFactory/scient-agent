@@ -64,6 +64,14 @@ function startupMarker(text) {
 function getNativesDir() {
 	const hostRoot = process.env.SCIENT_AGENT_ROOT;
 	if (hostRoot && path.isAbsolute(hostRoot)) return path.join(hostRoot, "natives");
+	// Match pi-utils directory overrides without depending on pi-utils.
+	const override = process.env.SCIENT_AGENT_NATIVES_DIR?.trim();
+	if (override) {
+		let dir = override;
+		if (dir === "~") dir = os.homedir();
+		else if (dir.startsWith("~/") || dir.startsWith("~\\")) dir = os.homedir() + dir.slice(1);
+		if (path.isAbsolute(dir)) return path.normalize(dir);
+	}
 	const xdgDataHome = process.env.XDG_DATA_HOME;
 	if (xdgDataHome && fs.existsSync(path.join(xdgDataHome, "scient-agent"))) {
 		return path.join(xdgDataHome, "scient-agent", "natives");
