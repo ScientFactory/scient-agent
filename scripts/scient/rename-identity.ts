@@ -18,6 +18,7 @@
  */
 import * as path from "node:path";
 import { $ } from "bun";
+import { formatTools } from "./lib/format";
 
 /** Sources that are built into, tested with, or documented inside the agent. */
 const ROOTS = ["packages", "crates", "docs"];
@@ -84,5 +85,5 @@ if (check) {
 } else {
 	console.log(`Renamed Oh My Pi state names in ${changed} files.`);
 	// The new names are longer, so some lines need rewrapping.
-	if (changed > 0) await $`bun run fmt:tools`.cwd(repoRoot).quiet();
+	if (changed > 0) await formatTools(repoRoot);
 }

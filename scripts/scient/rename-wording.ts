@@ -31,6 +31,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "@babel/parser";
 import { $ } from "bun";
+import { formatTools } from "./lib/format";
 import { type TextSpan, textSpans } from "./lib/text-spans";
 
 const PRODUCT = "Scient Agent";
@@ -437,7 +438,7 @@ if (check) {
 	console.log("The agent's wording names Scient Agent.");
 } else {
 	// Longer and shorter strings can change how a line wraps.
-	if (changed > 0) await $`bun run fmt:tools`.cwd(repoRoot).quiet().nothrow();
+	if (changed > 0) await formatTools(repoRoot);
 	// Only the files touched: the whole workspace is not this script's to format.
 	if (native.length > 0) await $`rustfmt ${native}`.cwd(repoRoot).quiet().nothrow();
 	console.log(`Rewrote the wording in ${changed} files.`);

@@ -38,10 +38,36 @@ Left as upstream, on purpose:
 - The terminal interface's π logo and icon: the symbol has no terminal drawing yet. Scient drives the agent over RPC, where neither shows.
 - The built-in welcome image, changelogs and READMEs, and the names of tuning variables (`PI_*`, `OMP_*`) where the documentation mentions them.
 
+## Keeping Scient's changes apart
+
+Every difference from Oh My Pi takes the lightest form that works, in this order:
+
+1. **Generated.** Renames of state names, variables, pipes and socket folders (`rename-identity.ts`) and of the agent's words (`rename-wording.ts`) are produced by the scripts, never edited by hand. Each alignment regenerates them instead of resolving their conflicts.
+2. **Scient's own files.** New behavior lives in files Scient adds: `scripts/scient/`, Scient-named modules and tests.
+3. **Marked hooks.** A change that has to sit inside an Oh My Pi file is as small as it can be and wrapped in a marker block, in the file's own comment syntax:
+
+   ```ts
+   // scient(SA-AUTH): begin - A sign-in completed in another process reaches a running session.
+   ...the changed lines...
+   // scient(SA-AUTH): end
+   ```
+
+   `#` replaces `//` in Python, YAML, TOML, shell and Bazel files, `<!-- ... -->` in Markdown, HTML, SVG and XML, and `{/* ... */}` inside JSX. A marker is a comment of its own, never a line inside a string, a template, a block comment, a code block, an HTML attribute or raw text such as `<textarea>` or `<title>`; a change inside such text is wrapped from outside it, or made by a generator. The checker reads JavaScript and TypeScript with their parser, Markdown by rendering it and reading the HTML with an HTML tokenizer, and Rust with a lexer to hold this, and reports a file they cannot read unambiguously; in other languages review does. A removal leaves a block where the lines were; where blocks sit side by side, review decides which of them explains it. The checker cannot tell a hook retired right beside a generated line from a deletion: retire such a hook at the next alignment by leaving its contract out of the replay. Blank lines a change adds go inside its block, or the block ends directly before the next line of Oh My Pi's code.
+
+`scripts/scient/divergences.json` is the ledger: one entry per contract (`SA-AUTH`, `SA-ROOT`, ...), naming what stays true, the files Scient owns, the Oh My Pi files that carry its markers, and any Oh My Pi file it deletes, changes by JSON pointer (JSON holds no comments), or changes without markers because a marker would change what the file does. An entry that upstream absorbed or Scient dropped stays as `upstreamed` or `retired`, with its disposition.
+
+`scripts/scient/divergence-check.ts` enforces this in CI. On an ordinary pull request it checks every commit after the accepted alignment: a hand-written change to an Oh My Pi file must sit in a block whose entry lists that file, and every file Scient adds must have an owner. On an alignment pull request it checks every commit of the new replay, regenerates each generated commit from its parent to prove it is exactly the generator's output, and requires the pull request's tree to equal the replay's. It shows provenance and coverage, not that a change is minimal or correct.
+
+Generated RPC clients (`rpc-wire.schema.json`, `rpc-wire.generated.ts` and the Python, Rust and Go clients) change only in a `Scient-Generator: rpc` commit, including a rename or removal, and the checker regenerates them whenever their sources change. Dependencies are installed without lifecycle scripts before a generator runs, and the generators run the oxfmt that `fmt:tools` names directly rather than through `bun run`, so no package script can shape a generated commit. What a hand-written commit adds and what it removes are each accounted for. Code returned to Oh My Pi's needs no marker and a JSON value returned to Oh My Pi's needs no registration, so restoring upstream code is never flagged. Retiring a block or a registration means restoring what it covered, or covering it another way. That holds even for a commit that changes only the ledger.
+
+An alignment is accepted with an annotated tag `omp-sync/v<version>` on its replay whose message ends with `Scient-Checkpoint: <commit>`: the commit on `main` the alignment merged as, whose tree equals the replay's. Ordinary pull requests are checked from that commit. An alignment pull request's replay is the branch `replay/omp-v<version>` on `origin`; CI checks it while no tag exists for the new version.
+
+The 18.8.4 alignment predates markers. Its in-place changes were accepted with it and are not checked; the next alignment marks them all.
+
 ## Branches, releases and upstream updates
 
 - `main` holds Scient Agent. Changes reach it through pull requests that keep their commits (rebase merge; history stays linear). A release is a `v<version>` tag on `main` that matches `scient.json`: `v0.1.0`, `v0.1.1`, ...
-- Scient's commits come in three kinds: the scripts under `scripts/scient/`, generated commits (the output of `rename-identity.ts` or `rename-wording.ts` and nothing else, subject ending in `(generated)`), and hand-written changes. A pull request that changes what a script produces carries the output as its own `(generated)` commit.
+- Scient's commits come in three kinds: the scripts under `scripts/scient/`, generated commits (the output of one generator and nothing else, subject ending in `(generated)`, trailer `Scient-Generator: identity`, `wording` or `rpc`), and hand-written changes (trailer `Scient-Divergence: <ids>` in a replay). A pull request that changes what a script produces carries the output as its own generated commit.
 - `upstream` is a fetch-only remote for Oh My Pi. `scient/18.4.8` is the branch the work started on, kept as it was.
 
 Taking a newer Oh My Pi release is one source-alignment pull request, plus a Desktop compatibility change only if the host contract needs one. Replay Scient's changes onto the exact upstream release, regenerate generated changes, and import the resulting tree into a branch based on Scient `main`. Do not rebase or force-push published Scient history. The agent loop, tools, Skills, MCP, interpreters and delegation remain inherited; an alignment is not a new feature-selection exercise.
@@ -197,6 +223,8 @@ bun --cwd=packages/coding-agent run build     # packages/coding-agent/dist/scien
 ```sh
 bun scripts/scient/rename-identity.ts --check   # no OMP state name is left in the source
 bun scripts/scient/rename-wording.ts --check    # the agent's words name Scient Agent
+bun scripts/scient/divergence-check.ts         # every divergence is generated, owned or marked
+bun test scripts/scient                         # the checker's own cases
 bun run check:ts
 CI=1 bun run check:rs                         # force checks even on a clean committed tree
 CI=1 NEXTEST_TEST_THREADS=1 bun run test:rs    # native desktop-input tests share a machine lock

@@ -99,6 +99,7 @@ jobs:
               bun --cwd=packages/natives test
               bun --cwd=packages/coding-agent test test/rpc-reload-sign-ins.test.ts test/rpc-sign-in-providers.test.ts
               bun --cwd=packages/ai test test/scient-callback-page.test.ts
+              bun test scripts/scient
 
          - name: Build the binary
            run: |
@@ -135,6 +136,38 @@ jobs:
               name: ${{ runner.os == 'macOS' && 'unsigned-' || '' }}scient-agent-${{ matrix.id }}
               path: release/
               if-no-files-found: error
+
+   divergence:
+      name: Check Scient's divergences
+      runs-on: ubuntu-24.04
+      timeout-minutes: 90
+      steps:
+         # The pull request's own head, not GitHub's merge commit: the check walks
+         # Scient's linear history from the accepted alignment.
+         - uses: actions/checkout@v4
+           with:
+              ref: ${{ github.event.pull_request.head.sha || github.sha }}
+              fetch-depth: 0
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - name: Fetch the accepted alignments
+           run: git fetch --force --no-tags origin 'refs/tags/omp-sync/*:refs/tags/omp-sync/*'
+
+         - name: Check
+           run: |
+              version="$(bun -e 'console.log((await Bun.file("scient.json").json()).upstream.version)')"
+              if git rev-parse -q --verify "refs/tags/omp-sync/v$version" > /dev/null; then
+                 bun scripts/scient/divergence-check.ts
+              else
+                 # An alignment with a new release: check its replay, which regenerates
+                 # the generated commits (they format Rust with the pinned toolchain).
+                 rustup show active-toolchain || rustup toolchain install
+                 git fetch --no-tags origin "refs/heads/replay/omp-v$version:refs/remotes/origin/replay/omp-v$version"
+                 bun scripts/scient/divergence-check.ts --replay "origin/replay/omp-v$version"
+              fi
 
    sign-macos:
       name: Sign (${{ matrix.id }})
@@ -244,7 +277,7 @@ jobs:
       name: Draft release
       # Job conditions cannot read workflow env, so this repeats RELEASE.
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-      needs: [build, verify-macos]
+      needs: [build, verify-macos, divergence]
       runs-on: ubuntu-24.04
       permissions:
          contents: write

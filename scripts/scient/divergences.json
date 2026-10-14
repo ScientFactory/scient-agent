@@ -1,0 +1,78 @@
+{
+	"schemaVersion": 1,
+	"entries": {
+		"GEN-IDENTITY": {
+			"status": "active",
+			"contract": "Scient Agent and a stock omp never read, write or steer each other's state: state folders, variables, pipes and socket folders carry Scient's names. Regenerated at every alignment.",
+			"owned": ["scripts/scient/rename-identity.ts", "scripts/scient/lib/format.ts"],
+			"verification": ["bun scripts/scient/rename-identity.ts --check"]
+		},
+		"GEN-WORDING": {
+			"status": "active",
+			"contract": "The agent calls itself Scient Agent wherever a person or a model reads its words. Regenerated at every alignment.",
+			"owned": [
+				"scripts/scient/rename-wording.ts",
+				"scripts/scient/lib/text-spans.ts",
+				"scripts/scient/lib/format.ts"
+			],
+			"verification": ["bun scripts/scient/rename-wording.ts --check"]
+		},
+		"SA-PRODUCT": {
+			"status": "active",
+			"contract": "scient.json names the product, its version and the exact Oh My Pi release it derives from; --version and --runtime-info report them.",
+			"owned": ["scient.json", "packages/coding-agent/src/cli/runtime-info.ts"]
+		},
+		"SA-ROOT": {
+			"status": "active",
+			"contract": "A host-assigned root (SCIENT_AGENT_ROOT, from the launch environment only) holds all of the agent's state.",
+			"owned": ["packages/utils/test/scient-host-root.test.ts"],
+			"verification": ["bun --cwd=packages/utils test test/scient-host-root.test.ts"]
+		},
+		"SA-NATIVE-CACHE": {
+			"status": "active",
+			"contract": "A compiled binary extracts its addon into a directory named for the addon's content and loads only that addon.",
+			"owned": ["packages/natives/test/build-cache.test.ts"],
+			"verification": ["bun --cwd=packages/natives test test/build-cache.test.ts"]
+		},
+		"SA-AUTH": {
+			"status": "active",
+			"contract": "A host sees each sign-in's kind, whether it is stored and the store it shares; sign-out over RPC removes it or fails; a broker's sign-ins stay with the broker; a sign-in completed in another process reaches a running session.",
+			"owned": [
+				"packages/coding-agent/src/modes/rpc/sign-in-providers.ts",
+				"packages/coding-agent/src/modes/rpc/reload-sign-ins.ts",
+				"packages/coding-agent/test/rpc-sign-in-providers.test.ts",
+				"packages/coding-agent/test/rpc-reload-sign-ins.test.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/rpc-sign-in-providers.test.ts test/rpc-reload-sign-ins.test.ts"
+			]
+		},
+		"SA-BRAND": {
+			"status": "active",
+			"contract": "Pages the agent shows a person (the sign-in result page, the stats dashboard) carry Scient Agent's symbol and colors.",
+			"owned": [
+				"packages/utils/src/brand.ts",
+				"packages/utils/src/brand/scient-agent-symbol.svg",
+				"packages/ai/test/scient-callback-page.test.ts"
+			],
+			"verification": ["bun --cwd=packages/ai test test/scient-callback-page.test.ts"]
+		},
+		"SA-RELEASE": {
+			"status": "active",
+			"contract": "Only Scient's own workflow builds, signs and drafts releases; Oh My Pi's publishing and repository automation is removed.",
+			"owned": [
+				"SCIENT.md",
+				".github/workflows/scient.yml",
+				"scripts/scient/isolation-check.ts",
+				"scripts/scient/capability-check.ts",
+				"scripts/scient/divergence-check.ts",
+				"scripts/scient/divergence-check.test.ts",
+				"scripts/scient/divergences.json",
+				"scripts/scient/lib/ledger.ts",
+				"scripts/scient/lib/markers.ts"
+			],
+			"deleted": [".github/workflows/ci.yml", ".github/workflows/nix.yml"],
+			"verification": ["bun scripts/scient/divergence-check.ts", "bun scripts/scient/isolation-check.ts <binary>"]
+		}
+	}
+}
