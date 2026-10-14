@@ -2,9 +2,12 @@ name: Scient Agent
 
 # Builds Scient Agent for every platform it supports on every push to main and
 # every pull request into it, and checks that each build keeps its state apart
-# from a stock omp. A `v*` tag also signs and notarizes the macOS builds and
-# drafts a GitHub release with every binary and its checksum; a person
-# publishes the draft.
+# from a stock omp. The macOS builds are signed on Linux by upstream's
+# scripts/ci-macos-sign.sh, ad hoc on every run so the signing path is always
+# exercised, then checked on macOS. A `v*` tag signs them with the Developer ID,
+# notarizes them and drafts a GitHub release with every binary and its
+# checksum; a person publishes the draft. A manual run can sign and notarize
+# without drafting a release, to qualify the signing secrets.
 
 on:
    push:
@@ -12,13 +15,25 @@ on:
       tags: ["v*"]
    pull_request:
       branches: ["main"]
+   workflow_dispatch:
+      inputs:
+         developer-id:
+            description: Sign the macOS builds with the Developer ID and notarize them (no release is drafted)
+            type: boolean
+            default: false
 
 permissions:
    contents: read
 
 concurrency:
-   group: scient-${{ github.ref }}
+   # A manual run never cancels, or is cancelled by, a push to the same branch.
+   group: scient-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'manual' || 'auto' }}
    cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+   # A release is a pushed product tag. A manual run never drafts one, even against a tag.
+   RELEASE: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+   DEVELOPER_ID: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || inputs.developer-id == true }}
 
 defaults:
    run:
@@ -94,7 +109,7 @@ jobs:
               "$binary" --version < /dev/null
 
          - name: Check the release matches its tag
-           if: startsWith(github.ref, 'refs/tags/')
+           if: env.RELEASE == 'true'
            run: |
               version="$("$BINARY" --version < /dev/null)"
               test "$version" = "scient-agent/${GITHUB_REF_NAME#v}"
@@ -102,8 +117,50 @@ jobs:
          - name: Check state isolation
            run: bun scripts/scient/isolation-check.ts "$BINARY"
 
-         - name: Sign and notarize
-           if: startsWith(github.ref, 'refs/tags/') && runner.os == 'macOS'
+         - name: Package
+           run: |
+              name="scient-agent-${{ matrix.id }}"
+              [ "${{ runner.os }}" = "Windows" ] && name="$name.exe"
+              mkdir -p release
+              cp "$BINARY" "release/$name"
+              # A macOS build is checksummed once it is signed (sign-macos).
+              [ "${{ runner.os }}" = "macOS" ] && exit 0
+              bun -e 'const [file] = process.argv.slice(1); const hash = new Bun.CryptoHasher("sha256"); hash.update(await Bun.file(file).arrayBuffer()); console.log(`${hash.digest("hex")}  ${file.split("/").pop()}`);' "release/$name" > "release/$name.sha256"
+              cat "release/$name.sha256"
+
+         - uses: actions/upload-artifact@v4
+           with:
+              # The release collects `scient-agent-*` artifacts only, so an
+              # unsigned macOS build can never be published.
+              name: ${{ runner.os == 'macOS' && 'unsigned-' || '' }}scient-agent-${{ matrix.id }}
+              path: release/
+              if-no-files-found: error
+
+   sign-macos:
+      name: Sign (${{ matrix.id }})
+      needs: build
+      # Upstream's signer runs on Linux: it fetches a pinned linux-musl rcodesign.
+      runs-on: ubuntu-22.04
+      # Notarization may wait up to three times 30 minutes (scripts/ci-macos-sign.sh).
+      timeout-minutes: 120
+      strategy:
+         fail-fast: false
+         matrix:
+            id: [darwin-arm64, darwin-x64]
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: actions/download-artifact@v4
+           with:
+              name: unsigned-scient-agent-${{ matrix.id }}
+              path: release
+
+         - name: Sign ad hoc
+           if: env.DEVELOPER_ID != 'true'
+           run: bash scripts/ci-macos-sign.sh "release/scient-agent-${{ matrix.id }}"
+
+         - name: Sign with the Developer ID and notarize
+           if: env.DEVELOPER_ID == 'true'
            # The same secrets, in the same form, as Scient Desktop's release.
            env:
               CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -114,7 +171,7 @@ jobs:
            run: |
               for name in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_TEXT APPLE_API_KEY_ID APPLE_API_ISSUER; do
                  if [ -z "${!name}" ]; then
-                    echo "::error::A release needs the Apple signing secrets ($name is missing); an ad-hoc signed binary is not publishable."
+                    echo "::error::Developer ID signing needs the Apple signing secrets ($name is missing); an ad-hoc signed binary is not publishable."
                     exit 1
                  fi
               done
@@ -123,16 +180,11 @@ jobs:
               APPLE_CERTIFICATE_PASSWORD="$CSC_KEY_PASSWORD" \
               APPLE_API_KEY="$(printf '%s' "$APPLE_API_KEY_TEXT" | base64 | tr -d '\n')" \
               APPLE_API_ISSUER_ID="$APPLE_API_ISSUER" \
-                 bash scripts/ci-macos-sign.sh "$BINARY"
+                 bash scripts/ci-macos-sign.sh "release/scient-agent-${{ matrix.id }}"
 
-         - name: Package
-           run: |
-              name="scient-agent-${{ matrix.id }}"
-              [ "${{ runner.os }}" = "Windows" ] && name="$name.exe"
-              mkdir -p release
-              cp "$BINARY" "release/$name"
-              bun -e 'const [file] = process.argv.slice(1); const hash = new Bun.CryptoHasher("sha256"); hash.update(await Bun.file(file).arrayBuffer()); console.log(`${hash.digest("hex")}  ${file.split("/").pop()}`);' "release/$name" > "release/$name.sha256"
-              cat "release/$name.sha256"
+         - name: Checksum
+           working-directory: release
+           run: sha256sum "scient-agent-${{ matrix.id }}" | tee "scient-agent-${{ matrix.id }}.sha256"
 
          - uses: actions/upload-artifact@v4
            with:
@@ -140,10 +192,59 @@ jobs:
               path: release/
               if-no-files-found: error
 
+   # Runs the exact signed bytes the release publishes on their own platform.
+   verify-macos:
+      name: Check signed build (${{ matrix.id }})
+      needs: sign-macos
+      runs-on: ${{ matrix.runner }}
+      timeout-minutes: 30
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { id: darwin-arm64, runner: macos-15 }
+               - { id: darwin-x64, runner: macos-15-intel }
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - uses: actions/download-artifact@v4
+           with:
+              name: scient-agent-${{ matrix.id }}
+              path: release
+
+         - name: Check the signature
+           run: |
+              (cd release && shasum -a 256 -c "scient-agent-${{ matrix.id }}.sha256")
+              binary="release/scient-agent-${{ matrix.id }}"
+              chmod +x "$binary"
+              echo "BINARY=$binary" >> "$GITHUB_ENV"
+              codesign --verify --strict --verbose=2 "$binary"
+              info="$(codesign -dvvv "$binary" 2>&1)"
+              echo "$info"
+              if [ "$DEVELOPER_ID" = "true" ] && grep -qE "flags=.*adhoc|Signature=adhoc" <<< "$info"; then
+                 echo "::error::$binary is ad-hoc signed; Developer ID signing did not run."
+                 exit 1
+              fi
+              "$binary" --version < /dev/null
+
+         - name: Check the release matches its tag
+           if: env.RELEASE == 'true'
+           run: |
+              version="$("$BINARY" --version < /dev/null)"
+              test "$version" = "scient-agent/${GITHUB_REF_NAME#v}"
+
+         - name: Check state isolation
+           run: bun scripts/scient/isolation-check.ts "$BINARY"
+
    release:
       name: Draft release
-      if: startsWith(github.ref, 'refs/tags/')
-      needs: build
+      # Job conditions cannot read workflow env, so this repeats RELEASE.
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      needs: [build, verify-macos]
       runs-on: ubuntu-24.04
       permissions:
          contents: write
