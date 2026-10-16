@@ -721,7 +721,7 @@ describe("MarketplaceManager", () => {
 		}
 	});
 
-	it("installPlugin keeps marketplace packages out of OMP extension roots", async () => {
+	it("installPlugin keeps marketplace packages out of Scient Agent extension roots", async () => {
 		const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "omp-mgr-home-"));
 		try {
 			const pluginsDir = path.join(tmpHome, ".scient-agent", "plugins");

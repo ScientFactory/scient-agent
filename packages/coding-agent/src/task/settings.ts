@@ -130,7 +130,7 @@ export const cfgWorktreeOnExit = register({
 		tab: "tasks",
 		group: "Isolation",
 		label: "Worktree on Exit",
-		description: "What to do on exit with worktrees created since omp started (on start or with `/wt`)",
+		description: "What to do on exit with worktrees created since Scient Agent started (on start or with `/wt`)",
 		options: [
 			{ value: "keep", label: "Keep", description: "Leave worktrees in place" },
 			{ value: "ask", label: "Ask", description: "Ask on exit" },
@@ -203,7 +203,7 @@ export const cfgWorktreeBase = register({
 		group: "Isolation",
 		label: "Worktree Base Directory",
 		description:
-			"Base directory for agent-managed worktrees — task-isolation copies, `github` PR checkouts, and `omp worktree` cleanup all live here. Unset uses ~/.scient-agent/wt. Must be an absolute or ~-relative path; relative paths are ignored. The SCIENT_AGENT_WORKTREE_DIR env var overrides this.",
+			"Base directory for agent-managed worktrees — task-isolation copies, `github` PR checkouts, and `scient-agent worktree` cleanup all live here. Unset uses ~/.scient-agent/wt. Must be an absolute or ~-relative path; relative paths are ignored. The SCIENT_AGENT_WORKTREE_DIR env var overrides this.",
 	},
 });
 effect(cfgWorktreeBase, value => {

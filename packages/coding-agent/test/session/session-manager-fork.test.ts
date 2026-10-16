@@ -703,7 +703,9 @@ describe("SessionManager.forkFrom", () => {
 		const [result] = createInterruptedToolResults(branch);
 		expect(result?.toolCallId).toBe("toolu_crashed");
 		expect(
-			result?.content.some(block => block.type === "text" && block.text.includes("Previous OMP process exited")),
+			result?.content.some(
+				block => block.type === "text" && block.text.includes("Previous Scient Agent process exited"),
+			),
 		).toBe(true);
 	});
 
