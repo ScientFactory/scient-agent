@@ -331,9 +331,11 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	},
 	{
 		name: "logout",
-		doc: "Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.",
-		params: { providerId: "string", credentialId: "number.integer" },
-		result: { "remainingSource?": "string" },
+		// scient(SA-AUTH): begin - A host signs out every stored sign-in of an entry when it names no credential.
+		doc: "Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.",
+		params: { providerId: "string", "credentialId?": "number.integer" },
+		result: { "remainingSource?": "string", "providerId?": "string" },
+		// scient(SA-AUTH): end
 	},
 
 	{
