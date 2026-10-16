@@ -529,7 +529,12 @@ impl PathBuilder {
 
 	pub(crate) fn to_path(&self) -> PathBuf {
 		if self.url {
-			let mut out = self.root.clone().map_or_default(PathBuf::into_os_string);
+			// scient(SA-BUILD): begin - Stable Rust.
+			let mut out = self
+				.root
+				.clone()
+				.map_or_else(OsString::new, PathBuf::into_os_string);
+			// scient(SA-BUILD): end
 			for (i, seg) in self.segments.iter().enumerate() {
 				if i > 0 {
 					out.push("/");
