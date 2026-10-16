@@ -1,7 +1,7 @@
 /**
  * Skillshare install manifest (`skills.json`) and lockfile (`skills.lock.json`).
  *
- * Project files live in the active project's `.omp/` directory (the same root
+ * Project files live in the active project's `.scient-agent/` directory (the same root
  * the plugin registry uses); user-global files live in the agent dir. Unpacked
  * packages live in a shared store: `<config root>/skillshare/@scope/name/<version>/`.
  */
@@ -62,22 +62,22 @@ export function parseSkillId(id: string): { scope: string; name: string } | null
 	return { scope: id.slice(1, slash), name: id.slice(slash + 1) };
 }
 
-/** Manifest + lock paths for the user-global install (`~/.omp/agent/`). */
+/** Manifest + lock paths for the user-global install (`~/.scient-agent/agent/`). */
 export function getGlobalSkillsInstallPaths(): SkillsInstallPaths {
 	return installPathsIn(getAgentDir());
 }
 
 /**
- * Manifest + lock paths for a project: the nearest `.omp/` walking up from
- * `cwd`, else the git root's `.omp/`, else `<cwd>/.omp/`. Throws when `cwd` is
- * the home directory, whose `.omp/` is the user config root, not a project.
+ * Manifest + lock paths for a project: the nearest `.scient-agent/` walking up from
+ * `cwd`, else the git root's `.scient-agent/`, else `<cwd>/.scient-agent/`. Throws when `cwd` is
+ * the home directory, whose `.scient-agent/` is the user config root, not a project.
  */
 export async function getProjectSkillsInstallPaths(cwd: string): Promise<SkillsInstallPaths> {
 	const registryPath = await resolveOrDefaultProjectRegistryPath(cwd);
 	if (!registryPath) {
 		throw new Error("The home directory is not a project; pass --global to install for your user.");
 	}
-	// `<root>/.omp/plugins/installed_plugins.json` → `<root>/.omp`
+	// `<root>/.scient-agent/plugins/installed_plugins.json` → `<root>/.scient-agent`
 	return installPathsIn(path.dirname(path.dirname(registryPath)));
 }
 

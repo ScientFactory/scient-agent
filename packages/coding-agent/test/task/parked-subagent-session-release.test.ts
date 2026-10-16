@@ -33,7 +33,7 @@ const MOCK_API_SOURCE = "test/parked-subagent-session-release";
 // so the deadline only bounds how long a real leak takes to fail.
 const COLLECT_DEADLINE_MS = 15_000;
 
-const ENV_KEYS = ["HOME", "PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE"] as const;
+const ENV_KEYS = ["HOME", "SCIENT_AGENT_DIR", "SCIENT_AGENT_PROFILE", "SCIENT_AGENT_PROFILE_FALLBACK"] as const;
 let savedEnv: Record<string, string | undefined> = {};
 let root: string;
 
@@ -54,7 +54,7 @@ beforeEach(async () => {
 	await fs.mkdir(home, { recursive: true });
 	restoreEnvValue("HOME", home);
 	vi.spyOn(os, "homedir").mockReturnValue(home);
-	setAgentDir(path.join(home, ".omp", "agent"));
+	setAgentDir(path.join(home, ".scient-agent", "agent"));
 	AgentRegistry.resetGlobalForTests();
 	AgentLifecycleManager.resetGlobalForTests();
 	registerMockApi(MOCK_API_SOURCE);
@@ -103,7 +103,7 @@ function writeAndObserveLiveSettings(id: string): WeakRef<Settings> {
 async function runKeptAliveSubagent(): Promise<{ release(): void; close(): void }> {
 	// Under the isolated HOME: project discovery walks up from cwd and stops at os.homedir(). On Windows
 	// os.tmpdir() lives under the real home, so a cwd outside the fake HOME would walk into the real
-	// ~/.omp and load the developer's installed plugins as project plugins.
+	// ~/.scient-agent and load the developer's installed plugins as project plugins.
 	const cwd = path.join(root, "home", "work");
 	const artifactsDir = path.join(root, "artifacts");
 	await fs.mkdir(cwd, { recursive: true });

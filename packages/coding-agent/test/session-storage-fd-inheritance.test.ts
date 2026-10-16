@@ -45,7 +45,7 @@ test.skipIf(process.platform !== "linux")("bash tool children never inherit sess
 	await fsp.mkdir(logsDir, { recursive: true });
 	const logSink = new RotatingFileSink({
 		directory: logsDir,
-		filenamePrefix: "omp",
+		filenamePrefix: "scient-agent",
 		filenameSuffix: String(process.pid),
 		maxBytes: 1 << 20,
 		maxFiles: 2,
@@ -69,5 +69,5 @@ test.skipIf(process.platform !== "linux")("bash tool children never inherit sess
 	const inherited = output.split("\n").filter(line => line.includes(root));
 	expect(inherited.join("\n"), "control: an inheritable descriptor must reach the child").toContain(control);
 	expect(inherited.join("\n")).not.toContain(transcript);
-	expect(inherited.join("\n")).not.toMatch(/omp\.[\d-]+\.\d+\.log/);
+	expect(inherited.join("\n")).not.toMatch(/scient-agent\.[\d-]+\.\d+\.log/);
 });

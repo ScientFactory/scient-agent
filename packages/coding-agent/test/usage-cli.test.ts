@@ -1556,7 +1556,7 @@ describe("formatUsageHistory", () => {
 });
 
 describe("usage command configuration", () => {
-	it("uses PI_CONFIG_FILES account policies during auth discovery", async () => {
+	it("uses SCIENT_AGENT_CONFIG_FILES account policies during auth discovery", async () => {
 		using tempDir = TempDir.createSync("@omp-usage-overlay-");
 		const overlayPath = tempDir.join("overlay.yml");
 		await Promise.all([
@@ -1594,8 +1594,8 @@ describe("usage command configuration", () => {
 			env: {
 				...process.env,
 				NO_COLOR: "1",
-				PI_CODING_AGENT_DIR: tempDir.path(),
-				PI_CONFIG_FILES: overlayPath,
+				SCIENT_AGENT_DIR: tempDir.path(),
+				SCIENT_AGENT_CONFIG_FILES: overlayPath,
 			},
 		});
 		const [exitCode, output, error] = await Promise.all([
@@ -1704,9 +1704,9 @@ describe("omp usage reset", () => {
 	let listed: PromiseWithResolvers<void>;
 	let tempDir: TempDir;
 	const originalEnv = {
-		PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
-		OMP_PROFILE: process.env.OMP_PROFILE,
-		PI_PROFILE: process.env.PI_PROFILE,
+		SCIENT_AGENT_DIR: process.env.SCIENT_AGENT_DIR,
+		SCIENT_AGENT_PROFILE: process.env.SCIENT_AGENT_PROFILE,
+		SCIENT_AGENT_PROFILE_FALLBACK: process.env.SCIENT_AGENT_PROFILE_FALLBACK,
 	};
 
 	/** A response that never arrives; it rejects once the request's signal aborts. */

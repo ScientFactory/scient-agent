@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::context::{Context, atomic_write};
 
 const SNAPSHOT_VERSION: u32 = 1;
-const DESKTOP_ID_PREFIX: &str = "dev.omp.oauth-callback.";
+const DESKTOP_ID_PREFIX: &str = "com.scientfactory.agent.oauth-callback.";
 const DESKTOP_SOURCE_NAME: &str = "linux-callback.desktop";
 const DEFAULT_APPLICATIONS_SECTION: &str = "Default Applications";
 const DEFAULT_APPLICATIONS_HEADER: &str = "[Default Applications]";
