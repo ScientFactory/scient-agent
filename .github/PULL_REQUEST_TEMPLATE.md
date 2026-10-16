@@ -1,6 +1,8 @@
 ## What
 
+<!-- scient(SA-POLICY): begin - Scient accepts AI-assisted PR descriptions. -->
 <!-- Brief description of the change. AI-assisted wording is acceptable; review it for accuracy. -->
+<!-- scient(SA-POLICY): end -->
 
 ## Why
 

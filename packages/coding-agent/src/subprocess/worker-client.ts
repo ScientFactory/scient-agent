@@ -4,7 +4,6 @@ import * as path from "node:path";
 import {
 	$env,
 	$which,
-	APP_NAME,
 	isBunTestRuntime,
 	isCompiledBinary,
 	isExecutable,
@@ -128,8 +127,8 @@ export function resolveExecutablePath(): string {
 			// Prefer the original launcher when invoked with an absolute path
 			isFullyQualifiedPath(argv0) ? argv0 : null,
 			!isPath ? $which(argv0, { requireAbsolutePaths: true, cache: WhichCachePolicy.Bypass }) : null,
-			// Generic fallback to finding this executable's name on PATH
-			$which(APP_NAME, { requireAbsolutePaths: true, cache: WhichCachePolicy.Bypass }),
+			// Generic fallback to finding "scient-agent" on PATH
+			$which("scient-agent", { requireAbsolutePaths: true, cache: WhichCachePolicy.Bypass }),
 		];
 		for (const candidate of candidates) {
 			if (candidate && isExecutable(candidate)) {

@@ -11,12 +11,14 @@ use super::context::{Context, atomic_write};
 
 const SNAPSHOT_VERSION: u32 = 1;
 const BUNDLE_PREFIX: &str = "com.scientfactory.agent.oauth-callback.";
+const APP_PREFIX: &str = "Scient Agent OAuth Callback ";
+const STAGING_APP_NAME: &str = "Scient Agent OAuth Callback.app";
+// scient(SA-ROOT): begin - Never take over Oh My Pi's sign-in helper.
 /// Oh My Pi's handlers for the same URL schemes. Its lease lives in its own
 /// state directory, so a handler of its that is registered now may belong to
 /// a sign-in still in progress there.
 const OMP_BUNDLE_PREFIX: &str = "dev.omp.oauth-callback.";
-const APP_PREFIX: &str = "Scient Agent OAuth Callback ";
-const STAGING_APP_NAME: &str = "Scient Agent OAuth Callback.app";
+// scient(SA-ROOT): end
 const EXECUTABLE_NAME: &str = "darwin-helper";
 const LEGACY_RECOVERY_FILE: &str = "darwin-url-callback.json";
 const LSREGISTER: &str = "/System/Library/Frameworks/CoreServices.framework/Frameworks/\
@@ -618,6 +620,7 @@ pub(super) fn prepare(context: &Context) -> Result<Snapshot> {
 				 and retry"
 			);
 		}
+		// scient(SA-ROOT): begin - Never take over Oh My Pi's sign-in helper.
 		if let ApplicationState::Found { bundle_id, .. } = &previous
 			&& bundle_id.starts_with(OMP_BUNDLE_PREFIX)
 		{
@@ -627,6 +630,7 @@ pub(super) fn prepare(context: &Context) -> Result<Snapshot> {
 				context.scheme
 			);
 		}
+		// scient(SA-ROOT): end
 		Ok(Snapshot {
 			version: SNAPSHOT_VERSION,
 			id: context.id.clone(),
@@ -646,11 +650,13 @@ pub(super) fn prepare(context: &Context) -> Result<Snapshot> {
 /// Publishes the staged bundle, then selects it as the scheme handler.
 pub(super) fn activate(context: &Context, snapshot: &Snapshot) -> Result<()> {
 	validate_snapshot(context, snapshot)?;
+	// scient(SA-ROOT): begin - Never take over Oh My Pi's sign-in helper.
 	// Another agent's sign-in may have taken the scheme since `prepare`: its
 	// lease is in its own state directory, so nothing serializes the two.
 	if query_scheme(context, &context.scheme)? != snapshot.previous {
 		bail!("the {} URL handler changed before activation; refusing to replace it", context.scheme);
 	}
+	// scient(SA-ROOT): end
 	move_staging_application(context, &snapshot.app_path)?;
 	set_scheme_handler(context, &context.scheme, &snapshot.app_path)?;
 	let active = query_scheme(context, &context.scheme)?;
@@ -1085,7 +1091,7 @@ mod tests {
 			&recovery_path,
 			serde_json::to_vec(&json!({
 				 "appPath": legacy_app,
-				 "bundleId": "dev.omp.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				 "bundleId": "com.scientfactory.agent.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				 "pid": std::process::id(),
 				 "previousHandler": "",
 				 "scheme": "omp-auth"

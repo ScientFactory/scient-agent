@@ -169,7 +169,10 @@ async function runRpc(env: Record<string, string>, cwd: string, session = false)
 	})();
 	child.stdin.write(`${JSON.stringify({ id: "negotiate", type: "negotiate_protocol", protocolVersion: 2 })}\n`);
 	child.stdin.write(`${JSON.stringify({ id: "state", type: "get_state" })}\n`);
-	child.stdin.write(`${JSON.stringify({ id: "env", type: "bash", command: `echo ${SHELL_ENV_MARKER}; env` })}\n`);
+	// The agent's shell has its own `env`, which shell-quotes values (a Windows
+	// path, for one) unless QUOTING_STYLE asks for them literally.
+	const command = `echo ${SHELL_ENV_MARKER}; QUOTING_STYLE=literal env`;
+	child.stdin.write(`${JSON.stringify({ id: "env", type: "bash", command })}\n`);
 	await Promise.race([done.promise, Bun.sleep(60_000)]);
 	child.stdin.end();
 	const exited = await Promise.race([child.exited, Bun.sleep(15_000).then(() => "timeout" as const)]);

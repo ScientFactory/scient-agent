@@ -78,11 +78,19 @@ export interface CheckOptions {
 	log?: (line: string) => void;
 }
 
+/** How much of Scient sits inside Oh My Pi's files: marker blocks, and the lines inside them. */
+export interface Footprint {
+	files: number;
+	blocks: number;
+	lines: number;
+}
+
 export interface CheckResult {
 	problems: string[];
 	commits: number;
 	generated: number;
-	markedFiles: number;
+	/** At HEAD, in total and by ledger entry. */
+	footprint: Footprint & { byEntry: Record<string, Footprint> };
 }
 
 class Git {
@@ -261,10 +269,15 @@ export async function checkDivergence(options: CheckOptions): Promise<CheckResul
 
 	const inventory = checkInventory(git, headLedger, upstreamFiles, upstream, head);
 	problems.push(...inventory.problems);
-	return { problems, commits: commits.length, generated, markedFiles: inventory.markedFiles };
+	return { problems, commits: commits.length, generated, footprint: inventory.footprint };
 
 	function fail(message: string): CheckResult {
-		return { problems: [message], commits: 0, generated: 0, markedFiles: 0 };
+		return {
+			problems: [message],
+			commits: 0,
+			generated: 0,
+			footprint: { files: 0, blocks: 0, lines: 0, byEntry: {} },
+		};
 	}
 }
 
@@ -648,7 +661,7 @@ function checkInventory(
 	upstreamFiles: ReadonlySet<string>,
 	upstream: string,
 	head: string,
-): { problems: string[]; markedFiles: number } {
+): { problems: string[]; footprint: CheckResult["footprint"] } {
 	const problems: string[] = [];
 	const headFiles = git.files(head);
 	for (const file of headFiles) {
@@ -662,6 +675,10 @@ function checkInventory(
 		}
 	}
 	const markers = new Map<string, Set<string>>();
+	const byEntry: Record<string, Footprint> = {};
+	const markedFiles = new Set<string>();
+	let blockCount = 0;
+	let lineCount = 0;
 	const changed = git
 		.fields(["diff", "-z", "--name-only", "--no-renames", upstream, head])
 		.filter(file => upstreamFiles.has(file) && headFiles.has(file));
@@ -675,6 +692,14 @@ function checkInventory(
 			const files = markers.get(block.id) ?? new Set<string>();
 			files.add(file);
 			markers.set(block.id, files);
+			const lines = block.end - block.begin - 1;
+			const entry = (byEntry[block.id] ??= { files: 0, blocks: 0, lines: 0 });
+			entry.files = files.size;
+			entry.blocks += 1;
+			entry.lines += lines;
+			markedFiles.add(file);
+			blockCount += 1;
+			lineCount += lines;
 		}
 	}
 	for (const [id, entry] of activeEntries(ledger)) {
@@ -698,7 +723,7 @@ function checkInventory(
 			}
 		}
 	}
-	return { problems, markedFiles: [...markers.values()].reduce((sum, files) => sum + files.size, 0) };
+	return { problems, footprint: { files: markedFiles.size, blocks: blockCount, lines: lineCount, byEntry } };
 }
 
 function hasEffect(entry: LedgerEntry): boolean {
@@ -767,9 +792,16 @@ if (import.meta.main) {
 		replay: value("--replay"),
 		log: line => console.log(line),
 	});
+	const { footprint } = result;
 	console.log(
-		`${result.commits} commits checked (${result.generated} generated); marker blocks in ${result.markedFiles} Oh My Pi files.`,
+		`${result.commits} commits checked (${result.generated} generated); Scient's footprint in Oh My Pi's code: ` +
+			`${footprint.blocks} marker blocks, ${footprint.lines} lines, in ${footprint.files} files.`,
 	);
+	if (args.includes("--footprint")) {
+		for (const [id, entry] of Object.entries(footprint.byEntry).toSorted(([a], [b]) => a.localeCompare(b))) {
+			console.log(`  ${id}: ${entry.blocks} blocks, ${entry.lines} lines, in ${entry.files} files`);
+		}
+	}
 	if (result.problems.length > 0) {
 		console.error(
 			`\n${result.problems.length} problems:\n${result.problems.map(problem => `- ${problem}`).join("\n")}`,

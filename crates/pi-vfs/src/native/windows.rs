@@ -161,7 +161,9 @@ pub(crate) fn chown(
 }
 
 static PATHEXT: LazyLock<Vec<String>> = LazyLock::new(|| {
+	// scient(SA-BUILD): begin - Stable Rust.
 	let parsed: Vec<String> = std::env::var_os("PATHEXT").map_or_else(Vec::new, |value| {
+		// scient(SA-BUILD): end
 		value
 			.to_string_lossy()
 			.split(';')

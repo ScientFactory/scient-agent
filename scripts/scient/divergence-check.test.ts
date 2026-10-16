@@ -224,12 +224,14 @@ describe("ledger", () => {
 });
 
 describe("after an accepted alignment", () => {
-	it("accepts a marked change in a listed file", async () => {
+	it("accepts a marked change in a listed file, and reports the footprint it leaves", async () => {
 		const { repo } = setup(AUTH);
 		commit(repo, "scient: mark", { "src/a.ts": MARKED_ONE });
 		const result = await check(repo);
 		expect(result.problems).toEqual([]);
 		expect(result.commits).toBe(1);
+		const one = { files: 1, blocks: 1, lines: 1 };
+		expect(result.footprint).toEqual({ ...one, byEntry: { "SA-AUTH": one } });
 	});
 
 	it("rejects a change outside a block", async () => {

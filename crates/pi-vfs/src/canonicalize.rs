@@ -105,7 +105,9 @@ pub(crate) async fn canonicalize<R: Resolver>(
 				if followed < SYMLINKS_BEFORE_LOOP_CHECK {
 					followed += 1;
 				} else {
+					// scient(SA-BUILD): begin - Stable Rust.
 					let dir = parent_path(&current).map_or_else(PathBuf::new, Path::to_path_buf);
+					// scient(SA-BUILD): end
 					if !visited.insert((dir, remaining_path(&pending))) {
 						return Err(symlink_loop());
 					}

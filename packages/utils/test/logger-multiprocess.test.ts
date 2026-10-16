@@ -111,13 +111,17 @@ describe("multiprocess file logging", () => {
 		const now = new Date();
 		const localDate = (daysAgo: number): string => localDayBefore(now, daysAgo);
 		const expired = [
-			`omp.${localDate(30)}.log`,
-			`omp.${localDate(30)}.log.1`,
-			`omp.${localDate(30)}.log.gz`,
-			`omp.${localDate(30)}.log.2.gz`,
+			`scient-agent.${localDate(30)}.log`,
+			`scient-agent.${localDate(30)}.log.1`,
+			`scient-agent.${localDate(30)}.log.gz`,
+			`scient-agent.${localDate(30)}.log.2.gz`,
 			".0123456789abcdef0123456789abcdef01234567-audit.json",
 		];
-		const retained = [`omp.${localDate(1)}.log`, `omp.${localDate(1)}.log.gz`, ".fedcba9876543210-audit.json"];
+		const retained = [
+			`scient-agent.${localDate(1)}.log`,
+			`scient-agent.${localDate(1)}.log.gz`,
+			".fedcba9876543210-audit.json",
+		];
 		for (const name of [...expired, ...retained]) await Bun.write(path.join(logsDir, name), name);
 		const thirtyDaysAgoSec = (Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000;
 		await fs.utimes(path.join(logsDir, expired[4]!), thirtyDaysAgoSec, thirtyDaysAgoSec);

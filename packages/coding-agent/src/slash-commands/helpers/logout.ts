@@ -68,9 +68,13 @@ function oauthMatchesActiveIdentity(
 			return true;
 		}
 	}
+	// When both sides carry an email it decides: Codex Team seats share an
+	// account id and Antigravity accounts share one Google project.
+	if (activeIdentity.email !== undefined && credential.email !== undefined) {
+		return credential.email === activeIdentity.email;
+	}
 	return (
 		(activeIdentity.accountId !== undefined && credential.accountId === activeIdentity.accountId) ||
-		(activeIdentity.email !== undefined && credential.email === activeIdentity.email) ||
 		(activeIdentity.projectId !== undefined && credential.projectId === activeIdentity.projectId)
 	);
 }
@@ -137,10 +141,12 @@ export async function logoutCredential(
 	// default all-provider `online-if-uncached` would reuse the fresh
 	// authoritative cache row and keep showing models the credential
 	// unlocked (#5780). Other providers are left untouched.
+	// scient(SA-AUTH): begin - Signing out of one account keeps other providers' catalogs.
 	try {
 		await modelRegistry.refreshDiscoverableProviders([provider], "online");
 	} finally {
 		modelRegistry.reapplySignInProjections();
 	}
+	// scient(SA-AUTH): end
 	return { removed: true, remainingSource: authStorage.keys.describe(provider, sessionId) };
 }

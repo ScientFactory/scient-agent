@@ -11,7 +11,9 @@ import {
 import { Mnemopi } from "@oh-my-pi/pi-mnemopi/core/memory";
 import { withMnemopiRuntimeOptions } from "@oh-my-pi/pi-mnemopi/core/runtime-options";
 import { getFastembedCacheDir } from "@oh-my-pi/pi-utils";
-import packageJson from "../package.json" with { type: "json" };
+// scient(SA-PRODUCT): begin - The User-Agent carries Scient Agent's release, not this package's.
+import { PRODUCT_VERSION } from "@oh-my-pi/pi-utils/scient/product";
+// scient(SA-PRODUCT): end
 
 const ENV_KEYS = [
 	"NODE_ENV",
@@ -132,9 +134,11 @@ describe("optional embeddings", () => {
 			fetch: async request => {
 				requests += 1;
 				expect(request.headers.get("content-type")).toBe("application/json");
-				expect(request.headers.get("user-agent")).toBe(`omp/${packageJson.version}`);
-				expect(request.headers.get("http-referer")).toBe("https://omp.sh/");
-				expect(request.headers.get("x-openrouter-title")).toBe("omp");
+				// scient(SA-PRODUCT): begin - The User-Agent carries Scient Agent's release.
+				expect(request.headers.get("user-agent")).toBe(`scient-agent/${PRODUCT_VERSION}`);
+				// scient(SA-PRODUCT): end
+				expect(request.headers.get("http-referer")).toBe("https://scientfactory.com/");
+				expect(request.headers.get("x-openrouter-title")).toBe("scient-agent");
 				expect(request.headers.get("x-openrouter-categories")).toBe("cli-agent");
 				expect(request.headers.get("x-title")).toBeNull();
 				expect(request.headers.get("authorization")).toBeNull();

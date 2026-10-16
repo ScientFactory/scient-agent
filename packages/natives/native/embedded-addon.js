@@ -1,6 +1,5 @@
-
 // Always null on disk. Standalone binary builds replace this module in memory
-// with the target's manifest and addon archive (scripts/embed-native.ts).
+// with the target's manifest and one zstd frame per addon (scripts/embed-native.ts).
 
 /** @typedef {"modern" | "baseline" | "default"} EmbeddedAddonVariant */
 
@@ -8,24 +7,15 @@
  * @typedef {Object} EmbeddedAddonFile
  * @property {EmbeddedAddonVariant} variant
  * @property {string} filename
- * @property {number} size
- * @property {string=} filePath
- */
-
-/**
- * @typedef {Object} EmbeddedAddonArchive
- * @property {"tar.gz"} format
- * @property {string} filename
- * @property {string} filePath
+ * @property {number} size Decompressed `.node` size in bytes.
+ * @property {string} zstdPath Embedded zstd frame holding the addon bytes.
  */
 
 /**
  * @typedef {Object} EmbeddedAddon
  * @property {string} platformTag
  * @property {string} version
- * @property {string=} buildId
  * @property {EmbeddedAddonFile[]} files
- * @property {EmbeddedAddonArchive=} archive
  */
 
 /** @type {EmbeddedAddon|null} */

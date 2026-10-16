@@ -51,17 +51,29 @@ const PROSE = /\.(?:md|html)$|\.html\.txt$/;
  */
 const SAMPLE_DATA = [
 	"packages/coding-agent/test/cli/completions.test.ts",
+	// Oh My Pi's updater and build service, which Scient Agent never runs; their
+	// tests describe Oh My Pi's installs. The identity generator renames what
+	// the renamed executable makes them compare.
+	"packages/coding-agent/test/update-cli.test.ts",
+	"packages/coding-agent/test/cli/build-service.test.ts",
+	// Search queries that happen to contain the word.
+	"packages/coding-agent/test/web/x-reader.test.ts",
 	"packages/utils/test/cli-help.test.ts",
 	"packages/omptype/",
 	"packages/metaharness/",
 	"packages/typescript-edit-benchmark/",
 ];
 
+/** Scient's own code and tests: anything under a `scient/` folder. */
+const SCIENT_OWN = /(?:^|\/)scient\//;
+
 /** The browser extension's sources; the executable embeds a built copy of them. */
 const EXTENSION = "packages/browser-relay/extension/";
 
 /** What a path must be under, and what it must not be, to be rewritten. */
 function inScope(file: string): boolean {
+	// Scient's own files say what they mean, Oh My Pi included; a generator rewrites Oh My Pi's.
+	if (SCIENT_OWN.test(file)) return false;
 	if (SAMPLE_DATA.some(sample => (sample.endsWith("/") ? file.startsWith(sample) : file === sample))) return false;
 	if (path.basename(file).startsWith("CHANGELOG")) return false;
 	// Recorded data (model output, captured sessions) is not the agent's wording.
@@ -129,6 +141,8 @@ function isValueUse(text: string, start: number, end: number): boolean {
  * record, so a later build must still print what an earlier build waits for.
  */
 const BANNER = /^omp (?:(?!is )[a-z-]+ ){1,3}(?:listening on|serving) /;
+/** A regular expression that matches those lines keeps their spelling too. */
+const BANNER_PATTERN = /^\^?omp\b.*(?:listening on|serving)/;
 
 /** Whether `omp` at this place is the command rather than the product's name. */
 function isCommandUse(text: string, start: number, end: number): boolean {
@@ -204,27 +218,59 @@ function followAnchors(file: string, text: string, anchors: ReadonlyMap<string, 
 }
 
 /**
- * Sentences that stay as upstream wrote them because they are about something
- * that runs a stock `omp`: RoboOMP, upstream's issue bot, whose image carries
- * its own `omp`.
+ * Sentences that stay as upstream wrote them: one about something that runs a
+ * stock `omp` (RoboOMP, upstream's issue bot, whose image carries its own
+ * `omp`), one that names a stored field called `omp`, and one that a session
+ * stores and later matches exactly: the record of a turn whose process died,
+ * which restore looks for in sessions either agent wrote.
  */
 const KEPT: Record<string, string[]> = {
 	"docs/user-facing-packages.md": ["resumes an `omp --mode rpc` session per issue"],
+	"packages/coding-agent/src/session/exit-diagnostics.ts": ["Previous OMP process exited before completing the turn."],
+	"packages/coding-agent/test/agent-session-model-persistence.test.ts": [
+		"Previous OMP process exited before completing the turn.",
+	],
+	"packages/coding-agent/src/session/session-transfer.ts": ["needs string id, cwd, and omp"],
 };
 
-/** Rewrites a whole file of prose, around the sentences `KEPT` lists for it. */
-function rewriteProse(file: string, source: string, missing: string[]): string {
+/** Applies `rewriteText` to `text` around the sentences `KEPT` lists for its file. */
+function aroundKept(file: string, text: string, rewriteText: (text: string) => string): string {
 	const kept = KEPT[file] ?? [];
-	let text = source;
+	let result = text;
 	kept.forEach((sentence, index) => {
-		if (!text.includes(sentence)) missing.push(`${file}: ${sentence}`);
-		text = text.replaceAll(sentence, `\u0000${index}\u0000`);
+		result = result.replaceAll(sentence, `\u0000${index}\u0000`);
 	});
-	text = fixArticles(rewrite(text, true));
+	result = rewriteText(result);
 	kept.forEach((sentence, index) => {
-		text = text.replaceAll(`\u0000${index}\u0000`, sentence);
+		result = result.replaceAll(`\u0000${index}\u0000`, sentence);
 	});
-	return text;
+	return result;
+}
+
+/**
+ * The sentences `kept` lists that are no longer where it says, each with its
+ * file: a file that moved or went away, or a sentence that changed. Checked for
+ * every entry before anything is written, so a kept sentence cannot lose its
+ * protection by moving out of the files this script rewrites.
+ */
+export function missingKept(
+	read: (file: string) => string | undefined,
+	kept: Record<string, readonly string[]> = KEPT,
+): string[] {
+	const missing: string[] = [];
+	for (const [file, sentences] of Object.entries(kept)) {
+		const source = read(file);
+		for (const sentence of sentences) {
+			if (source === undefined) missing.push(`${file} (no such file): ${sentence}`);
+			else if (!source.includes(sentence)) missing.push(`${file}: ${sentence}`);
+		}
+	}
+	return missing;
+}
+
+/** Rewrites a whole file of prose. */
+function rewriteProse(file: string, source: string): string {
+	return aroundKept(file, source, text => fixArticles(rewrite(text, true)));
 }
 
 interface Edit {
@@ -285,9 +331,12 @@ function rewriteCode(file: string, source: string): string {
 		if (span.kind === "comment") continue;
 		const text = source.slice(span.start, span.end);
 		if (!/omp|OMP|Oh My Pi/.test(text) || BANNER.test(text)) continue;
+		if (span.kind === "regex" && BANNER_PATTERN.test(text)) continue;
 		const names = /\bsetProcessName\(\s*.$/.test(source.slice(Math.max(0, span.start - 32), span.start));
 		// A string with no space in it is a value (an id, a key, a name on the wire).
-		const rewritten = fixArticles(rewrite(text, /\s/.test(text) || span.kind === "jsx", names));
+		const rewritten = aroundKept(file, text, kept =>
+			fixArticles(rewrite(kept, /\s/.test(kept) || span.kind === "jsx", names)),
+		);
 		if (rewritten !== text) edits.push({ start: span.start, end: span.end, text: rewritten });
 	}
 	edits.sort((left, right) => left.start - right.start);
@@ -301,9 +350,10 @@ function rewriteCode(file: string, source: string): string {
 }
 
 /**
- * Names a person sees that the rules above cannot reach: a string that is only
- * `omp` (a window title, a notification's sender), and messages in the native
- * code. Each is an exact replacement on lines that are not comments. A listed
+ * Words the rules above cannot reach or would get wrong: a string that is only
+ * `omp` (a window title, a notification's sender), messages in the native code,
+ * a few phrases in prompts, and the Python client's README. Each is an exact
+ * replacement, applied after the rules, on lines that are not comments. A listed
  * text that is no longer there means upstream moved it: look again, then fix
  * the list.
  *
@@ -323,20 +373,18 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 	"packages/coding-agent/test/title-generator.test.ts": [
 		['emittedTitles().at(-1)).toBe("omp")', `emittedTitles().at(-1)).toBe("${PRODUCT}")`],
 	],
-	"packages/coding-agent/src/modes/acp/acp-agent.ts": [
-		['name: "omp"', `name: "${COMMAND}"`],
-		['title: "omp"', `title: "${PRODUCT}"`],
-	],
+	"packages/coding-agent/src/modes/acp/acp-agent.ts": [['title: "omp"', `title: "${PRODUCT}"`]],
 	"packages/coding-agent/test/acp-initialize-conformance.test.ts": [['title: "omp"', `title: "${PRODUCT}"`]],
-	"packages/coding-agent/src/dap/session.ts": [
-		['clientID: "omp"', `clientID: "${COMMAND}"`],
-		['clientName: "omp"', `clientName: "${PRODUCT}"`],
+	"packages/coding-agent/src/dap/session.ts": [['clientName: "omp"', `clientName: "${PRODUCT}"`]],
+	// Sample data otherwise, but this test expects the updater's own refusal.
+	"packages/coding-agent/test/update-cli.test.ts": [
+		["does not report an OMP version when run", `does not report a ${PRODUCT} version when run`],
 	],
 	"packages/tui/src/overlays/composer-shape-preview.ts": [['PREVIEW_TITLE = "omp"', `PREVIEW_TITLE = "${PRODUCT}"`]],
-	"packages/tui/src/terminal-capabilities.ts": [
-		['CMUX_NOTIFICATION_TITLE = "omp"', `CMUX_NOTIFICATION_TITLE = "${PRODUCT}"`],
-		['OSC99_APP_NAME = "omp"', `OSC99_APP_NAME = "${PRODUCT}"`],
+	"packages/tui/src/multiplexers/notify.ts": [
+		['DEFAULT_NOTIFICATION_TITLE = "omp"', `DEFAULT_NOTIFICATION_TITLE = "${PRODUCT}"`],
 	],
+	"packages/tui/src/terminal-capabilities.ts": [['OSC99_APP_NAME = "omp"', `OSC99_APP_NAME = "${PRODUCT}"`]],
 	"packages/tui/test/composer-shape-preview.test.ts": [['toContain("omp")', `toContain("${PRODUCT}")`]],
 	"packages/tui/test/notifications.test.ts": [
 		// The sender's name, base64-encoded as the terminal protocol carries it.
@@ -352,10 +400,29 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 	"crates/pi-natives/src/oauth_callback/darwin.rs": [
 		["omp application", `${PRODUCT} application`],
 		["omp callback", `${PRODUCT} callback`],
+		// The callback application's name in its Info.plist, which the Dock and Finder show.
+		["<string>omp OAuth Callback</string>", `<string>${PRODUCT} OAuth Callback</string>`],
 	],
 	"crates/pi-natives/src/oauth_callback/linux.rs": [["Name=omp OAuth Callback", `Name=${PRODUCT} OAuth Callback`]],
 	"crates/pi-natives/src/applefm/mod.rs": [["This omp build", `This ${PRODUCT} build`]],
 	"crates/pi-voice/src/device/linux.rs": [['c"omp"', `c"${COMMAND}"`]],
+	// Prompts, where the model reads the agent's words as rewritten above: the
+	// role it is given, and things that are the agent's rather than the product's.
+	"packages/coding-agent/src/prompts/system/system-prompt.md": [
+		[`You are ${PRODUCT}'s trusted coding assistant.`, "You are Scient's trusted coding assistant."],
+	],
+	"packages/coding-agent/src/prompts/internal-urls/cfg.md": [
+		[`\`cfg://\`: ${COMMAND} settings;`, "`cfg://`: agent settings;"],
+	],
+	"packages/coding-agent/src/prompts/tools/browser.md": [
+		["use an omp-owned profile", "use an agent-owned profile"],
+		[`through the ${PRODUCT} relay`, "through the browser relay"],
+	],
+	"packages/coding-agent/src/prompts/tools/ida.md": [
+		[`and ${PRODUCT} process in the project`, "and agent process in the project"],
+	],
+	// The Python client's README, which names the command the client starts.
+	"sdk/python/omp-rpc/README.md": [["omp --mode rpc", `${COMMAND} --mode rpc`]],
 };
 
 const isCommentLine = (line: string): boolean => /^\s*(?:\/\/|\/\*|\*)/.test(line);
@@ -380,66 +447,68 @@ function applyLabels(file: string, source: string, missing: string[]): string {
 	return lines.join("\n");
 }
 
-const check = process.argv.includes("--check");
-const files = (await $`git -C ${repoRoot} ls-files -z -- packages docs`.quiet().text()).split("\0").filter(inScope);
-
-let changed = 0;
-const stale: string[] = [];
-const missing: string[] = [];
-/** Every file's text before and after, so links can follow headings that another file renamed. */
-const results = new Map<string, { source: string; next: string }>();
-const anchors = new Map<string, Map<string, string>>();
-for (const file of files) {
-	const source = await Bun.file(path.join(repoRoot, file)).text();
-	let next = source;
-	if (/omp|OMP|Oh My Pi/.test(source)) {
-		next = PROSE.test(file) ? rewriteProse(file, source, missing) : rewriteCode(file, source);
-	}
-	results.set(file, { source, next });
-	if (file.endsWith(".md") && next !== source) anchors.set(file, renamedAnchors(source, next));
-}
-for (const [file, result] of results) {
-	const next = file.endsWith(".md") ? followAnchors(file, result.next, anchors) : result.next;
-	if (next === result.source) continue;
-	if (check) {
-		stale.push(file);
-		continue;
-	}
-	await Bun.write(path.join(repoRoot, file), next);
-	changed += 1;
-}
-
-const native: string[] = [];
-for (const file of Object.keys(LABELS)) {
-	const absolute = path.join(repoRoot, file);
-	const source = await Bun.file(absolute).text();
-	const next = applyLabels(file, source, missing);
-	if (next === source) continue;
-	if (check) {
-		if (!stale.includes(file)) stale.push(file);
-		continue;
-	}
-	await Bun.write(absolute, next);
-	changed += 1;
-	if (file.endsWith(".rs")) native.push(file);
-}
-if (missing.length > 0) {
-	console.error(`Listed texts that are no longer in the source:\n  ${missing.join("\n  ")}`);
-	process.exit(1);
-}
-
-if (check) {
-	if (stale.length > 0) {
-		console.error(
-			`${stale.length} files still name the product as upstream does:\n  ${stale.slice(0, 40).join("\n  ")}`,
-		);
+if (import.meta.main) {
+	const check = process.argv.includes("--check");
+	const read = (file: string): string | undefined => {
+		const absolute = path.join(repoRoot, file);
+		return fs.existsSync(absolute) ? fs.readFileSync(absolute, "utf8") : undefined;
+	};
+	const keptMissing = missingKept(read);
+	if (keptMissing.length > 0) {
+		console.error(`Kept sentences that are no longer where KEPT says:\n  ${keptMissing.join("\n  ")}`);
 		process.exit(1);
 	}
-	console.log("The agent's wording names Scient Agent.");
-} else {
-	// Longer and shorter strings can change how a line wraps.
-	if (changed > 0) await formatTools(repoRoot);
-	// Only the files touched: the whole workspace is not this script's to format.
-	if (native.length > 0) await $`rustfmt ${native}`.cwd(repoRoot).quiet().nothrow();
-	console.log(`Rewrote the wording in ${changed} files.`);
+
+	const files = (await $`git -C ${repoRoot} ls-files -z -- packages docs`.quiet().text()).split("\0").filter(inScope);
+	/** Every file's text before and after, so links can follow headings that another file renamed. */
+	const results = new Map<string, { source: string; next: string }>();
+	const anchors = new Map<string, Map<string, string>>();
+	for (const file of files) {
+		const source = read(file) ?? "";
+		let next = source;
+		if (/omp|OMP|Oh My Pi/.test(source)) {
+			next = PROSE.test(file) ? rewriteProse(file, source) : rewriteCode(file, source);
+		}
+		results.set(file, { source, next });
+		if (file.endsWith(".md") && next !== source) anchors.set(file, renamedAnchors(source, next));
+	}
+	for (const [file, result] of results) {
+		if (file.endsWith(".md")) result.next = followAnchors(file, result.next, anchors);
+	}
+
+	// Labels apply after the rules, to files in scope or not.
+	const missing: string[] = [];
+	for (const file of Object.keys(LABELS)) {
+		const result = results.get(file);
+		const source = result?.source ?? read(file);
+		if (source === undefined) {
+			missing.push(`${file} (no such file)`);
+			continue;
+		}
+		const next = applyLabels(file, result?.next ?? source, missing);
+		results.set(file, { source, next });
+	}
+	if (missing.length > 0) {
+		console.error(`Listed texts that are no longer in the source:\n  ${missing.join("\n  ")}`);
+		process.exit(1);
+	}
+
+	const changedFiles = [...results].filter(([, result]) => result.next !== result.source).map(([file]) => file);
+	if (check) {
+		if (changedFiles.length > 0) {
+			console.error(
+				`${changedFiles.length} files still name the product as upstream does:\n  ${changedFiles.slice(0, 40).join("\n  ")}`,
+			);
+			process.exit(1);
+		}
+		console.log("The agent's wording names Scient Agent.");
+	} else {
+		for (const file of changedFiles) await Bun.write(path.join(repoRoot, file), results.get(file)!.next);
+		// Longer and shorter strings can change how a line wraps.
+		if (changedFiles.length > 0) await formatTools(repoRoot);
+		// Only the files touched: the whole workspace is not this script's to format.
+		const native = changedFiles.filter(file => file.endsWith(".rs"));
+		if (native.length > 0) await $`rustfmt ${native}`.cwd(repoRoot).quiet();
+		console.log(`Rewrote the wording in ${changedFiles.length} files.`);
+	}
 }

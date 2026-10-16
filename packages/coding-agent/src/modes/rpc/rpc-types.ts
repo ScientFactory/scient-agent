@@ -24,6 +24,9 @@ import type { RpcMessagesPage } from "./rpc-messages";
 import type { GoalModeState } from "../../goals/state";
 import type { RpcGoalOp, RpcGoalResult } from "./rpc-goal";
 import type { BtwHistoryRecord } from "../../session/btw-history";
+// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
+import type { RpcLoginProvider } from "../../scient/sign-in-providers";
+// scient(SA-AUTH): end
 
 // ============================================================================
 // RPC Commands (stdin)
@@ -126,7 +129,9 @@ export type RpcCommand =
 	| { id?: string; type: "get_login_providers" }
 	| { id?: string; type: "login"; providerId: string }
 	| { id?: string; type: "get_logout_accounts"; providerId: string }
+	// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
 	| { id?: string; type: "logout"; providerId: string; credentialId?: number }
+	// scient(SA-AUTH): end
 
 	// Word prediction (composer ghost text); `cursor` is a UTF-16 offset into `text`
 	| { id?: string; type: "predict_word"; text: string; cursor: number }
@@ -182,8 +187,10 @@ export interface RpcSessionState {
 	isSettled: boolean;
 	/** Displayable queue-chip text for pending user-authored messages, mirroring
 	 *  `AgentSession.getQueuedMessages()`. Render the queue from this snapshot
-	 *  (and the `queue_update` event) instead of tracking chips independently. */
-	queuedMessages: { steering: string[]; followUp: string[] };
+	 *  (and the `queue_update` event) instead of tracking chips independently.
+	 *  `liveSteered` counts the leading `steering` entries already sent into the
+	 *  streaming response; `remove_queued_message` cannot reach them. */
+	queuedMessages: { steering: string[]; followUp: string[]; liveSteered: number };
 	todoPhases: TodoPhase[];
 	/** For session dump / export (plain-text parity with /dump). */
 	systemPrompt?: string[];
@@ -359,25 +366,6 @@ export interface RpcSubagentMessagesResult {
 	reset: boolean;
 	entries: FileEntry[];
 	messages: AgentMessage[];
-}
-
-/** One entry of the agent's sign-in list. */
-export interface RpcLoginProvider {
-	id: string;
-	name: string;
-	available: boolean;
-	/** Usable now, from a stored sign-in or from the environment. */
-	authenticated: boolean;
-	/** Scient: `account` signs in through a browser or device flow; `key` asks for a pasted API key. */
-	kind: "account" | "key";
-	/** Scient: a sign-in is stored for it, so `logout` has something to remove. */
-	stored: boolean;
-	/**
-	 * Scient: the id its sign-in is stored under. Entries with the same `store`
-	 * are ways to sign in to one account (the ChatGPT browser and device flows
-	 * both store `openai-codex`), and share their status and their sign-out.
-	 */
-	store: string;
 }
 
 // ============================================================================
@@ -589,7 +577,9 @@ export type RpcResponse =
 			type: "response";
 			command: "get_login_providers";
 			success: true;
+			// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
 			data: { providers: RpcLoginProvider[] };
+			// scient(SA-AUTH): end
 	  }
 	| { id?: string; type: "response"; command: "login"; success: true; data: { providerId: string } }
 	| {
@@ -599,6 +589,7 @@ export type RpcResponse =
 			success: true;
 			data: { accounts: LogoutAccount[] };
 	  }
+	// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
 	| {
 			id?: string;
 			type: "response";
@@ -606,6 +597,7 @@ export type RpcResponse =
 			success: true;
 			data: { remainingSource?: string; providerId?: string };
 	  }
+	// scient(SA-AUTH): end
 
 	// Word prediction
 	| { id?: string; type: "response"; command: "predict_word"; success: true; data: { suffix: string | null } }

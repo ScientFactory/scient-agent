@@ -1,5 +1,8 @@
 import { dlopen, FFIType } from "bun:ffi";
 import * as fs from "node:fs";
+// scient(SA-RELEASE): begin - One release runner builds both x86-64 addons.
+import { forcedAvx2 } from "./scient/native-variant";
+// scient(SA-RELEASE): end
 
 function runCommand(command: string, args: string[]): string | null {
 	try {
@@ -67,18 +70,13 @@ export function detectHostMusl(): boolean {
 	}
 }
 
-/**
- * Detect whether this x86-64 host can run the modern AVX2 addon.
- *
- * Scient: `PI_NATIVE_X64_VARIANT` (`baseline` or `modern`) overrides the
- * detection, so a release build on an AVX2 machine can also produce the
- * baseline addon that older processors need.
- */
+/** Detect whether this x86-64 host can run the modern AVX2 addon. */
 export function detectHostAvx2Support(): boolean {
 	if (process.arch !== "x64") return false;
-	const forced = Bun.env.PI_NATIVE_X64_VARIANT;
-	if (forced === "baseline" || forced === "modern") return forced === "modern";
-	if (forced) throw new Error(`PI_NATIVE_X64_VARIANT must be "baseline" or "modern", not ${JSON.stringify(forced)}`);
+	// scient(SA-RELEASE): begin - One release runner builds both x86-64 addons.
+	const forced = forcedAvx2();
+	if (forced !== undefined) return forced;
+	// scient(SA-RELEASE): end
 
 	if (process.platform === "linux") {
 		try {

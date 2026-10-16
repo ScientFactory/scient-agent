@@ -15,8 +15,10 @@ import { logger } from "@oh-my-pi/pi-utils";
 import * as AIError from "../../error";
 import * as nativeSchemeCallback from "./native-scheme-callback";
 import type { NativeSchemeCallbackReceiver } from "./native-scheme-callback";
-import { SCIENT_AGENT_SYMBOL_SVG } from "@oh-my-pi/pi-utils/brand";
 import templateHtml from "./oauth.html" with { type: "text" };
+// scient(SA-BRAND): begin - The sign-in result page shows Scient Agent's symbol and colors.
+import { brandCallbackPage } from "../../scient/callback-page";
+// scient(SA-BRAND): end
 import type { OAuthController, OAuthCredentials } from "./types";
 
 const DEFAULT_TIMEOUT = 300_000;
@@ -61,6 +63,11 @@ function isAddressInUse(error: unknown): boolean {
 	const code = (error as { code?: unknown } | null | undefined)?.code;
 	if (typeof code === "string") return code === "EADDRINUSE";
 	return error instanceof Error && /EADDRINUSE|in use/i.test(error.message);
+}
+
+/** Keep JSON data inside the template's script element; JSON.parse restores the original text. */
+function serializeCallbackState(state: unknown): string {
+	return JSON.stringify(state).replaceAll("<", "\\u003c");
 }
 
 /**
@@ -591,9 +598,11 @@ export abstract class OAuthCallbackFlow {
 		}
 
 		return new Response(
-			(templateHtml as unknown as string)
-				.replace("__SCIENT_AGENT_SYMBOL__", SCIENT_AGENT_SYMBOL_SVG)
-				.replaceAll("__OAUTH_STATE__", JSON.stringify(resultState)),
+			// scient(SA-BRAND): begin - The sign-in result page shows Scient Agent's symbol and colors.
+			brandCallbackPage(templateHtml as unknown as string).replaceAll("__OAUTH_STATE__", () =>
+				serializeCallbackState(resultState),
+			),
+			// scient(SA-BRAND): end
 			{
 				status: resultState.ok ? 200 : 500,
 				headers: { "Content-Type": "text/html" },

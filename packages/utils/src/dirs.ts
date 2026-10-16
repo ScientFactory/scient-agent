@@ -15,14 +15,19 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { expandWindowsLongPath } from "@oh-my-pi/pi-natives/path";
-import scient from "../../../scient.json" with { type: "json" };
 import { engines, version } from "../package.json" with { type: "json" };
 import { isEnoent, isEnotdir } from "./fs-error";
+// scient(SA-PRODUCT): begin - Scient Agent's own release version.
+import { PRODUCT_VERSION } from "./scient/product";
+// scient(SA-PRODUCT): end
+// scient(SA-ROOT): begin - A host-assigned config root.
+import { getHostConfigRoot } from "./scient/root";
+// scient(SA-ROOT): end
 
-/** App name: the executable, process title, and XDG directory name. */
-export const APP_NAME: string = scient.name;
+/** App name (e.g. "omp") */
+export const APP_NAME: string = "scient-agent";
 
-/** Public homepage that inference gateways (OpenRouter, Vercel AI Gateway) credit Scient Agent traffic to. */
+/** Public homepage that inference gateways (OpenRouter, Vercel AI Gateway) credit omp traffic to. */
 export const APP_URL: string = "https://scientfactory.com/";
 
 /** Config directory name (e.g. ".scient-agent") */
@@ -31,20 +36,13 @@ export const CONFIG_DIR_NAME: string = ".scient-agent";
 /** Ordered main settings filenames: canonical write target first, legacy-compatible YAML fallback second. */
 export const MAIN_CONFIG_FILENAMES = ["config.yml", "config.yaml"] as const;
 
-/**
- * Version of the inherited Oh My Pi packages (e.g. "18.4.8"). Internal
- * compatibility checks, including the native addon stamp, compare against it.
- */
+/** Version (e.g. "1.0.0") */
 export const VERSION: string = version;
 
-/** Scient Agent's own release version (e.g. "0.1.0"): what `--version` and the User-Agent report. */
-export const PRODUCT_VERSION: string = scient.version;
-
-/** The Oh My Pi release this build derives from. */
-export const UPSTREAM: { readonly name: string; readonly version: string; readonly commit: string } = scient.upstream;
-
-/** Default User-Agent header string (e.g. "scient-agent/0.1.0") */
+/** Default User-Agent header string (e.g. "omp/17.2.12") */
+// scient(SA-PRODUCT): begin - The User-Agent names Scient Agent and its release.
 export const USER_AGENT = `${APP_NAME}/${PRODUCT_VERSION}`;
+// scient(SA-PRODUCT): end
 
 /** Minimum Bun version */
 export const MIN_BUN_VERSION: string = engines.bun.replace(/[^0-9.]/g, "");
@@ -121,24 +119,11 @@ function readProfileFromEnvSafe(): string | undefined {
 	}
 }
 
-/**
- * An absolute directory a host (Scient Desktop) assigns as the config root, so
- * every file the agent owns lives where the host put it. Unset or relative
- * values are ignored.
- *
- * The assignment is authoritative: under a host root the agent directory is
- * always derived from it (`SCIENT_AGENT_DIR` is ignored, see `DirResolver`),
- * and dotenv files outside the root cannot set the agent's own variables (see
- * `env.ts`).
- */
-export function getHostConfigRoot(): string | undefined {
-	const root = process.env.SCIENT_AGENT_ROOT;
-	return root && path.isAbsolute(root) ? root : undefined;
-}
-
-/** Profile-independent config root (~/.scient-agent, or the host-assigned root), shared by every profile. */
+/** Profile-independent config root (~/.scient-agent), shared by every omp profile. */
 export function getBaseConfigRoot(): string {
+	// scient(SA-ROOT): begin - A host-assigned root replaces ~/.scient-agent.
 	return getHostConfigRoot() ?? path.join(os.homedir(), getConfigDirName());
+	// scient(SA-ROOT): end
 }
 
 function getProfileConfigRoot(profile: string | undefined): string {
@@ -369,10 +354,9 @@ class DirResolver {
 		this.configRoot = getProfileConfigRoot(profile);
 
 		const defaultAgent = path.join(this.configRoot, "agent");
-		// A host-assigned root decides where the agent directory is. An override
-		// that reached the environment some other way (a project or home `.env`,
-		// an inherited variable) must not move settings and sign-ins out of it.
+		// scient(SA-ROOT): begin - Under a host-assigned root the agent directory is always the root's.
 		const agentDirOverride = profile || getHostConfigRoot() ? undefined : options.agentDirOverride;
+		// scient(SA-ROOT): end
 		this.agentDir = agentDirOverride ? path.resolve(agentDirOverride) : defaultAgent;
 		const isDefault = this.agentDir === defaultAgent;
 
@@ -391,9 +375,10 @@ class DirResolver {
 		let xdgData: string | undefined;
 		let xdgState: string | undefined;
 		let xdgCache: string | undefined;
-		const xdgPlatform = process.platform === "linux" || process.platform === "darwin";
-		// A host-assigned root is authoritative; XDG never redirects away from it.
-		if (xdgPlatform && isDefault && !getHostConfigRoot()) {
+		// scient(SA-ROOT): begin - XDG never redirects state away from a host-assigned root.
+		const xdgPlatform = (process.platform === "linux" || process.platform === "darwin") && !getHostConfigRoot();
+		// scient(SA-ROOT): end
+		if (xdgPlatform && isDefault) {
 			const resolveIf = (envVar: string) => {
 				const value = process.env[envVar];
 				if (!value) return undefined;
@@ -419,7 +404,7 @@ class DirResolver {
 		// agrees on one location. These hold process-scoped runtime state
 		// (sockets, tokens), so there is no migration to protect.
 		const resolveBase = (envVar: string) => {
-			if (!xdgPlatform || getHostConfigRoot()) return undefined;
+			if (!xdgPlatform) return undefined;
 			const value = process.env[envVar];
 			if (!value) return undefined;
 			try {
@@ -670,7 +655,7 @@ export function getLogsDir(): string {
 
 /**
  * Local-timezone `YYYY-MM-DD` day key (zero-padded), formatted exactly like
- * the rotating log sink's file naming: log files are named `omp.<day>.<pid>.log`
+ * the rotating log sink's file naming: log files are named `scient-agent.<day>.<pid>.log`
  * with the LOCAL day, not the UTC day `toISOString()` yields. Anything that
  * computes "today's" log path or matches same-day log files by name must use
  * this key, or between local midnight and UTC midnight it points at files that
@@ -896,10 +881,21 @@ export function getFastembedRuntimeDir(): string {
 	return dirs.rootSubdir(path.join("cache", "fastembed-runtime"), "cache");
 }
 
+/**
+ * Get the directory the native addon loads downloaded tree-sitter wasm grammars
+ * from (`<natives dir>/grammars`, ~/.scient-agent/natives/grammars). The natives loader
+ * configures the addon with the same path.
+ */
+export function getNativeGrammarsDir(): string {
+	return path.join(getNativesDir(), "grammars");
+}
+
 /** Get the natives directory. SCIENT_AGENT_NATIVES_DIR overrides the usual cache root; relative values are ignored. */
 export function getNativesDir(): string {
+	// scient(SA-ROOT): begin - Native state stays inside a host-assigned root.
 	const hostRoot = getHostConfigRoot();
 	if (hostRoot) return path.join(hostRoot, "natives");
+	// scient(SA-ROOT): end
 	return resolveAbsoluteDir(process.env.SCIENT_AGENT_NATIVES_DIR) ?? dirs.rootSubdir("natives", "cache");
 }
 
@@ -1106,6 +1102,11 @@ export function getTinyWorkerRuntimeDir(): string {
 	return dirs.rootSubdir(path.join("run", "tiny"), "state");
 }
 
+/** Directory holding the per-model mnemopi embedding server endpoints and logs (~/.scient-agent/run/mnemopi; XDG default: $XDG_STATE_HOME/omp/run/mnemopi). */
+export function getMnemopiEmbedRuntimeDir(): string {
+	return dirs.rootSubdir(path.join("run", "mnemopi"), "state");
+}
+
 /** Root directory containing every per-project daemon runtime scope (~/.scient-agent/run/daemons; XDG default: $XDG_STATE_HOME/omp/run/daemons). */
 export function getDaemonRuntimeRoot(): string {
 	return dirs.rootSubdir(path.join("run", "daemons"), "state");
@@ -1205,7 +1206,7 @@ const INSTALL_ID_FILE = "install-id";
  */
 export function getAppName(): string {
 	const value = process.env.OMP_APP_NAME?.trim();
-	return value ? value : APP_NAME;
+	return value ? value : "scient-agent";
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

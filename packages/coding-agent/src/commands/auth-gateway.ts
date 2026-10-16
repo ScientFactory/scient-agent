@@ -2,7 +2,6 @@
  * `omp auth-gateway` — run a forward proxy that injects auth from the broker.
  */
 
-import { APP_NAME } from "@oh-my-pi/pi-utils";
 import { Args, Command, Flags, renderCommandHelp } from "@oh-my-pi/pi-utils/cli";
 import {
 	AUTH_GATEWAY_ACTIONS,
@@ -57,7 +56,7 @@ export default class AuthGateway extends Command {
 	async run(): Promise<void> {
 		const { args, flags } = await this.parse(AuthGateway);
 		if (!args.action) {
-			renderCommandHelp(APP_NAME, "auth-gateway", AuthGateway);
+			renderCommandHelp("scient-agent", "auth-gateway", AuthGateway);
 			return;
 		}
 		const cmd: AuthGatewayCommandArgs = {

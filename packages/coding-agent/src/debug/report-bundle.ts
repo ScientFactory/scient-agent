@@ -212,7 +212,7 @@ export async function getLogText(): Promise<string> {
 
 /**
  * Concatenate the tail of every same-day process log so a report generated
- * after a crash still captures the fatal PID's `omp.<date>.<pid>.log`. Files
+ * after a crash still captures the fatal PID's `scient-agent.<date>.<pid>.log`. Files
  * are ordered oldest-first by mtime and separated by a filename header.
  */
 async function collectSameDayLogs(linesPerFile: number): Promise<string> {

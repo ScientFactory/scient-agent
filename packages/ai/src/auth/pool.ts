@@ -642,11 +642,6 @@ export class CredentialPool implements CredentialsApi {
 		const index = entries.findIndex(entry => entry.id === credentialId);
 		if (index === -1) return false;
 		const remainingEntries = entries.filter((_entry, entryIndex) => entryIndex !== index);
-		this.#options.policies.validateFor(
-			provider,
-			remainingEntries.map(entry => entry.credential),
-		);
-
 		const deleted = await this.#store.deleteAuthCredential(credentialId, "deleted by user");
 		if (!deleted) return false;
 		this.replace(provider, remainingEntries);
@@ -745,11 +740,13 @@ export class CredentialPool implements CredentialsApi {
 		await this.reload();
 	}
 
-	/** Scient: only a broker-backed store re-fetches a snapshot. */
+	// scient(SA-AUTH): begin - A broker's sign-ins stay with the broker.
+	/** Only a broker-backed store re-fetches a snapshot. */
 	get heldByBroker(): boolean {
 		return this.#store.refreshSnapshot !== undefined;
 	}
 
+	// scient(SA-AUTH): end
 	/**
 	 * Disable the credential with the given id and emit a
 	 * {@link CredentialDisabledEvent}. Used by the auth-broker server to honour

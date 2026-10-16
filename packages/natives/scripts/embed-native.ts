@@ -6,8 +6,18 @@ import {
 	containsVersionStamp,
 	VERSION_STAMP_MAGIC,
 } from "../native/version-sentinel.js";
+// scient(SA-NATIVE-CACHE): begin - The manifest names the build by its addons' content.
+import { addonBuildId } from "../native/scient/build-cache.js";
+// scient(SA-NATIVE-CACHE): end
 
 const defaultNativeDir = path.join(import.meta.dir, "../native");
+
+/**
+ * zstd level for embedded addons. Each addon is its own frame with no
+ * container header or timestamp, so identical addon bytes always embed
+ * identically and consecutive binaries differ only where the addon did.
+ */
+export const EMBEDDED_ADDON_ZSTD_LEVEL = 19;
 
 /** Platform/architecture pair whose addons a standalone binary embeds. */
 export interface NativeEmbedTarget {
@@ -25,12 +35,15 @@ export interface EmbedOptions extends NativeEmbedTarget {
 
 /**
  * Build the in-memory `Bun.build({ files })` overrides that embed one target's
- * addons into a standalone binary: a gzip tar of the addons and a replacement
- * for the checked-in null `native/embedded-addon.js` manifest that points at it.
+ * addons into a standalone binary: one `<addon>.node.zst` zstd frame per addon
+ * variant and a replacement for the checked-in null `native/embedded-addon.js`
+ * manifest that points at them. Output is a pure function of the addon bytes
+ * (no timestamps, no container), which keeps release-to-release binary patches
+ * small.
  *
  * Nothing is written to disk. Bun.build shares the runtime's directory cache
  * and never re-reads it on a miss, so a process that imported pi-natives before
- * writing the archive cannot resolve it; in-memory files bypass that lookup.
+ * writing the frames cannot resolve them; in-memory files bypass that lookup.
  *
  * @throws when no addon exists for the target, or when an addon lacks the
  * `@oh-my-pi/pi-natives@<version>` version stamp and legacy sentinel.
@@ -62,7 +75,6 @@ export async function embeddedAddonFiles({
 		const expected = candidates.map(candidate => `  - ${candidate.filename}`).join("\n");
 		throw new Error(`No native addons found for ${platformTag}. Expected one of:\n${expected}`);
 	}
-	const contentHash = new Bun.CryptoHasher("sha256");
 	for (const { filename, bytes } of available) {
 		// Pre-stamp addons (npm releases and main builds before the stamp slot)
 		// identify their release by the legacy export, which the loader accepts.
@@ -76,30 +88,37 @@ export async function embeddedAddonFiles({
 		}
 	}
 
-	for (const { filename, bytes } of available) {
-		contentHash.update(filename);
-		contentHash.update(bytes);
-	}
-	const buildId = contentHash.digest("hex").slice(0, 16);
-	const archiveFilename = `embedded-addons.${platformTag}.tar.gz`;
-	const archive = new Bun.Archive(Object.fromEntries(available.map(({ filename, bytes }) => [filename, bytes])), {
-		compress: "gzip",
-		level: 9,
-	});
-	const files = available.map(({ variant, filename, bytes }) => ({ variant, filename, size: bytes.length }));
-	const manifest = `import filePath from ${JSON.stringify(`./${archiveFilename}`)} with { type: "file" };
+	// Variants compress concurrently on Bun's thread pool.
+	const frames = await Promise.all(
+		available.map(({ bytes }) => Bun.zstdCompress(bytes, { level: EMBEDDED_ADDON_ZSTD_LEVEL })),
+	);
+	const imports = available.map(
+		({ filename }, index) =>
+			`import zstdPath${index} from ${JSON.stringify(`./${filename}.zst`)} with { type: "file" };`,
+	);
+	const files = available.map(
+		({ variant, filename, bytes }, index) =>
+			`{ variant: ${JSON.stringify(variant)}, filename: ${JSON.stringify(filename)}, size: ${bytes.length}, zstdPath: zstdPath${index} }`,
+	);
+	const manifest = `${imports.join("\n")}
 
 export const embeddedAddon = {
 	platformTag: ${JSON.stringify(platformTag)},
 	version: ${JSON.stringify(version)},
-	buildId: ${JSON.stringify(buildId)},
-	archive: { format: "tar.gz", filename: ${JSON.stringify(archiveFilename)}, filePath },
-	files: ${JSON.stringify(files)},
+	files: [
+		${files.join(",\n\t\t")},
+	],
 };
 `;
 
-	return {
-		[path.join(dir, archiveFilename)]: await archive.bytes(),
-		[path.join(dir, "embedded-addon.js")]: manifest,
-	};
+	const overrides: Record<string, string | Uint8Array> = {};
+	available.forEach(({ filename }, index) => {
+		overrides[path.join(dir, `${filename}.zst`)] = frames[index];
+	});
+	overrides[path.join(dir, "embedded-addon.js")] = manifest;
+	// scient(SA-NATIVE-CACHE): begin - The manifest names the build by its addons' content.
+	overrides[path.join(dir, "embedded-addon.js")] =
+		`${manifest}embeddedAddon.buildId = ${JSON.stringify(addonBuildId(available))};\n`;
+	// scient(SA-NATIVE-CACHE): end
+	return overrides;
 }

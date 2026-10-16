@@ -6,9 +6,7 @@ import {
 	__resetProfileSnapshotForTests,
 	getAgentDir,
 	getGlobalDaemonRuntimeDir,
-	getLogsDir,
 	getPredictStateDir,
-	getSessionOwnersDir,
 	getSkillDescriptionsDbPath,
 	setAgentDir,
 	setProfile,
@@ -16,7 +14,6 @@ import {
 import { Snowflake } from "@oh-my-pi/pi-utils/snowflake";
 
 const ENV_KEYS = [
-	"SCIENT_AGENT_ROOT",
 	"SCIENT_AGENT_PROFILE",
 	"SCIENT_AGENT_PROFILE_FALLBACK",
 	"SCIENT_AGENT_CONFIG_DIR",
@@ -45,7 +42,6 @@ describe("XDG-aware runtime paths", () => {
 		defaultAgentDir = path.join(os.homedir(), configDir, "agent");
 		await fs.mkdir(tempRoot, { recursive: true });
 		process.env.SCIENT_AGENT_CONFIG_DIR = configDir;
-		delete process.env.SCIENT_AGENT_ROOT;
 		delete process.env.SCIENT_AGENT_DIR;
 		delete process.env.XDG_DATA_HOME;
 		delete process.env.XDG_STATE_HOME;
@@ -126,22 +122,5 @@ describe("XDG-aware runtime paths", () => {
 
 		expect(getSkillDescriptionsDbPath()).toBe(path.join(custom, "skill-descriptions.db"));
 		expect(getPredictStateDir(custom, "ngram")).toBe(path.join(custom, "predict", "ngram"));
-	});
-
-	it.skipIf(!xdgPlatform)("keeps global daemon, session-owner and log paths inside each host root", async () => {
-		const xdgState = path.join(tempRoot, "state");
-		await fs.mkdir(path.join(xdgState, "scient-agent"), { recursive: true });
-		process.env.XDG_STATE_HOME = xdgState;
-		for (const name of ["host-a", "host-b"]) {
-			const root = path.join(tempRoot, name);
-			process.env.SCIENT_AGENT_ROOT = root;
-			__resetProfileSnapshotForTests();
-			setAgentDir(path.join(root, "agent"));
-			expect(getGlobalDaemonRuntimeDir("text-predict")).toBe(
-				path.join(root, "run", "daemons", "global", "text-predict"),
-			);
-			expect(getSessionOwnersDir().startsWith(`${root}${path.sep}`)).toBe(true);
-			expect(getLogsDir()).toBe(path.join(root, "logs"));
-		}
 	});
 });

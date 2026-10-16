@@ -32,7 +32,7 @@ import { create, fromBinary } from "@oh-my-pi/pi-catalog/discovery/protobuf";
 
 const EDIT_ID = "tool_7aef3020-f275-4579-887c-34106e146f7";
 const ENVELOPE_ID = "call-edit-1";
-const TARGET = "/tmp/omp-cursor-edit-probe/note.txt";
+const TARGET = "/tmp/scient-agent-cursor-edit-probe/note.txt";
 
 function cursorAssistantMessage(): AssistantMessage {
 	return {

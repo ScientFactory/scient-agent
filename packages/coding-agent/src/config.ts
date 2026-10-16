@@ -1,14 +1,23 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir, getProjectDir } from "@oh-my-pi/pi-utils";
+import { CONFIG_DIR_NAME, getConfigAgentDirName, getProjectDir } from "@oh-my-pi/pi-utils";
+// scient(SA-ROOT): begin - Under a host-assigned root, the agent's own user config is the root's.
+import { getAgentDir } from "@oh-my-pi/pi-utils";
+import { getHostConfigRoot } from "@oh-my-pi/pi-utils/scient/root";
+// scient(SA-ROOT): end
 import { isUserSourceEnabled } from "./capability";
 import { resolveClaudePaths } from "./config/claude-paths";
 import { expandTilde } from "./tools/path-utils";
 
 export * from "./config/config-file";
 
-const priorityList = [{ dir: CONFIG_DIR_NAME }, { dir: ".claude" }, { dir: ".codex" }, { dir: ".gemini" }];
+const priorityList = [
+	{ dir: CONFIG_DIR_NAME, globalAgentDir: getConfigAgentDirName },
+	{ dir: ".claude" },
+	{ dir: ".codex" },
+	{ dir: ".gemini" },
+];
 
 // =============================================================================
 // Package Directory (for optional external docs/examples)
@@ -76,15 +85,15 @@ export function getChangelogPath(): string | undefined {
  * User-level: ~/.scient-agent/agent, Claude's active config directory, ~/.codex, ~/.gemini
  * Project-level: .scient-agent, .claude, .codex, .gemini
  */
-const USER_CONFIG_BASES = priorityList.map(({ dir }) => ({
-	// The agent's own directory comes from the active root, profile and
-	// overrides, never from a path rebuilt under the home directory.
+const USER_CONFIG_BASES = priorityList.map(({ dir, globalAgentDir }) => ({
+	// scient(SA-ROOT): begin - Under a host-assigned root, the agent's own user config is the root's.
 	base: () =>
-		dir === CONFIG_DIR_NAME
+		globalAgentDir && getHostConfigRoot()
 			? getAgentDir()
 			: dir === ".claude"
 				? resolveClaudePaths().configDir
-				: path.join(os.homedir(), dir),
+				: path.join(os.homedir(), globalAgentDir?.() ?? dir),
+	// scient(SA-ROOT): end
 	name: dir,
 }));
 

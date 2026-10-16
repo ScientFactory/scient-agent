@@ -919,7 +919,7 @@ export const cfgToolsXdev = register({
 		group: "Discovery & MCP",
 		label: "xd:// Tools",
 		description:
-			"Mount rarely-used (discoverable) tools under xd:// device URLs driven via read/write instead of shipping their schemas on every request. Sessions whose explicit tool list grants read but omits write mount devices through a device-only write transport (filesystem writes stay rejected). Disable to expose every enabled tool top-level.",
+			"Mount rarely-used (discoverable) tools under xd:// device URLs driven via read/write instead of shipping their schemas on every request. Sessions whose explicit tool list grants read but omits write mount devices through a device-only write transport (only local:// scratch stays writable besides devices). Disable to expose every enabled tool top-level.",
 	},
 });
 
@@ -962,8 +962,9 @@ export const cfgToolsXdevInlineDevices = register({
 export const cfgDevAutoqa = register({
 	id: "dev.autoqa",
 	type: "boolean",
-	// Reports go to Oh My Pi's service, so Scient Agent does not offer them by default.
+	// scient(SA-SERVICES): begin - Reports go to Oh My Pi's service, so they are not on by default.
 	default: false,
+	// scient(SA-SERVICES): end
 	env: "PI_AUTO_QA",
 	ui: {
 		tab: "tools",

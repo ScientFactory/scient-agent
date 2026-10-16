@@ -1,12 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
-import { APP_NAME, normalizeProfileName } from "@oh-my-pi/pi-utils/dirs";
+import { normalizeProfileName } from "@oh-my-pi/pi-utils/dirs";
+import { quotePosixArgument } from "../utils/shell-quote";
 
 export type ProfileAliasShell = "bash" | "zsh" | "fish" | "powershell" | "pwsh";
-
-function quoteForShell(pathValue: string): string {
-	return `'${pathValue.replace(/'/g, `'"'"'`)}'`;
-}
 
 function quoteForPowerShell(pathValue: string): string {
 	return `'${pathValue.replace(/'/g, `''`)}'`;
@@ -27,10 +24,10 @@ export interface ProfileAliasProcessOptions {
 }
 
 const DEFAULT_ALIAS_COMMAND: ProfileAliasCommand = {
-	display: APP_NAME,
-	posix: APP_NAME,
-	fish: APP_NAME,
-	powerShell: APP_NAME,
+	display: "scient-agent",
+	posix: "scient-agent",
+	fish: "scient-agent",
+	powerShell: "scient-agent",
 };
 
 export interface ProfileAliasInstallOptions {
@@ -154,8 +151,8 @@ function validateAliasName(aliasName: string, shell: ProfileAliasShell): string 
 	if (!ALIAS_NAME_RE.test(normalized)) {
 		throw new Error(`Invalid alias "${aliasName}". Alias names must match ${ALIAS_NAME_RE.source}.`);
 	}
-	if (normalized.toLowerCase() === APP_NAME) {
-		throw new Error(`Invalid alias "${APP_NAME}". Refusing to shadow the base ${APP_NAME} command.`);
+	if (normalized.toLowerCase() === "scient-agent") {
+		throw new Error('Invalid alias "scient-agent". Refusing to shadow the base scient-agent command.');
 	}
 	if (getReservedAliasNames(shell).has(normalized.toLowerCase())) {
 		throw new Error(`Invalid alias "${aliasName}". Refusing to create a ${shell} reserved word.`);
@@ -213,7 +210,7 @@ export function resolveProfileAliasCommandFromProcess({
 	// can't resolve backslash-separated paths, even on Windows (Git Bash, WSL).
 	const posixScriptPath = scriptPath.replace(/\\/g, "/");
 	const posixRuntime = runtime.replace(/\\/g, "/");
-	const posix = `${quoteForShell(posixRuntime)} ${quoteForShell(posixScriptPath)}`;
+	const posix = `${quotePosixArgument(posixRuntime)} ${quotePosixArgument(posixScriptPath)}`;
 	return {
 		display: `${posixRuntime} ${posixScriptPath}`,
 		posix,
@@ -265,7 +262,7 @@ function resolveShellConfigPath(
 			// a hard-coded ~/.config would be silently ignored when the user relocates
 			// their XDG config root, leaving the alias unsourced after a restart.
 			const configHome = env.XDG_CONFIG_HOME ? toPosix(env.XDG_CONFIG_HOME) : posixJoinUnc(posixHome, ".config");
-			return posixJoinUnc(configHome, "fish", "conf.d", `${APP_NAME}-profiles.fish`);
+			return posixJoinUnc(configHome, "fish", "conf.d", "scient-agent-profiles.fish");
 		}
 		case "pwsh":
 			return platform === "win32"
@@ -283,13 +280,13 @@ function renderAliasBlock(
 	command: ProfileAliasCommand,
 ): { block: string; command: string } {
 	const profiledCommand = `${command.display} --profile=${profile}`;
-	const start = `# >>> ${APP_NAME} profile alias: ${aliasName} >>>`;
-	const end = `# <<< ${APP_NAME} profile alias: ${aliasName} <<<`;
+	const start = `# >>> scient-agent profile alias: ${aliasName} >>>`;
+	const end = `# <<< scient-agent profile alias: ${aliasName} <<<`;
 	let body: string;
 	switch (shell) {
 		case "fish":
 			body = [
-				`function ${aliasName} --wraps ${APP_NAME} --description '${APP_NAME} profile ${profile}'`,
+				`function ${aliasName} --wraps scient-agent --description 'scient-agent profile ${profile}'`,
 				`    command ${command.fish} --profile=${profile} $argv`,
 				"end",
 			].join("\n");
@@ -306,8 +303,8 @@ function renderAliasBlock(
 }
 
 function upsertBlock(content: string, aliasName: string, block: string): string {
-	const start = `# >>> ${APP_NAME} profile alias: ${aliasName} >>>`;
-	const end = `# <<< ${APP_NAME} profile alias: ${aliasName} <<<`;
+	const start = `# >>> scient-agent profile alias: ${aliasName} >>>`;
+	const end = `# <<< scient-agent profile alias: ${aliasName} <<<`;
 	const startIndex = content.indexOf(start);
 	if (startIndex !== -1) {
 		const endIndex = content.indexOf(end, startIndex + start.length);
@@ -372,9 +369,9 @@ export async function installProfileAlias(options: ProfileAliasInstallOptions): 
 		command,
 		reloadedWith:
 			shell === "fish"
-				? `source ${quoteForShell(configPath)}`
+				? `source ${quotePosixArgument(configPath)}`
 				: shell === "powershell" || shell === "pwsh"
 					? `. ${quoteForPowerShell(configPath)}`
-					: `. ${quoteForShell(configPath)}`,
+					: `. ${quotePosixArgument(configPath)}`,
 	};
 }

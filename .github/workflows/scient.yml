@@ -7,7 +7,8 @@ name: Scient Agent
 # exercised, then checked on macOS. A `v*` tag signs them with the Developer ID,
 # notarizes them and drafts a GitHub release with every binary and its
 # checksum; a person publishes the draft. A manual run can sign and notarize
-# without drafting a release, to qualify the signing secrets.
+# without drafting a release, to qualify the signing secrets. Oh My Pi's own
+# test suite runs on Linux against Scient's tree, as upstream's CI runs it.
 
 on:
    push:
@@ -62,6 +63,10 @@ jobs:
            with:
               bun-version: 1.4.2
 
+         # Before any step changes a tracked file, so a clean checkout is not reported dirty.
+         - name: Stamp the build id
+           run: bun scripts/scient/stamp-build-id.ts
+
          - name: Install build tools
            run: |
               case "$RUNNER_OS" in
@@ -92,13 +97,15 @@ jobs:
                  bun run build:native
               fi
 
-         - name: Test the packages Scient changes
+         # Scient's own tests, and the packages whose state layout differs by
+         # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).
+         - name: Test Scient's code
            if: matrix.id == 'darwin-arm64'
            run: |
               bun --cwd=packages/utils test
               bun --cwd=packages/natives test
-              bun --cwd=packages/coding-agent test test/rpc-reload-sign-ins.test.ts test/rpc-sign-in-providers.test.ts
-              bun --cwd=packages/ai test test/scient-callback-page.test.ts
+              bun --cwd=packages/coding-agent test test/scient
+              bun --cwd=packages/ai test test/scient
               bun test scripts/scient
 
          - name: Build the binary
@@ -137,6 +144,77 @@ jobs:
               path: release/
               if-no-files-found: error
 
+   # Oh My Pi's own tests, run as its CI runs them, on Scient's tree: a change
+   # Scient makes must not break what upstream's tests hold.
+   natives-linux:
+      name: Build the native addon for Oh My Pi's tests
+      runs-on: ubuntu-22.04
+      timeout-minutes: 60
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - name: Build the native addon
+           run: |
+              sudo apt-get update && sudo apt-get install -y ninja-build
+              rustup show active-toolchain || rustup toolchain install
+              bun install --frozen-lockfile
+              PI_NATIVE_X64_VARIANT=baseline bun run build:native
+              PI_NATIVE_X64_VARIANT=modern bun run build:native
+
+         - uses: actions/upload-artifact@v4
+           with:
+              name: natives-linux-x64
+              path: packages/natives/native/*.node
+              if-no-files-found: error
+              retention-days: 1
+
+   upstream-tests:
+      name: Oh My Pi's tests (${{ matrix.mode }})
+      needs: natives-linux
+      runs-on: ubuntu-22.04
+      timeout-minutes: 40
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { mode: workspace, concurrency: 4 }
+               - { mode: native, concurrency: 4 }
+               - { mode: coding-agent-singleton, concurrency: 1 }
+               - { mode: coding-agent-ui, concurrency: 2 }
+               - { mode: coding-agent-runtime, concurrency: 4 }
+               - { mode: coding-agent-native, concurrency: 4 }
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - uses: actions/download-artifact@v4
+           with:
+              name: natives-linux-x64
+              path: packages/natives/native
+
+         # Upstream's bucket, unchanged; only failures that untouched upstream has too may pass (see the script).
+         - name: Test
+           env:
+              OMP_TEST_CONCURRENCY: ${{ matrix.concurrency }}
+           run: bun scripts/scient/upstream-tests.ts ${{ matrix.mode }}
+
+         # Upstream's workspace job also runs its release-script test and a CLI smoke test.
+         - name: Test the release script and the CLI
+           if: matrix.mode == 'workspace'
+           run: |
+              bun test scripts/release.test.ts
+              bun run ci:test:smoke
+
    divergence:
       name: Check Scient's divergences
       runs-on: ubuntu-24.04
@@ -152,6 +230,11 @@ jobs:
          - uses: oven-sh/setup-bun@v2
            with:
               bun-version: 1.4.2
+
+         # The checker parses with the locked @babel/parser: without an install, Bun
+         # would fetch whatever version is newest when the job runs.
+         - name: Install dependencies
+           run: bun install --frozen-lockfile --ignore-scripts
 
          - name: Fetch the accepted alignments
            run: git fetch --force --no-tags origin 'refs/tags/omp-sync/*:refs/tags/omp-sync/*'
@@ -277,7 +360,7 @@ jobs:
       name: Draft release
       # Job conditions cannot read workflow env, so this repeats RELEASE.
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-      needs: [build, verify-macos, divergence]
+      needs: [build, verify-macos, divergence, upstream-tests]
       runs-on: ubuntu-24.04
       permissions:
          contents: write

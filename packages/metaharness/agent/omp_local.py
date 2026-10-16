@@ -117,9 +117,9 @@ _patch_harbor_cleanup_cancellation()
 _patch_apple_container_dns()
 
 # Container-side staging paths (absolute; never depend on $HOME at write time).
-_TARBALL_DST = "/tmp/omp-local.tgz"
-_MODELS_DST = "/tmp/omp-models.yml"
-_CONFIG_DST = "/tmp/omp-config.yml"
+_TARBALL_DST = "/tmp/scient-agent-local.tgz"
+_MODELS_DST = "/tmp/scient-agent-models.yml"
+_CONFIG_DST = "/tmp/scient-agent-config.yml"
 _OUTPUT_FILENAME = "omp.txt"
 
 # omp's daemon broker stops the services the agent started (bash `name` +
@@ -439,7 +439,7 @@ class OmpLocal(BaseInstalledAgent):
             )
         app_dir = f"{self._home}/.scient-agent-bench"
         dst = f"{app_dir}/omp"
-        staging = "/tmp/omp-bin"
+        staging = "/tmp/scient-agent-bin"
         await self.exec_as_agent(
             environment, command=f"mkdir -p {shlex.quote(app_dir)}"
         )

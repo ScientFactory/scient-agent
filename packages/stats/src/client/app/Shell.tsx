@@ -1,4 +1,3 @@
-import { SCIENT_AGENT_SYMBOL_SVG } from "@oh-my-pi/pi-utils/brand";
 import { Menu } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { rangeMeta, TIME_RANGES } from "../data/range";
@@ -8,8 +7,9 @@ import { Segmented } from "../ui";
 import { LiveChip } from "./LiveChip";
 import { type DashboardSection, NAV } from "./nav";
 import { ThemeToggle } from "./ThemeToggle";
-
-const SYMBOL_URL = `data:image/svg+xml,${encodeURIComponent(SCIENT_AGENT_SYMBOL_SVG)}`;
+// scient(SA-BRAND): begin - The dashboard shows Scient Agent's symbol.
+import { SCIENT_AGENT_SYMBOL_DATA_URL } from "@oh-my-pi/pi-utils/scient/brand";
+// scient(SA-BRAND): end
 
 export interface ShellProps {
 	section: DashboardSection;
@@ -59,7 +59,9 @@ export function Shell({ section, onSectionChange, range, onRangeChange, children
 					<Menu size={16} />
 				</button>
 				<div className="topbar-brand">
-					<img className="topbar-mark" src={SYMBOL_URL} width={22} height={22} alt="" />
+					{/* scient(SA-BRAND): begin - The dashboard shows Scient Agent's symbol. */}
+					<img className="topbar-mark" src={SCIENT_AGENT_SYMBOL_DATA_URL} width={22} height={22} alt="" />
+					{/* scient(SA-BRAND): end */}
 					<span>Scient Agent</span>
 					<span className="topbar-slash">/</span>
 					<span className="topbar-title">stats</span>

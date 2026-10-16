@@ -266,12 +266,13 @@ fn build_crash_log_path(dir: &Path, kind: CrashKind, pid: u32, now_ms: u128) -> 
 }
 
 fn logs_dir() -> Option<PathBuf> {
-	// A host-assigned absolute root is authoritative, as in `dirs.ts`.
+	// scient(SA-ROOT): begin - Crash logs follow a host-assigned root.
 	if let Some(root) = std::env::var_os("SCIENT_AGENT_ROOT").map(PathBuf::from)
 		&& root.is_absolute()
 	{
 		return Some(root.join("logs"));
 	}
+	// scient(SA-ROOT): end
 	let home = home_dir()?;
 	let config_override = std::env::var_os("SCIENT_AGENT_CONFIG_DIR");
 	let xdg_logs = xdg_state_logs_from_env(&home, config_override.as_deref());
@@ -519,9 +520,9 @@ mod tests {
 		let dir = resolve_logs_dir(
 			Path::new("/tmp/pi-natives-test-home"),
 			None,
-			Some(PathBuf::from("/xdg/state/omp/logs")),
+			Some(PathBuf::from("/xdg/state/scient-agent/logs")),
 		);
-		assert_eq!(dir, PathBuf::from("/xdg/state/omp/logs"));
+		assert_eq!(dir, PathBuf::from("/xdg/state/scient-agent/logs"));
 	}
 
 	#[cfg(any(target_os = "linux", target_os = "macos"))]

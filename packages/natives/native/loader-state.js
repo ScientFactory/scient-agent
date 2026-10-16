@@ -3,10 +3,12 @@ import * as fs from "node:fs";
 import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as zlib from "node:zlib";
 import packageJson from "../package.json" with { type: "json" };
 import { embeddedAddon } from "./embedded-addon.js";
 import { bindingsHaveReleaseIdentity, bindingsReleaseVersion, containsVersionStamp } from "./version-sentinel.js";
+// scient(SA-NATIVE-CACHE): begin - Scient Agent's native addon cache.
+import { hostNativesDir, withBuildCache } from "./scient/build-cache.js";
+// scient(SA-NATIVE-CACHE): end
 
 /**
  * Native addon loader for `@oh-my-pi/pi-natives`.
@@ -56,14 +58,11 @@ function startupMarker(text) {
 	}
 }
 
-/**
- * Local copy of the pi-utils config-root rules (this loader cannot depend on
- * pi-utils): a host-assigned `SCIENT_AGENT_ROOT`, then the XDG data directory
- * once it exists, then `~/.scient-agent`.
- */
 function getNativesDir() {
-	const hostRoot = process.env.SCIENT_AGENT_ROOT;
-	if (hostRoot && path.isAbsolute(hostRoot)) return path.join(hostRoot, "natives");
+	// scient(SA-NATIVE-CACHE): begin - Native state stays inside a host-assigned root.
+	const hostDir = hostNativesDir();
+	if (hostDir) return hostDir;
+	// scient(SA-NATIVE-CACHE): end
 	// Match pi-utils directory overrides without depending on pi-utils.
 	const override = process.env.SCIENT_AGENT_NATIVES_DIR?.trim();
 	if (override) {
@@ -76,7 +75,7 @@ function getNativesDir() {
 	if (xdgDataHome && fs.existsSync(path.join(xdgDataHome, "scient-agent"))) {
 		return path.join(xdgDataHome, "scient-agent", "natives");
 	}
-	return path.join(os.homedir(), process.env.SCIENT_AGENT_CONFIG_DIR || ".scient-agent", "natives");
+	return path.join(os.homedir(), ".scient-agent", "natives");
 }
 
 function resolveLeafPackageDir(platformTag) {
@@ -261,45 +260,6 @@ export function cleanupStaleNativeVersions({ nativesDir, currentVersion }) {
 		try {
 			const stat = fs.statSync(targetPath);
 			if (Date.now() - stat.mtimeMs < NATIVE_CACHE_CLEANUP_GRACE_MS) continue;
-			fs.rmSync(targetPath, { recursive: true, force: true });
-			removed.push(targetPath);
-		} catch {
-			// Stale caches are opportunistic cleanup only.
-		}
-	}
-	return removed;
-}
-
-/**
- * How long another build's extraction directory may sit unused before it is
- * removed. Every start refreshes its own directory's timestamp, so builds in
- * regular use (a stable app beside a development one) keep theirs.
- */
-const NATIVE_BUILD_CLEANUP_GRACE_MS = 7 * 24 * 60 * 60_000;
-
-/**
- * Remove other builds' extraction directories under this package version once
- * they have been idle past the grace period. Best-effort, like
- * {@link cleanupStaleNativeVersions}.
- *
- * @param {{ versionDir: string; currentBuildId: string }} input
- * @returns {string[]}
- */
-export function cleanupStaleNativeBuilds({ versionDir, currentBuildId }) {
-	const removed = [];
-	let entries;
-	try {
-		entries = fs.readdirSync(versionDir, { withFileTypes: true });
-	} catch {
-		return removed;
-	}
-
-	for (const entry of entries) {
-		if (!entry.isDirectory() || entry.name === currentBuildId) continue;
-		const targetPath = path.join(versionDir, entry.name);
-		try {
-			const stat = fs.statSync(targetPath);
-			if (Date.now() - stat.mtimeMs < NATIVE_BUILD_CLEANUP_GRACE_MS) continue;
 			fs.rmSync(targetPath, { recursive: true, force: true });
 			removed.push(targetPath);
 		} catch {
@@ -496,36 +456,6 @@ function selectEmbeddedAddonFile(selectedVariant) {
 	return embeddedAddon.files.find(file => file.variant === "baseline") || null;
 }
 
-function readTarString(buffer, offset, length) {
-	const end = Math.min(offset + length, buffer.length);
-	let stringEnd = offset;
-	while (stringEnd < end && buffer[stringEnd] !== 0) stringEnd++;
-	return buffer.toString("utf8", offset, stringEnd);
-}
-
-function readTarOctal(buffer, offset, length) {
-	const value = readTarString(buffer, offset, length).trim();
-	if (!value) return 0;
-	const parsed = Number.parseInt(value, 8);
-	if (!Number.isFinite(parsed)) {
-		throw new Error(`Invalid tar octal value: ${value}`);
-	}
-	return parsed;
-}
-
-function isZeroTarBlock(buffer, offset) {
-	for (let index = 0; index < 512; index++) {
-		if (buffer[offset + index] !== 0) return false;
-	}
-	return true;
-}
-
-function getTarEntryName(header) {
-	const name = readTarString(header, 0, 100);
-	const prefix = readTarString(header, 345, 155);
-	return prefix ? `${prefix}/${name}` : name;
-}
-
 function isSafeEmbeddedAddonFilename(filename) {
 	return filename.length > 0 && path.basename(filename) === filename && !filename.includes("/") && !filename.includes("\\");
 }
@@ -534,7 +464,7 @@ function isEmbeddedAddonFileCurrent(targetPath, file) {
 	try {
 		const stat = fs.statSync(targetPath);
 		if (!stat.isFile()) return false;
-		return typeof file.size !== "number" || stat.size === file.size;
+		return stat.size === file.size;
 	} catch (err) {
 		if (err && err.code === "ENOENT") return false;
 		throw err;
@@ -556,60 +486,23 @@ function writeEmbeddedAddonFile(targetPath, content) {
 	}
 }
 
-export function extractEmbeddedAddonArchive({ archivePath, files, targetDir }) {
-	const pending = new Map();
+export function extractEmbeddedAddons({ files, targetDir }) {
 	for (const file of files) {
 		if (!isSafeEmbeddedAddonFilename(file.filename)) {
 			throw new Error(`Unsafe embedded addon filename: ${file.filename}`);
 		}
-		const targetPath = path.join(targetDir, file.filename);
-		if (!isEmbeddedAddonFileCurrent(targetPath, file)) {
-			pending.set(file.filename, file);
-		}
 	}
-	if (pending.size === 0) return [];
-
-	const archive = zlib.gunzipSync(fs.readFileSync(archivePath));
 	const writtenPaths = [];
-	let offset = 0;
-
-	while (offset + 512 <= archive.length) {
-		if (isZeroTarBlock(archive, offset)) break;
-		const header = archive.subarray(offset, offset + 512);
-		const filename = getTarEntryName(header);
-		const size = readTarOctal(header, 124, 12);
-		const typeflag = header[156] === 0 ? "0" : String.fromCharCode(header[156]);
-		offset += 512;
-
-		if (offset + size > archive.length) {
-			throw new Error(`Truncated embedded addon archive entry: ${filename}`);
+	for (const file of files) {
+		const targetPath = path.join(targetDir, file.filename);
+		if (isEmbeddedAddonFileCurrent(targetPath, file)) continue;
+		const content = Bun.zstdDecompressSync(fs.readFileSync(file.zstdPath));
+		if (content.length !== file.size) {
+			throw new Error(`Embedded addon size mismatch for ${file.filename}: expected ${file.size}, got ${content.length}`);
 		}
-
-		if (!isSafeEmbeddedAddonFilename(filename)) {
-			throw new Error(`Unsafe embedded addon archive entry: ${filename}`);
-		}
-		if (typeflag !== "0") {
-			throw new Error(`Unsupported embedded addon archive entry type ${typeflag}: ${filename}`);
-		}
-
-		const file = pending.get(filename);
-		if (file) {
-			if (typeof file.size === "number" && file.size !== size) {
-				throw new Error(`Embedded addon size mismatch for ${filename}: expected ${file.size}, got ${size}`);
-			}
-			const targetPath = path.join(targetDir, filename);
-			writeEmbeddedAddonFile(targetPath, archive.subarray(offset, offset + size));
-			pending.delete(filename);
-			writtenPaths.push(targetPath);
-		}
-
-		offset += Math.ceil(size / 512) * 512;
+		writeEmbeddedAddonFile(targetPath, content);
+		writtenPaths.push(targetPath);
 	}
-
-	if (pending.size > 0) {
-		throw new Error(`Embedded addon archive missing: ${[...pending.keys()].join(", ")}`);
-	}
-
 	return writtenPaths;
 }
 
@@ -624,49 +517,18 @@ function maybeExtractEmbeddedAddon(ctx, errors) {
 	startupMarker("native:extractEmbeddedAddon:start");
 	try {
 		prepareNativeVersionDir(ctx.versionedDir);
-		// Version cleanup reads the version directory's own timestamp; a build
-		// directory inside it does not refresh that.
-		if (ctx.versionDir !== ctx.versionedDir) prepareNativeVersionDir(ctx.versionDir);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 		errors.push(`embedded addon dir: ${message}`);
 		return null;
 	}
 
-	if (embeddedAddon.archive) {
-		try {
-			extractEmbeddedAddonArchive({
-				archivePath: embeddedAddon.archive.filePath,
-				files: embeddedAddon.files,
-				targetDir: ctx.versionedDir,
-			});
-			if (isEmbeddedAddonFileCurrent(targetPath, selectedEmbeddedFile)) {
-				return targetPath;
-			}
-			errors.push(`embedded addon archive (${embeddedAddon.archive.filename}): missing ${selectedEmbeddedFile.filename}`);
-			return null;
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			errors.push(`embedded addon archive (${embeddedAddon.archive.filename}): ${message}`);
-			return null;
-		}
-	}
-
-	if (isEmbeddedAddonFileCurrent(targetPath, selectedEmbeddedFile)) {
-		return targetPath;
-	}
-	if (!selectedEmbeddedFile.filePath) {
-		errors.push(`embedded addon metadata missing file path for ${selectedEmbeddedFile.filename}`);
-		return null;
-	}
-
 	try {
-		const buffer = fs.readFileSync(selectedEmbeddedFile.filePath);
-		fs.writeFileSync(targetPath, buffer);
+		extractEmbeddedAddons({ files: embeddedAddon.files, targetDir: ctx.versionedDir });
 		return targetPath;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		errors.push(`embedded addon write (${selectedEmbeddedFile.filename}): ${message}`);
+		errors.push(`embedded addon extraction (${selectedEmbeddedFile.filename}): ${message}`);
 		return null;
 	}
 }
@@ -881,6 +743,18 @@ function installNativeTokioRuntime(bindings) {
 	}
 }
 
+/**
+ * Point the addon at `<nativesDir>/grammars`, where the agent downloads the
+ * tree-sitter grammars that load as WebAssembly on demand (pi-utils
+ * `getNativeGrammarsDir()` resolves the same path). Version cleanup never
+ * touches it: only release-version directories are removed. Older addons
+ * predating the export link every grammar and need no directory.
+ */
+function configureGrammarDir(bindings, nativesDir) {
+	const setGrammarDir = bindings.__ompSetGrammarDir;
+	if (typeof setGrammarDir === "function") setGrammarDir(path.join(nativesDir, "grammars"));
+}
+
 
 function buildHelpMessage(ctx) {
 	if (ctx.isCompiledBinary) {
@@ -920,15 +794,11 @@ export function initLoaderContext(overrides = {}) {
 	const nativeDir = overrides.nativeDir ?? path.join(import.meta.dir, "..", "native");
 	const execDir = path.dirname(process.execPath);
 	const nativesDir = getNativesDir();
-	const versionDir = path.join(nativesDir, packageVersion);
-	// A compiled binary extracts into a directory named for its embedded addons'
-	// content. Two builds on one package version can embed different addons of
-	// equal size, and a size check alone would let one build load the other's.
-	const versionedDir = embeddedAddon?.buildId ? path.join(versionDir, embeddedAddon.buildId) : versionDir;
+	const versionedDir = path.join(nativesDir, packageVersion);
 	const userDataDir =
 		platform === "win32"
 			? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "scient-agent")
-			: path.join(os.homedir(), ".local", "share", "scient-agent");
+			: path.join(os.homedir(), ".local", "bin");
 
 	const isCompiledBinary =
 		overrides.isCompiledBinary ??
@@ -990,28 +860,21 @@ export function initLoaderContext(overrides = {}) {
 		candidates,
 		isWorkspaceLoad,
 		nativesDir,
-		versionDir,
 	};
 }
 
 export function loadNative() {
 	startupMarker("native:loadNative:start");
-	const ctx = initLoaderContext();
+	// scient(SA-NATIVE-CACHE): begin - A compiled binary extracts and loads only its own addon.
+	const ctx = withBuildCache(initLoaderContext(), embeddedAddon);
+	// scient(SA-NATIVE-CACHE): end
 	const require_ = createRequire(import.meta.url);
 
 	const errors = [];
 	const embeddedCandidate = maybeExtractEmbeddedAddon(ctx, errors);
 	const stagedCandidate = embeddedCandidate ? null : maybeStageNodeModulesAddon(ctx, errors);
 	const prepended = [embeddedCandidate, stagedCandidate].filter(c => typeof c === "string");
-	// A binary that embeds its addon loads that addon or nothing. The other
-	// candidates are found by file name and package version alone, so an addon
-	// another product left beside the executable would pass for this one's.
-	const embedsAddon = ctx.isCompiledBinary && embeddedAddon?.platformTag === ctx.platformTag;
-	const runtimeCandidates = embedsAddon
-		? prepended
-		: prepended.length > 0
-			? [...prepended, ...ctx.candidates]
-			: ctx.candidates;
+	const runtimeCandidates = prepended.length > 0 ? [...prepended, ...ctx.candidates] : ctx.candidates;
 
 	for (const candidate of runtimeCandidates) {
 		try {
@@ -1019,11 +882,9 @@ export function loadNative() {
 			const bindings = require_(candidate);
 			validateLoadedBindings(ctx, bindings, candidate);
 			installNativeTokioRuntime(bindings);
+			configureGrammarDir(bindings, ctx.nativesDir);
 			loadedAddon = describeLoadedAddon(bindings, candidate, ctx);
 	        cleanupStaleNativeVersions({ nativesDir: ctx.nativesDir, currentVersion: ctx.packageVersion });
-			if (embeddedAddon?.buildId) {
-				cleanupStaleNativeBuilds({ versionDir: ctx.versionDir, currentBuildId: embeddedAddon.buildId });
-			}
 			startupMarker("native:loadNative:done");
 			return bindings;
 		} catch (err) {

@@ -22,10 +22,14 @@ import {
 	APP_NAME,
 	getActiveProfile,
 	MIN_BUN_VERSION,
-	PRODUCT_VERSION,
 	resolveProfileEnv,
 	setProfile,
+	// scient(SA-PRODUCT): begin - Scient Agent reports its own release. Removes Oh My Pi lines.
+	// scient(SA-PRODUCT): end
 } from "@oh-my-pi/pi-utils/dirs";
+// scient(SA-PRODUCT): begin - Scient Agent reports its own release: in this file VERSION is it.
+import { PRODUCT_VERSION as VERSION } from "@oh-my-pi/pi-utils/scient/product";
+// scient(SA-PRODUCT): end
 
 import { declareWorkerHostEntry, installWorkerInbox, isWorkerHostSelector } from "@oh-my-pi/pi-utils/worker-host";
 import { extractProfileFlags } from "./cli/profile-bootstrap";
@@ -35,6 +39,7 @@ import {
 	DAEMON_BROKER_WORKER_ARG,
 	IDA_HOST_WORKER_ARG,
 	LSP_MUX_WORKER_ARG,
+	MNEMOPI_EMBED_SERVER_WORKER_ARG,
 	PARENT_WATCHDOG_WORKER_ARG,
 	STATS_ACTIVITY_WORKER_ARG,
 	TERMINAL_OUTPUT_WORKER_ARG,
@@ -269,6 +274,11 @@ async function runWorkerEntrypoint(arg: string | undefined): Promise<boolean> {
 	if (arg === MNEMOPI_EMBED_WORKER_ARG) {
 		const { startMnemopiEmbedWorker } = await import("./mnemopi/embed-worker");
 		await runIpcSubprocessWorker(startMnemopiEmbedWorker);
+		return true;
+	}
+	if (arg === MNEMOPI_EMBED_SERVER_WORKER_ARG) {
+		const { startMnemopiEmbedServerFromEnvironment } = await import("./mnemopi/embed-server");
+		await startMnemopiEmbedServerFromEnvironment();
 		return true;
 	}
 	if (arg === STATS_ACTIVITY_WORKER_ARG) {
@@ -512,12 +522,13 @@ export async function runCli(argv: string[]): Promise<void> {
 		process.stdout.write(formatLicenseOutput());
 		return;
 	}
+	// scient(SA-PRODUCT): begin - Hosts read --runtime-info before they start RPC mode.
 	if (resolvedArgv[0] === "--runtime-info") {
-		// Command boundary: hosts probe this before starting RPC mode.
-		const { formatRuntimeInfo } = await import("./cli/runtime-info");
+		const { formatRuntimeInfo } = await import("./scient/runtime-info");
 		process.stdout.write(formatRuntimeInfo());
 		return;
 	}
+	// scient(SA-PRODUCT): end
 	let stopStartupComposer: (() => void) | undefined;
 	if (
 		!process.env.PI_TIMING &&
@@ -529,7 +540,7 @@ export async function runCli(argv: string[]): Promise<void> {
 		// keeps the TUI graph out of worker, subcommand, help, and version launches.
 		// Loading it statically would erase the measured cold-start improvement.
 		const { beginStartupComposer, stopPendingStartupComposer } = await import("./modes/startup-composer");
-		beginStartupComposer({ version: PRODUCT_VERSION });
+		beginStartupComposer({ version: VERSION });
 		stopStartupComposer = stopPendingStartupComposer;
 	}
 
@@ -563,7 +574,7 @@ export async function runCli(argv: string[]): Promise<void> {
 			return;
 		}
 		runningCommand = resolved.argv[0];
-		await run({ bin: APP_NAME, version: PRODUCT_VERSION, argv: resolved.argv, commands, metadataHelp: showHelp });
+		await run({ bin: APP_NAME, version: VERSION, argv: resolved.argv, commands, metadataHelp: showHelp });
 	} finally {
 		stopStartupComposer?.();
 	}

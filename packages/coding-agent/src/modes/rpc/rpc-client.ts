@@ -40,7 +40,6 @@ import type {
 	RpcHostToolResult,
 	RpcHostToolUpdate,
 	RpcLiveFrame,
-	RpcLoginProvider,
 	RpcOpenSessionResult,
 	RpcPromptResultFrame,
 	RpcRemoveQueuedMessageResult,
@@ -54,6 +53,9 @@ import type {
 	RpcSubagentSnapshot,
 	RpcSubagentSubscriptionLevel,
 } from "./rpc-types";
+// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
+import type { RpcLoginProvider } from "../../scient/sign-in-providers";
+// scient(SA-AUTH): end
 
 /** Distributive Omit that works with union types */
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
@@ -1219,10 +1221,12 @@ export class RpcClient {
 	/**
 	 * Get list of OAuth providers available for login, with their current authentication status.
 	 */
+	// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
 	async getLoginProviders(): Promise<RpcLoginProvider[]> {
 		const response = await this.#send({ type: "get_login_providers" });
 		return this.#getData<{ providers: RpcLoginProvider[] }>(response).providers;
 	}
+	// scient(SA-AUTH): end
 
 	/**
 	 * Trigger OAuth login for the given provider.
@@ -1284,13 +1288,15 @@ export class RpcClient {
 	}
 
 	/**
-	 * Remove one stored credential, or all stored sign-ins for the provider when no id is supplied.
+	 * Remove one stored credential. Rejects when it is no longer stored.
 	 * `remainingSource` names what still authenticates the provider (another stored credential, env var, config).
 	 */
+	// scient(SA-AUTH): begin - A host signs out every stored sign-in of an entry when it names no credential.
 	async logout(providerId: string, credentialId?: number): Promise<{ remainingSource?: string; providerId?: string }> {
 		const response = await this.#send({ type: "logout", providerId, credentialId });
 		return this.#getData<{ remainingSource?: string; providerId?: string }>(response);
 	}
+	// scient(SA-AUTH): end
 
 	/**
 	 * Replace the host-owned custom tools exposed to the RPC session.

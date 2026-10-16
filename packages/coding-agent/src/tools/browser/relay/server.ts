@@ -13,7 +13,6 @@
  * Binds loopback only: anything that can reach this port can drive the
  * user's logged-in browser.
  */
-import { APP_NAME } from "@oh-my-pi/pi-utils";
 import { VERSION } from "@oh-my-pi/pi-utils/dirs";
 import { RelayBridge } from "./bridge";
 
@@ -36,6 +35,8 @@ export interface RelayUnavailableInfo {
 	extensionSeen: boolean;
 	/** Milliseconds this server has been listening. */
 	uptimeMs: number;
+	/** Downstream CDP clients connected to this relay. */
+	ompRelayCdpClients: number;
 	/** Milliseconds since the last connected extension went away; absent if none has connected yet. */
 	disconnectedMs?: number;
 }
@@ -58,7 +59,7 @@ const WS_KEEPALIVE_MS = 30_000;
 /** Screenshots travel base64-encoded through both websocket legs. */
 const MAX_PAYLOAD_BYTES = 256 * 1024 * 1024;
 /** Default appearance of the omp tab group. */
-const DEFAULT_GROUP = { title: APP_NAME, color: "cyan" } as const;
+const DEFAULT_GROUP = { title: "scient-agent", color: "cyan" } as const;
 /** True when `raw` can serve as the authority of a `ws://` URL: no whitespace,
  *  slashes, userinfo, fragments, or control characters, and URL-parseable. */
 function isWsAuthority(raw: string): boolean {
@@ -121,6 +122,7 @@ export function startRelayServer(opts: RelayServerOptions): RelayServer {
 						error: "relay extension is not connected",
 						extensionSeen: bridge.extensionSeen,
 						uptimeMs: Date.now() - startedAt,
+						ompRelayCdpClients: bridge.cdpClientCount,
 						...(disconnectedMs === null ? {} : { disconnectedMs }),
 					};
 					return Response.json(info, { status: 503 });

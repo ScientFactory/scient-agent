@@ -52,9 +52,11 @@ You are responsible for the code, regardless of who or what generated it.
 
 ## Pull request requirements
 
+<!-- scient(SA-POLICY): begin - Scient accepts AI-assisted PR descriptions. -->
 Explain what changed and why, and report the verification performed. An
 AI-assisted description is acceptable; the contributor remains responsible for
 its accuracy and for reviewing the submitted change.
+<!-- scient(SA-POLICY): end -->
 
 You **MUST verify that the change works as intended**. `bun check` and automated
 tests are expected where relevant, but they are not proof that the behavior
@@ -91,5 +93,7 @@ Maintainers review the submitted behavior and the contributor's understanding
 of it—not the volume of generated code. Respond to review feedback yourself,
 and only apply suggestions you have checked.
 
+<!-- scient(SA-POLICY): begin - No human-written-sentence requirement. -->
 Pull requests may be closed when they skip required prior discussion, contain
 unreviewed agent output, or mix unrelated changes.
+<!-- scient(SA-POLICY): end -->

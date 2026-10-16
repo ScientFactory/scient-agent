@@ -9,7 +9,6 @@ const ENV_KEYS = [
 	"HOME",
 	"USERPROFILE",
 	"SCIENT_AGENT_NATIVES_DIR",
-	"SCIENT_AGENT_ROOT",
 	"XDG_DATA_HOME",
 	"PI_NATIVE_VARIANT",
 	"__PI_NATIVE_VARIANT_CACHE",
@@ -84,15 +83,6 @@ describe("native addon directory override", () => {
 
 		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(
 			path.join(xdgData, "scient-agent", "natives", packageJson.version),
-		);
-	});
-
-	it("does not let a native cache override escape the host-assigned root", () => {
-		const hostRoot = path.join(tempRoot, "host-root");
-		process.env.SCIENT_AGENT_ROOT = hostRoot;
-		process.env.SCIENT_AGENT_NATIVES_DIR = path.join(tempRoot, "elsewhere");
-		expect(initLoaderContext({ isCompiledBinary: true }).versionedDir).toBe(
-			path.join(hostRoot, "natives", packageJson.version),
 		);
 	});
 });
