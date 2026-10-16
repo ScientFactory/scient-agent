@@ -13,6 +13,10 @@ use super::context::{Context, atomic_write};
 
 const SNAPSHOT_VERSION: u32 = 1;
 const DESKTOP_ID_PREFIX: &str = "com.scientfactory.agent.oauth-callback.";
+// scient(SA-ROOT): begin - Never take over Oh My Pi's sign-in helper.
+/// Oh My Pi's handlers for the same URL schemes; see the macOS backend.
+const OMP_DESKTOP_ID_PREFIX: &str = "dev.omp.oauth-callback.";
+// scient(SA-ROOT): end
 const DESKTOP_SOURCE_NAME: &str = "linux-callback.desktop";
 const DEFAULT_APPLICATIONS_SECTION: &str = "Default Applications";
 const DEFAULT_APPLICATIONS_HEADER: &str = "[Default Applications]";
@@ -529,6 +533,15 @@ pub(super) fn prepare(context: &Context) -> anyhow::Result<Snapshot> {
 	if contains_invalid_text(&original_effective) {
 		bail!("xdg-mime returned an invalid Linux OAuth callback handler");
 	}
+	// scient(SA-ROOT): begin - Never take over Oh My Pi's sign-in helper.
+	if original_effective.starts_with(OMP_DESKTOP_ID_PREFIX) {
+		bail!(
+			"Oh My Pi is handling {} links for a sign-in of its own; finish or cancel that sign-in \
+			 and retry",
+			context.scheme
+		);
+	}
+	// scient(SA-ROOT): end
 	let helper_metadata = fs::metadata(&expected.helper_path).with_context(|| {
 		format!("Linux OAuth callback helper is missing at {}", expected.helper_path.display())
 	})?;
