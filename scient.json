@@ -1,0 +1,9 @@
+{
+	"name": "scient-agent",
+	"version": "0.1.1",
+	"upstream": {
+		"name": "oh-my-pi",
+		"version": "18.10.4",
+		"commit": "687892d1046ecaf18829b45f5b86928a308258f4"
+	}
+}
