@@ -2561,7 +2561,11 @@ export async function runRootCommand(
 				notifs.push({ kind: "error", message: modelRegistryError.message });
 			}
 
-			if (!isInteractive && !session.model) {
+			// scient(SA-RPC-START): begin - Over RPC a host signs in and picks a model after startup.
+			// A model named with --model that cannot be resolved still ends the run below.
+			const hostPicksModelLater = (mode === "rpc" || mode === "rpc-ui") && !parsedArgs.model;
+			if (!isInteractive && !session.model && !hostPicksModelLater) {
+				// scient(SA-RPC-START): end
 				if (modelRegistryError) {
 					process.stderr.write(`${chalk.red(modelRegistryError.message)}\n\n`);
 				}
