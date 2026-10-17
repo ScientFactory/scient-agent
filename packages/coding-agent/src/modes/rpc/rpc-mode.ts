@@ -71,6 +71,10 @@ import { isRpcHostToolResult, isRpcHostToolUpdate, RpcHostToolBridge } from "./h
 import { isRpcHostUriResult, RpcHostUriBridge } from "./host-uris";
 import { MAX_RPC_FRAME_BYTES, MAX_RPC_REASSEMBLED_BYTES, RpcFrameEncoder } from "./rpc-frame";
 import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
+// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins, and finds one made elsewhere.
+import { reloadSignIns } from "../../scient/reload-sign-ins";
+import { listSignInProviders, signOutOverRpc } from "../../scient/sign-in-providers";
+// scient(SA-AUTH): end
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcBtwController } from "./rpc-btw";
 import { RpcGoalController } from "./rpc-goal";
@@ -958,6 +962,11 @@ async function findRpcModel(session: RpcModelLookupSession, provider: string, mo
 	const model = find();
 	if (model) return model;
 	await session.modelRegistry.awaitBackgroundRefresh();
+	// scient(SA-AUTH): begin - A sign-in completed in another process reaches a running session.
+	const discovered = find();
+	if (discovered) return discovered;
+	await reloadSignIns(session.modelRegistry, provider);
+	// scient(SA-AUTH): end
 	return find();
 }
 
@@ -2478,14 +2487,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			// =================================================================
 
 			case "get_login_providers": {
-				const providers = getOAuthProviders().map(provider => ({
-					id: provider.id,
-					name: provider.name,
-					available: provider.available,
-					authenticated:
-						session.modelRegistry.authStorage.keys.source(provider.storeCredentialsAs ?? provider.id) !==
-						undefined,
-				}));
+				// scient(SA-AUTH): begin - A host sees each sign-in's kind, whether it is stored, and its store.
+				const providers = listSignInProviders(session.modelRegistry.authStorage);
+				// scient(SA-AUTH): end
 				return success(id, "get_login_providers", { providers });
 			}
 
@@ -2562,6 +2566,12 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			}
 
 			case "logout": {
+				// scient(SA-AUTH): begin - A host signs out an entry's stored sign-ins; a broker's stay with the broker.
+				if (command.credentialId === undefined || session.modelRegistry.authStorage.credentials.heldByBroker) {
+					const signOut = await signOutOverRpc(session.modelRegistry, command.providerId);
+					return "error" in signOut ? error(id, "logout", signOut.error) : success(id, "logout", signOut.data);
+				}
+				// scient(SA-AUTH): end
 				if (typeof command.providerId !== "string" || !Number.isInteger(command.credentialId)) {
 					return error(id, "logout", "providerId must be a string and credentialId an integer");
 				}
