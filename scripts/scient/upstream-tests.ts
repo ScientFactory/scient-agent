@@ -28,23 +28,31 @@ interface KnownFailure {
 	evidence: string;
 }
 
+// Each was seen failing in the coding-agent-native bucket of untouched 18.11.3 on
+// ubuntu-22.04 (2026-10-17); SCIENT.md, "Third alignment intake", has the counts.
 const KNOWN_FAILURES: KnownFailure[] = [
 	{
-		commit: "687892d1046ecaf18829b45f5b86928a308258f4",
+		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > cancels an inline worker's run whose renderer crashed instead of letting it go on after its caller was told",
 		evidence:
-			"Failed in the coding-agent-native bucket of untouched 18.10.4 on ubuntu-22.04 (2026-10-16), as on Scient's tree twice.",
+			"Failed in 11 of 18 bucket runs untouched; with identical chunks on both trees, 7 of 8 untouched and 7 of 8 on Scient's tree.",
 	},
 	{
-		commit: "687892d1046ecaf18829b45f5b86928a308258f4",
+		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
+		test: "packages/coding-agent/test/tools/browser-relay-detach.test.ts > relay tabs Chrome detaches Scient Agent from > does not rerun a call detached before its code started once the re-adoption spent its budget",
+		evidence:
+			"Failed in 6 of 18 bucket runs untouched; with identical chunks on both trees, 3 of 8 untouched and 2 of 8 on Scient's tree.",
+	},
+	{
+		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > closes a reattached headless tab's page when the tab is released",
-		evidence: "Failed in one of three runs of its chunk on untouched 18.10.4 on ubuntu-22.04 (2026-10-16).",
+		evidence: "Failed in 1 of 10 bucket runs untouched (0 of 14 on Scient's tree).",
 	},
 	{
-		commit: "687892d1046ecaf18829b45f5b86928a308258f4",
+		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
 		test: "packages/coding-agent/test/tools.test.ts > Coding Agent Tools > read tool > re-reads an archive rewritten in place with the same size and restored mtime",
 		evidence:
-			"Failed in 5 of 20 runs of its file on untouched 18.10.4 on ubuntu-22.04 (2026-10-16), and passed 40 of 40 alone; consistent with the archive cache keying on ctime, which Linux advances in coarse ticks.",
+			"Failed in 1 of 10 bucket runs untouched (3 of 14 on Scient's tree); on 18.10.4 in 5 of 20 runs of its file. Consistent with its archive cache keying on ctime, which Linux advances in coarse ticks.",
 	},
 ];
 
@@ -145,12 +153,13 @@ if (import.meta.main) {
 		process.stdout.write(text);
 	}
 	const exitCode = await child.exited;
-	if (exitCode === 0) process.exit(0);
-
-	const { upstream } = await Bun.file(path.join(repoRoot, "scient.json")).json();
-	const known = new Set(KNOWN_FAILURES.filter(entry => entry.commit === upstream.commit).map(entry => entry.test));
-	const { known: seen, problems } = judge(exitCode, output, known);
-	for (const id of seen) console.log(`::warning::Fails on untouched Oh My Pi ${upstream.version} too: ${id}`);
-	for (const problem of problems) console.log(`::error::${problem}`);
-	process.exit(problems.length > 0 ? 1 : 0);
+	// The exit code is set, not passed to process.exit(), which would cut off output still on its way to a pipe.
+	if (exitCode !== 0) {
+		const { upstream } = await Bun.file(path.join(repoRoot, "scient.json")).json();
+		const known = new Set(KNOWN_FAILURES.filter(entry => entry.commit === upstream.commit).map(entry => entry.test));
+		const { known: seen, problems } = judge(exitCode, output, known);
+		for (const id of seen) console.log(`::warning::Fails on untouched Oh My Pi ${upstream.version} too: ${id}`);
+		for (const problem of problems) console.log(`::error::${problem}`);
+		process.exitCode = problems.length > 0 ? 1 : 0;
+	}
 }

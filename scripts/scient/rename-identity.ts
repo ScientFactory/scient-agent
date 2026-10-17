@@ -178,6 +178,9 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 	"packages/coding-agent/src/stream/recording.ts": [['"omp-recordings"', `"${COMMAND}-recordings"`]],
 	"packages/coding-agent/src/utils/shell-snapshot.ts": [["omp-shell-snapshots", `${COMMAND}-shell-snapshots`]],
 	"packages/coding-agent/test/shell-snapshot.test.ts": [["omp-shell-snapshots", `${COMMAND}-shell-snapshots`]],
+	// Browser upload staging: the sweep removes another process's folder once that process is gone.
+	"packages/coding-agent/src/tools/browser/upload-files.ts": [["omp-uploads-", `${COMMAND}-uploads-`]],
+	"packages/coding-agent/test/tools/browser-upload-contents.test.ts": [["omp-uploads-", `${COMMAND}-uploads-`]],
 	// The process a system dialog names, and git's committer on an agent's ref update.
 	"crates/pi-natives/src/power.rs": [['const INHIBIT_WHO: &str = "omp";', `const INHIBIT_WHO: &str = "${COMMAND}";`]],
 	"crates/pi-vcs/src/git/mutate.rs": [
@@ -337,6 +340,8 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 	],
 	"packages/coding-agent/src/commands/auth-gateway.ts": [
 		['renderCommandHelp("omp",', `renderCommandHelp("${COMMAND}",`],
+		// The example clients file: tokens and accounts are each product's own.
+		["--clients=/etc/omp/", `--clients=/etc/${COMMAND}/`],
 	],
 };
 

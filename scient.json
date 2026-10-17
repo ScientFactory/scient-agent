@@ -3,7 +3,7 @@
 	"version": "0.1.1",
 	"upstream": {
 		"name": "oh-my-pi",
-		"version": "18.10.4",
-		"commit": "687892d1046ecaf18829b45f5b86928a308258f4"
+		"version": "18.11.3",
+		"commit": "96894a6147d8cc64b7e00ad3a7d7178fd93b9531"
 	}
 }

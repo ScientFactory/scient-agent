@@ -65,19 +65,26 @@ describe("cleanupStaleNativeBuilds", () => {
 });
 
 describe("withBuildCache", () => {
+	const ADDONS = [
+		"pi_natives.linux-x64-modern.node",
+		"pi_natives.linux-x64-baseline.node",
+		"pi_natives.linux-x64.node",
+	];
 	const context = (overrides: { isCompiledBinary?: boolean } = {}) => ({
 		isCompiledBinary: true,
 		platformTag: "linux-x64",
 		versionedDir: path.join(scratch, "natives", "1.0.0"),
+		addonFilenames: ADDONS,
 		candidates: ["/beside/the/executable/pi_natives.linux-x64.node"],
 		...overrides,
 	});
 
-	it("extracts into the build's folder and loads nothing else", () => {
+	it("extracts into the build's folder and loads only from it, baseline after modern", () => {
 		const stale = buildDir(path.join(scratch, "natives", "1.0.0"), "0000000000000000", 8 * DAY_MS);
 		const ctx = withBuildCache(context(), { platformTag: "linux-x64", buildId: "1111111111111111" });
-		expect(ctx.versionedDir).toBe(path.join(scratch, "natives", "1.0.0", "1111111111111111"));
-		expect(ctx.candidates).toEqual([]);
+		const folder = path.join(scratch, "natives", "1.0.0", "1111111111111111");
+		expect(ctx.versionedDir).toBe(folder);
+		expect(ctx.candidates).toEqual(ADDONS.map(file => path.join(folder, file)));
 		expect(fs.existsSync(stale)).toBe(false);
 	});
 

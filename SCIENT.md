@@ -14,7 +14,7 @@ Everything else is upstream's code and behavior.
 | Wording | The agent calls itself Scient Agent, and its command `scient-agent`, wherever a person or a model reads its words: messages, help, sign-in instructions, prompts, the built-in documentation, window and notification titles. `scripts/scient/rename-wording.ts` generates this. |
 | State | The config root is `~/.scient-agent` (project folder `.scient-agent/`), or the absolute directory a host sets in `SCIENT_AGENT_ROOT`. User config lookups, the native addon cache, browser storage state and crash logs follow it. A host's root is authoritative: `SCIENT_AGENT_DIR` is ignored under it, and a `.env` in the project or the home directory cannot set any `SCIENT_AGENT_*` variable (a `.env` inside the root can). The root is taken only from the launch environment, never from a `.env`. Standalone use keeps upstream's `.env` overrides. |
 | Variables | The variables that choose where state lives have `SCIENT_AGENT_*` names: `CONFIG_DIR`, `CONFIG_FILES`, `DIR`, `PROFILE`, `SESSION_DIR`, `WORKTREE_DIR`, `AUTH_BROKER_*`, `NATIVES_DIR`, the cache database overrides, and the runtime directory, socket and configuration variables the agent hands its own workers. OMP's names for them are ignored. Tuning variables (`PI_*`) are unchanged. |
-| Native addon cache | A compiled binary extracts its addon into a directory named for the addon's content, so two builds on one upstream version never load each other's, and it loads only that addon: an addon found beside the executable is not a fallback. |
+| Native addon cache | A compiled binary extracts its addons into a directory named for their content, so two builds on one upstream version never load each other's, and it loads only from that directory. A modern addon that fails to load falls back to the same build's baseline addon; an addon found beside the executable is not a fallback. |
 | Symbol | The sign-in page every browser sign-in ends on and the `stats` dashboard show Scient Agent's symbol (`packages/utils/src/scient/scient-agent-symbol.svg.txt`, the file Scient Desktop shows for the agent; copy it over when the symbol changes) in Scient's colors. |
 | Shared workers | The tiny model worker and the shared embedding server are reused while their launch tag matches. The tag carries the product version, not the upstream package version, so a new Scient Agent release replaces a worker an earlier release left running. |
 | Updates | `scient-agent update` only updates plugins. The startup update check and the startup marketplace refresh are off. A host or installer replaces the executable. |
@@ -331,6 +331,80 @@ Not run yet:
 - Desktop qualification against an 18.10.4 binary.
 - The six-platform CI, which runs on the alignment pull request.
 
+### Third alignment intake — 2026-10-17
+
+This is a **replay built and checked locally, not a merged, tagged or published alignment**:
+
+- Accepted source baseline: OMP `18.10.4`, `687892d1046ecaf18829b45f5b86928a308258f4`, from [PR #24](https://github.com/ScientFactory/scient-agent/pull/24) (`main` `3634cdb818`, tag `omp-sync/v18.10.4`).
+- Target: OMP `18.11.3`, `96894a6147d8cc64b7e00ad3a7d7178fd93b9531`, under `refs/upstream-tags/v18.11.3`: 1,290 upstream commits after 18.10.4, changing 910 files. Product version stays `0.1.1`, which is not released yet.
+- Inventory: the 15 commits of the 18.10.4 replay. Nothing was committed to `main` after its import.
+- Integration: [PR #25](https://github.com/ScientFactory/scient-agent/pull/25). Its sync commit's tree equals the replay's, on `origin/replay/omp-v18.11.3`.
+
+This is the first alignment after the separation, and it was measured:
+
+- **Replay.** The generators applied; identity regenerated with no stale rule; all 11 contract commits applied without a conflict; wording regenerated with no stale text; the RPC clients regenerated. Upstream changed 7 of the 40 Oh My Pi files that carry Scient's hooks, with one to three commits each.
+- **Time.** About seven minutes from a fresh worktree (`bun install` took one minute) to the assembled replay, timed on this Windows machine. Most of it was the identity generator. Reviewing upstream's range took longer than the replay did.
+- **Against the old shape.** The pre-separation replay (`b7070614a2`) and the separated one were each replayed onto 18.11.3 the same way, in scratch worktrees:
+  - each non-generated commit was cherry-picked, taking the commit's side of any conflict;
+  - each generated commit was replaced by its generator's output.
+
+  The pre-separation replay conflicted in two commits, in the root `README.md` and the native loader, one hunk each. The separated replay conflicted in none. Neither generator found a stale rule, but only the separated identity generator checks for one. This upstream range seldom touched Scient's seams, so the difference is real but small.
+- **Footprint.** 82 marker blocks, 196 lines, in 41 Oh My Pi files. The 18.10.4 replay had 81, 194 and 40. The difference is one hook into upstream's new native fallback test (below).
+
+A clean replay is not a reviewed one. Reviewing upstream's range for Scient's seams found:
+
+| Seam | Incoming change and what Scient does |
+|---|---|
+| Native addon cache | 18.11 extracts only the selected addon. A modern addon that fails to load now falls back to the baseline one. `SA-NATIVE-CACHE` emptied a compiled binary's candidates, which already suppressed that fallback in 18.10.4. `withBuildCache` now keeps upstream's candidates inside the build's own folder, so the fallback works and never reaches an addon outside the build. The change is in Scient's file. Upstream's new test of this fallback compiles a probe binary and reads the version's folder. A marked `SA-NATIVE-CACHE` line points it at the build's folder inside it, and the test passes, which the old empty candidate list would not. |
+| Browser uploads (new) | Upload staging folders in the temporary directory are swept once their process is gone. They are `scient-agent-uploads-*` now (an identity rule), so the two products never sweep each other's. |
+| Auth gateway clients (new) | `auth-gateway serve --clients=<file>` admits scoped client tokens. The help's example file is `/etc/scient-agent/gateway-clients.json` (an identity rule), not Oh My Pi's. |
+| Session build stamps (new) | Session files record the upstream package version and, from a source checkout, its commit. This is inherited as is. Recording Scient's product version and build id instead would be a new `SA-PRODUCT` hook, left for a deliberate decision. |
+| Sign-ins | SambaNova (new) is a key sign-in. Scient's test that fails on an unclassified sign-in passes. |
+
+Left as upstream wrote them: `OMP_BUILD_LABEL`, a cosmetic label like `OMP_LOG_LEVEL`; new temporary folder prefixes in tests; Tern view roles.
+
+The three `KNOWN_FAILURES` recorded for 18.10.4's commit lapsed with this alignment. Linux CI then failed two of Oh My Pi's buckets:
+- `native`: upstream's new native fallback test, fixed with the hook above.
+- `coding-agent-native`: two browser tests.
+
+The `coding-agent-native` bucket was then run on untouched 18.11.3 and on Scient's replay. Each tree was run as CI runs it, on the same runner type with natives built the same way, and a test counts if it failed in a run. The Scient runs include every CI run of this PR up to sync commit `78836421ce`:
+
+| Test | Untouched 18.11.3 | Scient's replay |
+|---|---|---|
+| "cancels an inline worker's run whose renderer crashed …" | 4 of 10 | 11 of 14 |
+| "does not rerun a call detached before its code started …" (relay) | 3 of 10 | 10 of 14 |
+| "closes a reattached headless tab's page when the tab is released" | 1 of 10 | 0 of 14 |
+| "re-reads an archive rewritten in place …" | 1 of 10 | 3 of 14 |
+
+Each fails on untouched 18.11.3, so each is listed for 18.11.3's commit. Scient's rates for the two browser tests were higher (one-sided Fisher p ≈ 0.07 and 0.06). One difference between the trees was known: Scient's own test files put 950 files in this bucket against 946. That moves every chunk boundary after them, and so which chunks run side by side.
+
+The difference was settled by running both trees on identical chunks. With `packages/coding-agent/test/scient` removed in the probe, both trees printed the same 95-chunk plan (the plan's SHA-256 matched). Each tree then ran the bucket 8 times:
+
+| Test | Untouched 18.11.3 | Scient's replay |
+|---|---|---|
+| "cancels an inline worker's run …" | 7 of 8 | 7 of 8 |
+| "does not rerun a call detached …" (relay) | 3 of 8 | 2 of 8 |
+
+The rates match, so the earlier difference came from how the chunks fell, not from Scient's code, whose changes in these files only reword messages. A crash test that failed 7 times in 8 on untouched upstream is upstream's to fix.
+
+Observed failures of the two browser tests all came in four-way bucket runs. In 20 runs of each test's chunk alone, on both trees and with both chunkings, the probe saw no failure of either test. That probe recorded only whether each target failed, so it shows less than it might.
+
+In the identical-chunk runs, other tests failed once each. `interactive-terminal-e2e` and `browser-nav-frames-dialogs` failed on untouched upstream only, and `browser-open-options` on both trees. `bash-job-lifecycle` (a 3-second signal watchdog, in a file Scient does not change) and a setup hook in `tools/gh.test.ts` (renames only; on a runner that ran about 60% slower than the others) failed on Scient's tree only, once each. None of these is listed. A listed entry needs a failure seen on untouched upstream, and these occurred too rarely to justify it.
+
+#### Local checks
+
+On Windows, against the replay:
+
+| Check | Observed result |
+|---|---|
+| Identity and wording checks (`--check`) | Passed. |
+| The checker's and generators' own cases (`bun test scripts/scient`) | Passed. |
+| `check:ts`: lint, format and types of every package | Passed, with no lint warnings. |
+| Divergence check in replay mode | Passed. 15 commits checked; each of the 3 generated commits matches its generator's output exactly. Footprint: 82 marker blocks, 196 lines, in 41 Oh My Pi files. |
+| Scient's own tests (`test/scient/` in utils, natives, coding-agent and ai) | All passed. Rust cannot be built on this machine, so they ran against the 18.10.4 Windows addon. Scient's tests use none of 18.11's new native functions. |
+
+Not run locally: Rust checks and tests, a compiled binary with the isolation and capability checks, Oh My Pi's suites, and Desktop qualification. CI builds and checks the six platforms and runs Oh My Pi's TypeScript suite on Linux.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -376,10 +450,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Three tests are listed for 18.10.4, each seen failing on an untouched 18.10.4 tree on the same runner:
-- "cancels an inline worker's run whose renderer crashed" failed in the `coding-agent-native` bucket, as it had twice on Scient's tree.
-- "closes a reattached headless tab's page when the tab is released" failed in one of three runs of its chunk.
-- "re-reads an archive rewritten in place with the same size and restored mtime" failed in 5 of 20 runs of its file, as it had in 2 of 4 runs on Scient's tree. Run alone, it passed 40 times out of 40. This is consistent with the archive cache keying on ctime, which Linux advances in coarse ticks: the test rewrites the file in place with the same size and mtime. A fresh process's slower first read may explain why the test passes when run alone. Neither was measured.
+Four tests are listed for 18.11.3. Each was seen failing on an untouched 18.11.3 tree on the same runner type; the counts are under "Third alignment intake". Two are browser tests whose observed failures all came with the bucket's chunks running side by side, and they fail as often on untouched upstream as on Scient's tree given the same chunks. The others are a third browser-crash test and an archive test. The archive test's cache keys on ctime, which Linux advances in coarse ticks, and the test rewrites the file in place with the same size and mtime. Neither of those was measured. For 18.10.4 the list held three of the same tests, shown failing on untouched 18.10.4.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 

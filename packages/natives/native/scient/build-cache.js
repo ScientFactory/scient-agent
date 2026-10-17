@@ -4,10 +4,12 @@
  * Scient Agent releases can share one inherited package version, so the version
  * alone cannot keep one build from loading another's addon. A compiled binary
  * therefore extracts its embedded addons into a folder named for their content,
- * inside the package version's folder, and loads them or nothing: an addon found
- * by its file name beside the executable or in a shared folder is not a
- * fallback. Other builds' folders are removed once they have sat unused for a
- * week. Under a host-assigned root the natives folder is the root's.
+ * inside the package version's folder, and loads only from that folder: the
+ * selected addon, then upstream's fallback to the baseline addon of the same
+ * build. An addon found by its file name beside the executable or in a shared
+ * folder is not a fallback. Other builds' folders are removed once they have
+ * sat unused for a week. Under a host-assigned root the natives folder is the
+ * root's.
  *
  * `loader-state.js` takes its natives folder from `hostNativesDir` and hands its
  * context to `withBuildCache` before loading; `scripts/embed-native.ts` names
@@ -47,10 +49,12 @@ export function addonBuildId(files) {
 
 /**
  * The loader context for a compiled binary that embeds its addon: it extracts
- * into its build's folder and has no other candidates. Any other context is
- * returned as it is.
+ * into its build's folder, and its candidates are upstream's file names in that
+ * folder, so a modern addon that fails to load falls back to the same build's
+ * baseline one. Without a build id it has no candidates but the addon it
+ * extracts. Any other context is returned as it is.
  *
- * @template {{ isCompiledBinary: boolean; platformTag: string; versionedDir: string; candidates: string[] }} T
+ * @template {{ isCompiledBinary: boolean; platformTag: string; versionedDir: string; addonFilenames: string[]; candidates: string[] }} T
  * @param {T} ctx
  * @param {{ platformTag: string; buildId?: string } | null} addon
  * @returns {T}
@@ -69,7 +73,8 @@ export function withBuildCache(ctx, addon) {
 		// Extraction reports a folder that cannot be created.
 	}
 	cleanupStaleNativeBuilds({ versionDir, currentBuildId: addon.buildId });
-	return { ...ctx, versionedDir: path.join(versionDir, addon.buildId), candidates: [] };
+	const buildDir = path.join(versionDir, addon.buildId);
+	return { ...ctx, versionedDir: buildDir, candidates: ctx.addonFilenames.map(file => path.join(buildDir, file)) };
 }
 
 /**

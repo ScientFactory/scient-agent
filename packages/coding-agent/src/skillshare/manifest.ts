@@ -70,12 +70,12 @@ export function getGlobalSkillsInstallPaths(): SkillsInstallPaths {
 /**
  * Manifest + lock paths for a project: the nearest `.scient-agent/` walking up from
  * `cwd`, else the git root's `.scient-agent/`, else `<cwd>/.scient-agent/`. Throws when `cwd` is
- * the home directory, whose `.scient-agent/` is the user config root, not a project.
+ * a discovery ceiling or a user config root rather than a project root.
  */
 export async function getProjectSkillsInstallPaths(cwd: string): Promise<SkillsInstallPaths> {
 	const registryPath = await resolveOrDefaultProjectRegistryPath(cwd);
 	if (!registryPath) {
-		throw new Error("The home directory is not a project; pass --global to install for your user.");
+		throw new Error("This directory is not a project root; pass --global to install for your user.");
 	}
 	// `<root>/.scient-agent/plugins/installed_plugins.json` → `<root>/.scient-agent`
 	return installPathsIn(path.dirname(path.dirname(registryPath)));

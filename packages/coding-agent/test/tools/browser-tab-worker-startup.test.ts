@@ -73,6 +73,7 @@ const initPayload = {
 	mode: "headless" as const,
 	browserWSEndpoint: "ws://127.0.0.1/devtools/browser/test",
 	safeDir: "/tmp/scient-agent-puppeteer",
+	uploadDir: "/tmp/scient-agent-uploads-test",
 };
 
 describe("browser tab worker startup", () => {
