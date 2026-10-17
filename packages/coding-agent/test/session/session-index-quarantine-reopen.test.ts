@@ -15,7 +15,7 @@ import { getHistoryDbPath, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/
  */
 describe.skipIf(process.platform === "win32")("session index across a store quarantine", () => {
 	let testAgentDir: string;
-	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 
 	beforeEach(() => {
 		testAgentDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-index-quarantine-"));
@@ -29,7 +29,7 @@ describe.skipIf(process.platform === "win32")("session index across a store quar
 		if (originalAgentDir) {
 			setAgentDir(originalAgentDir);
 		} else {
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		}
 		removeSyncWithRetries(testAgentDir);
 	});

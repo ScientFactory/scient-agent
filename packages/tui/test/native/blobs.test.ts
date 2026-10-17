@@ -42,8 +42,8 @@ describe("native image blob lifetime", () => {
 				await using root = await TempDir.create("@omp-native-blobs-");
 				const env: NodeJS.ProcessEnv = {
 					...process.env,
-					PI_CONFIG_DIR: path.relative(os.homedir(), root.join("config")),
-					PI_CODING_AGENT_DIR: root.join("agent"),
+					SCIENT_AGENT_CONFIG_DIR: path.relative(os.homedir(), root.join("config")),
+					SCIENT_AGENT_DIR: root.join("agent"),
 					PI_TEST_SESSION_OWNERS_DIR: root.join("session-owners"),
 					XDG_CONFIG_HOME: root.join("xdg-config"),
 					XDG_DATA_HOME: root.join("data"),
@@ -51,8 +51,8 @@ describe("native image blob lifetime", () => {
 					XDG_CACHE_HOME: root.join("cache"),
 					PI_TUI_NATIVE: "1",
 				};
-				delete env.OMP_PROFILE;
-				delete env.PI_PROFILE;
+				delete env.SCIENT_AGENT_PROFILE;
+				delete env.SCIENT_AGENT_PROFILE_FALLBACK;
 				await Promise.all(
 					["config", "agent", "session-owners", "xdg-config", "data/omp", "state/omp", "cache/omp"].map(dir =>
 						fs.promises.mkdir(root.join(dir), { recursive: true }),

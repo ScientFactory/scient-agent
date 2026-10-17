@@ -56,9 +56,9 @@ import {
 	cfgStartupShowSplash,
 } from "@oh-my-pi/pi-coding-agent/modes/settings";
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-const originalPiProfile = process.env.PI_PROFILE;
-const originalOmpProfile = process.env.OMP_PROFILE;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
+const originalPiProfile = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
+const originalOmpProfile = process.env.SCIENT_AGENT_PROFILE;
 
 function restoreEnv(key: string, value: string | undefined): void {
 	if (value === undefined) {
@@ -246,9 +246,9 @@ afterEach(async () => {
 	await controller?.shutdown("test cleanup").catch(() => {});
 	uninstallInMemoryRelay();
 	publishSpy?.mockRestore();
-	restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
-	restoreEnv("PI_PROFILE", originalPiProfile);
-	restoreEnv("OMP_PROFILE", originalOmpProfile);
+	restoreEnv("SCIENT_AGENT_DIR", originalAgentDir);
+	restoreEnv("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
+	restoreEnv("SCIENT_AGENT_PROFILE", originalOmpProfile);
 	utils.__resetDirsFromEnvForTests();
 	// InteractiveMode and the CLI open process-wide agent.db, history.db (prompt history and
 	// session index), and models.db under tmp/agent; Windows cannot delete open files.

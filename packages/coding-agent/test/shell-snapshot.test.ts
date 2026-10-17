@@ -24,7 +24,10 @@ const HELPER_BASH = process.platform === "win32" ? procmgr.resolveWindowsShell()
 /** Mirrors the per-uid snapshot dir name computed in `getOrCreateSnapshot`. */
 function snapshotDirIn(tmpRoot: string): string {
 	const uid = process.getuid?.();
-	return path.join(tmpRoot, uid === undefined ? "omp-shell-snapshots" : `omp-shell-snapshots-${uid}`);
+	return path.join(
+		tmpRoot,
+		uid === undefined ? "scient-agent-shell-snapshots" : `scient-agent-shell-snapshots-${uid}`,
+	);
 }
 
 // `sanitizeSnapshotForBrush` is the snapshot-side mitigation for brush's
@@ -290,7 +293,7 @@ describe("getOrCreateSnapshot", () => {
 
 		// PR-review hardening: snapshot file must be group/world-unreadable since
 		// it now inlines env-var values. Directory must be 0700 for the same
-		// reason — UUID filenames shouldn't leak via `ls /tmp/omp-shell-snapshots-$(id -u)`.
+		// reason — UUID filenames shouldn't leak via `ls /tmp/scient-agent-shell-snapshots-$(id -u)`.
 		const fileStat = await fs.stat(snapshotPath!);
 		expect(fileStat.mode & 0o077).toBe(0);
 		const dirStat = await fs.stat(path.dirname(snapshotPath!));
@@ -451,7 +454,7 @@ describe("getOrCreateSnapshot", () => {
 	});
 
 	it("keeps snapshots in a uid-scoped dir so accounts sharing /tmp cannot collide", async () => {
-		// Regression: the dir used to be a single fixed `omp-shell-snapshots` name
+		// Regression: the dir used to be a single fixed `scient-agent-shell-snapshots` name
 		// under the shared `os.tmpdir()`, created 0700. The first account to run omp
 		// owned it and every other account's pre-create write died with EACCES.
 		const realBash = REAL_BASH;

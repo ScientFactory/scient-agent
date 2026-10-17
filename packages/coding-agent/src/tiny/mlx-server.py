@@ -49,7 +49,7 @@ DOWNLOAD_PATTERNS = (
     "*.safetensors.index.json",
     "*.tiktoken",
 )
-COMPLETE_MARKER = ".omp-complete.json"
+COMPLETE_MARKER = ".scient-agent-complete.json"
 PROGRESS_INTERVAL_S = 0.1
 CHUNK_BYTES = 1 << 20
 IDLE_POLL_S = 5.0
@@ -295,7 +295,7 @@ class Server:
     def _bind(self, socket_path):
         """Clear a stale socket file (dead predecessor) but defer to a live one (a concurrent spawn that won)."""
         # Mirrors the native `IpcServer.listen`: same parent-dir creation (the
-        # endpoint may be relocated under /tmp/omp-<uid>), same flock on
+        # endpoint may be relocated under /tmp/scient-agent-<uid>), same flock on
         # `<path>.bind.lock`, owner-only socket from the first instant.
         os.makedirs(os.path.dirname(socket_path), mode=0o700, exist_ok=True)
         lock_fd = os.open(f"{socket_path}.bind.lock", os.O_RDWR | os.O_CREAT, 0o600)

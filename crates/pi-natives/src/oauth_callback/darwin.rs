@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use super::context::{Context, atomic_write};
 
 const SNAPSHOT_VERSION: u32 = 1;
-const BUNDLE_PREFIX: &str = "dev.omp.oauth-callback.";
-const APP_PREFIX: &str = "omp OAuth Callback ";
-const STAGING_APP_NAME: &str = "OMP OAuth Callback.app";
+const BUNDLE_PREFIX: &str = "com.scientfactory.agent.oauth-callback.";
+const APP_PREFIX: &str = "Scient Agent OAuth Callback ";
+const STAGING_APP_NAME: &str = "Scient Agent OAuth Callback.app";
 const EXECUTABLE_NAME: &str = "darwin-helper";
 const LEGACY_RECOVERY_FILE: &str = "darwin-url-callback.json";
 const LSREGISTER: &str = "/System/Library/Frameworks/CoreServices.framework/Frameworks/\
@@ -419,10 +419,10 @@ fn remove_own_registration(
 fn legacy_recovery_path(context: &Context) -> PathBuf {
 	let config_directory = context
 		.env
-		.get("PI_CONFIG_DIR")
+		.get("SCIENT_AGENT_CONFIG_DIR")
 		.map(|value| value.trim())
 		.filter(|value| !value.is_empty())
-		.unwrap_or(".omp");
+		.unwrap_or(".scient-agent");
 	context
 		.home
 		.join(config_directory)
@@ -998,9 +998,9 @@ mod tests {
 		let root = TempDir::new();
 		let legacy_app = root
 			.0
-			.join("home/Applications/omp OAuth Callback abandoned.app");
+			.join("home/Applications/Scient Agent OAuth Callback abandoned.app");
 		fs::create_dir_all(&legacy_app).unwrap();
-		let legacy_bundle = "dev.omp.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+		let legacy_bundle = "com.scientfactory.agent.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 		let (context, state) = context(&root, found(&legacy_app, legacy_bundle));
 		let previous = found(root.0.join("Browser.app"), "com.example.browser");
 		let mut state_guard = state.lock();
@@ -1063,7 +1063,7 @@ mod tests {
 			&recovery_path,
 			serde_json::to_vec(&json!({
 				 "appPath": legacy_app,
-				 "bundleId": "dev.omp.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				 "bundleId": "com.scientfactory.agent.oauth-callback.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				 "pid": std::process::id(),
 				 "previousHandler": "",
 				 "scheme": "omp-auth"

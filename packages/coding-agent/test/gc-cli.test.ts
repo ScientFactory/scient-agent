@@ -121,7 +121,7 @@ async function writeConfig(agentDir: string, body: string): Promise<void> {
 }
 
 async function writeProjectConfig(projectDir: string, body: string): Promise<void> {
-	const configDir = path.join(projectDir, ".omp");
+	const configDir = path.join(projectDir, ".scient-agent");
 	await fs.mkdir(configDir, { recursive: true });
 	await Bun.write(path.join(configDir, "config.yml"), body);
 }
@@ -295,7 +295,7 @@ describe("runGcCommand blob sweep", () => {
 
 		// A relative --session-dir transcript stored outside the managed roots.
 		const projectDir = path.join(root, "project");
-		const externalDir = path.join(projectDir, ".omp-sessions");
+		const externalDir = path.join(projectDir, ".scient-agent-sessions");
 		await fs.mkdir(externalDir, { recursive: true });
 		const externalFile = path.join(externalDir, "work.jsonl");
 		await Bun.write(
@@ -310,7 +310,7 @@ describe("runGcCommand blob sweep", () => {
 		// would miss this transcript and delete its blob.
 		const crumbDir = getTerminalSessionsDir(root);
 		await fs.mkdir(crumbDir, { recursive: true });
-		await Bun.write(path.join(crumbDir, "tty-1"), `${projectDir}\n.omp-sessions/work.jsonl\n`);
+		await Bun.write(path.join(crumbDir, "tty-1"), `${projectDir}\n.scient-agent-sessions/work.jsonl\n`);
 
 		const result = await runGcCommand({ flags: { agentDir: root, blobs: true, apply: true } });
 
@@ -2606,7 +2606,9 @@ describe("runGcCommand session compression", () => {
 			expect(after.mtimeNs).toBe(before[index].mtimeNs);
 			expect(after.allocated).toBeLessThan(after.size);
 		}
-		expect((await fs.readdir(path.dirname(file))).filter(name => name.startsWith(".omp-gc-compress-"))).toEqual([]);
+		expect(
+			(await fs.readdir(path.dirname(file))).filter(name => name.startsWith(".scient-agent-gc-compress-")),
+		).toEqual([]);
 
 		const rerun = await runGcCommand({ flags: { agentDir: root, compress: true, apply: true } });
 		expect(rerun.compress).toMatchObject({ wouldCompress: 0, compressed: 0 });
@@ -2638,15 +2640,15 @@ describe("runGcCommand session compression", () => {
 
 	test.skipIf(!onApfs)("--apply removes only the scratch dirs a killed run left behind", async () => {
 		const { file, artifact } = await writeIdleSession(Bun.randomUUIDv7());
-		const inSessions = path.join(path.dirname(file), ".omp-gc-compress-a1b2c3");
-		const inArchive = path.join(root, "archive", "sessions", "project", "x", ".omp-gc-compress-d4e5f6");
+		const inSessions = path.join(path.dirname(file), ".scient-agent-gc-compress-a1b2c3");
+		const inArchive = path.join(root, "archive", "sessions", "project", "x", ".scient-agent-gc-compress-d4e5f6");
 		for (const dir of [inSessions, inArchive]) {
 			await fs.mkdir(dir, { recursive: true });
-			await Bun.write(path.join(dir, ".omp-gc-compress-owner"), "");
+			await Bun.write(path.join(dir, ".scient-agent-gc-compress-owner"), "");
 			await Bun.write(path.join(dir, "copy.jsonl"), filler);
 		}
 		// An artifact that merely shares the name carries no owner marker.
-		const userArtifact = path.join(path.dirname(artifact), ".omp-gc-compress-notes", "keep.txt");
+		const userArtifact = path.join(path.dirname(artifact), ".scient-agent-gc-compress-notes", "keep.txt");
 		await fs.mkdir(path.dirname(userArtifact), { recursive: true });
 		await Bun.write(userArtifact, "keep");
 

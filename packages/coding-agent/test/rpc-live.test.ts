@@ -171,7 +171,7 @@ describe("live commands over RPC", () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-rpc-live-"));
 		const child = Bun.spawn([process.execPath, path.join(import.meta.dir, "fixtures", "live-rpc-agent.ts")], {
 			cwd: dir,
-			env: { ...process.env, PI_CODING_AGENT_DIR: dir, PI_NO_TITLE: "1" },
+			env: { ...process.env, SCIENT_AGENT_DIR: dir, PI_NO_TITLE: "1" },
 			stdin: "pipe",
 			stdout: "pipe",
 			stderr: "pipe",
