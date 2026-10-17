@@ -684,7 +684,7 @@
 			},
 			{
 				"name": "logout",
-				"doc": "Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.",
+				"doc": "Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.",
 				"params": "LogoutParams",
 				"result": "LogoutResult",
 				"nullable": false,
@@ -3401,13 +3401,29 @@
 				},
 				"authenticated": {
 					"type": "boolean"
+				},
+				"kind": {
+					"enum": [
+						"account",
+						"key"
+					],
+					"type": "string"
+				},
+				"stored": {
+					"type": "boolean"
+				},
+				"store": {
+					"type": "string"
 				}
 			},
 			"required": [
 				"id",
 				"name",
 				"available",
-				"authenticated"
+				"authenticated",
+				"kind",
+				"stored",
+				"store"
 			]
 		},
 		"LogoutAccount": {
@@ -6642,14 +6658,16 @@
 				}
 			},
 			"required": [
-				"providerId",
-				"credentialId"
+				"providerId"
 			]
 		},
 		"LogoutResult": {
 			"type": "object",
 			"properties": {
 				"remainingSource": {
+					"type": "string"
+				},
+				"providerId": {
 					"type": "string"
 				}
 			}

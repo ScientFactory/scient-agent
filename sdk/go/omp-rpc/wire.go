@@ -3088,7 +3088,7 @@ func (v *AvailableSlashCommand) decodeFrom(raw map[string]json.RawMessage) error
 	return nil
 }
 
-// OMP-native session entries in append order.
+// Scient Agent-native session entries in append order.
 type SessionEntries struct {
 	Entries []map[string]json.RawMessage `json:"entries"`
 	LeafID  *string                      `json:"leafId"`
@@ -3297,10 +3297,13 @@ func (v *BtwHistoryRecord) decodeFrom(raw map[string]json.RawMessage) error {
 }
 
 type LoginProvider struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Available     bool   `json:"available"`
-	Authenticated bool   `json:"authenticated"`
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Available     bool              `json:"available"`
+	Authenticated bool              `json:"authenticated"`
+	Kind          LoginProviderKind `json:"kind"`
+	Stored        bool              `json:"stored"`
+	Store         string            `json:"store"`
 }
 
 func (v *LoginProvider) UnmarshalJSON(data []byte) error {
@@ -3314,11 +3317,34 @@ func (v *LoginProvider) decodeFrom(raw map[string]json.RawMessage) error {
 	d.required("name", &out.Name)
 	d.required("available", &out.Available)
 	d.required("authenticated", &out.Authenticated)
+	d.required("kind", &out.Kind)
+	d.required("stored", &out.Stored)
+	d.required("store", &out.Store)
 	if d.err != nil {
 		return d.err
 	}
 	*v = out
 	return nil
+}
+
+type LoginProviderKind string
+
+const (
+	LoginProviderKindAccount LoginProviderKind = "account"
+	LoginProviderKindKey     LoginProviderKind = "key"
+)
+
+func (v *LoginProviderKind) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "LoginProviderKind")
+	if err != nil {
+		return err
+	}
+	switch value := LoginProviderKind(s); value {
+	case LoginProviderKindAccount, LoginProviderKindKey:
+		*v = value
+		return nil
+	}
+	return unknownValue("LoginProviderKind", s)
 }
 
 // A stored credential `logout` can remove; `active` marks credentials the session may be using.
@@ -4598,7 +4624,7 @@ func (v *PromptStatus) UnmarshalJSON(data []byte) error {
 // Failure detail of a `prompt_result` with `status: "error"`.
 type PromptError struct {
 	Message string `json:"message"`
-	// Transient: resubmitting later may succeed (omp's own retries are exhausted).
+	// Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).
 	Retryable  bool    `json:"retryable"`
 	Provider   *string `json:"provider,omitempty"`
 	Model      *string `json:"model,omitempty"`
@@ -7250,6 +7276,7 @@ func (v *GetLogoutAccountsResult) decodeFrom(raw map[string]json.RawMessage) err
 
 type LogoutResult struct {
 	RemainingSource *string `json:"remainingSource,omitempty"`
+	ProviderID      *string `json:"providerId,omitempty"`
 }
 
 func (v *LogoutResult) UnmarshalJSON(data []byte) error {
@@ -7260,6 +7287,7 @@ func (v *LogoutResult) decodeFrom(raw map[string]json.RawMessage) error {
 	var out LogoutResult
 	d := fieldDecoder{raw: raw, owner: "LogoutResult"}
 	d.optional("remainingSource", &out.RemainingSource)
+	d.optional("providerId", &out.ProviderID)
 	if d.err != nil {
 		return d.err
 	}
@@ -7982,10 +8010,10 @@ func (c Commands) GetLogoutAccounts(ctx context.Context, p GetLogoutAccountsComm
 // LogoutCommand holds the parameters of "logout".
 type LogoutCommand struct {
 	ProviderID   string `json:"providerId"`
-	CredentialID int64  `json:"credentialId"`
+	CredentialID *int64 `json:"credentialId,omitempty"`
 }
 
-// Logout sends "logout": Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.
+// Logout sends "logout": Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.
 func (c Commands) Logout(ctx context.Context, p LogoutCommand) (LogoutResult, error) {
 	var out LogoutResult
 	err := c.call(ctx, "logout", p, 0, &out)
