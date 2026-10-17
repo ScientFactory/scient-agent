@@ -40,7 +40,9 @@ const server = Bun.serve({
 			tools?: Array<{ function?: { name?: string } }>;
 		};
 		const names = body.tools?.flatMap(tool => (tool.function?.name ? [tool.function.name] : [])) ?? [];
-		const child = names.includes("yield");
+		// A subagent's first user message carries its assignment: ALPHA or BETA, this probe's two.
+		const assignment = JSON.stringify(body.messages?.find(message => message.role === "user")?.content ?? "");
+		const child = /(?:ALPHA|BETA): run printf/.test(assignment);
 		requests.push({ phase, child, tools: names, body: raw });
 		const results = body.messages?.filter(message => message.role === "tool") ?? [];
 		const text = (value: unknown): string => (typeof value === "string" ? value : JSON.stringify(value));
@@ -54,10 +56,13 @@ const server = Bun.serve({
 				if (childStarts === 2) childGate.resolve();
 				await bothChildren;
 				call = { name: "bash", args: { command: "printf CHILD_COMPUTED_42", timeout: 5 } };
-			} else if (!results.some(message => message.tool_call_id?.startsWith("yield-"))) {
+			} else {
 				assert.ok(output.includes("CHILD_COMPUTED_42"), "actual child shell result must reach its model");
-				call = { name: "yield", args: { data: { proof: "CHILD_COMPUTED_42" } } };
-			} else answer = "CHILD_DONE";
+				// Before 18.10 a subagent returned through a `yield` tool; since then its final answer is its result.
+				if (names.includes("yield") && !results.some(message => message.tool_call_id?.startsWith("yield-")))
+					call = { name: "yield", args: { data: { proof: "CHILD_COMPUTED_42" } } };
+				else answer = "CHILD_COMPUTED_42";
+			}
 		} else if (!results.some(message => message.tool_call_id?.startsWith("eval-")))
 			call = {
 				name: "eval",
@@ -81,8 +86,8 @@ const server = Bun.serve({
 					i: "two-child-proof",
 					context: "Bounded alignment qualification",
 					tasks: [
-						{ agent: "task", task: "ALPHA: run printf CHILD_COMPUTED_42 and yield that exact result." },
-						{ agent: "task", task: "BETA: run printf CHILD_COMPUTED_42 and yield that exact result." },
+						{ agent: "task", task: "ALPHA: run printf CHILD_COMPUTED_42 and answer with that exact result." },
+						{ agent: "task", task: "BETA: run printf CHILD_COMPUTED_42 and answer with that exact result." },
 					],
 				},
 			};

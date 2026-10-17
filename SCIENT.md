@@ -403,7 +403,25 @@ On Windows, against the replay:
 | Divergence check in replay mode | Passed. 15 commits checked; each of the 3 generated commits matches its generator's output exactly. Footprint: 82 marker blocks, 196 lines, in 41 Oh My Pi files. |
 | Scient's own tests (`test/scient/` in utils, natives, coding-agent and ai) | All passed. Rust cannot be built on this machine, so they ran against the 18.10.4 Windows addon. Scient's tests use none of 18.11's new native functions. |
 
-Not run locally: Rust checks and tests, a compiled binary with the isolation and capability checks, Oh My Pi's suites, and Desktop qualification. CI builds and checks the six platforms and runs Oh My Pi's TypeScript suite on Linux.
+Not run locally: Rust checks and tests, the isolation check, and Oh My Pi's suites. CI builds and checks the six platforms, runs the isolation check on each, and runs Oh My Pi's TypeScript suite on Linux.
+
+#### Compiled qualification
+
+Against PR #25's CI build for Windows x64:
+- binary sha256 `03b26e0929…`;
+- `--runtime-info` reports product `scient-agent`, version `0.1.1`, upstream `oh-my-pi` 18.11.3 `96894a6147`, RPC protocols 1 and 2.
+
+The previous binary was the published v0.1.0 for Windows x64.
+
+| Check | Observed result |
+|---|---|
+| `capability-check.ts`, candidate after v0.1.0 | Passed every case: the v0.1.0 session resumed and continued, the pre-upgrade snapshot rolled back, the native Skill's text arrived, JavaScript eval computed 42, the shell artifact was written, and two overlapping children completed. |
+| The same check, v0.1.0 as both binaries | Passed. |
+| Scient Desktop's Scient Agent live suite (`ScientAgent.live.test.ts`, Desktop `origin/main` `5c94afd238`, with a stock `omp` 18.11.3 beside it; no model turn) | Candidate and v0.1.0 gave identical results: 2 passed (sign-in listing and flow; each product refuses the other's executable) and 5 failed the same way. The failures, shared with the published v0.1.0 on this machine, are setup on Windows: the provider status reads `warning`; a `.bun` folder appears in the test's home; the stock `omp` RPC process exits on start. |
+
+The capability check had last passed for v0.1.0. Its first run against 18.11.3 failed in the native phase. Since 18.10 a subagent has no `yield` tool and returns its final answer instead, and the check had recognised a subagent by that tool. It now recognises one by the assignment in its first message, and uses `yield` only where a subagent offers it. The check passes against both v0.1.0 and the candidate. Its first runs were on a heavily loaded machine, where the JavaScript worker missed its 5-second timeout. Without that load it passed every time.
+
+Desktop takes a release only after its own catalog qualification. On six platforms that qualification checks `--runtime-info`, the RPC v2 handshake and `get_state`. Desktop accepts any Scient Agent 0.x built on Oh My Pi 18.x (18.2.8 or later) that offers RPC v2, so 0.1.1 needs no Desktop change.
 
 ### Recurring cadence
 
