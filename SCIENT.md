@@ -417,11 +417,13 @@ The previous binary was the published v0.1.0 for Windows x64.
 |---|---|
 | `capability-check.ts`, candidate after v0.1.0 | Passed every case: the v0.1.0 session resumed and continued, the pre-upgrade snapshot rolled back, the native Skill's text arrived, JavaScript eval computed 42, the shell artifact was written, and two overlapping children completed. |
 | The same check, v0.1.0 as both binaries | Passed. |
-| Scient Desktop's Scient Agent live suite (`ScientAgent.live.test.ts`, Desktop `origin/main` `5c94afd238`, with a stock `omp` 18.11.3 beside it; no model turn) | Candidate and v0.1.0 gave identical results: 2 passed (sign-in listing and flow; each product refuses the other's executable) and 5 failed the same way. The failures, shared with the published v0.1.0 on this machine, are setup on Windows: the provider status reads `warning`; a `.bun` folder appears in the test's home; the stock `omp` RPC process exits on start. |
+| Scient Desktop's Scient Agent live suite (`ScientAgent.live.test.ts`, Desktop `origin/main` `5c94afd238`, with a stock `omp` 18.11.3 beside it; no model turn) | Candidate and v0.1.0 gave identical results: 2 passed (sign-in listing and flow; each product refuses the other's executable), 5 failed the same assertions, and the model turn was skipped (no model was configured). The failures: the provider status reads `warning`; a `.bun` folder appears in the test's home, outside the assigned root; the stock `omp` RPC process exits on start, so the coexistence and load cases do not finish. No failure is specific to the candidate. Their causes are not confirmed, and a defect shared with v0.1.0 would look the same. |
 
 The capability check had last passed for v0.1.0. Its first run against 18.11.3 failed in the native phase. Since 18.10 a subagent has no `yield` tool and returns its final answer instead, and the check had recognised a subagent by that tool. It now recognises one by the assignment in its first message, and uses `yield` only where a subagent offers it. The check passes against both v0.1.0 and the candidate. Its first runs were on a heavily loaded machine, where the JavaScript worker missed its 5-second timeout. Without that load it passed every time.
 
 Desktop takes a release only after its own catalog qualification. On six platforms that qualification checks `--runtime-info`, the RPC v2 handshake and `get_state`. Desktop accepts any Scient Agent 0.x built on Oh My Pi 18.x (18.2.8 or later) that offers RPC v2, so 0.1.1 needs no Desktop change.
+
+That catalog check covers identity, not behavior. The Desktop qualification under "Qualification and rollback" is not yet complete for 0.1.1. It still needs a real turn, cancellation, background completion, coexistence with a stock `omp`, and a managed installation, plus an explanation of the five failures above.
 
 ### Recurring cadence
 
