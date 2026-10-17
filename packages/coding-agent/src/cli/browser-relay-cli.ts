@@ -54,15 +54,15 @@ async function runInstall(dirOverride: string | undefined): Promise<void> {
 	for (const name in EXTENSION_FILES) {
 		await Bun.write(path.join(dir, name), EXTENSION_FILES[name]!);
 	}
-	console.log(`Installed the OMP Browser Relay extension to ${dir}`);
+	console.log(`Installed the Scient Agent Browser Relay extension to ${dir}`);
 	console.log("");
 	console.log("Finish setup in Chrome:");
 	console.log("  1. Open chrome://extensions and enable Developer mode.");
 	console.log(`  2. Click "Load unpacked" and select: ${dir}`);
-	console.log("  3. Enable the mode:  omp config set browser.relay true");
+	console.log("  3. Enable the mode:  scient-agent config set browser.relay true");
 	console.log("");
-	console.log("omp starts the relay automatically when the browser prelude needs it;");
-	console.log("run `omp browser-relay` yourself only for --token or --no-group.");
+	console.log("Scient Agent starts the relay automatically when the browser prelude needs it;");
+	console.log("run `scient-agent browser-relay` yourself only for --token or --no-group.");
 	console.log("The extension badge shows 'on' once it reaches a relay.");
 	console.log(
 		"Old connection-refused entries in chrome://extensions > Errors may persist after reconnect; use Clear all.",
@@ -83,10 +83,10 @@ async function runServe(args: BrowserRelayCommandArgs): Promise<void> {
 		// broker (or by hand): losing the bind to a live relay is success.
 		if (err instanceof Error && "code" in err && err.code === "EADDRINUSE") {
 			if (await probeRelayServer(`http://127.0.0.1:${args.port}`)) {
-				console.log(`omp browser relay already running on http://127.0.0.1:${args.port}; nothing to do.`);
+				console.log(`Scient Agent browser relay already running on http://127.0.0.1:${args.port}; nothing to do.`);
 				return;
 			}
-			console.error(`Port ${args.port} is in use by something that is not an omp browser relay.`);
+			console.error(`Port ${args.port} is in use by something that is not a Scient Agent browser relay.`);
 			process.exit(1);
 		}
 		throw err;
@@ -95,19 +95,21 @@ async function runServe(args: BrowserRelayCommandArgs): Promise<void> {
 	console.log(`omp browser relay listening on http://127.0.0.1:${args.port}`);
 	console.log(`  extension endpoint  ws://127.0.0.1:${args.port}/ext${args.token ? "?token=***" : ""}`);
 	if (args.port === DEFAULT_RELAY_PORT) {
-		console.log("  enable with         omp config set browser.relay true");
+		console.log("  enable with         scient-agent config set browser.relay true");
 	} else {
 		console.log(
-			`  enable with         omp config set browser.relay true && omp config set browser.relayUrl http://127.0.0.1:${args.port}`,
+			`  enable with         scient-agent config set browser.relay true && scient-agent config set browser.relayUrl http://127.0.0.1:${args.port}`,
 		);
 	}
-	console.log("Waiting for the OMP Browser Relay extension to connect (omp browser-relay install)...");
+	console.log(
+		"Waiting for the Scient Agent Browser Relay extension to connect (scient-agent browser-relay install)...",
+	);
 
 	let announced = false;
 	const readiness = setInterval(() => {
 		if (relay.bridge.ready && !announced) {
 			announced = true;
-			console.log("Extension connected. The omp browser prelude can now drive your tabs.");
+			console.log("Extension connected. The Scient Agent browser prelude can now drive your tabs.");
 		} else if (!relay.bridge.ready && announced) {
 			announced = false;
 			console.log("Extension disconnected; waiting for it to reconnect...");

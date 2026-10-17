@@ -26,8 +26,8 @@ Config sources (.scient-agent/.claude/.cursor/.vscode/mcp.json, mcp.json, etc.)
 
 `timeout` is in milliseconds, defaults to 30,000, and accepts `0` to disable
 client-side timeouts. A valid `OMP_MCP_TIMEOUT_MS` environment value overrides
-the per-server timeout. `requestIdFormat` and `instructions` are OMP-specific;
-native configs, standalone MCP JSON, and OMP plugins parse them, while foreign
+the per-server timeout. `requestIdFormat` and `instructions` are Scient Agent-specific;
+native configs, standalone MCP JSON, and Scient Agent plugins parse them, while foreign
 tool-format providers generally do not.
 
 `validateServerConfig()` (`src/mcp/config.ts`) enforces transport basics:
@@ -101,7 +101,7 @@ Key behavior:
 
 ### Environment expansion during discovery
 
-OMP-native MCP config (`.scient-agent/mcp.json`, `~/.scient-agent/agent/mcp.json`, plus their `.mcp.json` variants) expands `${VAR}` and `${VAR:-default}` placeholders recursively before converting to runtime config. It also accepts boolean/string forms for `enabled` (`true`, `false`, `1`, `0`) and numeric strings for `timeout`. `requestIdFormat` accepts only `"number"` or `"string"`; other values warn and fall back to numeric IDs.
+Scient Agent-native MCP config (`.scient-agent/mcp.json`, `~/.scient-agent/agent/mcp.json`, plus their `.mcp.json` variants) expands `${VAR}` and `${VAR:-default}` placeholders recursively before converting to runtime config. It also accepts boolean/string forms for `enabled` (`true`, `false`, `1`, `0`) and numeric strings for `timeout`. `requestIdFormat` accepts only `"number"` or `"string"`; other values warn and fall back to numeric IDs.
 
 The standalone fallback provider in `src/discovery/mcp-json.ts` reads project-root `mcp.json` and `.mcp.json`, expands the same `${...}` placeholders in endpoint/auth fields, and type-checks `enabled`/`timeout` without coercing string values. Both providers require a finite, non-negative timeout and validate `requestIdFormat` and boolean `instructions`.
 
@@ -115,12 +115,12 @@ Invalid `enabled`/`timeout` values are ignored with warnings rather than failing
 
 For `http`/`sse` servers, an `auth: { type: "oauth", credentialId: "..." }`
 block is optional. An explicit `auth.type: "apikey"` disables OAuth credential
-lookup. OMP honors an explicit arbitrary or legacy OAuth credential ID when
+lookup. Scient Agent honors an explicit arbitrary or legacy OAuth credential ID when
 it resolves. A managed, profile-scoped
 `mcp_oauth:profile:<profile>:<url>` ID is accepted only when its profile is
 active and its URL matches the server's expanded or literal URL; a mismatch is
 ignored. If the accepted explicit ID does not resolve—or if there is no `auth`
-block—OMP looks for a credential under deterministic IDs derived from the
+block—Scient Agent looks for a credential under deterministic IDs derived from the
 expanded and literal server URL. These URL-keyed credentials are scoped to the
 active profile, so a shared, definition-only server entry can use each
 profile's independently stored OAuth credential.
@@ -135,8 +135,8 @@ When lookup succeeds:
 - `http`/`sse`: injects `Authorization: Bearer <access_token>` header
 - `stdio`: injects `OAUTH_ACCESS_TOKEN` env var
 
-If no credential resolves, OMP connects without injecting an OAuth value.
-Refresh or credential-resolution failures are logged; when possible, OMP
+If no credential resolves, Scient Agent connects without injecting an OAuth value.
+Refresh or credential-resolution failures are logged; when possible, Scient Agent
 continues with the existing access token.
 
 ### Header/env value resolution

@@ -1027,7 +1027,7 @@ async function runInTabWithSnapshot(
 				}
 				if (error.reason === USER_CANCELLED_DEBUGGER) {
 					// The relay hides a tab whose debugging bar the user cancelled, so a re-adoption cannot succeed.
-					const cancelled = `${error.message}. The user cancelled Chrome's debugging bar${landed}. omp released the tab; the relay hides it until its URL changes, so navigate it in Chrome, then open it again`;
+					const cancelled = `${error.message}. The user cancelled Chrome's debugging bar${landed}. Scient Agent released the tab; the relay hides it until its URL changes, so navigate it in Chrome, then open it again`;
 					if (tabs.get(name) === tab && tab.state === "alive") await forceKillTab(name, cancelled);
 					if (opts.signal?.aborted) throw new ToolAbortError();
 					throw new ToolError(cancelled);
@@ -1036,7 +1036,7 @@ async function runInTabWithSnapshot(
 				// its loading would cancel a navigation the call itself started. Chrome reports the same reason when the
 				// tab itself closes, so only a re-adoption that worked names another extension's frame as the cause.
 				const detached = `${error.message}. ${DEBUGGER_DETACH_CAUSE}${landed}`;
-				const lost = `${error.message}${landed}. omp could not reattach to the tab, so it was released: either the tab was closed, or ${DEBUGGER_DETACH_REFUSAL}. If the tab is still open, open it again once that frame is gone; if Chrome refused the attach, the relay hides the tab until its URL changes, so navigate it in Chrome first`;
+				const lost = `${error.message}${landed}. Scient Agent could not reattach to the tab, so it was released: either the tab was closed, or ${DEBUGGER_DETACH_REFUSAL}. If the tab is still open, open it again once that frame is gone; if Chrome refused the attach, the relay hides the tab until its URL changes, so navigate it in Chrome first`;
 				const reattached = await recoverWorkerTab(tab, name, opts.timeoutMs, lost, {
 					recover: false,
 					failedReason: lost,
@@ -1046,14 +1046,14 @@ async function runInTabWithSnapshot(
 				if (!reattached) throw new ToolError(lost);
 				if (error.when === "during" || opts.readopted) {
 					throw new ToolError(
-						`${detached}. omp reattached to the same tab on a new worker without reloading it, so the next call works; check the page before repeating this one. ${WORKER_RESETS}.`,
+						`${detached}. Scient Agent reattached to the same tab on a new worker without reloading it, so the next call works; check the page before repeating this one. ${WORKER_RESETS}.`,
 					);
 				}
 				// Nothing ran: run the call on the new worker, within what the re-adoption left of its budget.
 				const remainingMs = Math.floor(opts.timeoutMs - (performance.now() - startedAt));
 				if (remainingMs <= 0) {
 					throw new ToolError(
-						`${detached}. omp reattached to the same tab on a new worker without reloading it, but that used up this call's ${opts.timeoutMs}ms budget, so the call was not run again; repeat it. ${WORKER_RESETS}.`,
+						`${detached}. Scient Agent reattached to the same tab on a new worker without reloading it, but that used up this call's ${opts.timeoutMs}ms budget, so the call was not run again; repeat it. ${WORKER_RESETS}.`,
 					);
 				}
 				// Its pending entry must go first, or the tab reads as busy.
@@ -1065,7 +1065,7 @@ async function runInTabWithSnapshot(
 				);
 				result.displays.unshift({
 					type: "text",
-					text: `Chrome had detached omp from this tab since the last call (${DEBUGGER_DETACH_CAUSE}); omp reattached to the same tab on a new worker, without reloading it, and then ran this call. ${WORKER_RESETS}.`,
+					text: `Chrome had detached Scient Agent from this tab since the last call (${DEBUGGER_DETACH_CAUSE}); Scient Agent reattached to the same tab on a new worker, without reloading it, and then ran this call. ${WORKER_RESETS}.`,
 				});
 				return result;
 			}

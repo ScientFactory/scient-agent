@@ -17,11 +17,11 @@ beforeAll(async () => {
 });
 
 function userSource(): Extension["source"] {
-	return { provider: "native", providerName: "OMP (User)", level: "user" };
+	return { provider: "native", providerName: "Scient Agent (User)", level: "user" };
 }
 
 function projectSource(name = "personal"): Extension["source"] {
-	return { provider: "native", providerName: `OMP (${name})`, level: "project" };
+	return { provider: "native", providerName: `Scient Agent (${name})`, level: "project" };
 }
 
 function systemdExtension(): Extension {

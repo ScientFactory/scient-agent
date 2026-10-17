@@ -35,7 +35,7 @@ function assistant(model: Model, fields: Partial<AssistantMessage>): AssistantMe
 	};
 }
 
-describe("AgentSession.restoreInterruptedTurn (omp --restore)", () => {
+describe("AgentSession.restoreInterruptedTurn (scient-agent --restore)", () => {
 	let tempDir: TempDir;
 	let authStorage: AuthStorage;
 	let modelRegistry: ModelRegistry;

@@ -30,7 +30,7 @@ This document describes operator-visible behavior for session export, sharing, c
 | `/clear`                                | Interactive slash command    | Yes (clears live/model conversation context)  | Retains identity/file/history; a lazy session still follows the normal persistence gate    | Appends `reset_boundary`                                                            |
 | `/delete`                               | Interactive slash command    | Yes (starts an empty conversation)            | Attempts to delete the current persisted session and artifacts, then switches to a new one | None                                                                                |
 | `/fork`                                 | Interactive slash command    | Yes (active session identity changes)         | Creates new session file and switches current session to it (persistent mode only)         | Copies artifact directory to new session namespace when present                     |
-| `/fork pane`, `/fork window`, `/fork tab` | Interactive slash command  | No (parent session retained)                   | Opens a child OMP process from the flushed current transcript in a multiplexer pane/group (tmux window, Zellij/Herdr/Orca tab, or CMUX workspace) | Child receives a separate forked session                                            |
+| `/fork pane`, `/fork window`, `/fork tab` | Interactive slash command  | No (parent session retained)                   | Opens a child Scient Agent process from the flushed current transcript in a multiplexer pane/group (tmux window, Zellij/Herdr/Orca tab, or CMUX workspace) | Child receives a separate forked session                                            |
 | `--fork <id\|path>`                     | CLI startup                  | Yes after session creation                    | Creates a new session fork from the selected source into current cwd/session dir           | Copies source artifacts recursively by default                                      |
 | `/seance [id\|path] [--model sel]`      | Interactive slash command    | No (active session and model unchanged)       | Forks the source transcript into a read-only consultant subagent under the current session  | None; the consultant reads the source's artifacts in place                          |
 | `/resume [id\|@claude\|@codex]`         | Interactive slash command    | Yes (active in-memory state replaced)         | Switches to a selected/matched session, or imports a selected foreign session              | None                                                                                |
@@ -235,7 +235,7 @@ keeping the conversation you can see.
   prompt-cache handles) and reports how many were pruned.
 - Mints a fresh provider session id, re-keys memory state, and invalidates the
   append-only context so the next turn rebuilds from the local conversation.
-- Leaves the local transcript, session file, and OMP session-manager identity
+- Leaves the local transcript, session file, and Scient Agent session-manager identity
   unchanged; the provider-facing `AgentSession.sessionId` changes.
 
 Because it keeps both the visible and model-facing conversation, `/fresh`
@@ -283,7 +283,7 @@ for keyboard controls, follow-ups, persistence, and migration safety.
 ## Fork
 
 Bare `/fork` creates a new session from the current one and switches the active
-session identity. `/fork pane` opens a separate OMP process in a new pane;
+session identity. `/fork pane` opens a separate Scient Agent process in a new pane;
 `/fork window` and `/fork tab` open it in a new multiplexer group (a tmux
 window, Zellij/Herdr/Orca tab, or CMUX workspace). The child starts from the current
 persisted transcript, while the parent session stays active and continues
@@ -336,7 +336,7 @@ Orca development checkout, then `orca-ide` on Linux outside an Orca terminal, th
 `orca`).
 
 Orca's CLI `--command` accepts shell text, not argv, and has no `--cwd`; after
-confirmation, OMP supplies `cd <quoted-cwd> && <quoted-command>` using shared
+confirmation, Scient Agent supplies `cd <quoted-cwd> && <quoted-command>` using shared
 POSIX shell quoting. When Orca cannot show the new tab and starts the child in a
 background terminal instead, `/fork` reports that as a warning rather than a
 visible tab.
@@ -400,7 +400,7 @@ Startup `--fork` is resolved before normal session creation:
    The parent transcript is unchanged.
 5. Full-context forks automatically seed `providerPromptCacheKey` from the source header's inherited key, falling back to the source session id. Startup drops that automatic inheritance for explicit `--model`, `--thinking`, `--system-prompt`, `--system-prompt-template`, `--append-system-prompt`, `--tools`, or `--no-tools` overrides, or an applicable scoped-model override.
 
-Use `--prompt-cache-key <key>` to pin the provider prompt-cache identity explicitly and independently from both the OMP session id and `--provider-session-id`. `--provider-session-id` continues to control provider session/routing headers and sticky credential selection; `--prompt-cache-key` controls the OpenAI Responses `prompt_cache_key` payload where supported.
+Use `--prompt-cache-key <key>` to pin the provider prompt-cache identity explicitly and independently from both the Scient Agent session id and `--provider-session-id`. `--provider-session-id` continues to control provider session/routing headers and sticky credential selection; `--prompt-cache-key` controls the OpenAI Responses `prompt_cache_key` payload where supported.
 
 ## Seance
 
@@ -430,7 +430,7 @@ Without an argument:
 With an argument:
 
 - `/resume <id>` resolves an id/filename prefix with local-first, then global fallback and switches directly to the matched file; an unknown value reports `Session "<value>" not found`.
-- `/resume @claude` and `/resume @codex` open a foreign-session picker. Selecting one converts and persists it under a fresh OMP session identity, then switches to that new session.
+- `/resume @claude` and `/resume @codex` open a foreign-session picker. Selecting one converts and persists it under a fresh Scient Agent session identity, then switches to that new session.
 
 ## CLI `--resume`
 
@@ -469,7 +469,7 @@ non-empty headers fail closed without modifying the file.
 `--restore [value]` selects and opens its session exactly as `--resume [value]`
 does, then, once the interactive TUI is up, goes on with what the session's last
 process left unfinished when it died (`task/restore.ts`, `restoreSession`). Tern's
-session daemon relaunches omp panes with it after a crash: omp reports
+session daemon relaunches Scient Agent panes with it after a crash: Scient Agent reports
 `omp_restore=1` (OSC 1337 user variable) beside its session file to say it
 understands the flag.
 

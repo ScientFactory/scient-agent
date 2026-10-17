@@ -940,7 +940,7 @@ async function openRelocatedSession(
 		// Its directory is gone, so it cannot be resumed in place either.
 		throw new SessionResolutionError(
 			err.message,
-			"Close the session in the other omp process, then resume it again.",
+			"Close the session in the other Scient Agent process, then resume it again.",
 		);
 	}
 }
@@ -1191,7 +1191,7 @@ export function normalizeContinueSessionArgs(parsed: Args, rawArgs?: readonly st
 	parsed.messages.splice(messageIndex, 1);
 }
 const SESSION_NOT_FOUND_HINT =
-	"Run `omp --resume` without an argument to pick from recent sessions, or `omp` to start a new one.";
+	"Run `scient-agent --resume` without an argument to pick from recent sessions, or `scient-agent` to start a new one.";
 
 function validateSessionPersistenceArgs(parsed: Pick<Args, "continue" | "noSession" | "resume">): void {
 	if (!parsed.noSession) return;

@@ -52,7 +52,7 @@ describe("table charts on a TSP terminal", () => {
 		await setTheme("dark");
 	});
 
-	it("sends the chart between the prose runs as an svg fence the terminal colors, whatever omp's theme", async () => {
+	it("sends the chart between the prose runs as an svg fence the terminal colors, whatever Scient Agent's theme", async () => {
 		setTableCharts("always");
 		const component = new AssistantMessageComponent(answer(ANSWER));
 		harness = await TspHarness.start();
