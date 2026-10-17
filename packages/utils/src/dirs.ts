@@ -17,6 +17,9 @@ import * as path from "node:path";
 import { expandWindowsLongPath } from "@oh-my-pi/pi-natives/path";
 import { engines, version } from "../package.json" with { type: "json" };
 import { isEnoent, isEnotdir } from "./fs-error";
+// scient(SA-PRODUCT): begin - Scient Agent's own release version.
+import { PRODUCT_VERSION } from "./scient/product";
+// scient(SA-PRODUCT): end
 
 /** App name (e.g. "omp") */
 export const APP_NAME: string = "scient-agent";
@@ -34,7 +37,9 @@ export const MAIN_CONFIG_FILENAMES = ["config.yml", "config.yaml"] as const;
 export const VERSION: string = version;
 
 /** Default User-Agent header string (e.g. "omp/17.2.12") */
-export const USER_AGENT = `omp/${VERSION}`;
+// scient(SA-PRODUCT): begin - The User-Agent names Scient Agent and its release.
+export const USER_AGENT = `${APP_NAME}/${PRODUCT_VERSION}`;
+// scient(SA-PRODUCT): end
 
 /** Minimum Bun version */
 export const MIN_BUN_VERSION: string = engines.bun.replace(/[^0-9.]/g, "");
