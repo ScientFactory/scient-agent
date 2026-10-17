@@ -266,6 +266,13 @@ fn build_crash_log_path(dir: &Path, kind: CrashKind, pid: u32, now_ms: u128) -> 
 }
 
 fn logs_dir() -> Option<PathBuf> {
+	// scient(SA-ROOT): begin - Crash logs follow a host-assigned root.
+	if let Some(root) = std::env::var_os("SCIENT_AGENT_ROOT").map(PathBuf::from)
+		&& root.is_absolute()
+	{
+		return Some(root.join("logs"));
+	}
+	// scient(SA-ROOT): end
 	let home = home_dir()?;
 	let config_override = std::env::var_os("SCIENT_AGENT_CONFIG_DIR");
 	let xdg_logs = xdg_state_logs_from_env(&home, config_override.as_deref());

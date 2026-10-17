@@ -20,6 +20,9 @@ import { isEnoent, isEnotdir } from "./fs-error";
 // scient(SA-PRODUCT): begin - Scient Agent's own release version.
 import { PRODUCT_VERSION } from "./scient/product";
 // scient(SA-PRODUCT): end
+// scient(SA-ROOT): begin - A host-assigned config root.
+import { getHostConfigRoot } from "./scient/root";
+// scient(SA-ROOT): end
 
 /** App name (e.g. "omp") */
 export const APP_NAME: string = "scient-agent";
@@ -118,7 +121,9 @@ function readProfileFromEnvSafe(): string | undefined {
 
 /** Profile-independent config root (~/.scient-agent), shared by every omp profile. */
 export function getBaseConfigRoot(): string {
-	return path.join(os.homedir(), getConfigDirName());
+	// scient(SA-ROOT): begin - A host-assigned root replaces ~/.scient-agent.
+	return getHostConfigRoot() ?? path.join(os.homedir(), getConfigDirName());
+	// scient(SA-ROOT): end
 }
 
 function getProfileConfigRoot(profile: string | undefined): string {
@@ -349,7 +354,9 @@ class DirResolver {
 		this.configRoot = getProfileConfigRoot(profile);
 
 		const defaultAgent = path.join(this.configRoot, "agent");
-		const agentDirOverride = profile ? undefined : options.agentDirOverride;
+		// scient(SA-ROOT): begin - Under a host-assigned root the agent directory is always the root's.
+		const agentDirOverride = profile || getHostConfigRoot() ? undefined : options.agentDirOverride;
+		// scient(SA-ROOT): end
 		this.agentDir = agentDirOverride ? path.resolve(agentDirOverride) : defaultAgent;
 		const isDefault = this.agentDir === defaultAgent;
 
@@ -368,7 +375,9 @@ class DirResolver {
 		let xdgData: string | undefined;
 		let xdgState: string | undefined;
 		let xdgCache: string | undefined;
-		const xdgPlatform = process.platform === "linux" || process.platform === "darwin";
+		// scient(SA-ROOT): begin - XDG never redirects state away from a host-assigned root.
+		const xdgPlatform = (process.platform === "linux" || process.platform === "darwin") && !getHostConfigRoot();
+		// scient(SA-ROOT): end
 		if (xdgPlatform && isDefault) {
 			const resolveIf = (envVar: string) => {
 				const value = process.env[envVar];
@@ -883,6 +892,10 @@ export function getNativeGrammarsDir(): string {
 
 /** Get the natives directory. SCIENT_AGENT_NATIVES_DIR overrides the usual cache root; relative values are ignored. */
 export function getNativesDir(): string {
+	// scient(SA-ROOT): begin - Native state stays inside a host-assigned root.
+	const hostRoot = getHostConfigRoot();
+	if (hostRoot) return path.join(hostRoot, "natives");
+	// scient(SA-ROOT): end
 	return resolveAbsoluteDir(process.env.SCIENT_AGENT_NATIVES_DIR) ?? dirs.rootSubdir("natives", "cache");
 }
 
