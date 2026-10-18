@@ -1,5 +1,9 @@
 # Development Rules
 
+<!-- scient(SA-POLICY): begin - Scient's rules come first in this fork. -->
+> **This is Scient Agent, Scient's fork of Oh My Pi.** Before changing anything, read [SCIENT.md](SCIENT.md), above all "Keeping Scient's changes apart": every change goes where the next alignment with Oh My Pi costs least, and Scient's rules there come before this file's.
+
+<!-- scient(SA-POLICY): end -->
 ## Default Context
 
 This repo contains multiple packages, but **`packages/coding-agent/`** is the primary focus. Unless otherwise specified, assume work refers to this package.
@@ -35,7 +39,9 @@ This repo contains multiple packages, but **`packages/coding-agent/`** is the pr
 When authorized to create or edit a contributor-submitted PR, follow the checklist below. RoboOMP-managed PRs follow their dedicated workflow and enforced body format in `python/robomp/src/prompts/system_append.md` instead.
 
 - MUST read `CONTRIBUTING.md` and `.github/PULL_REQUEST_TEMPLATE.md` first. Preserve the template sections and checklist, including when shortening an existing description.
-- MUST obtain at least one sentence written by the contributor in their own words explaining what changed and why, as required by `CONTRIBUTING.md`. If it is missing, ask the contributor; NEVER generate a substitute. Preserve that sentence during edits.
+<!-- scient(SA-POLICY): begin - Scient accepts AI-assisted PR descriptions. -->
+- Explain the change, its motivation and verified results. AI-assisted PR descriptions are allowed; do not require a separately human-written sentence.
+<!-- scient(SA-POLICY): end -->
 - For user-facing changes, MUST follow the [Changelog](#changelog) attribution rules. Internal issue fixes keep their issue links. For external contributions, add the PR link and contributor credit after GitHub assigns the number, then push the entry before marking the changelog checklist item complete.
 - MUST read back the published PR description after creating or editing it. Check only verified checklist items; explain skipped or inapplicable checks in `Testing`.
 
