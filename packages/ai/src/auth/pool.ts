@@ -740,6 +740,13 @@ export class CredentialPool implements CredentialsApi {
 		await this.reload();
 	}
 
+	// scient(SA-AUTH): begin - A broker's sign-ins stay with the broker.
+	/** Only a broker-backed store re-fetches a snapshot. */
+	get heldByBroker(): boolean {
+		return this.#store.refreshSnapshot !== undefined;
+	}
+
+	// scient(SA-AUTH): end
 	/**
 	 * Disable the credential with the given id and emit a
 	 * {@link CredentialDisabledEvent}. Used by the auth-broker server to honour

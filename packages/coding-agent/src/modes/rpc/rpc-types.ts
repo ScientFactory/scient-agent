@@ -24,6 +24,9 @@ import type { RpcMessagesPage } from "./rpc-messages";
 import type { GoalModeState } from "../../goals/state";
 import type { RpcGoalOp, RpcGoalResult } from "./rpc-goal";
 import type { BtwHistoryRecord } from "../../session/btw-history";
+// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
+import type { RpcLoginProvider } from "../../scient/sign-in-providers";
+// scient(SA-AUTH): end
 
 // ============================================================================
 // RPC Commands (stdin)
@@ -126,7 +129,9 @@ export type RpcCommand =
 	| { id?: string; type: "get_login_providers" }
 	| { id?: string; type: "login"; providerId: string }
 	| { id?: string; type: "get_logout_accounts"; providerId: string }
-	| { id?: string; type: "logout"; providerId: string; credentialId: number }
+	// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
+	| { id?: string; type: "logout"; providerId: string; credentialId?: number }
+	// scient(SA-AUTH): end
 
 	// Word prediction (composer ghost text); `cursor` is a UTF-16 offset into `text`
 	| { id?: string; type: "predict_word"; text: string; cursor: number }
@@ -574,7 +579,9 @@ export type RpcResponse =
 			type: "response";
 			command: "get_login_providers";
 			success: true;
-			data: { providers: Array<{ id: string; name: string; available: boolean; authenticated: boolean }> };
+			// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
+			data: { providers: RpcLoginProvider[] };
+			// scient(SA-AUTH): end
 	  }
 	| { id?: string; type: "response"; command: "login"; success: true; data: { providerId: string } }
 	| {
@@ -584,7 +591,15 @@ export type RpcResponse =
 			success: true;
 			data: { accounts: LogoutAccount[] };
 	  }
-	| { id?: string; type: "response"; command: "logout"; success: true; data: { remainingSource?: string } }
+	// scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
+	| {
+			id?: string;
+			type: "response";
+			command: "logout";
+			success: true;
+			data: { remainingSource?: string; providerId?: string };
+	  }
+	// scient(SA-AUTH): end
 
 	// Word prediction
 	| { id?: string; type: "response"; command: "predict_word"; success: true; data: { suffix: string | null } }
