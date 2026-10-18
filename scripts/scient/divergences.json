@@ -101,7 +101,6 @@
 				"crates/pi-natives/src/crash_handler.rs",
 				"crates/pi-natives/src/oauth_callback/darwin.rs",
 				"crates/pi-natives/src/oauth_callback/linux.rs",
-				"packages/coding-agent/src/config.ts",
 				"packages/coding-agent/src/tools/browser/storage-state.ts",
 				"packages/utils/src/dirs.ts",
 				"packages/utils/src/env.ts"
@@ -176,8 +175,14 @@
 		"SA-WORKER": {
 			"status": "active",
 			"contract": "Shared workers (tiny model, embedding server) carry the product version, so a new Scient Agent release never reuses an earlier release's worker.",
-			"owned": ["packages/coding-agent/src/scient/worker-tag.ts", "packages/coding-agent/test/scient/worker-tag.test.ts"],
-			"upstream": ["packages/coding-agent/src/mnemopi/embed-client.ts", "packages/coding-agent/src/tiny/title-client.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/worker-tag.ts",
+				"packages/coding-agent/test/scient/worker-tag.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/mnemopi/embed-client.ts",
+				"packages/coding-agent/src/tiny/title-client.ts"
+			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/worker-tag.test.ts"]
 		},
 		"SA-BRAND": {
@@ -200,7 +205,11 @@
 		"SA-BUILD": {
 			"status": "active",
 			"contract": "Scient builds the native addon with cargo on the pinned toolchain: stable expressions where Oh My Pi's Bazel build allows unstable ones.",
-			"upstream": ["crates/pi-vfs/src/canonicalize.rs", "crates/pi-vfs/src/native/windows.rs", "crates/pi-vfs/src/path.rs"]
+			"upstream": [
+				"crates/pi-vfs/src/canonicalize.rs",
+				"crates/pi-vfs/src/native/windows.rs",
+				"crates/pi-vfs/src/path.rs"
+			]
 		}
 	}
 }
