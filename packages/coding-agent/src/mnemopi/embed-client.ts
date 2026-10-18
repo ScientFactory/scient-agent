@@ -1,6 +1,9 @@
 import * as path from "node:path";
 import { isFastembedModelCached } from "@oh-my-pi/pi-mnemopi/core/fastembed-model-cache";
 import { getFastembedCacheDir, getMnemopiEmbedRuntimeDir, logger, VERSION } from "@oh-my-pi/pi-utils";
+// scient(SA-WORKER): begin - Shared workers carry Scient Agent's release.
+import { workerTag } from "../scient/worker-tag";
+// scient(SA-WORKER): end
 import { MNEMOPI_EMBED_SERVER_WORKER_ARG } from "../cli/worker-selectors";
 import { trackDownload } from "../downloads/activity";
 import {
@@ -137,7 +140,9 @@ export function mnemopiEmbedServerName(model: MnemopiEmbedModelId, cacheDir: str
 export function mnemopiEmbedLaunch(model: MnemopiEmbedModelId, env: Record<string, string> = {}): SharedWorkerLaunch {
 	return {
 		label: `mnemopi embed server for ${model}`,
-		tag: VERSION,
+		// scient(SA-WORKER): begin - Shared workers carry Scient Agent's release.
+		tag: workerTag(VERSION),
+		// scient(SA-WORKER): end
 		spawn(endpoint, logPath) {
 			const command = resolveWorkerSpawnCmd(MNEMOPI_EMBED_SERVER_WORKER_ARG);
 			// The server never loads onnxruntime itself; its child gets the
@@ -146,7 +151,9 @@ export function mnemopiEmbedLaunch(model: MnemopiEmbedModelId, env: Record<strin
 				...env,
 				[MNEMOPI_EMBED_SOCKET_ENV]: endpoint,
 				[MNEMOPI_EMBED_MODEL_ENV]: model,
-				[MNEMOPI_EMBED_TAG_ENV]: VERSION,
+				// scient(SA-WORKER): begin - The server checks the same tag.
+				[MNEMOPI_EMBED_TAG_ENV]: workerTag(VERSION),
+				// scient(SA-WORKER): end
 			});
 			return Promise.resolve(spawnDetached(command.cmd, command.cwd, serverEnv, logPath));
 		},
