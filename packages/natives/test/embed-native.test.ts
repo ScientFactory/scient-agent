@@ -131,7 +131,10 @@ describe("native addon embedding", () => {
 					stderr: "ignore",
 				});
 				expect(await child.exited).toBe(0);
-				const extracted = (await fs.readdir(path.join(cache, packageJson.version)))
+				// scient(SA-NATIVE-CACHE): begin - A compiled binary extracts into its build's folder inside the version's.
+				const [build] = await fs.readdir(path.join(cache, packageJson.version));
+				const extracted = (await fs.readdir(path.join(cache, packageJson.version, build)))
+					// scient(SA-NATIVE-CACHE): end
 					.filter(filename => filename.endsWith(".node"))
 					.sort();
 				expect(extracted).toEqual(
