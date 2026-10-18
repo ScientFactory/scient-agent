@@ -225,6 +225,11 @@ class RemoteCredentials implements CredentialsApi {
 	get generation(): number {
 		return this.#remote.callSync("credentials.generation");
 	}
+	// scient(SA-AUTH): begin - A broker's sign-ins stay with the broker, in a worker too.
+	get heldByBroker(): boolean {
+		return this.#remote.callSync("credentials.heldByBroker");
+	}
+	// scient(SA-AUTH): end
 	onGeneration(listener: (generation: number) => void): () => void {
 		return remoteUnsubscribe(this.#remote.callSync("credentials.onGeneration", listener));
 	}
