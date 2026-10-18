@@ -1110,7 +1110,9 @@ export const cfgStartupSetupWizard = register({
 export const cfgStartupCheckUpdate = register({
 	id: "startup.checkUpdate",
 	type: "boolean",
-	default: true,
+	// scient(SA-SERVICES): begin - Scient Agent has no self-updater: its host or installer replaces it.
+	default: false,
+	// scient(SA-SERVICES): end
 	ui: {
 		tab: "interaction",
 		group: "Startup & Updates",
@@ -1140,7 +1142,9 @@ export const cfgMarketplaceAutoUpdate = register({
 	id: "marketplace.autoUpdate",
 	type: "enum",
 	values: ["off", "notify", "auto"] as const,
-	default: "notify",
+	// scient(SA-SERVICES): begin - Nothing fetches at startup unless the user turns it on.
+	default: "off",
+	// scient(SA-SERVICES): end
 	ui: {
 		tab: "interaction",
 		group: "Startup & Updates",

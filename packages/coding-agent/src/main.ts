@@ -20,6 +20,9 @@ import {
 	setProjectDir,
 	VERSION,
 } from "@oh-my-pi/pi-utils/dirs";
+// scient(SA-SERVICES): begin - Scient Agent never asks Oh My Pi's release service.
+import { SELF_UPDATE } from "./scient/updates";
+// scient(SA-SERVICES): end
 import { $env, isBunTestRuntime, isCompiledBinary, setInteractiveHost } from "@oh-my-pi/pi-utils/env";
 import * as logger from "@oh-my-pi/pi-utils/logger";
 import * as postmortem from "@oh-my-pi/pi-utils/postmortem";
@@ -239,6 +242,9 @@ export function writeStartupNotice(parsedArgs: Pick<Args, "mode">, text: string)
 }
 
 async function checkForNewVersion(currentVersion: string): Promise<string | undefined> {
+	// scient(SA-SERVICES): begin - Scient Agent never asks Oh My Pi's release service.
+	if (!SELF_UPDATE) return;
+	// scient(SA-SERVICES): end
 	if (!cfgStartupCheckUpdate.get(settings)) {
 		return;
 	}
