@@ -1,0 +1,218 @@
+#!/usr/bin/env bun
+/**
+ * Runs one of Oh My Pi's CI test buckets with upstream's runner, unchanged
+ * (`scripts/ci-test-ts.ts <mode> --full`), and lets it fail only for a reason
+ * that is Scient's to fix.
+ *
+ * A failed bucket passes only when every failure is one `KNOWN_FAILURES` lists
+ * for the exact Oh My Pi commit `scient.json` names: a test that fails on that
+ * commit untouched, on the runner this workflow uses. The entries lapse at the
+ * next alignment, which checks them again. Anything else fails the run: an
+ * unlisted test, a chunk that crashed or was killed, an error outside any test,
+ * and a report this cannot reconcile in full.
+ *
+ * `--full` makes the runner print each chunk's whole Bun output, so Bun's own
+ * counts can be checked against the failures it names. Its quiet report lists
+ * only the failures it can attribute and may leave out an error that a test
+ * file threw while loading. `--full` changes what is printed, not what runs.
+ *
+ *   bun scripts/scient/upstream-tests.ts <mode>
+ */
+import * as path from "node:path";
+
+/** A test that fails on untouched Oh My Pi at `commit`, with the evidence. */
+interface KnownFailure {
+	commit: string;
+	/** `<package>/<test file> > <describe> > <test>`. */
+	test: string;
+	evidence: string;
+}
+
+// Seen failing on untouched 18.18.0 on ubuntu-22.04 (2026-11-07), in 8 coding-agent-native and
+// 8 workspace bucket runs; SCIENT.md, "Eighth alignment intake", has the counts.
+const KNOWN_FAILURES: KnownFailure[] = [
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > first-event timeout remains a local failure and TurnRecovery continues over SSE instead of treating it as caller cancellation",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > idle timeout remains a local failure and TurnRecovery continues over SSE instead of treating it as caller cancellation",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > retains text already delivered over RPC and TurnRecovery sends a new SSE continuation, not a replay",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-freeze-settle.test.ts > browser settle \u2014 lifecycle freeze via CDP > browser settle \u2014 real headless Chromium > closes a frozen tab directly",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-interactions.test.ts > browser input cut off mid-gesture > a click that timed out on a page busy in its own script does not click its target once the page answers",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-relay-detach.test.ts > relay tabs Chrome detaches Scient Agent from > keeps the recovered tab but fails an open whose navigation never started before its budget ran out",
+		evidence: "Failed in 2 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-relay-tab-isolation.test.ts > relay tab ownership > opens a default tab in the browser of the tab Scient Agent used last, not the first selected one",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > closes a reattached headless tab's page when the tab is released",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > leaves a tab closed while its crashed page is being reattached closed",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > leaves a tab reopened under the same name alone when the closed one's reattach fails",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > reattaches to a page Puppeteer has not listed yet because its URL is still empty",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > reports the reload when an open navigates a tab whose renderer crashed",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > closing a Scient Agent-owned page > closes the page by id when its worker reports closed without closing it",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/coding-agent/test/tools/read-pdf-screenshot-chromium.test.ts > PDF page screenshots in Chromium > paints each requested image-only page instead of the empty viewer",
+		evidence: "Failed in 2 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
+	},
+	{
+		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		test: "packages/utils/test/ptree-signal.test.ts > ptree signal abort handling > aborts a pipe holder after an earlier graceful stop finishes",
+		evidence:
+			"Workspace bucket: failed in 1 of 6 runs untouched and 1 of 6 on Scient's replay in a second probe, and in 2 of 3 runs of the alignment pull request. The fixture signals readiness from the root shell before its descendant ignores SIGTERM.",
+	},
+];
+
+/** Why a bucket's failure is or is not acceptable. */
+export interface Judgement {
+	/** Known failures that occurred; the run passes when `problems` is empty. */
+	known: string[];
+	problems: string[];
+}
+
+const CHUNK_HEADER = /^==> \[\d+\/\d+\] (.+) \((?:ok|FAILED exit (\d+)), [\d.]+s\)$/;
+const FAILED_FOOTER = /^(\d+) of \d+ test chunk\(s\) FAILED$/;
+
+/**
+ * Judges a failed `ci-test-ts.ts <mode> --full` run from its exit code and
+ * output: a `==> [i/n] <label> (FAILED exit N, …)` block per failed chunk with
+ * Bun's whole output, and a `N of M test chunk(s) FAILED` footer.
+ */
+export function judge(exitCode: number, output: string, known: ReadonlySet<string>): Judgement {
+	const problems: string[] = [];
+	const seen: string[] = [];
+	if (exitCode !== 1) problems.push(`the runner exited ${exitCode}, not with failed tests`);
+	const lines = output.split(/\r?\n/);
+	const failed = Number(lines.map(line => FAILED_FOOTER.exec(line)?.[1]).find(Boolean) ?? 0);
+	if (failed === 0) problems.push("the runner printed no failure summary");
+
+	let chunks = 0;
+	for (let start = 0; start < lines.length; start++) {
+		const header = CHUNK_HEADER.exec(lines[start]);
+		if (!header?.[2]) continue;
+		chunks++;
+		let end = start + 1;
+		while (end < lines.length && !CHUNK_HEADER.test(lines[end]) && !FAILED_FOOTER.test(lines[end])) end++;
+		problems.push(...judgeChunk(header[1], Number(header[2]), lines.slice(start + 1, end), known, seen));
+		start = end - 1;
+	}
+	if (chunks !== failed) problems.push(`the runner says ${failed} chunks failed; ${chunks} were reported`);
+	return { known: seen, problems };
+}
+
+/** The problems with one failed chunk, given Bun's whole output for it. */
+function judgeChunk(
+	label: string,
+	exit: number,
+	lines: string[],
+	known: ReadonlySet<string>,
+	seen: string[],
+): string[] {
+	if (exit !== 1) return [`${label}: exited ${exit}, not with failed tests`];
+	const problems: string[] = [];
+	const pkg = label.split(" ")[0];
+	const failures: string[] = [];
+	let file: string | undefined;
+	let failCount: number | undefined;
+	let finished = false;
+	let recap = false;
+	for (const raw of lines) {
+		const line = raw.trim();
+		if (line.startsWith("# Unhandled error")) problems.push(`${label}: an error outside any test`);
+		const errors = /^(\d+) errors?$/.exec(line);
+		if (errors && errors[1] !== "0") problems.push(`${label}: Bun counted ${errors[1]} errors outside tests`);
+		const fails = /^(\d+) fail$/.exec(line);
+		if (fails) failCount = Number(fails[1]);
+		if (/^Ran \d+ tests? across \d+ files?\./.test(line)) finished = true;
+		// Bun lists the failures again at the end; they are counted where they happened.
+		if (/^\d+ tests? failed:$/.test(line)) recap = true;
+		const header = /^(\S.*\.test\.[cm]?[jt]sx?):$/.exec(line);
+		if (header) file = header[1].replaceAll("\\", "/");
+		const marker = /^\(fail\) (.+?)(?: \[[\d.]+m?s\])?$/.exec(line);
+		if (marker && !recap) failures.push(file ? `${pkg}/${file} > ${marker[1]}` : `${pkg}: ${marker[1]}`);
+	}
+	if (!finished || failCount === undefined) problems.push(`${label}: Bun did not finish its report`);
+	else if (failCount !== failures.length) {
+		problems.push(`${label}: Bun counted ${failCount} failures and named ${failures.length}`);
+	}
+	if (failures.length === 0) problems.push(`${label}: failed without naming a test`);
+	for (const id of failures) {
+		if (known.has(id)) seen.push(id);
+		else problems.push(`failed: ${id}`);
+	}
+	return problems;
+}
+
+if (import.meta.main) {
+	const mode = process.argv[2];
+	if (!mode) {
+		console.error("Usage: bun scripts/scient/upstream-tests.ts <mode>");
+		process.exit(2);
+	}
+	const repoRoot = path.resolve(import.meta.dir, "..", "..");
+	const runner = ["bun", "scripts/ci-test-ts.ts", mode, "--full"];
+	const child = Bun.spawn(runner, { cwd: repoRoot, stdout: "pipe", stderr: "inherit" });
+	let output = "";
+	const decoder = new TextDecoder();
+	for await (const bytes of child.stdout) {
+		const text = decoder.decode(bytes, { stream: true });
+		output += text;
+		process.stdout.write(text);
+	}
+	const exitCode = await child.exited;
+	// The exit code is set, not passed to process.exit(), which would cut off output still on its way to a pipe.
+	if (exitCode !== 0) {
+		const { upstream } = await Bun.file(path.join(repoRoot, "scient.json")).json();
+		const known = new Set(KNOWN_FAILURES.filter(entry => entry.commit === upstream.commit).map(entry => entry.test));
+		const { known: seen, problems } = judge(exitCode, output, known);
+		for (const id of seen) console.log(`::warning::Fails on untouched Oh My Pi ${upstream.version} too: ${id}`);
+		for (const problem of problems) console.log(`::error::${problem}`);
+		process.exitCode = problems.length > 0 ? 1 : 0;
+	}
+}
