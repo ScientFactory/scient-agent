@@ -16,6 +16,9 @@ import * as AIError from "../../error";
 import * as nativeSchemeCallback from "./native-scheme-callback";
 import type { NativeSchemeCallbackReceiver } from "./native-scheme-callback";
 import templateHtml from "./oauth.html" with { type: "text" };
+// scient(SA-BRAND): begin - The sign-in result page shows Scient Agent's symbol and colors.
+import { brandCallbackPage } from "../../scient/callback-page";
+// scient(SA-BRAND): end
 import type { OAuthController, OAuthCredentials } from "./types";
 
 const DEFAULT_TIMEOUT = 300_000;
@@ -595,7 +598,11 @@ export abstract class OAuthCallbackFlow {
 		}
 
 		return new Response(
-			(templateHtml as unknown as string).replaceAll("__OAUTH_STATE__", () => serializeCallbackState(resultState)),
+			// scient(SA-BRAND): begin - The sign-in result page shows Scient Agent's symbol and colors.
+			brandCallbackPage(templateHtml as unknown as string).replaceAll("__OAUTH_STATE__", () =>
+				serializeCallbackState(resultState),
+			),
+			// scient(SA-BRAND): end
 			{
 				status: resultState.ok ? 200 : 500,
 				headers: { "Content-Type": "text/html" },
