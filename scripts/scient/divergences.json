@@ -193,10 +193,15 @@
 			"owned": [
 				"packages/utils/src/scient/brand.ts",
 				"packages/utils/src/scient/scient-agent-symbol.svg.txt",
+				"packages/utils/src/scient/scient-agent-favicon.ico",
 				"packages/ai/src/scient/callback-page.ts",
 				"packages/ai/test/scient/callback-page.test.ts"
 			],
-			"upstream": ["packages/ai/src/registry/oauth/callback-server.ts", "packages/stats/src/client/app/Shell.tsx"],
+			"upstream": [
+				"packages/ai/src/registry/oauth/callback-server.ts",
+				"packages/stats/build.ts",
+				"packages/stats/src/client/app/Shell.tsx"
+			],
 			"verification": ["bun --cwd=packages/ai test test/scient/callback-page.test.ts"]
 		},
 		"SA-POLICY": {
