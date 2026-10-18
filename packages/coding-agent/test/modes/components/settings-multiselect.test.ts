@@ -87,6 +87,9 @@ function clickOption(component: SettingsSelectorComponent, label: string): void 
 
 describe("settings section sidebar", () => {
 	it("does not toggle the selected section's first setting", () => {
+		// scient(SA-SERVICES): begin - Auto QA is off by default; this test watches it stay on.
+		cfgDevAutoqa.set(settings, true);
+		// scient(SA-SERVICES): end
 		const comp = createSelector();
 		for (let i = 0; i < 7; i++) comp.handleInput("\x1b[C");
 		expect(cfgDevAutoqa.get(settings)).toBe(true);
