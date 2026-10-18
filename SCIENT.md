@@ -1209,6 +1209,17 @@ The macOS native test process preloads `scripts/scient/macos-spelling-ready.ts`.
 
 The other two browser tests that failed `main` on 2026-11-16 need no row. "does not call a cancelled run's page listeners" (`browser-nav-frames-dialogs.test.ts`) is in `KNOWN_FAILURES` for 18.22.0. The relay default-tab test (`browser-relay-tab-isolation`) was fixed by #75 and has not failed since.
 
+## Definition of done
+
+Report work as done only when all of these hold on the final head. Without a pull request, the handback carries what the pull request would.
+
+- `bun check` and the focused tests of the changed area pass, and so do the checks above that the change touches: `divergence-check.ts` for any change to an Oh My Pi file, and the generators' `--check` for names and wording.
+- A change to a page or screen the agent shows (sign-in pages, the stats dashboard, the terminal) has before/after screenshots in the pull request, light and dark where the screen has both, checked against Scient Desktop's [UI checklist](https://github.com/ScientFactory/scient-desktop/blob/main/docs/internals/web-ui.md#ui-checklist) and attached as its "Screenshots in a PR" describes.
+- Every link a reader can follow that the change adds (docs, messages, pull request text) was fetched once and works.
+- The pull request says, for macOS, Linux and Windows, what ran there and what is still unproven. The six-platform CI proves the build and the isolation check on each system, not behavior that differs between them.
+- The pull request names its review and result in the template's Review section.
+- The delivery the task allowed is complete. Without pull request authorization, the handback names the branch, head and what is still owed. Merge only when authorized, on the head that had its review, after `gh pr checks <number>` shows every job green, `CI passed` included, which `main` requires (`gh pr merge <number> --rebase --match-head-commit <sha>`). Rerun a failed job the change cannot have caused once; if it fails again, report it instead of merging.
+
 ## Release
 
 `.github/workflows/scient.yml` builds and checks every platform on every push to `main` and on every pull request into it: macOS (Apple silicon and Intel), Linux (x86-64 and ARM64, glibc) and Windows (x86-64 and ARM64), each on its own GitHub-hosted runner, each with the isolation check. The first step stamps the commit into `packages/coding-agent/src/scient/build-id.ts` (`scripts/scient/stamp-build-id.ts`), which `--runtime-info` reports; a build made elsewhere reports `source`. On x86-64 the binary carries the `modern` (AVX2) and `baseline` native addons (`PI_NATIVE_X64_VARIANT` builds each). Before an addon is cached and embedded, `scripts/scient/strip-native.ts` strips the symbol tables and debug information the `local` cargo profile leaves, as Oh My Pi strips its release addons: Apple's `strip -x -S` on macOS, which keeps the arm64 linker signature valid, and `strip --strip-unneeded` on Linux. Windows keeps that information in separate `.pdb` files, so its addons are left as built.
