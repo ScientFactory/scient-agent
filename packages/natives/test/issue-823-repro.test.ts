@@ -282,6 +282,9 @@ describe("issue 823: standalone-binary native loader path resolution", () => {
 			const current = await embeddedFile("baseline", "pi_natives.win32-x64-baseline.node", "aaaa", "current");
 			const older = await embeddedFile("baseline", "pi_natives.win32-x64-baseline.node", "bbbb", "older");
 			extractEmbeddedAddons({ files: [current, older], targetDir: testDir });
+			// scient(SA-NATIVE-CACHE): begin - Make the other build old enough for cleanup.
+			await fs.utimes(path.dirname(embeddedAddonPath(testDir, older)), 0, 0);
+			// scient(SA-NATIVE-CACHE): end
 			// Unhashed files belong to node_modules staging, not to extraction.
 			const staged = path.join(testDir, "pi_natives.win32-x64-baseline.node");
 			await Bun.write(staged, "staged");

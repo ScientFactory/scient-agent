@@ -56,6 +56,11 @@ function startupMarker(text) {
 }
 
 function getNativesDir() {
+	// scient(SA-NATIVE-CACHE): begin - Native state stays inside a host-assigned root.
+	// Inline, as pi-utils' `scient/root.ts` rules: Oh My Pi's tests copy this file alone.
+	const hostRoot = process.env.SCIENT_AGENT_ROOT;
+	if (hostRoot && path.isAbsolute(hostRoot)) return path.join(hostRoot, "natives");
+	// scient(SA-NATIVE-CACHE): end
 	// Match pi-utils directory overrides without depending on pi-utils.
 	const override = process.env.SCIENT_AGENT_NATIVES_DIR?.trim();
 	if (override) {
@@ -530,6 +535,9 @@ export function extractEmbeddedAddons({ files, targetDir }) {
 	const writtenPaths = [];
 	for (const file of files) {
 		const targetPath = embeddedAddonPath(targetDir, file);
+		// scient(SA-NATIVE-CACHE): begin - Refresh this addon's folder before loading, including on a cache hit.
+		prepareNativeVersionDir(path.dirname(targetPath));
+		// scient(SA-NATIVE-CACHE): end
 		if (isEmbeddedAddonFileCurrent(targetPath, file)) continue;
 		const content = Bun.zstdDecompressSync(fs.readFileSync(file.zstdPath));
 		if (content.length !== file.size) {
@@ -567,6 +575,9 @@ export function pruneStaleEmbeddedAddons({ targetDir, keepHashes }) {
 		if (!entry.isDirectory() || !entry.name.startsWith(EMBEDDED_ADDON_DIR_PREFIX) || keep.has(entry.name)) continue;
 		const dir = path.join(targetDir, entry.name);
 		try {
+			// scient(SA-NATIVE-CACHE): begin - Concurrent builds on the same package version keep a week to reuse their addons.
+			if (Date.now() - fs.statSync(dir).mtimeMs < 7 * 24 * 60 * 60_000) continue;
+			// scient(SA-NATIVE-CACHE): end
 			fs.rmSync(dir, { recursive: true, force: true });
 			removed.push(dir);
 		} catch {
@@ -1061,7 +1072,9 @@ export function loadNative() {
 	const { primary: primaryEmbeddedFile, fallback: fallbackEmbeddedFile } = embeddedProbeFiles(ctx);
 	const fallbackEmbeddedPath = fallbackEmbeddedFile && embeddedAddonPath(ctx.versionedDir, fallbackEmbeddedFile);
 	const runtimeCandidates = resolveRuntimeCandidates({
-		candidates: ctx.candidates,
+		// scient(SA-NATIVE-CACHE): begin - A matching manifest supplies every candidate, including its baseline.
+		candidates: hasEmbedded ? [] : ctx.candidates,
+		// scient(SA-NATIVE-CACHE): end
 		versionedDir: ctx.versionedDir,
 		hasEmbedded,
 		embedded: [embeddedCandidate, fallbackEmbeddedPath].filter(c => typeof c === "string"),
