@@ -52,8 +52,7 @@ const KNOWN_FAILURES: KnownFailure[] = [
 	{
 		commit: "291e055836c210f314af3f73f53244e8e9d09de8",
 		test: "packages/coding-agent/test/tools/browser-nav-frames-dialogs.test.ts > browser navigation, frames, dialogs, and tab listing > does not call a cancelled run's page listeners for the requests the cancel stops",
-		evidence:
-			"Failed in 1 of 16 bucket runs untouched. On 18.11.3 a test in the same file failed once untouched, with identical chunks.",
+		evidence: "Failed in 1 of 16 bucket runs untouched, at its 30-second timeout.",
 	},
 	{
 		commit: "291e055836c210f314af3f73f53244e8e9d09de8",

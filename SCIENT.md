@@ -470,7 +470,7 @@ Reviewing upstream's range for Scient's seams found nothing to adapt. Inherited 
 
 Each is listed for 18.12.1's commit. The status-line test had also failed once on Scient's CI for 18.11.3. "closes a reattached headless tab's page" did not fail in those six runs, so it was dropped. Scient's first CI run failed only in listed tests.
 
-The `v0.1.1` tag's CI run then failed in that dropped test. Rerunning the failed job passed, and the release was drafted from that run. The `coding-agent-native` bucket was then run 10 more times on untouched 18.12.1:
+The `v0.1.1` tag's CI run (39137517773) then failed in that dropped test. Rerunning the failed job passed, and the release was drafted from that run. The `coding-agent-native` bucket was then run 10 more times on untouched 18.12.1:
 
 | Test | Untouched, 10 more runs | Untouched, all 16 |
 |---|---|---|
@@ -481,7 +481,12 @@ The `v0.1.1` tag's CI run then failed in that dropped test. Rerunning the failed
 | "does not call a cancelled run's page listeners for the requests the cancel stops" | 1 | 1 |
 | "keeps firing #onBranchChange across consecutive branch switches" | 0 | 1 |
 
-The two tests failing in this probe, and not listed, are now listed: the headless-tab test and a browser cancellation test. A test in the cancellation test's file had also failed once on untouched 18.11.3. Six runs were too few to judge a test that fails about one time in eight.
+The two tests failing in this probe, and not listed, are now listed: the headless-tab test, and a browser cancellation test that hit its 30-second timeout. Six runs were too few to judge a test that fails about one time in eight.
+
+**Release.** `v0.1.1` was published from that run's draft, which held all six executables, each with its `.sha256`. Before publishing, the released Windows x64 executable was checked separately from the PR build qualified above:
+- its SHA-256 (`3238a3f187…`) matches its checksum file;
+- `--runtime-info` reports 0.1.1 on Oh My Pi 18.12.1, build id `0aff6a650899` (the `main` commit);
+- `capability-check.ts`, run after v0.1.0, passed every case.
 
 #### Local checks
 
