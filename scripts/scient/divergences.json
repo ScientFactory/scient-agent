@@ -64,7 +64,7 @@
 		},
 		"SA-PRODUCT": {
 			"status": "active",
-			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps.",
+			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps and the Scient commands a host may run (hostCommands).",
 			"owned": [
 				"scient.json",
 				"scripts/scient/stamp-build-id.ts",
