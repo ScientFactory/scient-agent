@@ -1,0 +1,382 @@
+name: Scient Agent
+
+# Builds Scient Agent for every platform it supports on every push to main and
+# every pull request into it, and checks that each build keeps its state apart
+# from a stock omp. The macOS builds are signed on Linux by upstream's
+# scripts/ci-macos-sign.sh, ad hoc on every run so the signing path is always
+# exercised, then checked on macOS. A `v*` tag signs them with the Developer ID,
+# notarizes them and drafts a GitHub release with every binary and its
+# checksum; a person publishes the draft. A manual run can sign and notarize
+# without drafting a release, to qualify the signing secrets. Oh My Pi's own
+# test suite runs on Linux against Scient's tree, as upstream's CI runs it.
+
+on:
+   push:
+      branches: ["main", "scient/**"]
+      tags: ["v*"]
+   pull_request:
+      branches: ["main"]
+   workflow_dispatch:
+      inputs:
+         developer-id:
+            description: Sign the macOS builds with the Developer ID and notarize them (no release is drafted)
+            type: boolean
+            default: false
+
+permissions:
+   contents: read
+
+concurrency:
+   # A manual run never cancels, or is cancelled by, a push to the same branch.
+   group: scient-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'manual' || 'auto' }}
+   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+   # A release is a pushed product tag. A manual run never drafts one, even against a tag.
+   RELEASE: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+   DEVELOPER_ID: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || inputs.developer-id == true }}
+
+defaults:
+   run:
+      # Windows runners default to PowerShell.
+      shell: bash
+
+jobs:
+   build:
+      name: Build and check (${{ matrix.id }})
+      runs-on: ${{ matrix.runner }}
+      timeout-minutes: 150
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { id: darwin-arm64, runner: macos-15, x64: false }
+               - { id: darwin-x64, runner: macos-15-intel, x64: true }
+               - { id: linux-x64, runner: ubuntu-22.04, x64: true }
+               - { id: linux-arm64, runner: ubuntu-22.04-arm, x64: false }
+               - { id: windows-x64, runner: windows-2022, x64: true }
+               - { id: windows-arm64, runner: windows-11-arm, x64: false }
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         # Before any step changes a tracked file, so a clean checkout is not reported dirty.
+         - name: Stamp the build id
+           run: bun scripts/scient/stamp-build-id.ts
+
+         - name: Install build tools
+           run: |
+              case "$RUNNER_OS" in
+                 macOS) brew install ninja ;;
+                 Linux) sudo apt-get update && sudo apt-get install -y ninja-build ;;
+                 Windows) choco install ninja -y --no-progress ;;
+              esac
+              rustup show active-toolchain || rustup toolchain install
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Check the generated commits and types
+           if: matrix.id == 'darwin-arm64'
+           run: |
+              bun scripts/scient/rename-identity.ts --check
+              bun scripts/scient/rename-wording.ts --check
+              bun run check:ts
+
+         # On x86-64 the binary carries two addons and picks one at startup:
+         # `modern` (AVX2) and `baseline`, for processors without AVX2.
+         - name: Build the native addon
+           run: |
+              if [ "${{ matrix.x64 }}" = "true" ]; then
+                 PI_NATIVE_X64_VARIANT=baseline bun run build:native
+                 PI_NATIVE_X64_VARIANT=modern bun run build:native
+              else
+                 bun run build:native
+              fi
+
+         # Scient's own tests, and the packages whose state layout differs by
+         # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).
+         - name: Test Scient's code
+           if: matrix.id == 'darwin-arm64'
+           run: |
+              bun --cwd=packages/utils test
+              bun --cwd=packages/natives test
+              bun --cwd=packages/coding-agent test test/scient
+              bun --cwd=packages/ai test test/scient
+              bun test scripts/scient
+
+         - name: Build the binary
+           run: |
+              bun --cwd=packages/coding-agent run build
+              binary=packages/coding-agent/dist/scient-agent
+              [ -f "$binary.exe" ] && binary="$binary.exe"
+              echo "BINARY=$binary" >> "$GITHUB_ENV"
+              "$binary" --version < /dev/null
+
+         - name: Check the release matches its tag
+           if: env.RELEASE == 'true'
+           run: |
+              version="$("$BINARY" --version < /dev/null)"
+              test "$version" = "scient-agent/${GITHUB_REF_NAME#v}"
+
+         - name: Check state isolation
+           run: bun scripts/scient/isolation-check.ts "$BINARY"
+
+         - name: Package
+           run: |
+              name="scient-agent-${{ matrix.id }}"
+              [ "${{ runner.os }}" = "Windows" ] && name="$name.exe"
+              mkdir -p release
+              cp "$BINARY" "release/$name"
+              # A macOS build is checksummed once it is signed (sign-macos).
+              [ "${{ runner.os }}" = "macOS" ] && exit 0
+              bun -e 'const [file] = process.argv.slice(1); const hash = new Bun.CryptoHasher("sha256"); hash.update(await Bun.file(file).arrayBuffer()); console.log(`${hash.digest("hex")}  ${file.split("/").pop()}`);' "release/$name" > "release/$name.sha256"
+              cat "release/$name.sha256"
+
+         - uses: actions/upload-artifact@v4
+           with:
+              # The release collects `scient-agent-*` artifacts only, so an
+              # unsigned macOS build can never be published.
+              name: ${{ runner.os == 'macOS' && 'unsigned-' || '' }}scient-agent-${{ matrix.id }}
+              path: release/
+              if-no-files-found: error
+
+   # Oh My Pi's own tests, run as its CI runs them, on Scient's tree: a change
+   # Scient makes must not break what upstream's tests hold.
+   natives-linux:
+      name: Build the native addon for Oh My Pi's tests
+      runs-on: ubuntu-22.04
+      timeout-minutes: 60
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - name: Build the native addon
+           run: |
+              sudo apt-get update && sudo apt-get install -y ninja-build
+              rustup show active-toolchain || rustup toolchain install
+              bun install --frozen-lockfile
+              PI_NATIVE_X64_VARIANT=baseline bun run build:native
+              PI_NATIVE_X64_VARIANT=modern bun run build:native
+
+         - uses: actions/upload-artifact@v4
+           with:
+              name: natives-linux-x64
+              path: packages/natives/native/*.node
+              if-no-files-found: error
+              retention-days: 1
+
+   upstream-tests:
+      name: Oh My Pi's tests (${{ matrix.mode }})
+      needs: natives-linux
+      runs-on: ubuntu-22.04
+      timeout-minutes: 40
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { mode: workspace, concurrency: 4 }
+               - { mode: native, concurrency: 4 }
+               - { mode: coding-agent-singleton, concurrency: 1 }
+               - { mode: coding-agent-ui, concurrency: 2 }
+               - { mode: coding-agent-runtime, concurrency: 4 }
+               - { mode: coding-agent-native, concurrency: 4 }
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - uses: actions/download-artifact@v4
+           with:
+              name: natives-linux-x64
+              path: packages/natives/native
+
+         # Upstream's bucket, unchanged; only failures that untouched upstream has too may pass (see the script).
+         - name: Test
+           env:
+              OMP_TEST_CONCURRENCY: ${{ matrix.concurrency }}
+           run: bun scripts/scient/upstream-tests.ts ${{ matrix.mode }}
+
+         # Upstream's workspace job also runs its release-script test and a CLI smoke test.
+         - name: Test the release script and the CLI
+           if: matrix.mode == 'workspace'
+           run: |
+              bun test scripts/release.test.ts
+              bun run ci:test:smoke
+
+   divergence:
+      name: Check Scient's divergences
+      runs-on: ubuntu-24.04
+      timeout-minutes: 90
+      steps:
+         # The pull request's own head, not GitHub's merge commit: the check walks
+         # Scient's linear history from the accepted alignment.
+         - uses: actions/checkout@v4
+           with:
+              ref: ${{ github.event.pull_request.head.sha || github.sha }}
+              fetch-depth: 0
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         # The checker parses with the locked @babel/parser: without an install, Bun
+         # would fetch whatever version is newest when the job runs.
+         - name: Install dependencies
+           run: bun install --frozen-lockfile --ignore-scripts
+
+         - name: Fetch the accepted alignments
+           run: git fetch --force --no-tags origin 'refs/tags/omp-sync/*:refs/tags/omp-sync/*'
+
+         - name: Check
+           run: |
+              version="$(bun -e 'console.log((await Bun.file("scient.json").json()).upstream.version)')"
+              if git rev-parse -q --verify "refs/tags/omp-sync/v$version" > /dev/null; then
+                 bun scripts/scient/divergence-check.ts
+              else
+                 # An alignment with a new release: check its replay, which regenerates
+                 # the generated commits (they format Rust with the pinned toolchain).
+                 rustup show active-toolchain || rustup toolchain install
+                 git fetch --no-tags origin "refs/heads/replay/omp-v$version:refs/remotes/origin/replay/omp-v$version"
+                 bun scripts/scient/divergence-check.ts --replay "origin/replay/omp-v$version"
+              fi
+
+   sign-macos:
+      name: Sign (${{ matrix.id }})
+      needs: build
+      # Upstream's signer runs on Linux: it fetches a pinned linux-musl rcodesign.
+      runs-on: ubuntu-22.04
+      # Notarization may wait up to three times 30 minutes (scripts/ci-macos-sign.sh).
+      timeout-minutes: 120
+      strategy:
+         fail-fast: false
+         matrix:
+            id: [darwin-arm64, darwin-x64]
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: actions/download-artifact@v4
+           with:
+              name: unsigned-scient-agent-${{ matrix.id }}
+              path: release
+
+         - name: Sign ad hoc
+           if: env.DEVELOPER_ID != 'true'
+           run: bash scripts/ci-macos-sign.sh "release/scient-agent-${{ matrix.id }}"
+
+         - name: Sign with the Developer ID and notarize
+           if: env.DEVELOPER_ID == 'true'
+           # The same secrets, in the same form, as Scient Desktop's release.
+           env:
+              CSC_LINK: ${{ secrets.CSC_LINK }}
+              CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+              APPLE_API_KEY_TEXT: ${{ secrets.APPLE_API_KEY }}
+              APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+              APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+           run: |
+              for name in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_TEXT APPLE_API_KEY_ID APPLE_API_ISSUER; do
+                 if [ -z "${!name}" ]; then
+                    echo "::error::Developer ID signing needs the Apple signing secrets ($name is missing); an ad-hoc signed binary is not publishable."
+                    exit 1
+                 fi
+              done
+              # scripts/ci-macos-sign.sh takes the certificate and the key as base64.
+              APPLE_CERTIFICATE_P12="$CSC_LINK" \
+              APPLE_CERTIFICATE_PASSWORD="$CSC_KEY_PASSWORD" \
+              APPLE_API_KEY="$(printf '%s' "$APPLE_API_KEY_TEXT" | base64 | tr -d '\n')" \
+              APPLE_API_ISSUER_ID="$APPLE_API_ISSUER" \
+                 bash scripts/ci-macos-sign.sh "release/scient-agent-${{ matrix.id }}"
+
+         - name: Checksum
+           working-directory: release
+           run: sha256sum "scient-agent-${{ matrix.id }}" | tee "scient-agent-${{ matrix.id }}.sha256"
+
+         - uses: actions/upload-artifact@v4
+           with:
+              name: scient-agent-${{ matrix.id }}
+              path: release/
+              if-no-files-found: error
+
+   # Runs the exact signed bytes the release publishes on their own platform.
+   verify-macos:
+      name: Check signed build (${{ matrix.id }})
+      needs: sign-macos
+      runs-on: ${{ matrix.runner }}
+      timeout-minutes: 30
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { id: darwin-arm64, runner: macos-15 }
+               - { id: darwin-x64, runner: macos-15-intel }
+      steps:
+         - uses: actions/checkout@v4
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+
+         - uses: actions/download-artifact@v4
+           with:
+              name: scient-agent-${{ matrix.id }}
+              path: release
+
+         - name: Check the signature
+           run: |
+              (cd release && shasum -a 256 -c "scient-agent-${{ matrix.id }}.sha256")
+              binary="release/scient-agent-${{ matrix.id }}"
+              chmod +x "$binary"
+              echo "BINARY=$binary" >> "$GITHUB_ENV"
+              codesign --verify --strict --verbose=2 "$binary"
+              info="$(codesign -dvvv "$binary" 2>&1)"
+              echo "$info"
+              if [ "$DEVELOPER_ID" = "true" ] && grep -qE "flags=.*adhoc|Signature=adhoc" <<< "$info"; then
+                 echo "::error::$binary is ad-hoc signed; Developer ID signing did not run."
+                 exit 1
+              fi
+              "$binary" --version < /dev/null
+
+         - name: Check the release matches its tag
+           if: env.RELEASE == 'true'
+           run: |
+              version="$("$BINARY" --version < /dev/null)"
+              test "$version" = "scient-agent/${GITHUB_REF_NAME#v}"
+
+         - name: Check state isolation
+           run: bun scripts/scient/isolation-check.ts "$BINARY"
+
+   release:
+      name: Draft release
+      # Job conditions cannot read workflow env, so this repeats RELEASE.
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      needs: [build, verify-macos, divergence, upstream-tests]
+      runs-on: ubuntu-24.04
+      permissions:
+         contents: write
+      steps:
+         - uses: actions/download-artifact@v4
+           with:
+              pattern: scient-agent-*
+              path: release
+              merge-multiple: true
+         - name: Create the draft release
+           env:
+              GH_TOKEN: ${{ github.token }}
+           run: |
+              ls -l release
+              gh release create "$GITHUB_REF_NAME" release/* \
+                 --repo "$GITHUB_REPOSITORY" \
+                 --draft \
+                 --title "Scient Agent ${GITHUB_REF_NAME#v}" \
+                 --notes "Built from ${GITHUB_SHA}."
