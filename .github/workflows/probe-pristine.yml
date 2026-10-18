@@ -1,0 +1,79 @@
+name: Probe pristine 18.12.1 coding-agent-native bucket
+
+# Temporary: runs Oh My Pi 18.12.1's TypeScript test buckets, untouched, on the
+# runner and concurrency Scient's upstream-tests job uses, several times each,
+# to see whether the reattached headless tab test fails without Scient. Delete this branch afterwards.
+
+on:
+   push:
+      branches: ["probe/**"]
+
+permissions:
+   contents: read
+
+jobs:
+   natives:
+      runs-on: ubuntu-22.04
+      timeout-minutes: 60
+      steps:
+         - uses: actions/checkout@v4
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+         - run: |
+              sudo apt-get update && sudo apt-get install -y ninja-build
+              rustup show active-toolchain || rustup toolchain install
+              bun install --frozen-lockfile
+              PI_NATIVE_X64_VARIANT=baseline bun run build:native
+              PI_NATIVE_X64_VARIANT=modern bun run build:native
+         - uses: actions/upload-artifact@v4
+           with:
+              name: natives-linux-x64
+              path: packages/natives/native/*.node
+              if-no-files-found: error
+              retention-days: 1
+
+   tests:
+      needs: natives
+      name: ${{ matrix.mode }} run ${{ matrix.run }}
+      runs-on: ubuntu-22.04
+      timeout-minutes: 45
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { mode: coding-agent-native, concurrency: 4, run: 1 }
+               - { mode: coding-agent-native, concurrency: 4, run: 2 }
+               - { mode: coding-agent-native, concurrency: 4, run: 3 }
+               - { mode: coding-agent-native, concurrency: 4, run: 4 }
+               - { mode: coding-agent-native, concurrency: 4, run: 5 }
+               - { mode: coding-agent-native, concurrency: 4, run: 6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 7 }
+               - { mode: coding-agent-native, concurrency: 4, run: 8 }
+               - { mode: coding-agent-native, concurrency: 4, run: 9 }
+               - { mode: coding-agent-native, concurrency: 4, run: 10 }
+      steps:
+         - uses: actions/checkout@v4
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+         - run: bun install --frozen-lockfile
+         - uses: actions/download-artifact@v4
+           with:
+              name: natives-linux-x64
+              path: packages/natives/native
+         - name: The bucket, untouched
+           continue-on-error: true
+           env:
+              OMP_TEST_CONCURRENCY: ${{ matrix.concurrency }}
+           run: |
+              set +e
+              bun scripts/ci-test-ts.ts ${{ matrix.mode }} --full > bucket.log 2>&1
+              echo "exit=$?"
+              grep -E "\(fail\)|chunk\(s\) FAILED|chunks passed|# Unhandled error" bucket.log || true
+         - uses: actions/upload-artifact@v4
+           if: always()
+           with:
+              name: log-${{ matrix.mode }}-${{ matrix.run }}
+              path: bucket.log
+              retention-days: 5
