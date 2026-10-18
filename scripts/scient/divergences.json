@@ -1,0 +1,194 @@
+{
+	"schemaVersion": 1,
+	"entries": {
+		"GEN-IDENTITY": {
+			"status": "active",
+			"contract": "Scient Agent and a stock omp never read, write, steer or stand in for each other: state folders, variables, pipes and socket folders carry Scient's names, and so do the executable, process, log, sign-in helper and service names and the browser relay's port. Regenerated at every alignment.",
+			"owned": [
+				"scripts/scient/rename-identity.ts",
+				"scripts/scient/rename-identity.test.ts",
+				"scripts/scient/lib/format.ts"
+			],
+			"verification": ["bun scripts/scient/rename-identity.ts --check"]
+		},
+		"GEN-WORDING": {
+			"status": "active",
+			"contract": "The agent calls itself Scient Agent wherever a person or a model reads its words, prompts and the Python client's README included. Regenerated at every alignment.",
+			"owned": [
+				"scripts/scient/rename-wording.ts",
+				"scripts/scient/rename-wording.test.ts",
+				"scripts/scient/lib/text-spans.ts",
+				"scripts/scient/lib/format.ts"
+			],
+			"verification": ["bun scripts/scient/rename-wording.ts --check"]
+		},
+		"SA-RELEASE": {
+			"status": "active",
+			"contract": "Only Scient's own workflow builds, signs and drafts releases; Oh My Pi's publishing and repository automation is removed, and so is its Nix packaging, which installs and configures a stock omp.",
+			"owned": [
+				"SCIENT.md",
+				".github/README.md",
+				".github/workflows/scient.yml",
+				"scripts/scient/isolation-check.ts",
+				"scripts/scient/capability-check.ts",
+				"scripts/scient/divergence-check.ts",
+				"scripts/scient/divergence-check.test.ts",
+				"scripts/scient/divergences.json",
+				"scripts/scient/lib/ledger.ts",
+				"scripts/scient/lib/markers.ts",
+				"scripts/scient/native-variant.ts",
+				"scripts/scient/upstream-tests.ts",
+				"scripts/scient/upstream-tests.test.ts"
+			],
+			"upstream": ["scripts/host-detect.ts"],
+			"deleted": [
+				".github/workflows/ci.yml",
+				".github/workflows/nix.yml",
+				"flake.lock",
+				"flake.nix",
+				"nix/bun.nix",
+				"nix/dev-shell.nix",
+				"nix/home-manager.nix",
+				"nix/nixos-module.nix",
+				"nix/package.nix"
+			],
+			"verification": ["bun scripts/scient/divergence-check.ts", "bun scripts/scient/isolation-check.ts <binary>"]
+		},
+		"SA-PRODUCT": {
+			"status": "active",
+			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps.",
+			"owned": [
+				"scient.json",
+				"scripts/scient/stamp-build-id.ts",
+				"packages/utils/src/scient/product.ts",
+				"packages/utils/test/scient/product.test.ts",
+				"packages/coding-agent/src/scient/build-id.ts",
+				"packages/coding-agent/src/scient/runtime-info.ts",
+				"packages/coding-agent/test/scient/runtime-info.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/cli.ts",
+				"packages/coding-agent/src/commands/completions.ts",
+				"packages/mnemopi/test/optional-embeddings.test.ts",
+				"packages/utils/src/dirs.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/utils test test/scient/product.test.ts",
+				"bun --cwd=packages/coding-agent test test/scient/runtime-info.test.ts"
+			]
+		},
+		"SA-ROOT": {
+			"status": "active",
+			"contract": "State lives under Scient Agent's config root; a host-assigned root (SCIENT_AGENT_ROOT, from the launch environment only) is authoritative, also for user config, natives, global daemons, session owners, crash logs and .env files outside it; browser state follows the active root; a sign-in helper never takes over one Oh My Pi registered.",
+			"owned": [
+				"packages/utils/src/scient/root.ts",
+				"packages/utils/test/scient/host-root.test.ts",
+				"packages/coding-agent/test/scient/user-config-root.test.ts"
+			],
+			"upstream": [
+				"crates/pi-natives/src/crash_handler.rs",
+				"crates/pi-natives/src/oauth_callback/darwin.rs",
+				"crates/pi-natives/src/oauth_callback/linux.rs",
+				"packages/coding-agent/src/config.ts",
+				"packages/coding-agent/src/tools/browser/storage-state.ts",
+				"packages/utils/src/dirs.ts",
+				"packages/utils/src/env.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/utils test",
+				"bun --cwd=packages/coding-agent test test/scient/user-config-root.test.ts",
+				"bun scripts/scient/isolation-check.ts <binary>"
+			]
+		},
+		"SA-NATIVE-CACHE": {
+			"status": "active",
+			"contract": "A compiled binary extracts its addons into a folder named for their content and loads only from that folder, falling back from the modern addon to the same build's baseline one; under a host-assigned root the natives folder is the root's.",
+			"owned": [
+				"packages/natives/native/scient/build-cache.js",
+				"packages/natives/native/scient/build-cache.d.ts",
+				"packages/natives/test/scient/build-cache.test.ts"
+			],
+			"upstream": [
+				"packages/natives/native/loader-state.js",
+				"packages/natives/scripts/embed-native.ts",
+				"packages/natives/test/embed-native.test.ts"
+			],
+			"verification": ["bun --cwd=packages/natives test"]
+		},
+		"SA-SERVICES": {
+			"status": "active",
+			"contract": "Oh My Pi's self-updater, startup update check, startup marketplace refresh and automatic issue reports stay off; a host or installer replaces the executable.",
+			"owned": ["packages/coding-agent/src/scient/updates.ts", "packages/coding-agent/test/scient/services.test.ts"],
+			"upstream": [
+				"packages/coding-agent/src/commands/update.ts",
+				"packages/coding-agent/src/main.ts",
+				"packages/coding-agent/src/modes/settings.ts",
+				"packages/coding-agent/src/tools/settings.ts",
+				"packages/coding-agent/test/modes/components/settings-multiselect.test.ts",
+				"packages/coding-agent/test/settings-manager.test.ts",
+				"packages/coding-agent/test/tools/report-tool-issue.test.ts",
+				"packages/coding-agent/test/update-cli.test.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/services.test.ts"]
+		},
+		"SA-RPC-START": {
+			"status": "active",
+			"contract": "Over RPC the agent starts without a model; a host signs in and picks one afterwards. An explicit unresolvable --model still ends the run.",
+			"upstream": ["packages/coding-agent/src/main.ts"],
+			"verification": ["bun scripts/scient/isolation-check.ts <binary>"]
+		},
+		"SA-AUTH": {
+			"status": "active",
+			"contract": "A host sees each sign-in's kind, whether it is stored and the store it shares; sign-out over RPC removes it or fails; a broker's sign-ins stay with the broker; a sign-in completed in another process reaches a running session.",
+			"owned": [
+				"packages/coding-agent/src/scient/sign-in-providers.ts",
+				"packages/coding-agent/src/scient/reload-sign-ins.ts",
+				"packages/coding-agent/test/scient/sign-in-providers.test.ts",
+				"packages/coding-agent/test/scient/reload-sign-ins.test.ts"
+			],
+			"upstream": [
+				"packages/ai/src/auth/pool.ts",
+				"packages/ai/src/auth/types.ts",
+				"packages/coding-agent/src/config/model-registry.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-client.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				"packages/coding-agent/src/modes/rpc/wire/commands.ts",
+				"packages/coding-agent/src/modes/rpc/wire/state.ts",
+				"packages/coding-agent/src/slash-commands/helpers/logout.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/sign-in-providers.test.ts test/scient/reload-sign-ins.test.ts"
+			]
+		},
+		"SA-WORKER": {
+			"status": "active",
+			"contract": "Shared workers (tiny model, embedding server) carry the product version, so a new Scient Agent release never reuses an earlier release's worker.",
+			"owned": ["packages/coding-agent/src/scient/worker-tag.ts", "packages/coding-agent/test/scient/worker-tag.test.ts"],
+			"upstream": ["packages/coding-agent/src/mnemopi/embed-client.ts", "packages/coding-agent/src/tiny/title-client.ts"],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/worker-tag.test.ts"]
+		},
+		"SA-BRAND": {
+			"status": "active",
+			"contract": "Pages a person sees (the sign-in result page, the stats dashboard) carry Scient Agent's symbol and colors.",
+			"owned": [
+				"packages/utils/src/scient/brand.ts",
+				"packages/utils/src/scient/scient-agent-symbol.svg.txt",
+				"packages/ai/src/scient/callback-page.ts",
+				"packages/ai/test/scient/callback-page.test.ts"
+			],
+			"upstream": ["packages/ai/src/registry/oauth/callback-server.ts", "packages/stats/src/client/app/Shell.tsx"],
+			"verification": ["bun --cwd=packages/ai test test/scient/callback-page.test.ts"]
+		},
+		"SA-POLICY": {
+			"status": "active",
+			"contract": "An agent working here reads SCIENT.md first, and its rule on keeping Scient's changes apart comes before Oh My Pi's guidance; Scient accepts AI-assisted pull request descriptions, and the contributor stays responsible for them.",
+			"upstream": [".github/PULL_REQUEST_TEMPLATE.md", "AGENTS.md", "CONTRIBUTING.md"]
+		},
+		"SA-BUILD": {
+			"status": "active",
+			"contract": "Scient builds the native addon with cargo on the pinned toolchain: stable expressions where Oh My Pi's Bazel build allows unstable ones.",
+			"upstream": ["crates/pi-vfs/src/canonicalize.rs", "crates/pi-vfs/src/native/windows.rs", "crates/pi-vfs/src/path.rs"]
+		}
+	}
+}
