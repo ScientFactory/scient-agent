@@ -1,6 +1,8 @@
 ## What
 
-<!-- Brief description of the change. Include at least one sentence in your own words explaining what changed and why, as required by CONTRIBUTING.md. -->
+<!-- scient(SA-POLICY): begin - Scient accepts AI-assisted PR descriptions. -->
+<!-- Brief description of the change. AI-assisted wording is acceptable; review it for accuracy. -->
+<!-- scient(SA-POLICY): end -->
 
 ## Why
 
