@@ -136,9 +136,11 @@
 		},
 		"SA-SERVICES": {
 			"status": "active",
-			"contract": "Oh My Pi's self-updater, startup update check, startup marketplace refresh and automatic issue reports stay off; a host or installer replaces the executable.",
+			"contract": "Oh My Pi's self-updater and its background auto-update, startup update check, startup marketplace refresh and automatic issue reports stay off; a host or installer replaces the executable.",
 			"owned": ["packages/coding-agent/src/scient/updates.ts", "packages/coding-agent/test/scient/services.test.ts"],
 			"upstream": [
+				"packages/coding-agent/src/cli/auto-update.ts",
+				"packages/coding-agent/src/cli/update-cli.ts",
 				"packages/coding-agent/src/commands/update.ts",
 				"packages/coding-agent/src/main.ts",
 				"packages/coding-agent/src/modes/settings.ts",
