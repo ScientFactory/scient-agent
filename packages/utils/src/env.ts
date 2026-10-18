@@ -4,6 +4,9 @@ import * as path from "node:path";
 import { parseEnv } from "node:util";
 import { getAgentDir, getConfigRootDir, getProjectDir, refreshDirsFromEnv } from "./dirs";
 import { isBunTestRuntime } from "./test-runtime";
+// scient(SA-ROOT): begin - A host-assigned root owns the agent's own variables.
+import { dotenvMaySet } from "./scient/root";
+// scient(SA-ROOT): end
 
 export * from "./test-runtime";
 export * from "./worker-host";
@@ -382,6 +385,9 @@ export function withOmpOtelEnv<T>(fn: () => T): T {
 
 for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {
 	for (const key in file) {
+		// scient(SA-ROOT): begin - A host-assigned root owns the agent's own variables.
+		if (!dotenvMaySet(key, file === projectEnv || file === homeEnv)) continue;
+		// scient(SA-ROOT): end
 		if (isMacosMallocStackLoggingEnvName(key)) continue;
 		if (file !== projectEnv && claimOmpOtelEnvFileEntry(key, file[key])) continue;
 		if (!Bun.env[key]) {
