@@ -111,7 +111,11 @@ git commit -m "sync: Oh My Pi <new>"
 git rev-parse HEAD^{tree} <candidate>^{tree} # must print identical tree IDs
 ```
 
-The tree replacement is destructive to uncommitted files; never run it in the primary checkout or an active app worktree. Open the PR from the integration branch. If `main` advances before merge, incorporate those owned changes into the candidate and requalify; do not overwrite them with the older frozen tree.
+The tree replacement is destructive to uncommitted files; never run it in the primary checkout or an active app worktree. Before opening the PR:
+- Check that every commit on `main` after the accepted `sync:` import is in the inventory as retained, adapted or retired. This applies even where upstream changed the same file.
+- List the files the import changes that upstream's range did not (`git diff --name-only <main> <import>`, less `git diff --name-only <old upstream> <new upstream>`). Only the intended Scient changes may remain; anything else is a `main` change the replay is missing. This check is partial: it cannot see a missing change in a file upstream also changed, which the inventory covers.
+
+Open the PR from the integration branch. If `main` advances before merge, incorporate those owned changes into the candidate and requalify; do not overwrite them with the older frozen tree.
 
 After acceptance, preserve the exact replay commit under an immutable `omp-sync/v<new>` tag for the next intake and record it with the owned merge commit. Until then it is a candidate branch, not an accepted sync tag. This tree-import method preserves upstream history in the replay ref but **does not add the new upstream commit as an ancestor of Scient `main`**. `scient.json` records the source-content baseline; it must not be presented as a literal Git integration base. Keep the replay ref reachable on the owned remote when delivering the alignment. Do not rewrite existing replay or product release tags.
 
@@ -425,6 +429,89 @@ Desktop takes a release only after its own catalog qualification. On six platfor
 
 That catalog check covers identity, not behavior. The Desktop qualification under "Qualification and rollback" is not yet complete for 0.1.1. It still needs a real turn, cancellation, background completion, coexistence with a stock `omp`, and a managed installation, plus an explanation of the five failures above.
 
+### Fourth alignment intake — 2026-10-18
+
+Scient Agent 0.1.1 was not released on 18.11.3. Oh My Pi published 18.12.0 and 18.12.1 while it was being qualified, so 0.1.1 ships on 18.12.1 instead.
+
+- Accepted source baseline: OMP `18.11.3`, `96894a6147d8cc64b7e00ad3a7d7178fd93b9531`, from [PR #25](https://github.com/ScientFactory/scient-agent/pull/25) (tag `omp-sync/v18.11.3`).
+- Target: OMP `18.12.1`, `291e055836c210f314af3f73f53244e8e9d09de8`, under `refs/upstream-tags/v18.12.1`. That is 228 upstream commits after 18.11.3, changing 438 files.
+- Inventory: the 15 commits of the 18.11.3 replay, plus the two commits merged to `main` after its import ([PR #26](https://github.com/ScientFactory/scient-agent/pull/26): the capability check's subagent fix and its receipt). Both were folded into `SA-RELEASE`.
+- Integration: [PR #27](https://github.com/ScientFactory/scient-agent/pull/27). Its sync commit's tree equals the replay's, on `origin/replay/omp-v18.12.1`.
+
+The replay:
+- **Generators.** Identity regenerated with no stale rule (552 files), and wording with no stale text (423 files).
+- **Contract commits.** All 11 applied without a conflict.
+- **Time.** 4.5 minutes, after a 77-second `bun install`.
+- **Hooked files.** Upstream changed 4 of the 41 Oh My Pi files that carry Scient's hooks. Each hook still does what its contract says.
+- **Footprint.** Unchanged: 82 marker blocks, 196 lines, in 41 files.
+
+The replay was first assembled from the `omp-sync/v18.11.3` tag alone. That would have reverted PR #26 when imported, because PR #26 landed on `main` after the tag. The first compiled capability-check run caught it: it was still running the old check. "Replay and import" now lists the files an import changes beyond upstream's range before the PR opens.
+
+Reviewing upstream's range for Scient's seams found nothing to adapt. Inherited as is:
+
+| Change | Why Scient inherits it |
+|---|---|
+| `PI_REQUEST_COMPRESSION` replaces `PI_CODEX_ZSTD` | A behavior toggle, not a state selector. Scient renames only selectors. |
+| Connection warm-up | A credential-less `HEAD` to the selected model's own endpoint, throttled per host. It never probes custom providers, gateways or local servers, and never contacts an Oh My Pi service. |
+| `ThinkingContent.narration` on the RPC wire | Additive; the protocol stays v2. Desktop's tolerant decoder ignores it and shows such blocks as thinking, as before. |
+| Eval `display()` removed; advisor concerns continue a finished run by default | Agent behavior, inherited like the rest of the agent loop. |
+| Tern roles `omp.advisor.*`, `omp.tool.eval.*` | Left as upstream wrote them, like the other Tern roles. |
+| SSH `ControlPath` from `~/.ssh/config` | Oh My Pi's own sockets stay under `getSshControlDir()`, which `SA-ROOT` places under Scient's root. |
+
+**Known failures.** The 18.11.3 entries lapsed. Oh My Pi's six buckets were then run untouched on 18.12.1, on Scient's runner type and concurrency: `coding-agent-native` 6 times, `coding-agent-runtime` and `coding-agent-ui` 3 times each, the others twice. Five tests failed:
+
+| Test | Untouched 18.12.1 | Scient, first CI run |
+|---|---|---|
+| "cancels an inline worker's run whose renderer crashed …" | 5 of 6 | failed |
+| "does not rerun a call detached before its code started …" (relay) | 2 of 6 | passed |
+| "re-reads an archive rewritten in place …" | 2 of 6 | failed |
+| "keeps firing #onBranchChange across consecutive branch switches" | 1 of 6 (30 s timeout) | passed |
+| "renders parent lineage with bash-style tree connectors" (agent hub) | 1 of 3 (`coding-agent-ui`) | passed |
+
+Each is listed for 18.12.1's commit. The status-line test had also failed once on Scient's CI for 18.11.3. "closes a reattached headless tab's page" did not fail on untouched 18.12.1, so it is no longer listed. Scient's first CI run failed only in listed tests.
+
+#### Local checks
+
+On Windows, against the replay: identity and wording `--check`; the checker's and generators' own cases (64); `check:ts` (its one lint warning is in an upstream test, `packages/ai/test/anthropic-signature.test.ts`); the divergence check in replay mode; and Scient's own tests in utils, natives, coding-agent and ai, run against the 18.11.3 Windows addon. All passed. Not run locally: Rust, the isolation check and Oh My Pi's suites, which CI runs.
+
+#### Compiled qualification
+
+Against PR #27's CI build for Windows x64:
+- binary sha256 `5c383c65b5…`;
+- `--runtime-info` reports product `scient-agent`, version `0.1.1`, upstream `oh-my-pi` 18.12.1 `291e055836`, RPC protocols 1 and 2.
+
+The previous binary was the published v0.1.0 for Windows x64.
+
+| Check | Observed result |
+|---|---|
+| `capability-check.ts`, candidate after v0.1.0 | Passed every case: the v0.1.0 session resumed and continued, the snapshot rolled back, the native Skill's text arrived, eval computed 42, the shell artifact was written, two overlapping children completed. |
+| The same check, v0.1.0 as both binaries | Passed. |
+
+Desktop was qualified at `origin/main` `172f8a8099`, plus [Desktop PR #583](https://github.com/ScientFactory/scient-desktop/pull/583), which changes only tests. Coexistence ran beside a stock `omp` 18.12.1. Every Scient Agent and Oh My Pi live suite was run against the candidate. The same suites were run on 18.11.3's build the day before, and each failure there was rerun against v0.1.0.
+
+Desktop PR #583 fixes two test bugs:
+- **Subagent detection.** Desktop's subagent cases first failed against the candidate and passed against v0.1.0; stock `omp` 18.11.3 failed them the same way. The test recognised a subagent by its `yield` tool, which subagents lost in 18.10. That is the same bug PR #26 fixed in the capability check.
+- **Real-turn cleanup.** The real-turn tests deleted their root before their scope closed, so closing it failed with `NotFound` on the session's backlog folder, on both builds, after every check had passed.
+
+**Model turns.** With a small local model the real turns did not test the agent:
+- With `ollama/qwen2.5:3b` the candidate's final answer was a tool call written out as text, for a file nobody asked for. On v0.1.0 the turn timed out.
+- With `qwen3:4b` the first answer had not arrived after ten minutes.
+- Ollama ran on CPU with its default 4,096-token context (seen for `qwen3:4b`). The agent's first request to a scripted model was 29 KB, so the prompt may not have fit. That explanation is suspected, not shown: no token count or truncation was measured for either Qwen run.
+
+The model was then replaced with a scripted local stand-in on Ollama's port: it writes `answer.txt` with `42`, then replies with the requested text. On both builds:
+- `OmpRealSmoke`'s real turn and resume pass.
+- `ScientAgent.live.test.ts`'s real turn passes: the exact answer, only `answer.txt` in the project, resume, and Oh My Pi refusing to resume it. It passes when its home check also ignores `.bun` (below); that run's edit was local and not committed.
+
+A hosted model's judgement was not exercised.
+
+| Area | Candidate |
+|---|---|
+| Passed | Sign-in listing and flow; identity refusal both ways; the Scient extension, its essential tools and awareness; a subagent using Scient tools, and a wrong echoed result rejected; shell and file inputs; Stop and process loss for foreground tools; background continuation and a message sent while a job waits; models; custom models (the refresh barrier, every API format, keys kept out of events); fork and images; MCP authority; a scripted real turn and its resume, in both real-turn suites. |
+| Failed, and the same on v0.1.0 | A `.bun` folder in the agent's home, outside the assigned root. This is Bun's runtime transpiler cache, written when the agent loads a large `--extension`; stock `omp` writes it too. Desktop should point `BUN_RUNTIME_TRANSPILER_CACHE_PATH` into the agent's root. Also failed: Stop on a waiting native job (Desktop's stub throws `Unimplemented method "stopDelegatedTasks"`), and the history count in fork continuity's context handoff, before its restart is reached. |
+| Failed because of the Windows test setup | The load case (`pgrep`) and the shell-credentials case (`ps -E`); two custom-model cases that need `gemma4:12b-it-qat`, which this machine cannot run. |
+
+No candidate-specific regression was found. Fork continuity across a process restart is not covered by this run, because the test fails earlier on both builds. A managed installation through Desktop's catalog follows publication: its automation qualifies `--runtime-info`, the RPC v2 handshake and `get_state` on six platforms.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -470,7 +557,11 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Four tests are listed for 18.11.3. Each was seen failing on an untouched 18.11.3 tree on the same runner type; the counts are under "Third alignment intake". Two are browser tests whose observed failures all came with the bucket's chunks running side by side, and they fail as often on untouched upstream as on Scient's tree given the same chunks. The others are a third browser-crash test and an archive test. The archive test's cache keys on ctime, which Linux advances in coarse ticks, and the test rewrites the file in place with the same size and mtime. Neither of those was measured. For 18.10.4 the list held three of the same tests, shown failing on untouched 18.10.4.
+Five tests are listed for 18.12.1. Each was seen failing on an untouched 18.12.1 tree on the same runner type; the counts are under "Fourth alignment intake". Three were listed before:
+- two browser tests whose observed failures all came with the bucket's chunks running side by side; for 18.11.3 they failed as often on untouched upstream as on Scient's tree given the same chunks;
+- an archive test. Its cache keys on ctime, which Linux advances in coarse ticks, and the test rewrites the file in place with the same size and mtime. That was not measured.
+
+The other two are a status-line test that hit its 30-second timeout and an agent-hub ordering test. For 18.11.3 the list held four tests, and for 18.10.4 three, each shown failing on that release untouched.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 

@@ -28,31 +28,39 @@ interface KnownFailure {
 	evidence: string;
 }
 
-// Each was seen failing in the coding-agent-native bucket of untouched 18.11.3 on
-// ubuntu-22.04 (2026-10-17); SCIENT.md, "Third alignment intake", has the counts.
+// Each was seen failing on untouched 18.12.1 on ubuntu-22.04 (2026-10-18), in
+// 6 coding-agent-native or 3 coding-agent-ui bucket runs; SCIENT.md, "Fourth
+// alignment intake", has the counts.
 const KNOWN_FAILURES: KnownFailure[] = [
 	{
-		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
+		commit: "291e055836c210f314af3f73f53244e8e9d09de8",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > cancels an inline worker's run whose renderer crashed instead of letting it go on after its caller was told",
 		evidence:
-			"Failed in 11 of 18 bucket runs untouched; with identical chunks on both trees, 7 of 8 untouched and 7 of 8 on Scient's tree.",
+			"Failed in 5 of 6 bucket runs untouched; on 18.11.3, 7 of 8 untouched and 7 of 8 on Scient's tree with identical chunks.",
 	},
 	{
-		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
+		commit: "291e055836c210f314af3f73f53244e8e9d09de8",
 		test: "packages/coding-agent/test/tools/browser-relay-detach.test.ts > relay tabs Chrome detaches Scient Agent from > does not rerun a call detached before its code started once the re-adoption spent its budget",
 		evidence:
-			"Failed in 6 of 18 bucket runs untouched; with identical chunks on both trees, 3 of 8 untouched and 2 of 8 on Scient's tree.",
+			"Failed in 2 of 6 bucket runs untouched; on 18.11.3, 3 of 8 untouched and 2 of 8 on Scient's tree with identical chunks.",
 	},
 	{
-		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
-		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > closes a reattached headless tab's page when the tab is released",
-		evidence: "Failed in 1 of 10 bucket runs untouched (0 of 14 on Scient's tree).",
-	},
-	{
-		commit: "96894a6147d8cc64b7e00ad3a7d7178fd93b9531",
+		commit: "291e055836c210f314af3f73f53244e8e9d09de8",
 		test: "packages/coding-agent/test/tools.test.ts > Coding Agent Tools > read tool > re-reads an archive rewritten in place with the same size and restored mtime",
 		evidence:
-			"Failed in 1 of 10 bucket runs untouched (3 of 14 on Scient's tree); on 18.10.4 in 5 of 20 runs of its file. Consistent with its archive cache keying on ctime, which Linux advances in coarse ticks.",
+			"Failed in 2 of 6 bucket runs untouched. Consistent with its archive cache keying on ctime, which Linux advances in coarse ticks.",
+	},
+	{
+		commit: "291e055836c210f314af3f73f53244e8e9d09de8",
+		test: "packages/coding-agent/test/status-line-vcs-refresh.test.ts > StatusLineComponent git watcher survives atomic HEAD renames > keeps firing #onBranchChange across consecutive branch switches",
+		evidence:
+			"Failed in 1 of 6 bucket runs untouched, at its 30-second timeout; it failed the same way once in Scient's CI for 18.11.3.",
+	},
+	{
+		commit: "291e055836c210f314af3f73f53244e8e9d09de8",
+		test: "packages/coding-agent/test/agent-hub-ordering.test.ts > Agent hub row ordering > renders parent lineage with bash-style tree connectors",
+		evidence:
+			"Failed in 1 of 3 coding-agent-ui bucket runs untouched: a child row drew as the last child instead of the first.",
 	},
 ];
 
