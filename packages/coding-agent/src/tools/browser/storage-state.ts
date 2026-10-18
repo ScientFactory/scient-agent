@@ -1,7 +1,11 @@
-import * as os from "node:os";
+// scient(SA-ROOT): begin - Browser state follows the config root. Removes Oh My Pi lines.
+// scient(SA-ROOT): end
 import * as path from "node:path";
 
 import { isRecord, untilAborted } from "@oh-my-pi/pi-utils";
+// scient(SA-ROOT): begin - Browser state follows the config root.
+import { getConfigRootDir } from "@oh-my-pi/pi-utils";
+// scient(SA-ROOT): end
 import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
 import type { Cookie, CookieParam, Page } from "puppeteer-core";
 import { resolveToCwd } from "../path-utils";
@@ -465,9 +469,11 @@ export async function clearPageStorage(page: Page, kind: string, signal?: AbortS
 export function storageStatePath(tabName: string, requestedPath: string | undefined, cwd: string): string {
 	const safeName = tabName.replace(/[^A-Za-z0-9._-]/g, "_");
 	const fileName = safeName === "." || safeName === ".." ? "_" : safeName || "main";
+	// scient(SA-ROOT): begin - Browser state follows the config root.
 	return requestedPath
 		? resolveToCwd(requestedPath, cwd)
-		: path.join(os.homedir(), ".scient-agent", "browser-state", `${fileName}.json`);
+		: path.join(getConfigRootDir(), "browser-state", `${fileName}.json`);
+	// scient(SA-ROOT): end
 }
 
 /** Save cookies and current-origin Web Storage to a Playwright-compatible state file. */
