@@ -49,6 +49,9 @@ const indexHtml = `<!DOCTYPE html>
 
 // Static asset the bundler never emits; copied beside index.css so the on-disk client and the embedded archive both serve it.
 await fs.copyFile("./src/client/favicon.ico", "./dist/client/favicon.ico");
+// scient(SA-BRAND): begin - the dashboard's tab carries Scient Agent's symbol.
+await fs.copyFile("../utils/src/scient/scient-agent-favicon.ico", "./dist/client/favicon.ico");
+// scient(SA-BRAND): end
 
 await Bun.write("./dist/client/index.html", indexHtml);
 
