@@ -51,6 +51,9 @@ import {
 } from "./npm-registry";
 
 import { cfgUpdateChannel } from "../modes/settings";
+// scient(SA-SERVICES): begin - Scient Agent never updates itself, so setup offers no auto-update.
+import { SELF_UPDATE } from "../scient/updates";
+// scient(SA-SERVICES): end
 
 const PACKAGE = "@oh-my-pi/pi-coding-agent";
 const HOMEBREW_FORMULA = "can1357/tap/omp";
@@ -337,6 +340,9 @@ export function isSourceCheckout(): boolean {
  * package-manager probes `omp update` runs.
  */
 export async function canSelfUpdate(): Promise<boolean> {
+	// scient(SA-SERVICES): begin - Scient Agent never updates itself, so setup offers no auto-update.
+	if (!SELF_UPDATE) return false;
+	// scient(SA-SERVICES): end
 	if (isSourceCheckout()) return false;
 	if (isPathInDirectory(isCompiledBinary() ? process.execPath : import.meta.dir, NIX_STORE_DIR)) return false;
 	return (await managedInstallName(process.execPath)) === undefined;
