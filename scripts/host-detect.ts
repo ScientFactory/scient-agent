@@ -1,5 +1,8 @@
 import { dlopen, FFIType } from "bun:ffi";
 import * as fs from "node:fs";
+// scient(SA-RELEASE): begin - One release runner builds both x86-64 addons.
+import { forcedAvx2 } from "./scient/native-variant";
+// scient(SA-RELEASE): end
 
 function runCommand(command: string, args: string[]): string | null {
 	try {
@@ -70,6 +73,10 @@ export function detectHostMusl(): boolean {
 /** Detect whether this x86-64 host can run the modern AVX2 addon. */
 export function detectHostAvx2Support(): boolean {
 	if (process.arch !== "x64") return false;
+	// scient(SA-RELEASE): begin - One release runner builds both x86-64 addons.
+	const forced = forcedAvx2();
+	if (forced !== undefined) return forced;
+	// scient(SA-RELEASE): end
 
 	if (process.platform === "linux") {
 		try {
