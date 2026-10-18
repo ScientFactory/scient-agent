@@ -10,6 +10,9 @@
  */
 import { $env, getTinyWorkerRuntimeDir, logger, prompt } from "@oh-my-pi/pi-utils";
 import packageJson from "../../package.json" with { type: "json" };
+// scient(SA-WORKER): begin - Shared workers carry Scient Agent's release.
+import { workerTag } from "../scient/worker-tag";
+// scient(SA-WORKER): end
 import type { Setting } from "../config/registry";
 import { isSettingsInitialized, settings } from "../config/settings";
 
@@ -176,7 +179,11 @@ export interface TinyWorkerLaunch extends SharedWorkerLaunch {
 
 /** How to start the ONNX worker for `modelKey` with the resolved device/dtype env. @internal */
 export function onnxLaunch(modelKey: TinyLocalModelKey, modelEnv: Record<string, string>): TinyWorkerLaunch {
-	const tag = `${packageJson.version}|onnx|${modelEnv.PI_TINY_DEVICE ?? ""}|${modelEnv.PI_TINY_DTYPE ?? ""}`;
+	// scient(SA-WORKER): begin - Shared workers carry Scient Agent's release.
+	const tag = workerTag(
+		`${packageJson.version}|onnx|${modelEnv.PI_TINY_DEVICE ?? ""}|${modelEnv.PI_TINY_DTYPE ?? ""}`,
+	);
+	// scient(SA-WORKER): end
 	return {
 		label: `tiny onnx worker for ${modelKey}`,
 		backend: "onnx",
@@ -200,7 +207,9 @@ function mlxLaunch(
 ): TinyWorkerLaunch {
 	const spec = getTinyLocalModelSpec(modelKey);
 	if (!spec) throw new Error(`Unknown tiny local model: ${modelKey}`);
-	const tag = `mlx|${MLX_LM_VERSION}|${Bun.hash.crc32(MLX_SERVER_SCRIPT).toString(16)}`;
+	// scient(SA-WORKER): begin - Shared workers carry Scient Agent's release.
+	const tag = workerTag(`mlx|${MLX_LM_VERSION}|${Bun.hash.crc32(MLX_SERVER_SCRIPT).toString(16)}`);
+	// scient(SA-WORKER): end
 	return {
 		label: `tiny mlx worker for ${modelKey}`,
 		backend: "mlx",
