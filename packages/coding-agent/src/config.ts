@@ -2,6 +2,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, getConfigAgentDirName, getProjectDir } from "@oh-my-pi/pi-utils";
+// scient(SA-ROOT): begin - Under a host-assigned root, the agent's own user config is the root's.
+import { getAgentDir } from "@oh-my-pi/pi-utils";
+import { getHostConfigRoot } from "@oh-my-pi/pi-utils/scient/root";
+// scient(SA-ROOT): end
 import { isUserSourceEnabled } from "./capability";
 import { resolveClaudePaths } from "./config/claude-paths";
 import { expandTilde } from "./tools/path-utils";
@@ -82,8 +86,14 @@ export function getChangelogPath(): string | undefined {
  * Project-level: .scient-agent, .claude, .codex, .gemini
  */
 const USER_CONFIG_BASES = priorityList.map(({ dir, globalAgentDir }) => ({
+	// scient(SA-ROOT): begin - Under a host-assigned root, the agent's own user config is the root's.
 	base: () =>
-		dir === ".claude" ? resolveClaudePaths().configDir : path.join(os.homedir(), globalAgentDir?.() ?? dir),
+		globalAgentDir && getHostConfigRoot()
+			? getAgentDir()
+			: dir === ".claude"
+				? resolveClaudePaths().configDir
+				: path.join(os.homedir(), globalAgentDir?.() ?? dir),
+	// scient(SA-ROOT): end
 	name: dir,
 }));
 
