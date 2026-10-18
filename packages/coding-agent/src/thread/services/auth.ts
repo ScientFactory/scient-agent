@@ -190,6 +190,9 @@ function authAvailability(storage: AuthStorage, providers: readonly string[]): A
 function serveAuthStorage(state: PeerAuthState): RpcServe<AuthStorage, AuthStorageProtocol> {
 	return {
 		"credentials.generation": storage => storage.credentials.generation,
+		// scient(SA-AUTH): begin - A broker's sign-ins stay with the broker, in a worker too.
+		"credentials.heldByBroker": storage => storage.credentials.heldByBroker,
+		// scient(SA-AUTH): end
 		"credentials.onGeneration": (storage, listener) =>
 			trackWorkerSubscription(
 				state.subscriptions,

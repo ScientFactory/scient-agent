@@ -176,7 +176,10 @@
 				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
 				"packages/coding-agent/src/modes/rpc/wire/commands.ts",
 				"packages/coding-agent/src/modes/rpc/wire/state.ts",
-				"packages/coding-agent/src/slash-commands/helpers/logout.ts"
+				"packages/coding-agent/src/slash-commands/helpers/logout.ts",
+				"packages/coding-agent/src/thread/services/auth-protocol.ts",
+				"packages/coding-agent/src/thread/services/auth-remote.ts",
+				"packages/coding-agent/src/thread/services/auth.ts"
 			],
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/sign-in-providers.test.ts test/scient/reload-sign-ins.test.ts"
