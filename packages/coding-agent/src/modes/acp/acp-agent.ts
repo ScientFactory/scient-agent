@@ -645,8 +645,8 @@ export class AcpAgent implements Agent {
 			authMethods.push({
 				type: "terminal",
 				id: "terminal",
-				name: "Set up omp in terminal",
-				description: "Launch the omp TUI to add provider keys and select models.",
+				name: "Set up Scient Agent in terminal",
+				description: "Launch the Scient Agent TUI to add provider keys and select models.",
 				args: [ACP_TERMINAL_AUTH_FLAG],
 			});
 		}
@@ -654,7 +654,7 @@ export class AcpAgent implements Agent {
 			protocolVersion: PROTOCOL_VERSION,
 			agentInfo: {
 				name: "scient-agent",
-				title: "omp",
+				title: "Scient Agent",
 				version: VERSION,
 			},
 			authMethods,

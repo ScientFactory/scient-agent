@@ -147,7 +147,7 @@ return { overlay: true, transform };`,
 				transform: "translate(121px, 87px)",
 			});
 			const aria = await value<string>("ariaSnapshot");
-			expect(aria).not.toContain("OMP recording cursor overlay");
+			expect(aria).not.toContain("Scient Agent recording cursor overlay");
 
 			const stoppedCall = await call("recordStop");
 			const stopped = valueFrom<StopResult>(stoppedCall);

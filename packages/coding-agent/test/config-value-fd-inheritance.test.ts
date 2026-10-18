@@ -68,7 +68,7 @@ afterEach(async () => {
 });
 
 test.skipIf(process.platform === "win32")(
-	"config !command children cannot read descriptors the launcher passed omp",
+	"config !command children cannot read descriptors the launcher passed Scient Agent",
 	async () => {
 		const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "omp-config-fd-"));
 		roots.push(root);
