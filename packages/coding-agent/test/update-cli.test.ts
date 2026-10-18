@@ -147,16 +147,18 @@ describe("update command plugin dispatch", () => {
 		expect(updateSpy).not.toHaveBeenCalled();
 	});
 
-	it("keeps normal update flags on the app updater path", async () => {
+	// scient(SA-SERVICES): begin - Scient Agent updates only its plugins: the app updater never runs.
+	it("refuses normal update flags instead of running the app updater", async () => {
 		const pluginSpy = spyOn(pluginCli, "runPluginCommand").mockResolvedValue(undefined);
 		const updateSpy = spyOn(updateCli, "runUpdateCommand").mockResolvedValue(undefined);
 
 		const command = new Update(["--check", "--force"], TEST_CONFIG);
-		await command.run();
+		await expect(command.run()).rejects.toThrow("does not update itself");
 
-		expect(updateSpy).toHaveBeenCalledWith({ force: true, check: true, channel: undefined });
+		expect(updateSpy).not.toHaveBeenCalled();
 		expect(pluginSpy).not.toHaveBeenCalled();
 	});
+	// scient(SA-SERVICES): end
 });
 
 describe("parseUpdateArgs", () => {

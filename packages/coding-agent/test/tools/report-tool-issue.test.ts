@@ -123,9 +123,11 @@ describe("flushGrievances", () => {
 		expect(isAutoQaEnabled(Settings.isolated({ "dev.autoqa": false }))).toBe(true);
 	});
 
-	it("enables auto QA by default with consent still unset", () => {
-		expect(isAutoQaEnabled(Settings.isolated())).toBe(true);
+	// scient(SA-SERVICES): begin - Reports go to Oh My Pi's service, so they are off by default.
+	it("keeps auto QA off by default with consent still unset", () => {
+		expect(isAutoQaEnabled(Settings.isolated())).toBe(false);
 	});
+	// scient(SA-SERVICES): end
 
 	it("vetoes default-on auto QA once the user denied consent", () => {
 		expect(isAutoQaEnabled(Settings.isolated({ "dev.autoqaConsent": "denied" }))).toBe(false);
