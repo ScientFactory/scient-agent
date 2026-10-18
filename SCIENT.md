@@ -468,7 +468,20 @@ Reviewing upstream's range for Scient's seams found nothing to adapt. Inherited 
 | "keeps firing #onBranchChange across consecutive branch switches" | 1 of 6 (30 s timeout) | passed |
 | "renders parent lineage with bash-style tree connectors" (agent hub) | 1 of 3 (`coding-agent-ui`) | passed |
 
-Each is listed for 18.12.1's commit. The status-line test had also failed once on Scient's CI for 18.11.3. "closes a reattached headless tab's page" did not fail on untouched 18.12.1, so it is no longer listed. Scient's first CI run failed only in listed tests.
+Each is listed for 18.12.1's commit. The status-line test had also failed once on Scient's CI for 18.11.3. "closes a reattached headless tab's page" did not fail in those six runs, so it was dropped. Scient's first CI run failed only in listed tests.
+
+The `v0.1.1` tag's CI run then failed in that dropped test. Rerunning the failed job passed, and the release was drafted from that run. The `coding-agent-native` bucket was then run 10 more times on untouched 18.12.1:
+
+| Test | Untouched, 10 more runs | Untouched, all 16 |
+|---|---|---|
+| "cancels an inline worker's run whose renderer crashed …" | 8 | 13 |
+| "does not rerun a call detached before its code started …" (relay) | 3 | 5 |
+| "re-reads an archive rewritten in place …" | 3 | 5 |
+| "closes a reattached headless tab's page when the tab is released" | 2 | 2 |
+| "does not call a cancelled run's page listeners for the requests the cancel stops" | 1 | 1 |
+| "keeps firing #onBranchChange across consecutive branch switches" | 0 | 1 |
+
+The two tests failing in this probe, and not listed, are now listed: the headless-tab test and a browser cancellation test. A test in the cancellation test's file had also failed once on untouched 18.11.3. Six runs were too few to judge a test that fails about one time in eight.
 
 #### Local checks
 
@@ -557,11 +570,12 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Five tests are listed for 18.12.1. Each was seen failing on an untouched 18.12.1 tree on the same runner type; the counts are under "Fourth alignment intake". Three were listed before:
+Seven tests are listed for 18.12.1. Each was seen failing on an untouched 18.12.1 tree on the same runner type; the counts are under "Fourth alignment intake". Four were listed for 18.11.3:
 - two browser tests whose observed failures all came with the bucket's chunks running side by side; for 18.11.3 they failed as often on untouched upstream as on Scient's tree given the same chunks;
+- a third browser test, on releasing a reattached headless tab;
 - an archive test. Its cache keys on ctime, which Linux advances in coarse ticks, and the test rewrites the file in place with the same size and mtime. That was not measured.
 
-The other two are a status-line test that hit its 30-second timeout and an agent-hub ordering test. For 18.11.3 the list held four tests, and for 18.10.4 three, each shown failing on that release untouched.
+The other three are new: a status-line test that hit its 30-second timeout, an agent-hub ordering test, and a browser cancellation test. For 18.10.4 the list held three tests, each shown failing on that release untouched.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 
