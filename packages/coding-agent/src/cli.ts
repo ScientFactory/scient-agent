@@ -24,8 +24,12 @@ import {
 	MIN_BUN_VERSION,
 	resolveProfileEnv,
 	setProfile,
-	VERSION,
+	// scient(SA-PRODUCT): begin - Scient Agent reports its own release. Removes Oh My Pi lines.
+	// scient(SA-PRODUCT): end
 } from "@oh-my-pi/pi-utils/dirs";
+// scient(SA-PRODUCT): begin - Scient Agent reports its own release: in this file VERSION is it.
+import { PRODUCT_VERSION as VERSION } from "@oh-my-pi/pi-utils/scient/product";
+// scient(SA-PRODUCT): end
 
 import { declareWorkerHostEntry, installWorkerInbox, isWorkerHostSelector } from "@oh-my-pi/pi-utils/worker-host";
 import { installSqliteLockShim } from "@oh-my-pi/pi-natives/sqlite-locks";
@@ -549,6 +553,13 @@ export async function runCli(argv: string[]): Promise<void> {
 		process.stdout.write(formatLicenseOutput());
 		return;
 	}
+	// scient(SA-PRODUCT): begin - Hosts read --runtime-info before they start RPC mode.
+	if (resolvedArgv[0] === "--runtime-info") {
+		const { formatRuntimeInfo } = await import("./scient/runtime-info");
+		process.stdout.write(formatRuntimeInfo());
+		return;
+	}
+	// scient(SA-PRODUCT): end
 	const helpOrVersion =
 		resolvedArgv[0] === "--help" ||
 		resolvedArgv[0] === "-h" ||
