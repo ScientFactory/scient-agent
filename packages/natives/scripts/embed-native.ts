@@ -6,6 +6,9 @@ import {
 	containsVersionStamp,
 	VERSION_STAMP_MAGIC,
 } from "../native/version-sentinel.js";
+// scient(SA-NATIVE-CACHE): begin - The manifest names the build by its addons' content.
+import { addonBuildId } from "../native/scient/build-cache.js";
+// scient(SA-NATIVE-CACHE): end
 
 const defaultNativeDir = path.join(import.meta.dir, "../native");
 
@@ -113,5 +116,9 @@ export const embeddedAddon = {
 		overrides[path.join(dir, `${filename}.zst`)] = frames[index];
 	});
 	overrides[path.join(dir, "embedded-addon.js")] = manifest;
+	// scient(SA-NATIVE-CACHE): begin - The manifest names the build by its addons' content.
+	overrides[path.join(dir, "embedded-addon.js")] =
+		`${manifest}embeddedAddon.buildId = ${JSON.stringify(addonBuildId(available))};\n`;
+	// scient(SA-NATIVE-CACHE): end
 	return overrides;
 }

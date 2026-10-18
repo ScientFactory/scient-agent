@@ -6,6 +6,9 @@ import * as path from "node:path";
 import packageJson from "../package.json" with { type: "json" };
 import { embeddedAddon } from "./embedded-addon.js";
 import { bindingsHaveReleaseIdentity, bindingsReleaseVersion, containsVersionStamp } from "./version-sentinel.js";
+// scient(SA-NATIVE-CACHE): begin - Scient Agent's native addon cache.
+import { hostNativesDir, withBuildCache } from "./scient/build-cache.js";
+// scient(SA-NATIVE-CACHE): end
 
 /**
  * Native addon loader for `@oh-my-pi/pi-natives`.
@@ -56,6 +59,10 @@ function startupMarker(text) {
 }
 
 function getNativesDir() {
+	// scient(SA-NATIVE-CACHE): begin - Native state stays inside a host-assigned root.
+	const hostDir = hostNativesDir();
+	if (hostDir) return hostDir;
+	// scient(SA-NATIVE-CACHE): end
 	// Match pi-utils directory overrides without depending on pi-utils.
 	const override = process.env.SCIENT_AGENT_NATIVES_DIR?.trim();
 	if (override) {
@@ -856,7 +863,9 @@ export function initLoaderContext(overrides = {}) {
 
 export function loadNative() {
 	startupMarker("native:loadNative:start");
-	const ctx = initLoaderContext();
+	// scient(SA-NATIVE-CACHE): begin - A compiled binary extracts and loads only its own addon.
+	const ctx = withBuildCache(initLoaderContext(), embeddedAddon);
+	// scient(SA-NATIVE-CACHE): end
 	const require_ = createRequire(import.meta.url);
 
 	const errors = [];
