@@ -49,6 +49,9 @@ import {
 	verifyInstalledVersion,
 } from "./update-cli";
 import { AUTO_UPDATE_WORKER_ARG } from "./worker-selectors";
+// scient(SA-SERVICES): begin - Scient Agent never installs an Oh My Pi release.
+import { refuseAutoUpdateWorker } from "../scient/updates";
+// scient(SA-SERVICES): end
 
 /** Env var carrying the version the spawning launch's check offered. */
 const TARGET_ENV = "OMP_AUTO_UPDATE_TARGET";
@@ -342,6 +345,9 @@ async function settle(outcome: UpdateOutcome): Promise<StateUpdate> {
  * the outcome. Exits at once when another worker holds the status lock.
  */
 export async function runAutoUpdateWorker(): Promise<never> {
+	// scient(SA-SERVICES): begin - Scient Agent never installs an Oh My Pi release.
+	refuseAutoUpdateWorker();
+	// scient(SA-SERVICES): end
 	const file = statePath();
 	await fs.mkdir(path.dirname(file), { recursive: true });
 	const lock = tryAcquireFileLock(file);
