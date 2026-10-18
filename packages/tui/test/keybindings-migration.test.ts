@@ -237,17 +237,17 @@ describe("KeybindingsManager.create", () => {
 	});
 
 	it("merges default user keybindings when create uses the active profile with no arguments (#4867)", async () => {
-		const originalConfigDir = process.env.PI_CONFIG_DIR;
-		const originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
-		const originalOmpProfile = process.env.OMP_PROFILE;
-		const originalPiProfile = process.env.PI_PROFILE;
+		const originalConfigDir = process.env.SCIENT_AGENT_CONFIG_DIR;
+		const originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
+		const originalOmpProfile = process.env.SCIENT_AGENT_PROFILE;
+		const originalPiProfile = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		const configRootDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-keybindings-active-profile-"));
 
 		try {
-			process.env.PI_CONFIG_DIR = path.relative(os.homedir(), configRootDir);
-			restoreEnvValue("PI_CODING_AGENT_DIR", originalAgentDirEnv);
-			restoreEnvValue("OMP_PROFILE", originalOmpProfile);
-			restoreEnvValue("PI_PROFILE", originalPiProfile);
+			process.env.SCIENT_AGENT_CONFIG_DIR = path.relative(os.homedir(), configRootDir);
+			restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDirEnv);
+			restoreEnvValue("SCIENT_AGENT_PROFILE", originalOmpProfile);
+			restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
 			__resetDirsFromEnvForTests();
 
 			const defaultAgentDir = path.join(getProfileRootDir(undefined), "agent");
@@ -270,10 +270,10 @@ describe("KeybindingsManager.create", () => {
 			expect(manager.getKeys("app.session.fork")).toEqual(["alt+f"]);
 			expect(manager.getKeys("app.clipboard.copyLine")).toEqual(["alt+l"]);
 		} finally {
-			restoreEnvValue("PI_CONFIG_DIR", originalConfigDir);
-			restoreEnvValue("PI_CODING_AGENT_DIR", originalAgentDirEnv);
-			restoreEnvValue("OMP_PROFILE", originalOmpProfile);
-			restoreEnvValue("PI_PROFILE", originalPiProfile);
+			restoreEnvValue("SCIENT_AGENT_CONFIG_DIR", originalConfigDir);
+			restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDirEnv);
+			restoreEnvValue("SCIENT_AGENT_PROFILE", originalOmpProfile);
+			restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
 			__resetDirsFromEnvForTests();
 			await removeWithRetries(configRootDir);
 		}

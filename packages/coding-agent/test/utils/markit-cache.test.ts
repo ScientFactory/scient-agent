@@ -31,9 +31,9 @@ describe("document conversion cache", () => {
 	let originalXdgCacheHome: string | undefined;
 
 	beforeEach(async () => {
-		originalPiCodingAgentDir = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfile = process.env.OMP_PROFILE;
-		originalPiProfile = process.env.PI_PROFILE;
+		originalPiCodingAgentDir = process.env.SCIENT_AGENT_DIR;
+		originalOmpProfile = process.env.SCIENT_AGENT_PROFILE;
+		originalPiProfile = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		originalXdgCacheHome = process.env.XDG_CACHE_HOME;
 		testDir = path.join(os.tmpdir(), `markit-cache-${Snowflake.next()}`);
 		await fs.mkdir(testDir, { recursive: true });
@@ -42,9 +42,9 @@ describe("document conversion cache", () => {
 
 	afterEach(async () => {
 		vi.restoreAllMocks();
-		restoreEnv("PI_CODING_AGENT_DIR", originalPiCodingAgentDir);
-		restoreEnv("OMP_PROFILE", originalOmpProfile);
-		restoreEnv("PI_PROFILE", originalPiProfile);
+		restoreEnv("SCIENT_AGENT_DIR", originalPiCodingAgentDir);
+		restoreEnv("SCIENT_AGENT_PROFILE", originalOmpProfile);
+		restoreEnv("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
 		restoreEnv("XDG_CACHE_HOME", originalXdgCacheHome);
 		__resetDirsFromEnvForTests();
 		await fs.rm(testDir, { recursive: true, force: true });

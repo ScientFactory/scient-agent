@@ -236,7 +236,7 @@ const CHROMIUM_FLATPAK_IDS: Record<string, true> = {
  * `--remote-debugging-port` when the default user-data-dir is in use: the
  * browser opens as usual, nothing listens, and attach waits out its timeout.
  * Chromium-family browsers therefore get a stable omp-owned profile under
- * `~/.omp/browser-profiles/<exe slug>` unless the caller already picked one.
+ * `~/.scient-agent/browser-profiles/<exe slug>` unless the caller already picked one.
  * That profile is also what lets a second instance start beside the user's
  * running default-profile browser instead of handing off to it. Electron apps
  * are left untouched: `--user-data-dir` would relocate their app data.
@@ -439,7 +439,7 @@ export function shouldPreserveConnectedBrowserFocus(target?: string): boolean {
 export interface PickTargetOptions {
 	matcher?: string;
 	preferVisible?: boolean;
-	/** Relay /json endpoint (e.g. http://127.0.0.1:9224); enables metadata-first target selection. */
+	/** Relay /json endpoint (e.g. http://127.0.0.1:9324); enables metadata-first target selection. */
 	relayJson?: string;
 	signal?: AbortSignal;
 }

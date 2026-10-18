@@ -30,7 +30,7 @@ it("keeps host modules loaded when extension CommonJS clears and restores requir
 	// Subprocess: without the guard the probe's whole module graph is unloaded.
 	const proc = Bun.spawn([process.execPath, probePath, dir.join("index.mjs")], {
 		cwd: path.resolve(import.meta.dir, "../.."),
-		env: { ...process.env, PI_CODING_AGENT_DIR: dir.join("agent") },
+		env: { ...process.env, SCIENT_AGENT_DIR: dir.join("agent") },
 		stdout: "pipe",
 		stderr: "pipe",
 	});
