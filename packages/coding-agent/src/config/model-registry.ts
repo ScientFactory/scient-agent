@@ -1050,6 +1050,16 @@ export class ModelRegistry {
 		this.#commandConfigsByProvider.clear();
 	}
 
+	// scient(SA-AUTH): begin - A sign-in completed in another process reaches a running session.
+	/** Reapplies the credential-aware hooks without dropping any discovered catalog. */
+	reapplySignInProjections(): void {
+		this.#providerLookupSnapshots.clear();
+		this.#internedStaticModels.clear();
+		if (!this.#hasFullSnapshot) return;
+		this.#models = this.#finalizeModels(this.#applyRuntimeModelModifiers(this.#unprojectedModels));
+	}
+
+	// scient(SA-AUTH): end
 	#knownStaticProviders(): string[] {
 		const providers = new Set<string>(getBundledProviders());
 		for (const provider of this.#pendingStandardCacheProviders) providers.add(provider);

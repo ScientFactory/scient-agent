@@ -844,6 +844,14 @@ export interface CredentialsApi {
 	 * disk-cached snapshot cannot misattribute fresh reports.
 	 */
 	revalidate(): Promise<void>;
+	// scient(SA-AUTH): begin - A broker's sign-ins stay with the broker.
+	/**
+	 * Whether this store is a snapshot of sign-ins an auth broker holds, rather
+	 * than the place they are kept. It follows the store that is active, not the
+	 * configuration, which can disagree with it after a failed switch.
+	 */
+	readonly heldByBroker: boolean;
+	// scient(SA-AUTH): end
 	/**
 	 * Get credential for a provider (first entry if multiple).
 	 */
