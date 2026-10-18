@@ -848,7 +848,7 @@ class AvailableSlashCommand:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class SessionEntries:
-    """OMP-native session entries in append order."""
+    """Scient Agent-native session entries in append order."""
     entries: tuple[JsonObject, ...]
     leaf_id: str | None
 
@@ -921,6 +921,9 @@ class LoginProvider:
     name: str
     available: bool
     authenticated: bool
+    kind: Literal["account", "key"]
+    stored: bool
+    store: str
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1216,7 +1219,7 @@ class PromptError:
     """Failure detail of a `prompt_result` with `status: "error"`."""
     message: str
     retryable: bool
-    """Transient: resubmitting later may succeed (omp's own retries are exhausted)."""
+    """Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted)."""
     provider: str | None = None
     model: str | None = None
     http_status: int | None = None
@@ -1585,6 +1588,7 @@ class NegotiateProtocolResult:
 @dataclass(slots=True, frozen=True, kw_only=True)
 class LogoutResult:
     remaining_source: str | None = None
+    provider_id: str | None = None
 
 
 UserContent: TypeAlias = TextContent | ImageContent
@@ -2234,6 +2238,9 @@ def parse_login_provider(value: object, path: str = "LoginProvider") -> LoginPro
         name=required(payload, "name", decode_str, path),
         available=required(payload, "available", decode_bool, path),
         authenticated=required(payload, "authenticated", decode_bool, path),
+        kind=required(payload, "kind", cast('Decoder[Literal["account", "key"]]', literal(frozenset({"account", "key"}))), path),
+        stored=required(payload, "stored", decode_bool, path),
+        store=required(payload, "store", decode_str, path),
     )
 
 
@@ -2998,6 +3005,7 @@ def parse_logout_result(value: object, path: str = "LogoutResult") -> LogoutResu
     payload = expect_object(value, path)
     return LogoutResult(
         remaining_source=optional(payload, "remainingSource", decode_str, path),
+        provider_id=optional(payload, "providerId", decode_str, path),
     )
 
 
@@ -3471,11 +3479,12 @@ class WireClient:
         params["providerId"] = provider_id
         return required(expect_object(self._command("get_logout_accounts", params), "get_logout_accounts"), "accounts", array(parse_logout_account), "get_logout_accounts")
 
-    def logout(self, provider_id: str, credential_id: int) -> LogoutResult:
-        """Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies."""
+    def logout(self, provider_id: str, *, credential_id: int | None = None) -> LogoutResult:
+        """Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out."""
         params: dict[str, object] = {}
         params["providerId"] = provider_id
-        params["credentialId"] = credential_id
+        if credential_id is not None:
+            params["credentialId"] = credential_id
         return parse_logout_result(self._command("logout", params), "logout")
 
     def predict_word(self, text: str, cursor: int) -> str | None:
