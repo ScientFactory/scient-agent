@@ -261,7 +261,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE)("relay tab ownership", () => {
 		}
 	}, 60_000);
 
-	it("opens a default tab in the browser of the tab omp used last, not the first selected one", async () => {
+	it("opens a default tab in the browser of the tab Scient Agent used last, not the first selected one", async () => {
 		const secondHello = Promise.withResolvers<void>();
 		let hellos = 0;
 		const fixture = await launchRelayFixture(message => {

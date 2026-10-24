@@ -2520,7 +2520,7 @@ export class SessionManager {
 			const release = this.#storage.claimSession?.(id, file);
 			if (release === null) {
 				throw new SessionMoveRefusedError(
-					`Cannot move session to "${file}": another live omp process writes the session there. Nothing was moved.`,
+					`Cannot move session to "${file}": another live Scient Agent process writes the session there. Nothing was moved.`,
 				);
 			}
 			destination?.release();
@@ -2544,7 +2544,7 @@ export class SessionManager {
 			this.#claimSession();
 			if (this.#sessionClaim?.release === undefined) {
 				throw new SessionMoveRefusedError(
-					`Cannot move session "${this.#sessionFile}": another live omp process writes it. Nothing was moved.`,
+					`Cannot move session "${this.#sessionFile}": another live Scient Agent process writes it. Nothing was moved.`,
 				);
 			}
 			if (expectedSessionFile && path.resolve(this.#sessionFile) !== path.resolve(expectedSessionFile)) {
@@ -4413,7 +4413,7 @@ export class SessionManager {
 						// Another live omp process still writes the session (the
 						// project was renamed under it): leave it there and continue
 						// as if no move were possible.
-						logger.warn("Not re-rooting moved session: it is open in another omp process", {
+						logger.warn("Not re-rooting moved session: it is open in another Scient Agent process", {
 							from: breadcrumbCwd,
 							to: resolvedCwd,
 						});

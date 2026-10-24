@@ -1294,7 +1294,7 @@ describe("TurnRecovery replay-unsafe output classification", () => {
 			expect(recovery.handleCommittedTextStreamStall(message)).toBe(true);
 		});
 
-		it("continues a Codex turn the native lane dropped over omp's steer after committed text", () => {
+		it("continues a Codex turn the native lane dropped over Scient Agent's steer after committed text", () => {
 			// The steer rejection drops the response mid-stream like a transport
 			// failure; committed text vetoes the replay retry, so without a
 			// continuation the session stopped on a pinned "Request failed".

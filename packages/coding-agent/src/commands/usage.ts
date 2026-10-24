@@ -15,7 +15,8 @@ export default class Usage extends Command {
 			options: ["invalidate", "clients", "accounts", "reset"],
 		}),
 		target: Args.string({
-			description: "Saved reset to spend with `reset`: <provider>/<credential id> as `omp usage reset` lists it",
+			description:
+				"Saved reset to spend with `reset`: <provider>/<credential id> as `scient-agent usage reset` lists it",
 			required: false,
 		}),
 	};
@@ -44,17 +45,17 @@ export default class Usage extends Command {
 	};
 
 	static examples = [
-		"# Detailed per-account usage breakdown across all providers\n  omp usage",
-		"# Only Anthropic accounts\n  omp usage --provider anthropic",
-		"# Redact account identifiers for screenshots\n  omp usage --redact",
-		"# Machine-readable output\n  omp usage --json",
-		"# Usage-limit trend over the last 30 days\n  omp usage --history --days 30",
-		"# Per-client token burn (which machine/app spent what) over the last 30 days\n  omp usage clients --days 30",
-		"# OAuth identity keys for task.agentAccountPools (no tokens)\n  omp usage accounts",
-		"# Saved Codex and Claude rate-limit resets per account, with each account's credential id\n  omp usage reset",
-		"# Spend one saved reset on a listed account\n  omp usage reset codex/3",
-		"# Invalidate cached usage reports for all providers\n  omp usage invalidate",
-		"# Invalidate cached usage reports for a specific provider\n  omp usage invalidate --provider anthropic",
+		"# Detailed per-account usage breakdown across all providers\n  scient-agent usage",
+		"# Only Anthropic accounts\n  scient-agent usage --provider anthropic",
+		"# Redact account identifiers for screenshots\n  scient-agent usage --redact",
+		"# Machine-readable output\n  scient-agent usage --json",
+		"# Usage-limit trend over the last 30 days\n  scient-agent usage --history --days 30",
+		"# Per-client token burn (which machine/app spent what) over the last 30 days\n  scient-agent usage clients --days 30",
+		"# OAuth identity keys for task.agentAccountPools (no tokens)\n  scient-agent usage accounts",
+		"# Saved Codex and Claude rate-limit resets per account, with each account's credential id\n  scient-agent usage reset",
+		"# Spend one saved reset on a listed account\n  scient-agent usage reset codex/3",
+		"# Invalidate cached usage reports for all providers\n  scient-agent usage invalidate",
+		"# Invalidate cached usage reports for a specific provider\n  scient-agent usage invalidate --provider anthropic",
 	];
 
 	async run(): Promise<void> {

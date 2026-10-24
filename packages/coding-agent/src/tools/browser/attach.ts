@@ -591,7 +591,8 @@ export function describeRelayTargets(targets: readonly RelayTarget[]): string {
 /** The pages of the user's Chrome the relay at `relayJson` can adopt. */
 export async function listRelayTargets(relayJson: string, signal?: AbortSignal): Promise<RelayTarget[]> {
 	const entries = await fetchRelayEntries(relayJson, signal);
-	if (!entries) throw new ToolError(`omp browser relay at ${relayJson} did not list its pages (GET /json failed).`);
+	if (!entries)
+		throw new ToolError(`Scient Agent browser relay at ${relayJson} did not list its pages (GET /json failed).`);
 	return relayTargets(entries);
 }
 
@@ -689,7 +690,7 @@ export async function pickElectronTarget(browser: Browser, options: PickTargetOp
 						throwIfAborted(options.signal);
 						if (isPuppeteerTimeout(error)) {
 							throw new ToolError(
-								"Selected tab did not become available before omp could attach; retry, or reopen it if it closed",
+								"Selected tab did not become available before Scient Agent could attach; retry, or reopen it if it closed",
 							);
 						}
 						throw error;

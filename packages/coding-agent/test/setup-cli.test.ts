@@ -79,7 +79,7 @@ function hideActivePythonEnv(): () => void {
 	};
 }
 
-describe("omp setup python", () => {
+describe("scient-agent setup python", () => {
 	let projectDir: TempDir | undefined;
 
 	afterEach(async () => {
@@ -152,7 +152,7 @@ describe("omp setup python", () => {
 	});
 });
 
-describe("omp setup without a component", () => {
+describe("scient-agent setup without a component", () => {
 	let projectDir: TempDir | undefined;
 
 	afterEach(async () => {

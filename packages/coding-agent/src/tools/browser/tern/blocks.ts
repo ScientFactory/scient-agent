@@ -132,7 +132,7 @@ export function pickTernBlock(
 export function describeTernBlock(entry: TernBlockEntry, takenBy?: string): string {
 	const facts = [entry.owner === null ? "docked" : `picture-in-picture over block ${entry.owner}`];
 	if (entry.shown !== undefined) facts.push(entry.shown ? "on screen" : "not on screen");
-	if (takenBy !== undefined) facts.push(`driven by omp tab ${JSON.stringify(takenBy)}`);
+	if (takenBy !== undefined) facts.push(`driven by Scient Agent tab ${JSON.stringify(takenBy)}`);
 	else if (entry.driven === true) facts.push("driven by a script");
 	return `${entry.block} ${JSON.stringify(entry.title)} ${entry.url} (${facts.join(", ")})`;
 }

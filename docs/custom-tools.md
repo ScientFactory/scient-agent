@@ -47,10 +47,10 @@ CustomTool.execute(toolCallId, params, onUpdate, ctx, signal)
 `discoverAndLoadCustomTools(configuredPaths, cwd, builtInToolNames, pushPendingAction?, agentDir?)` merges:
 
 1. Capability providers (`toolCapability`), including:
-   - Native OMP config (`<agentDir>/tools`, default `~/.scient-agent/agent/tools`; `.scient-agent/tools`)
+   - Native Scient Agent config (`<agentDir>/tools`, default `~/.scient-agent/agent/tools`; `.scient-agent/tools`)
    - Claude config (`<Claude config dir>/tools`, default `~/.claude/tools`; `.claude/tools`)
    - Codex config (`~/.codex/tools`, `.codex/tools`)
-   - OMP package roots and Claude marketplace plugins
+   - Scient Agent package roots and Claude marketplace plugins
 2. Enabled installed plugin manifests (user `~/.scient-agent/plugins` and the active project `.scient-agent/plugins` registry via the plugin loader; project packages shadow same-named user packages)
 3. Explicit configured paths passed to the loader
 
@@ -61,7 +61,7 @@ CustomTool.execute(toolCallId, params, onUpdate, ctx, signal)
 - Duplicate resolved paths are deduplicated by discovery; `loadCustomTools` itself loads the supplied path list.
 - Filesystem tool name conflicts are rejected against the supplied built-in names and already-loaded custom tools. Configured paths are appended, not name overrides.
 - Invalid factory results are reported per array entry; valid entries from the same factory can still load. Import/factory failures are collected in `errors` without stopping later modules.
-- Automatic tool-directory scans discover `.ts` and `.js` modules; native OMP discovery also checks immediate subdirectories for `index.ts`. Executable discovery excludes `.d.ts` and filters out metadata and scripts before tool-name deduplication. Declarative metadata such as `.md` and `.json` remains available to capability consumers but is not loaded as executable tools.
+- Automatic tool-directory scans discover `.ts` and `.js` modules; native Scient Agent discovery also checks immediate subdirectories for `index.ts`. Executable discovery excludes `.d.ts` and filters out metadata and scripts before tool-name deduplication. Declarative metadata such as `.md` and `.json` remains available to capability consumers but is not loaded as executable tools.
 - `.mjs` and `.cjs` modules can be loaded through explicitly configured paths or declared plugin tool entries, but the tool-directory scans above do not discover them automatically. Explicitly configured `.md` or `.json` paths still produce a load error.
 - Relative configured paths are resolved from `cwd`; `~` is expanded.
 
@@ -115,7 +115,7 @@ const factory: CustomToolFactory = (pi) => ({
 export default factory;
 ```
 
-Value imports of `@oh-my-pi/*` host packages (and their legacy `@mariozechner/*` / `@earendil-works/*` scopes) resolve to the copy omp itself runs, including in the compiled binary; the tool's other dependencies resolve from its own location. A tool module and its relative imports are evaluated once per process; each session calls the factory again.
+Value imports of `@oh-my-pi/*` host packages (and their legacy `@mariozechner/*` / `@earendil-works/*` scopes) resolve to the copy Scient Agent itself runs, including in the compiled binary; the tool's other dependencies resolve from its own location. A tool module and its relative imports are evaluated once per process; each session calls the factory again.
 
 Parameter schemas may use the Zod-compatible omptype builder (`pi.zod`), native omptype builder (`pi.arktype`), or legacy-compatible TypeBox shim (`pi.typebox`) and flow through the shared validation/wire pipeline.
 

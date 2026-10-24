@@ -199,7 +199,7 @@ describe("GitLab Duo Workflow provider protocol", () => {
 		expect(GITLAB_DUO_WORKFLOW_CLIENT_CAPABILITIES).not.toContain("tool_call_pattern_approval");
 	});
 
-	it("advertises OMP tools under their bare names with the official GitLab MCP schema", () => {
+	it("advertises Scient Agent tools under their bare names with the official GitLab MCP schema", () => {
 		const mcpTools = buildGitLabDuoWorkflowMcpTools([...nativeTools, editTool]);
 		// Bare names: the server binds the model schema and matches tool calls under the
 		// exact wire name (no prefix stripping), so the registered name must equal the
@@ -243,9 +243,9 @@ describe("GitLab Duo Workflow provider protocol", () => {
 		expect(payload.preapproved_tools).toEqual(payload.mcpTools.map(tool => tool.name));
 	});
 
-	it("puts the OMP system prompt in the inline flow system slot with reasoning events", () => {
+	it("puts the Scient Agent system prompt in the inline flow system slot with reasoning events", () => {
 		const systemContext: Context = {
-			systemPrompt: ["OMP authoritative operating rules. Bridge the local tools."],
+			systemPrompt: ["Scient Agent authoritative operating rules. Bridge the local tools."],
 			messages: context.messages,
 		};
 		const payload = buildGitLabDuoWorkflowStartRequest("workflow-1", model, systemContext, undefined, undefined, {
@@ -264,7 +264,7 @@ describe("GitLab Duo Workflow provider protocol", () => {
 		const prompt = flow?.prompts.find(entry => entry.prompt_id === agent?.prompt_id);
 		expect(prompt?.unit_primitives).toEqual(["duo_agent_platform"]);
 		// The system slot carries OMP's real system prompt verbatim — no gateway preamble.
-		expect(prompt?.prompt_template.system).toContain("OMP authoritative operating rules.");
+		expect(prompt?.prompt_template.system).toContain("Scient Agent authoritative operating rules.");
 		expect(prompt?.prompt_template.user).toBe("{{goal}}");
 		// A single-turn goal is bare text (no ChatML markers), so the history-note that
 		// warns against mimicking transcript markers must NOT be appended.
@@ -285,7 +285,7 @@ describe("GitLab Duo Workflow provider protocol", () => {
 		const sessionCookie = "_gitlab_session=0123456789abcdef0123456789abcdef";
 
 		const replayContext: Context = {
-			systemPrompt: [`OMP system instructions: preserve the local tool bridge. token ${patToken}`],
+			systemPrompt: [`Scient Agent system instructions: preserve the local tool bridge. token ${patToken}`],
 			messages: [
 				{
 					role: "user",
@@ -348,7 +348,7 @@ describe("GitLab Duo Workflow provider protocol", () => {
 		expect(payload.goal).not.toContain("<conversation>");
 		expect(payload.goal).not.toContain("<current_request>");
 		expect(payload.goal).not.toContain("<prior_messages>");
-		expect(payload.goal).not.toContain("OMP system instructions: preserve the local tool bridge.");
+		expect(payload.goal).not.toContain("Scient Agent system instructions: preserve the local tool bridge.");
 		// ChatML role turns, every turn equal-weight, ending on the last user turn.
 		expect(payload.goal).toContain("<|im_start|>user\nFirst user turn.");
 		expect(payload.goal).toContain("<|im_start|>assistant\nAssistant answer.");
@@ -385,7 +385,9 @@ describe("GitLab Duo Workflow provider protocol", () => {
 
 		// The OMP system prompt lives in the flow config system slot, not the goal.
 		const flowPrompt = payload.flowConfig?.prompts[0];
-		expect(flowPrompt?.prompt_template.system).toContain("OMP system instructions: preserve the local tool bridge.");
+		expect(flowPrompt?.prompt_template.system).toContain(
+			"Scient Agent system instructions: preserve the local tool bridge.",
+		);
 		expect(flowPrompt?.prompt_template.system).not.toContain(patToken);
 		expect(flowPrompt?.prompt_template.system).toContain("[gitlab_token_redacted]");
 		// This goal IS a multi-turn ChatML transcript, so the system slot appends the
@@ -393,7 +395,7 @@ describe("GitLab Duo Workflow provider protocol", () => {
 		// record, not a tool-call syntax to emit.
 	});
 
-	it("strips the OMP-internal intent (i) field from replayed tool-call args", () => {
+	it("strips the Scient Agent-internal intent (i) field from replayed tool-call args", () => {
 		const replayContext: Context = {
 			systemPrompt: ["system"],
 			messages: [

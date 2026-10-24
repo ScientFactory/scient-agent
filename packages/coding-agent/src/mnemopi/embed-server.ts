@@ -51,7 +51,7 @@ export async function startMnemopiEmbedServerFromEnvironment(): Promise<void> {
 	const model = process.env[MNEMOPI_EMBED_MODEL_ENV];
 	const tag = process.env[MNEMOPI_EMBED_TAG_ENV];
 	if (!endpoint || !model || !tag) throw new Error("mnemopi embed server environment is incomplete");
-	setProcessName(`omp mnemopi embed ${model}`);
+	setProcessName(`scient-agent mnemopi embed ${model}`);
 	// Same correlation, timeout, and wedge reaping as an omp process, over the private child.
 	const runtime = new MnemopiEmbedClient(spawnMnemopiEmbedWorker);
 	const server: JsonLineServer<MnemopiEmbedServerRequest, MnemopiEmbedServerResponse> = new JsonLineServer({
