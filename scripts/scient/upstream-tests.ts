@@ -28,19 +28,19 @@ interface KnownFailure {
 	evidence: string;
 }
 
-// Each was seen failing on untouched 18.12.6 on ubuntu-22.04 (2026-10-24), in 8
+// Each was seen failing on untouched 18.12.6 on ubuntu-22.04 (2026-10-24), in 16
 // coding-agent-native bucket runs; SCIENT.md, "Fifth alignment intake", has the counts.
 const KNOWN_FAILURES: KnownFailure[] = [
 	{
 		commit: "45c35e40c46166dc726ccc52f5d27f40f2449f99",
 		test: "packages/coding-agent/test/tools.test.ts > Coding Agent Tools > read tool > re-reads an archive rewritten in place with the same size and restored mtime",
 		evidence:
-			"Failed in 4 of 8 bucket runs untouched; on 18.12.1, 5 of 16. Consistent with its archive cache keying on ctime, which Linux advances in coarse ticks.",
+			"Failed in 5 of 16 bucket runs untouched; on 18.12.1, 5 of 16. Consistent with its archive cache keying on ctime, which Linux advances in coarse ticks.",
 	},
 	{
 		commit: "45c35e40c46166dc726ccc52f5d27f40f2449f99",
 		test: "packages/coding-agent/test/tools/browser-relay-detach.test.ts > relay tabs Chrome detaches Scient Agent from > does not rerun a call detached before its code started once the re-adoption spent its budget",
-		evidence: "Failed in 2 of 8 bucket runs untouched; on 18.12.1, 5 of 16.",
+		evidence: "Failed in 4 of 16 bucket runs untouched; on 18.12.1, 5 of 16.",
 	},
 ];
 

@@ -578,6 +578,22 @@ Only `coding-agent-native` failed, in two tests:
 
 Both are listed for 18.12.6's commit. The other five 18.12.1 entries did not fail and were dropped.
 
+A second probe then ran `coding-agent-native` 8 more times on untouched 18.12.6 and 8 times on Scient's replay, side by side:
+
+| Test | Untouched, all 16 runs | Scient's replay, 8 runs |
+|---|---|---|
+| "re-reads an archive rewritten in place …" | 5 | 3 |
+| "does not rerun a call detached before its code started …" (relay) | 4 | 6 |
+| "hands the scope to a new broker after its runtime dir is deleted under it" | 1 | 0 |
+| "imports cookies, round-trips storage, and restores a saved state in a fresh tab" | 1 | 0 |
+| "libkitty end-to-end > replaces retired history after /shake …" | 0 | 1 |
+
+The relay test fails the same way on both trees: the reattach race outlasts the call's one-second budget.
+
+The libkitty test also failed in the CI run that the PR's final commit triggered on its branch. The PR run of the same tree passed. It never failed untouched: 16 bucket runs, plus 120 local runs of its file with six running at once. On Scient's tree locally it failed once in 30 such runs, then passed 144 more. Scient changes nothing it renders: its changes to the terminal interface are names. The check that failed follows a render wait with no condition.
+
+It is not listed, because it has not been seen failing untouched. A release run that fails on it is rerun, as v0.1.1's was. The two untouched-only failures are not listed either; neither has failed on Scient's tree.
+
 #### Local checks
 
 On macOS (Apple silicon), against the replay, all passed:
