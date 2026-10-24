@@ -1,4 +1,4 @@
-name: Probe pristine 18.12.6 test buckets
+name: Probe 18.12.6 coding-agent-native, untouched and Scient's replay
 
 # Temporary: runs Oh My Pi 18.12.6's TypeScript test buckets, untouched, on the
 # runner and concurrency Scient's upstream-tests job uses, several times each,
@@ -13,10 +13,18 @@ permissions:
 
 jobs:
    natives:
+      name: natives ${{ matrix.tree }}
+      strategy:
+         matrix:
+            include:
+               - { tree: untouched, ref: probe/pristine-18126 }
+               - { tree: scient, ref: replay/omp-v18.12.6 }
       runs-on: ubuntu-22.04
       timeout-minutes: 60
       steps:
          - uses: actions/checkout@v4
+           with:
+              ref: ${{ matrix.ref }}
          - uses: oven-sh/setup-bun@v2
            with:
               bun-version: 1.4.2
@@ -28,51 +36,49 @@ jobs:
               PI_NATIVE_X64_VARIANT=modern bun run build:native
          - uses: actions/upload-artifact@v4
            with:
-              name: natives-linux-x64
+              name: natives-linux-x64-${{ matrix.tree }}
               path: packages/natives/native/*.node
               if-no-files-found: error
               retention-days: 1
 
    tests:
       needs: natives
-      name: ${{ matrix.mode }} run ${{ matrix.run }}
+      name: ${{ matrix.tree }} ${{ matrix.mode }} run ${{ matrix.run }}
       runs-on: ubuntu-22.04
       timeout-minutes: 45
       strategy:
          fail-fast: false
          matrix:
             include:
-               - { mode: coding-agent-native, concurrency: 4, run: 1 }
-               - { mode: coding-agent-native, concurrency: 4, run: 2 }
-               - { mode: coding-agent-native, concurrency: 4, run: 3 }
-               - { mode: coding-agent-native, concurrency: 4, run: 4 }
-               - { mode: coding-agent-native, concurrency: 4, run: 5 }
-               - { mode: coding-agent-native, concurrency: 4, run: 6 }
-               - { mode: coding-agent-native, concurrency: 4, run: 7 }
-               - { mode: coding-agent-native, concurrency: 4, run: 8 }
-               - { mode: coding-agent-runtime, concurrency: 4, run: 1 }
-               - { mode: coding-agent-runtime, concurrency: 4, run: 2 }
-               - { mode: coding-agent-runtime, concurrency: 4, run: 3 }
-               - { mode: coding-agent-ui, concurrency: 2, run: 1 }
-               - { mode: coding-agent-ui, concurrency: 2, run: 2 }
-               - { mode: coding-agent-ui, concurrency: 2, run: 3 }
-               - { mode: workspace, concurrency: 4, run: 1 }
-               - { mode: workspace, concurrency: 4, run: 2 }
-               - { mode: native, concurrency: 4, run: 1 }
-               - { mode: native, concurrency: 4, run: 2 }
-               - { mode: coding-agent-singleton, concurrency: 1, run: 1 }
-               - { mode: coding-agent-singleton, concurrency: 1, run: 2 }
+               - { mode: coding-agent-native, concurrency: 4, run: 1, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 2, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 3, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 4, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 5, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 6, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 7, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 8, tree: untouched, ref: probe/pristine-18126 }
+               - { mode: coding-agent-native, concurrency: 4, run: 1, tree: scient, ref: replay/omp-v18.12.6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 2, tree: scient, ref: replay/omp-v18.12.6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 3, tree: scient, ref: replay/omp-v18.12.6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 4, tree: scient, ref: replay/omp-v18.12.6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 5, tree: scient, ref: replay/omp-v18.12.6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 6, tree: scient, ref: replay/omp-v18.12.6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 7, tree: scient, ref: replay/omp-v18.12.6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 8, tree: scient, ref: replay/omp-v18.12.6 }
       steps:
          - uses: actions/checkout@v4
+           with:
+              ref: ${{ matrix.ref }}
          - uses: oven-sh/setup-bun@v2
            with:
               bun-version: 1.4.2
          - run: bun install --frozen-lockfile
          - uses: actions/download-artifact@v4
            with:
-              name: natives-linux-x64
+              name: natives-linux-x64-${{ matrix.tree }}
               path: packages/natives/native
-         - name: The bucket, untouched
+         - name: The bucket
            continue-on-error: true
            env:
               OMP_TEST_CONCURRENCY: ${{ matrix.concurrency }}
@@ -84,6 +90,6 @@ jobs:
          - uses: actions/upload-artifact@v4
            if: always()
            with:
-              name: log-${{ matrix.mode }}-${{ matrix.run }}
+              name: log-${{ matrix.tree }}-${{ matrix.mode }}-${{ matrix.run }}
               path: bucket.log
               retention-days: 5
