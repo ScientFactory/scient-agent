@@ -6,7 +6,7 @@ Shared utilities for [omp](https://github.com/can1357/oh-my-pi) packages. Zero c
 
 | Module                                                                                                             | Purpose                                                                                      |
 | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `logger`                                                                                                           | Centralized logger writing to `~/.scient-agent/logs/` with rotation (TUI-safe — never stdout)         |
+| `logger`                                                                                                           | Centralized logger writing to `~/.scient-agent/logs/` (`bun test`: temp dir), rotating, never stdout  |
 | `prompt`                                                                                                           | Handlebars-based prompt templating and formatting helpers                                    |
 | `dirs`                                                                                                             | Path helpers for omp config directories (`~/.scient-agent`, XDG-aware on Linux)                       |
 | `stream`                                                                                                           | `readStream` / `readLines` helpers over `ReadableStream`                                     |

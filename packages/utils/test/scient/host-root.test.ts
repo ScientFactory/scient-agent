@@ -80,6 +80,9 @@ async function probe(dirs: { home: string; project: string }, launch: Record<str
 		...launch,
 	};
 	for (const name of AGENT_VARIABLES) if (!(name in launch)) delete env[name];
+	// The child stands for the agent, not for a test. Oh My Pi's test runner marks
+	// its processes with PI_TEST_RUNTIME, and `getLogsDir()` then answers a temp folder.
+	delete env.PI_TEST_RUNTIME;
 	// `--no-env-file`: the compiled agent does not let Bun load `.env` by itself
 	// either, so `env.ts` is the only reader, as in a release build.
 	const proc = Bun.spawn([process.execPath, "--no-env-file", "--no-install", "--eval", script], {
