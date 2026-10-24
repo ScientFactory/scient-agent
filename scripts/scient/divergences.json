@@ -206,6 +206,13 @@
 			"status": "active",
 			"contract": "Scient builds the native addon with cargo on the pinned toolchain: stable expressions where Oh My Pi's Bazel build allows unstable ones.",
 			"upstream": ["crates/pi-vfs/src/canonicalize.rs", "crates/pi-vfs/src/native/windows.rs", "crates/pi-vfs/src/path.rs"]
+		},
+		"SA-RPC-SPOOL": {
+			"status": "active",
+			"contract": "The RPC output spool, where frames wait while a host is not reading, stops the agent once it passes 2 GiB (PI_RPC_SPOOL_MAX_BYTES) instead of filling the disk, and its folder names the owning process, so an agent that starts removes the spools of agents that were killed. Proposed to Oh My Pi as can1357/oh-my-pi#16139.",
+			"owned": ["packages/coding-agent/src/scient/rpc-spool.ts", "packages/coding-agent/test/scient/rpc-spool.test.ts"],
+			"upstream": ["packages/coding-agent/src/modes/rpc/rpc-output.ts"],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-spool.test.ts"]
 		}
 	}
 }
