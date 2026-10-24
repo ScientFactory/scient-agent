@@ -30,6 +30,13 @@ Scope fake timers to the deadline a test exercises, then restore real timers
 before real socket listeners are started. Bun's mocked clock can defer
 `server.listen` callbacks, leaving registry publication and teardown waiting.
 
+Tests that call `setAgentDir()` must snapshot and restore `SCIENT_AGENT_DIR`,
+`SCIENT_AGENT_PROFILE`, and `SCIENT_AGENT_PROFILE_FALLBACK` for each test, then call
+`__resetDirsFromEnvForTests()` after restoration. Home-directory discovery fixtures
+must clear and restore `SCIENT_AGENT_DIR` so inherited overrides cannot bypass
+the fixture. Reuse `restoreEnvValue()` from `test/helpers/settings-test-state.ts`
+to preserve unset values.
+
 ## Boot flow
 
 ```text

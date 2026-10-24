@@ -4,7 +4,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Personality } from "@oh-my-pi/pi-coding-agent/session/settings";
 import { buildSystemPrompt } from "@oh-my-pi/pi-coding-agent/system-prompt";
-import { getAgentDir, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { __resetDirsFromEnvForTests, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
+import { restoreEnvValue } from "./helpers/settings-test-state";
 
 const EMPTY_TREE = {
 	rootPath: "",
@@ -18,8 +19,6 @@ const EMPTY_TREE = {
 const DEFAULT_PRESET_MARKER = "Evidence-first terse engineer";
 const OVERRIDE = "Follow ASD-STE100 Simplified Technical English for all responses.";
 
-const originalAgentDir = getAgentDir();
-
 // PERSONALITY.md contract (issue #8528): `<agentDir>/PERSONALITY.md` replaces
 // the selected preset's text in the personality block; `none` still omits the
 // block (subagents always run with `none`); an empty file falls back to the
@@ -27,15 +26,24 @@ const originalAgentDir = getAgentDir();
 describe("PERSONALITY.md override", () => {
 	let tempDir = "";
 	let tempAgentDir = "";
+	let originalAgentDirEnv: string | undefined;
+	let originalOmpProfileEnv: string | undefined;
+	let originalPiProfileEnv: string | undefined;
 
 	beforeEach(() => {
+		originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
+		originalOmpProfileEnv = process.env.SCIENT_AGENT_PROFILE;
+		originalPiProfileEnv = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-personality-"));
 		tempAgentDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-personality-agent-"));
 		setAgentDir(tempAgentDir);
 	});
 
 	afterEach(() => {
-		setAgentDir(originalAgentDir);
+		restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDirEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE", originalOmpProfileEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfileEnv);
+		__resetDirsFromEnvForTests();
 		removeSyncWithRetries(tempDir);
 		removeSyncWithRetries(tempAgentDir);
 	});

@@ -530,13 +530,96 @@ A hosted model's judgement was not exercised.
 
 No candidate-specific regression was found. Fork continuity across a process restart is not covered by this run, because the test fails earlier on both builds. A managed installation through Desktop's catalog follows publication: its automation qualifies `--runtime-info`, the RPC v2 handshake and `get_state` on six platforms.
 
+### Fifth alignment intake — 2026-10-24
+
+Scient Agent 0.1.2 ships on Oh My Pi 18.12.6.
+
+- Accepted source baseline: OMP `18.12.1`, `291e055836c210f314af3f73f53244e8e9d09de8`, from [PR #27](https://github.com/ScientFactory/scient-agent/pull/27) (tag `omp-sync/v18.12.1`).
+- Target: OMP `18.12.6`, `45c35e40c46166dc726ccc52f5d27f40f2449f99`, under `refs/upstream-tags/v18.12.6`. That is 1,557 upstream commits after 18.12.1, changing 907 files. Product version `0.1.2`.
+- Inventory: the 15 commits of the 18.12.1 replay, plus the two commits merged to `main` after its import (`28334f2f82`, `0de3efb908`: the failures the v0.1.1 tag run exposed, and the release checks). Both were folded into `SA-RELEASE`.
+- Integration: [PR #29](https://github.com/ScientFactory/scient-agent/pull/29). Its sync commit's tree equals the replay's, on `origin/replay/omp-v18.12.6`.
+
+The replay:
+- **Generators.** Identity regenerated with no stale rule (563 files), and wording with no stale text (436 files).
+- **Contract commits.** Three of the 11 stopped on a conflict:
+  - `SA-RELEASE` deletes upstream's CI workflow, which upstream changed. It stays deleted.
+  - `SA-PRODUCT` (`dirs.ts`) and `SA-ROOT` (`env.ts`) each import beside a line where upstream added an import (`isBunTestRuntime`). Each hook now follows upstream's import.
+- **Hooked files.** Upstream changed 12 of the 41 Oh My Pi files that carry Scient's hooks. Each hook still does what its contract says.
+- **Footprint.** Unchanged: 82 marker blocks, 196 lines, in 41 files.
+
+**Two defects, both mine, both fixed.**
+- The first replay's generated commits were made with Homebrew's stable `rustfmt`, because the pinned nightly had no `rustfmt` component on the Mac that built it. Stable `rustfmt` ignores `rustfmt.toml`'s alignment options, so 16 Rust files the generators touch came out formatted unlike `main`. The local divergence check accepted them, because it regenerated with the same `rustfmt`. The list of files an import changes beyond upstream's range exposed it. The generators were rerun with the pinned toolchain first on `PATH`, and "Build" now says the generators need it.
+- Scient's host-root test failed on Linux CI and passed locally. From 18.12.6, `getLogsDir()` answers a temp folder in any process marked `PI_TEST_RUNTIME`, and Oh My Pi's test runner marks the processes it starts. The test's child stands for the agent, so it no longer inherits the marker. Scient's suites now also pass locally with the marker set.
+
+Reviewing upstream's range for Scient's seams found nothing to adapt. Inherited as is:
+
+| Change | Why Scient inherits it |
+|---|---|
+| `OMP_AUTH_BROKER_ACCOUNT_POOL_FILE` (18.12.3) | A state selector. The existing `AUTH_BROKER_*` rule names it `SCIENT_AGENT_AUTH_BROKER_ACCOUNT_POOL_FILE`. |
+| Approval cache `approval-cache.db`, approval mode `always-ask-cached` | Kept in the agent directory, which `SA-ROOT` places under Scient's root. |
+| Test logs in `<tmpdir>/omp-test-logs-<uid>`, and the natives unit-test crash folder | Only test processes write there. The agent's own logs stay under its root. |
+| Build variables `OMP_KEYMAP_DARWIN_HELPER`, `OMP_INPUT_RELEASE_HELPER`, `OMP_OAUTH_RELAY_BINARY` | They embed helper executables at build time; nothing reads them at run time. |
+| `set_todos` saves a `user_todo_edit` entry; MCP progress on `tool_execution_update`; abort also cancels background built-in commands; `/mcp reauth` over RPC | Additive. The RPC wire schema has no upstream change, and the protocol stays v2. |
+| A stopped run stays stopped (18.12.4): a background result no longer restarts it | Agent behavior, inherited like the rest of the agent loop. |
+| Background job widgets (`async.widgets`, on by default) | Agent behavior. Over RPC a widget is written when the agent's own job tools read a running job: a model call, counted in the session's usage. Desktop draws no widgets; it can turn the setting off in the agent's config. |
+
+**Known failures.** The 18.12.1 entries lapsed. Oh My Pi's six buckets were then run untouched on 18.12.6, on Scient's runner type and concurrency:
+- `coding-agent-native` 8 times;
+- `coding-agent-runtime` and `coding-agent-ui` 3 times each;
+- the others twice.
+
+Only `coding-agent-native` failed, in two tests:
+
+| Test | Untouched 18.12.6 | Untouched 18.12.1 |
+|---|---|---|
+| "re-reads an archive rewritten in place …" | 4 of 8 | 5 of 16 |
+| "does not rerun a call detached before its code started …" (relay) | 2 of 8 | 5 of 16 |
+
+Both are listed for 18.12.6's commit. The other five 18.12.1 entries did not fail and were dropped.
+
+#### Local checks
+
+On macOS (Apple silicon), against the replay, all passed:
+- identity and wording `--check`;
+- the checker's and generators' own cases (64);
+- `check:ts`: two lint warnings, both in upstream tests;
+- the divergence check in replay mode: 15 commits, each of the 3 generated commits matching its generator;
+- Scient's own tests in utils (13), natives (8), coding-agent (34) and ai (1), with and without `PI_TEST_RUNTIME`.
+
+The native addon and the executable were built with the pinned nightly and Bun 1.4.2. Not run locally: Rust checks and tests, and Oh My Pi's suites, which CI runs.
+
+#### Compiled qualification
+
+Against a local macOS arm64 build of the replay:
+- SHA-256 `db2e5fbd51…`;
+- `--runtime-info` reports product `scient-agent`, version `0.1.2`, upstream `oh-my-pi` 18.12.6 `45c35e40c4`, RPC protocols 1 and 2.
+
+The previous binary was the published v0.1.1 for macOS arm64 (SHA-256 `d979b22d14…`, checked against its checksum file).
+
+| Check | Observed result |
+|---|---|
+| Isolation check | Passed. Hosts contacted on startup: the model catalog and providers' public model lists, as before. |
+| `capability-check.ts`, candidate after v0.1.1 | Passed every case: the v0.1.1 session resumed and continued, the snapshot rolled back, the native Skill's text arrived, eval computed 42, the shell artifact was written, two overlapping children completed. |
+| The same check, v0.1.1 as both binaries | Passed. |
+| Scient Desktop's live suites against the candidate and v0.1.1, both on this machine | Identical on both: 23 passed, 8 failed, 2 skipped. |
+
+The live-suite runs used Desktop `origin/main` `57277d459b` plus [Desktop PR #650](https://github.com/ScientFactory/scient-desktop/pull/650), which requests delta-only message updates. Every Oh My Pi suite ran with `OMP_QUALIFY_TARGET=scient`, and `ScientAgent.live.test.ts` ran beside the stock `omp` installed here (18.3.1). No model turn was run.
+
+The eight failures:
+- Two custom-model cases need `gemma4:12b-it-qat`, which this machine's Ollama lacks.
+- Coexistence and load fail because the stock `omp` 18.3.1 session does not open.
+- Two provider-status checks read `warning`: the test home has no sign-in.
+- Stop on a waiting native job times out, and fork continuity's history count fails before its restart. These two are recorded for v0.1.0 under the fourth intake.
+
+No candidate-specific regression was found.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
 
 ## Build
 
-Needs Bun 1.4 or newer, `rustup` with the pinned toolchain and components in `rust-toolchain.toml`, CMake and Ninja. Ensure that toolchain's `cargo`, `rustc` and `rustfmt` precede a separate system Rust installation on `PATH`; a Homebrew stable compiler can otherwise be selected by the native build's child processes.
+Needs Bun 1.4 or newer, `rustup` with the pinned toolchain and components in `rust-toolchain.toml`, CMake and Ninja. Ensure that toolchain's `cargo`, `rustc` and `rustfmt` precede a separate system Rust installation on `PATH`; a Homebrew stable compiler can otherwise be selected by the native build's child processes. The identity and wording generators run that `rustfmt` too: a stable `rustfmt` ignores `rustfmt.toml`'s unstable options, so its output differs from CI's and the generated commits fail there.
 
 ```sh
 bun install --frozen-lockfile
@@ -575,12 +658,11 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Seven tests are listed for 18.12.1. Each was seen failing on an untouched 18.12.1 tree on the same runner type; the counts are under "Fourth alignment intake". Four were listed for 18.11.3:
-- two browser tests whose observed failures all came with the bucket's chunks running side by side; for 18.11.3 they failed as often on untouched upstream as on Scient's tree given the same chunks;
-- a third browser test, on releasing a reattached headless tab;
+Two tests are listed for 18.12.6. Each was seen failing on an untouched 18.12.6 tree on the same runner type; the counts are under "Fifth alignment intake":
+- a browser relay test, which also failed on untouched 18.12.1 and 18.11.3;
 - an archive test. Its cache keys on ctime, which Linux advances in coarse ticks, and the test rewrites the file in place with the same size and mtime. That was not measured.
 
-The other three are new: a status-line test that hit its 30-second timeout, an agent-hub ordering test, and a browser cancellation test. For 18.10.4 the list held three tests, each shown failing on that release untouched.
+The other five tests listed for 18.12.1 did not fail in 20 bucket runs on untouched 18.12.6, so they were dropped. One of them, a browser test, had failed 13 of 16 times on 18.12.1.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 
