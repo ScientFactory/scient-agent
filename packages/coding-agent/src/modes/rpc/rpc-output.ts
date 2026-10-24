@@ -2,6 +2,9 @@ import * as fs from "node:fs";
 import type { Writable } from "node:stream";
 import { logger, openCloexecSync, TempDir } from "@oh-my-pi/pi-utils";
 import type { BunFile } from "bun";
+// scient(SA-RPC-SPOOL): begin - The spool is capped and named for its process, so a stale one is removed.
+import { checkSpoolSize, spoolFolderPrefix, startStaleSpoolSweep } from "../../scient/rpc-spool";
+// scient(SA-RPC-SPOOL): end
 
 const READ_BYTES = 64 * 1024;
 
@@ -31,6 +34,9 @@ export class RpcOutputWriter {
 		sink.on("error", this.#onError);
 		sink.on("close", this.#onClose);
 		process.once("exit", this.#onExit);
+		// scient(SA-RPC-SPOOL): begin - Remove the spools of agents that were killed.
+		startStaleSpoolSweep();
+		// scient(SA-RPC-SPOOL): end
 	}
 
 	write(frames: Iterable<string>): void {
@@ -69,7 +75,9 @@ export class RpcOutputWriter {
 
 	#append(line: string): void {
 		if (!this.#spool) {
-			const dir = TempDir.createSync("@omp-rpc-output-");
+			// scient(SA-RPC-SPOOL): begin - The folder names Scient Agent and this process.
+			const dir = TempDir.createSync(spoolFolderPrefix("@omp-rpc-output-"));
+			// scient(SA-RPC-SPOOL): end
 			try {
 				const file = dir.join("output");
 				const handle = Bun.file(file);
@@ -90,6 +98,9 @@ export class RpcOutputWriter {
 			offset += written;
 			spool.written += written;
 		}
+		// scient(SA-RPC-SPOOL): begin - Stop before a host that no longer reads fills the disk.
+		checkSpoolSize(spool.written);
+		// scient(SA-RPC-SPOOL): end
 	}
 
 	#onDrain = (): void => {
