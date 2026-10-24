@@ -21,7 +21,7 @@ If your extension/tool can run headless, guard with `ctx.hasUI` / `pi.hasUI`. RP
 
 ## Project-local TUI debug tool
 
-`.omp/tools/tui.ts` provides the repository's `tui` debug tool. `start` accepts
+`.scient-agent/tools/tui.ts` provides the repository's `tui` debug tool. `start` accepts
 either a TypeScript/JavaScript `file` (run with Bun) or an executable `bin` with
 separate `args`. Windows uses native ConPTY without requiring a POSIX shell;
 macOS/Linux use Bun's PTY.
@@ -31,7 +31,7 @@ helper, which returns integer dimensions clamped to 20–400 columns and 5–200
 The PTY, emulated screen, and reported size use the same effective dimensions.
 
 `screen`, `send`, `resize`, and `stop` also work for programs without an
-`OMP_TUI_DEBUG` server. Renderer queries (`info`, `tree`, `values`, and `frame`)
+`SCIENT_AGENT_TUI_DEBUG` server. Renderer queries (`info`, `tree`, `values`, and `frame`)
 require an omp/pi-tui host.
 
 `send` accepts literal text and `\e`, `\r`, `\n`, `\t`, and `\xNN` escapes.
@@ -40,10 +40,10 @@ sequences are rejected before any input is written. Arbitrary non-UTF-8 bytes
 (such as `\x9b` 8-bit CSI) are not supported by the Windows PTY string API.
 Use the UTF-8-compatible `\e[` CSI sequence instead. macOS/Linux preserve raw bytes.
 
-Install the tool's dependencies with `bun install --cwd .omp/tools`.
+Install the tool's dependencies with `bun install --cwd .scient-agent/tools`.
 Native PTY API changes require rebuilding the addon with
 `bun --cwd=packages/natives run build` before running the tool.
-Run its real-PTY regressions with `bun test ./.omp/tests/tui.test.ts`. CI runs
+Run its real-PTY regressions with `bun test ./.scient-agent/tests/tui.test.ts`. CI runs
 them on Linux only; the Windows-specific cases run only on a local Windows host.
 
 ## Core component contract (`@oh-my-pi/pi-tui`)

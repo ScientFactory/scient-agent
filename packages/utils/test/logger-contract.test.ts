@@ -56,9 +56,9 @@ async function runScenario(
 				// os.homedir() on Windows reads USERPROFILE, not HOME: without
 				// this the default-file scenario logs into the real profile.
 				USERPROFILE: primaryDir,
-				PI_CONFIG_DIR: ".omp",
-				OMP_PROFILE: "",
-				PI_PROFILE: "",
+				SCIENT_AGENT_CONFIG_DIR: ".scient-agent",
+				SCIENT_AGENT_PROFILE: "",
+				SCIENT_AGENT_PROFILE_FALLBACK: "",
 				XDG_DATA_HOME: "",
 				XDG_STATE_HOME: "",
 				XDG_CACHE_HOME: "",
@@ -86,7 +86,7 @@ async function runScenario(
 
 async function logFileNames(directory: string): Promise<string[]> {
 	return (await fs.readdir(directory))
-		.filter(name => /^omp\.\d{4}-\d{2}-\d{2}\.\d+\.log(?:\.\d+)?$/.test(name))
+		.filter(name => /^scient-agent\.\d{4}-\d{2}-\d{2}\.\d+\.log(?:\.\d+)?$/.test(name))
 		.sort();
 }
 
@@ -127,7 +127,7 @@ describe("central logger byte contract", () => {
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
 		const log = await readSingleLog(result.primaryDir);
-		expect(log.name).toBe(`omp.2026-01-01.${result.pid}.log`);
+		expect(log.name).toBe(`scient-agent.2026-01-01.${result.pid}.log`);
 		const expected = [
 			expectedLine(result.pid, "error", "level-error", { ordinal: 1 }),
 			expectedLine(result.pid, "warn", "level-warn", { ordinal: 2 }),
@@ -248,7 +248,7 @@ describe("central logger transport lifecycle", () => {
 		const result = await runScenario("default-file");
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
-		const defaultLogsDir = path.join(result.primaryDir, ".omp", "logs");
+		const defaultLogsDir = path.join(result.primaryDir, ".scient-agent", "logs");
 		const log = await readSingleLog(defaultLogsDir);
 		expect(log.text).toBe(expectedLine(result.pid, "info", "mode-default", { mode: "default" }));
 	});
@@ -256,7 +256,7 @@ describe("central logger transport lifecycle", () => {
 	test("a test process writes its default-file records under the temp dir, never the real logs dir", async () => {
 		const result = await runScenario("default-file", { testRuntime: true });
 		expect(result.stderr).toBe("");
-		// The child's HOME stays empty: no ~/.omp/logs was created.
+		// The child's HOME stays empty: no ~/.scient-agent/logs was created.
 		expect(await fs.readdir(result.primaryDir)).toEqual([]);
 		// Named per user, so users of a shared /tmp never share it.
 		const uid = typeof process.getuid === "function" ? process.getuid() : os.userInfo().username;
@@ -366,7 +366,7 @@ describe("DailyRotateFile option and retention contract", () => {
 		const result = await runScenario("date-retention");
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
-		const expectedNames = [2, 3, 4, 5, 6].map(day => `omp.2026-01-0${day}.${result.pid}.log`);
+		const expectedNames = [2, 3, 4, 5, 6].map(day => `scient-agent.2026-01-0${day}.${result.pid}.log`);
 		expect(await logFileNames(result.primaryDir)).toEqual(expectedNames);
 		for (const [offset, name] of expectedNames.entries()) {
 			const day = offset + 2;
@@ -382,7 +382,7 @@ describe("DailyRotateFile option and retention contract", () => {
 		const result = await runScenario("size-rotation");
 		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe("");
-		const baseName = `omp.2026-01-01.${result.pid}.log`;
+		const baseName = `scient-agent.2026-01-01.${result.pid}.log`;
 		const rotatedName = `${baseName}.1`;
 		expect(await logFileNames(result.primaryDir)).toEqual([baseName, rotatedName]);
 		const basePath = path.join(result.primaryDir, baseName);

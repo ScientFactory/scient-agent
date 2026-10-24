@@ -52,7 +52,7 @@ await writer.append('{"type":"session_start"}\\n');
 await fsp.mkdir(${JSON.stringify(logsDir)}, { recursive: true });
 const logSink = new RotatingFileSink({
 	directory: ${JSON.stringify(logsDir)},
-	filenamePrefix: "omp",
+	filenamePrefix: "scient-agent",
 	filenameSuffix: String(process.pid),
 	maxBytes: 1 << 20,
 	maxFiles: 2,
@@ -98,5 +98,5 @@ process.stdout.write(output);
 		.join("\n");
 	expect(inherited, `control: an inheritable descriptor must reach the child\n${stdout}`).toContain(control);
 	expect(inherited).not.toContain(transcript);
-	expect(inherited).not.toMatch(/omp\.[\d-]+\.\d+\.log/);
+	expect(inherited).not.toMatch(/scient-agent\.[\d-]+\.\d+\.log/);
 });

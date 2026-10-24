@@ -1,5 +1,5 @@
 /**
- * Ownership marker for task-isolation sandboxes under `~/.omp/wt/`.
+ * Ownership marker for task-isolation sandboxes under `~/.scient-agent/wt/`.
  *
  * Each isolation base dir (`ensureIsolation` in {@link ./worktree}) holds a
  * compact `m` mount plus this marker file naming the omp process that created
@@ -13,7 +13,7 @@ import { $ } from "bun";
 const { IsoBackendKind } = natives;
 
 /** Marker file written into a task-isolation base dir identifying its owner. */
-export const ISOLATION_OWNER_FILE = ".omp-isolation-owner.json";
+export const ISOLATION_OWNER_FILE = ".scient-agent-isolation-owner.json";
 
 /** Recorded owner of a task-isolation sandbox. */
 export interface IsolationOwner {
@@ -109,7 +109,7 @@ export async function hasLiveIsolationOwner(baseDir: string): Promise<boolean> {
 }
 
 /** Sidecar recording the native-teardown backend of a retained workspace. */
-export const RETAINED_BACKEND_FILE = ".omp-retained-backend.json";
+export const RETAINED_BACKEND_FILE = ".scient-agent-retained-backend.json";
 
 /**
  * Backends whose workspaces `omp worktree clear` must not remove with plain

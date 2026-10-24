@@ -31,18 +31,18 @@ describe("PERSONALITY.md override", () => {
 	let originalPiProfileEnv: string | undefined;
 
 	beforeEach(() => {
-		originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfileEnv = process.env.OMP_PROFILE;
-		originalPiProfileEnv = process.env.PI_PROFILE;
+		originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
+		originalOmpProfileEnv = process.env.SCIENT_AGENT_PROFILE;
+		originalPiProfileEnv = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-personality-"));
 		tempAgentDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-personality-agent-"));
 		setAgentDir(tempAgentDir);
 	});
 
 	afterEach(() => {
-		restoreEnvValue("PI_CODING_AGENT_DIR", originalAgentDirEnv);
-		restoreEnvValue("OMP_PROFILE", originalOmpProfileEnv);
-		restoreEnvValue("PI_PROFILE", originalPiProfileEnv);
+		restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDirEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE", originalOmpProfileEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfileEnv);
 		__resetDirsFromEnvForTests();
 		removeSyncWithRetries(tempDir);
 		removeSyncWithRetries(tempAgentDir);

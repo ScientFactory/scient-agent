@@ -57,7 +57,7 @@ function startupMarker(text) {
 
 function getNativesDir() {
 	// Match pi-utils directory overrides without depending on pi-utils.
-	const override = process.env.PI_NATIVES_DIR?.trim();
+	const override = process.env.SCIENT_AGENT_NATIVES_DIR?.trim();
 	if (override) {
 		let dir = override;
 		if (dir === "~") dir = os.homedir();
@@ -65,10 +65,10 @@ function getNativesDir() {
 		if (path.isAbsolute(dir)) return path.normalize(dir);
 	}
 	const xdgDataHome = process.env.XDG_DATA_HOME;
-	if (xdgDataHome && fs.existsSync(path.join(xdgDataHome, "omp"))) {
-		return path.join(xdgDataHome, "omp", "natives");
+	if (xdgDataHome && fs.existsSync(path.join(xdgDataHome, "scient-agent"))) {
+		return path.join(xdgDataHome, "scient-agent", "natives");
 	}
-	return path.join(os.homedir(), ".omp", "natives");
+	return path.join(os.homedir(), ".scient-agent", "natives");
 }
 
 function resolveLeafPackageDir(platformTag) {
@@ -119,7 +119,7 @@ export function getAddonFilenames({ tag, arch, variant }) {
 
 /**
  * Decide whether the loader should mirror the package's `native/<filename>.node`
- * into the per-version cache directory (`~/.omp/natives/<version>/`) before loading.
+ * into the per-version cache directory (`~/.scient-agent/natives/<version>/`) before loading.
  *
  * Windows-only safety net for `bun install -g` updates: when a previous `omp`
  * process is running, bun cannot overwrite the locked `.node` inside
@@ -788,7 +788,7 @@ export function initLoaderContext(overrides = {}) {
 	const versionedDir = path.join(nativesDir, packageVersion);
 	const userDataDir =
 		platform === "win32"
-			? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "omp")
+			? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "scient-agent")
 			: path.join(os.homedir(), ".local", "bin");
 
 	const isCompiledBinary =

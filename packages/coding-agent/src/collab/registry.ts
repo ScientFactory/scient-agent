@@ -155,7 +155,7 @@ export class CollabLinkError extends Error {
 
 /**
  * Discovery metadata directory. Deliberately under the profile-independent
- * config root (`~/.omp/run/collab-hosts`) — unlike the launch broker's
+ * config root (`~/.scient-agent/run/collab-hosts`) — unlike the launch broker's
  * profile-scoped runtime dir — so hosts started under any profile are
  * discoverable from any other (issue #6099 user story 18).
  */
@@ -583,7 +583,7 @@ async function pruneEntry(dir: string, name: string, meta: DiscoveryMetadata | n
 		await fs.promises.rm(path.join(dir, name), { force: true });
 		// Only unlink sockets this registry could have created: beside the
 		// metadata, or at the exact relocated endpoint this entry's publication
-		// derives (under the shared `/tmp/omp-<euid>/`, never another socket there).
+		// derives (under the shared `/tmp/scient-agent-<euid>/`, never another socket there).
 		const ownsEndpoint =
 			meta !== null &&
 			process.platform !== "win32" &&

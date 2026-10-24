@@ -19,7 +19,7 @@ import type { Skill } from "../src/extensibility/skills";
 import type { AuthStorage } from "../src/session/auth-storage";
 import { createAssistantMessage, createInMemoryAuthStorage } from "./helpers/agent-session-setup";
 
-const ENV_KEYS = ["PI_CONFIG_DIR", "PI_CODING_AGENT_DIR", "XDG_DATA_HOME"] as const;
+const ENV_KEYS = ["SCIENT_AGENT_CONFIG_DIR", "SCIENT_AGENT_DIR", "XDG_DATA_HOME"] as const;
 
 describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")(
 	"skill description cache under XDG",
@@ -36,13 +36,13 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")(
 			originalEnv = {};
 			for (const key of ENV_KEYS) originalEnv[key] = process.env[key];
 			tempRoot = path.join(os.tmpdir(), "omp-skill-descriptions-xdg", Snowflake.next());
-			configDir = `.omp-skill-xdg-${Snowflake.next()}`;
+			configDir = `.scient-agent-skill-xdg-${Snowflake.next()}`;
 			agentDir = path.join(os.homedir(), configDir, "agent");
 			xdgData = path.join(tempRoot, "data");
-			await fs.promises.mkdir(path.join(xdgData, "omp"), { recursive: true });
+			await fs.promises.mkdir(path.join(xdgData, "scient-agent"), { recursive: true });
 			await fs.promises.mkdir(agentDir, { recursive: true });
-			process.env.PI_CONFIG_DIR = configDir;
-			delete process.env.PI_CODING_AGENT_DIR;
+			process.env.SCIENT_AGENT_CONFIG_DIR = configDir;
+			delete process.env.SCIENT_AGENT_DIR;
 			__resetProfileSnapshotForTests();
 		});
 
@@ -67,7 +67,7 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")(
 			setAgentDir(agentDir);
 			using store = SkillDescriptionStore.open();
 
-			expect(store.path).toBe(path.join(xdgData, "omp", "skill-descriptions.db"));
+			expect(store.path).toBe(path.join(xdgData, "scient-agent", "skill-descriptions.db"));
 			expect(store.get("k")).toBe("compressed description");
 		});
 
@@ -89,7 +89,7 @@ describe.skipIf(process.platform !== "linux" && process.platform !== "darwin")(
 		it("keeps an existing XDG database instead of overwriting it with the legacy one", () => {
 			using legacy = SkillDescriptionStore.open(path.join(agentDir, "skill-descriptions.db"));
 			legacy.put("k", "legacy");
-			const xdgDb = new Database(path.join(xdgData, "omp", "skill-descriptions.db"), { create: true });
+			const xdgDb = new Database(path.join(xdgData, "scient-agent", "skill-descriptions.db"), { create: true });
 			xdgDb.run("CREATE TABLE skill_descriptions (key TEXT PRIMARY KEY, description TEXT NOT NULL)");
 			xdgDb.run("INSERT INTO skill_descriptions VALUES ('k', 'current')");
 			xdgDb.close();

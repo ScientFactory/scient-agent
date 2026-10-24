@@ -46,8 +46,8 @@ describe("Vercel AI Gateway app attribution", () => {
 			const headers = await firstRequestHeaders(model);
 			expect([model.api, headers.get("http-referer"), headers.get("x-title")]).toEqual([
 				model.api,
-				"https://omp.sh/",
-				"omp",
+				"https://scientfactory.com/",
+				"scient-agent",
 			]);
 		}
 	});

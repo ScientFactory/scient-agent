@@ -28,7 +28,7 @@ use winreg::{
 use super::context::Context;
 
 const SNAPSHOT_VERSION: u32 = 1;
-const MARKER_NAME: &str = "omp OAuth Callback Transaction";
+const MARKER_NAME: &str = "Scient Agent OAuth Callback Transaction";
 const DEFAULT_VALUE: &str = "";
 
 /// Complete pre-registration state for the HKCU values touched by this backend.
@@ -749,14 +749,14 @@ mod tests {
 	#[test]
 	fn command_rewrites_canonicalized_verbatim_paths_the_shell_cannot_launch() {
 		let command = relay_command(
-			Path::new(r"\\?\C:\Users\dev\.omp\oauth\callback-helper.exe"),
-			Path::new(r"\\?\C:\Users\dev\.omp\oauth\callback.url"),
+			Path::new(r"\\?\C:\Users\dev\.scient-agent\oauth\callback-helper.exe"),
+			Path::new(r"\\?\C:\Users\dev\.scient-agent\oauth\callback.url"),
 		)
 		.unwrap();
 		assert_eq!(
 			command,
 			OsString::from(
-				r#""C:\Users\dev\.omp\oauth\callback-helper.exe" "C:\Users\dev\.omp\oauth\callback.url" "%1""#
+				r#""C:\Users\dev\.scient-agent\oauth\callback-helper.exe" "C:\Users\dev\.scient-agent\oauth\callback.url" "%1""#
 			)
 		);
 	}

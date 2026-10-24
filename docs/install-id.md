@@ -15,10 +15,10 @@ Generated IDs are lowercase UUID v4 values. Existing persisted values are trimme
 
 ## Storage
 
-- Path: `<base-config-root>/install-id` — i.e. `~/.omp/install-id` by default, respecting `PI_CONFIG_DIR`. Resolved against the base config root (`getBaseConfigRoot()`) regardless of the active profile or XDG data/state/cache routing, so every profile using that base root shares one install ID.
+- Path: `<base-config-root>/install-id` — i.e. `~/.scient-agent/install-id` by default, respecting `SCIENT_AGENT_CONFIG_DIR`. Resolved against the base config root (`getBaseConfigRoot()`) regardless of the active profile or XDG data/state/cache routing, so every profile using that base root shares one install ID.
 - Format: a single UUID line (trailing `\n`).
 - Permissions: file is created with mode `0o600`.
-- Lifecycle: independent of `~/.omp/agent/`. Wiping agent state (sessions, settings, DB) does NOT regenerate the install ID; only deleting the `install-id` file itself does.
+- Lifecycle: independent of `~/.scient-agent/agent/`. Wiping agent state (sessions, settings, DB) does NOT regenerate the install ID; only deleting the `install-id` file itself does.
 
 ## Generation and lifecycle
 
@@ -44,5 +44,5 @@ New consumers MUST treat the value as opaque. The helper contributes no PII, but
 
 ## See also
 
-- [environment-variables.md](environment-variables.md) — `PI_CONFIG_DIR` controls where `install-id` lives.
+- [environment-variables.md](environment-variables.md) — `SCIENT_AGENT_CONFIG_DIR` controls where `install-id` lives.
 - [config-usage.md](config-usage.md) — broader config-root layout.
