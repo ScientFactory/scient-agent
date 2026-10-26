@@ -671,7 +671,7 @@ export interface AvailableSlashCommand {
 	subcommands?: SlashSubcommand[];
 }
 
-/** OMP-native session entries in append order. */
+/** Scient Agent-native session entries in append order. */
 export interface SessionEntries {
 	entries: Record<string, unknown>[];
 	leafId: string | null;
@@ -746,6 +746,9 @@ export interface LoginProvider {
 	name: string;
 	available: boolean;
 	authenticated: boolean;
+	kind: "account" | "key";
+	stored: boolean;
+	store: string;
 }
 
 /** A stored credential `logout` can remove; `active` marks credentials the session may be using. */
@@ -1019,12 +1022,12 @@ export type PromptStatus = "completed" | "aborted" | "error";
 /** Failure detail of a `prompt_result` with `status: "error"`. */
 export interface PromptError {
 	message: string;
-	/** Transient: resubmitting later may succeed (omp's own retries are exhausted). */
+	/** Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted). */
 	retryable: boolean;
 	provider?: string;
 	model?: string;
 	httpStatus?: number;
-	/** `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request. */
+	/** `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request. */
 	code?: "cost_cap";
 }
 
@@ -1752,11 +1755,12 @@ export interface GetLogoutAccountsResult {
 
 export interface LogoutParams {
 	providerId: string;
-	credentialId: number;
+	credentialId?: number;
 }
 
 export interface LogoutResult {
 	remainingSource?: string;
+	providerId?: string;
 }
 
 export interface PredictWordParams {
