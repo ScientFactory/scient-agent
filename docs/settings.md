@@ -342,6 +342,10 @@ Only string values are kept; malformed scoped entries are ignored. Path scoping 
 ## Provider and source disabling
 
 `enabledProviders` opts foreign user-level configuration sources into discovery. Its default is empty, so user roots from Cursor, Codex, Claude, Claude marketplace plugins, Gemini, OpenCode, Windsurf, and GitHub are normally excluded until their provider id is listed (or `*`/`all` is listed). Enabling `claude` also enables `claude-plugins`; an explicit `CLAUDE_CONFIG_DIR` opts Claude's user root in without a list entry. Explicitly selected discovery roots can also opt in. `disabledProviders` still wins.
+<!-- scient(SA-DISCOVERY): begin - Host additions do not replace array settings. -->
+
+A host can add sources with the launch variable `SCIENT_AGENT_ENABLE_SOURCES`, for example `claude-plugins,codex`. Provider ids separated by commas or whitespace are unioned with the effective `enabledProviders`; empty or malformed entries are ignored. The same opt-in semantics apply (`claude` includes `claude-plugins`, and `*`/`all` includes all foreign user sources), and `disabledProviders` still wins. These additions are not settings: settings reads, the settings UI, and source enable/disable writes do not copy them into the user's config. Removing an opt-in from settings does not remove a host addition; use `disabledProviders` to block it. This avoids replacing the user's array with a host config overlay.
+<!-- scient(SA-DISCOVERY): end -->
 
 Project roots remain enabled. Native Scient Agent and `.agents` roots—including native marketplace plugins—are not foreign and do not require an entry.
 
