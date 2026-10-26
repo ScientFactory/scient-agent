@@ -22,6 +22,7 @@ const AGENT_VARIABLES = [
 	"SCIENT_AGENT_SESSION_DIR",
 	"SCIENT_AGENT_AUTH_BROKER_URL",
 	"SCIENT_AGENT_NATIVES_DIR",
+	"SCIENT_AGENT_ENABLE_SOURCES",
 	"XDG_DATA_HOME",
 	"XDG_STATE_HOME",
 	"XDG_CACHE_HOME",
@@ -106,6 +107,23 @@ const dotenv = (values: Record<string, string>) =>
 		.join("\n")}\n`;
 
 describe("host-assigned config root", () => {
+	it.each(["project", "home"] as const)(
+		"keeps discovery opt-ins owned by the launcher when the %s .env adds sources",
+		async where => {
+			const dirs = await scratch();
+			await Bun.write(path.join(dirs[where], ".env"), dotenv({ SCIENT_AGENT_ENABLE_SOURCES: "claude" }));
+			const absent = await probe(dirs, { SCIENT_AGENT_ROOT: dirs.root });
+			expect(absent.env.SCIENT_AGENT_ENABLE_SOURCES).toBeNull();
+			const empty = await probe(dirs, { SCIENT_AGENT_ROOT: dirs.root, SCIENT_AGENT_ENABLE_SOURCES: "" });
+			expect(empty.env.SCIENT_AGENT_ENABLE_SOURCES).toBe("");
+			const assigned = await probe(dirs, {
+				SCIENT_AGENT_ROOT: dirs.root,
+				SCIENT_AGENT_ENABLE_SOURCES: "codex",
+			});
+			expect(assigned.env.SCIENT_AGENT_ENABLE_SOURCES).toBe("codex");
+		},
+	);
+
 	it.each(["project", "home"] as const)(
 		"keeps the agent directory under the root when the %s .env names another one",
 		async where => {
