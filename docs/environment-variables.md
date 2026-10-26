@@ -7,6 +7,14 @@ This reference is derived from current code paths in:
 - `packages/utils/src/**` and `packages/tui/src/**` where those vars directly affect coding-agent runtime
 
 It documents only active behavior.
+<!-- scient(SA-DISCOVERY): begin - Host-only additions to discovery opt-ins. -->
+
+## Host discovery sources
+
+`SCIENT_AGENT_ENABLE_SOURCES` adds foreign user-level discovery sources to the effective `enabledProviders` set without replacing or persisting that setting. Set it in the launch environment, for example `SCIENT_AGENT_ENABLE_SOURCES=claude-plugins` to load Claude Code's installed plugins under `~/.claude/plugins`. Separate multiple provider ids with commas or whitespace; empty and malformed entries are ignored. Ids use lowercase letters, digits and hyphens, starting with a letter; `*` and `all` are also accepted. The normal opt-in semantics apply, including `claude` enabling `claude-plugins`. `disabledProviders` takes precedence.
+
+This uses the same environment loading rules as other `SCIENT_AGENT_*` variables: when a host sets `SCIENT_AGENT_ROOT`, project and home `.env` files cannot set it (a `.env` inside the host root can). Standalone use retains the normal `.env` loading rules below. The additions affect discovery only; `getEnabledProviders()`, settings UI values, and source enable/disable writes remain based on settings alone.
+<!-- scient(SA-DISCOVERY): end -->
 
 ## Resolution model and precedence
 
