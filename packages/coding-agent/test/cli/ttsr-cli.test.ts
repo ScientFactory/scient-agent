@@ -100,7 +100,7 @@ function cleanupTmp(): void {
 	}
 }
 
-describe("omp ttsr", () => {
+describe("scient-agent ttsr", () => {
 	afterEach(() => {
 		restoreStreams();
 		cleanupTmp();

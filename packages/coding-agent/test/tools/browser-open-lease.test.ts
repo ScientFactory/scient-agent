@@ -315,7 +315,7 @@ describe("browser open — an abandoned browser acquisition does not hold up the
 });
 
 describe("browser open — failed spawned-app acquisition reaps its owned process (#9537)", () => {
-	it("kills the OMP-spawned process when no page target can be published", async () => {
+	it("kills the Scient Agent-spawned process when no page target can be published", async () => {
 		const disconnectSpy = vi.fn();
 		const browser = {
 			key: "spawned:/tmp/chrome-headless-shell",

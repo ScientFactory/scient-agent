@@ -167,7 +167,7 @@ describe("cursor native editToolCall (StrReplace)", () => {
 					role: "toolResult",
 					toolCallId: args.toolCallId,
 					toolName: "read",
-					content: [{ type: "text", text: "Hello from OMP probe.\nThe fruit is apple.\nGoodbye.\n" }],
+					content: [{ type: "text", text: "Hello from Scient Agent probe.\nThe fruit is apple.\nGoodbye.\n" }],
 					isError: false,
 					timestamp: 1,
 				} satisfies ToolResultMessage;
@@ -205,7 +205,7 @@ describe("cursor native editToolCall (StrReplace)", () => {
 			execWrite({
 				path: TARGET,
 				toolCallId: EDIT_ID,
-				fileText: "Hello from OMP probe.\nThe fruit is orange.\nGoodbye.\n",
+				fileText: "Hello from Scient Agent probe.\nThe fruit is orange.\nGoodbye.\n",
 			}),
 			output,
 			stream,

@@ -1202,7 +1202,7 @@ describe("terminal title runtime", () => {
 			expect(emittedTitles().at(-1)).toBe("Renamed · #412");
 			setSessionTerminalTitle(undefined);
 			setTerminalTitlePullRequest(undefined);
-			expect(emittedTitles().at(-1)).toBe("omp");
+			expect(emittedTitles().at(-1)).toBe("Scient Agent");
 			setSessionTerminalTitle("Renamed");
 		} finally {
 			setNativeRendering(false);

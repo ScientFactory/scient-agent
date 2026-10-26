@@ -123,7 +123,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE)("browser screenshots of background tabs", (
 		expect(await visibility(userPage)).toBe("visible");
 	}, 45_000);
 
-	it("captures an OMP-owned tab without bringing it in front of another page", async () => {
+	it("captures a Scient Agent-owned tab without bringing it in front of another page", async () => {
 		const handle = await acquireBrowser({ kind: "headless", headless: true }, { cwd: process.cwd() });
 		if (!("browser" in handle)) throw new Error("Expected a Puppeteer browser");
 		cleanups.push(async () => {

@@ -62,7 +62,7 @@ export function Shell({ section, onSectionChange, range, onRangeChange, children
 					{/* scient(SA-BRAND): begin - The dashboard shows Scient Agent's symbol. */}
 					<img className="topbar-mark" src={SCIENT_AGENT_SYMBOL_DATA_URL} width={22} height={22} alt="" />
 					{/* scient(SA-BRAND): end */}
-					<span>omp</span>
+					<span>Scient Agent</span>
 					<span className="topbar-slash">/</span>
 					<span className="topbar-title">stats</span>
 				</div>

@@ -80,7 +80,7 @@ class HostConnection {
 			reason => {
 				if (reason) logger.debug("IDA host connection error", { name, error: reason });
 				this.#open = false;
-				const error = new IdaHostGoneError(`IDA host ${name} exited; see \`omp ps logs ${name}\``);
+				const error = new IdaHostGoneError(`IDA host ${name} exited; see \`scient-agent ps logs ${name}\``);
 				for (const entry of this.#pending.values()) entry.reject(error);
 				this.#pending.clear();
 				onClose();
@@ -100,7 +100,7 @@ class HostConnection {
 	call(request: IdaHostRequest): Promise<unknown> {
 		if (!this.#open) {
 			return Promise.reject(
-				new IdaHostGoneError(`IDA host ${this.#name} exited; see \`omp ps logs ${this.#name}\``),
+				new IdaHostGoneError(`IDA host ${this.#name} exited; see \`scient-agent ps logs ${this.#name}\``),
 			);
 		}
 		const entry = Promise.withResolvers<unknown>();
@@ -361,7 +361,7 @@ async function startHost(
 	}
 	if (TERMINAL_STATES[started.state]) {
 		const reason = started.exitReason ?? `code ${started.exitCode}`;
-		throw new ToolError(`IDA host ${name} exited during startup (${reason}); see \`omp ps logs ${name}\``);
+		throw new ToolError(`IDA host ${name} exited during startup (${reason}); see \`scient-agent ps logs ${name}\``);
 	}
 }
 
@@ -379,7 +379,7 @@ async function openIdaDatabase(session: ToolSession, loc: IdbLocation): Promise<
 		});
 		if (db) return db;
 		if (attempt === ENSURE_ATTEMPTS) {
-			throw new ToolError(`IDA host ${name} did not come up; see \`omp ps logs ${name}\``);
+			throw new ToolError(`IDA host ${name} did not come up; see \`scient-agent ps logs ${name}\``);
 		}
 		const existing = await describeQuietly(broker, name, HOST_LABEL);
 		if (existing && !TERMINAL_STATES[existing.state]) {
@@ -431,7 +431,7 @@ export async function acquireIdaDatabase(
 		const since = await openingSince(session, name);
 		const age = since === undefined ? "" : ` for ${Math.round((Date.now() - since) / 60_000)}m`;
 		throw new ToolError(
-			`IDA is still analyzing ${idbRef(loc)} (opening${age}); the analysis continues in \`${name}\`. Retry later, or stop it with \`omp ps stop ${name}\``,
+			`IDA is still analyzing ${idbRef(loc)} (opening${age}); the analysis continues in \`${name}\`. Retry later, or stop it with \`scient-agent ps stop ${name}\``,
 		);
 	}
 }

@@ -294,7 +294,7 @@ async function stagingFolders(): Promise<Set<string>> {
 	return new Set((await fs.readdir(os.tmpdir())).filter(name => name.startsWith("scient-agent-uploads-")));
 }
 
-describe.skipIf(!CHROMIUM_AVAILABLE)("browser uploadFile into a browser omp did not launch", () => {
+describe.skipIf(!CHROMIUM_AVAILABLE)("browser uploadFile into a browser Scient Agent did not launch", () => {
 	describe.each(["paths", "contents"] as const)("on the %s route", route => {
 		test("hands over each file as the user's own pick would, readable after the original is gone", async () => {
 			const before = await stagingFolders();
@@ -517,7 +517,7 @@ ${collectErrors(`() => tab.uploadFile("#direct", "slow.bin"),`).replace("return 
 	}, 60_000);
 });
 
-describe.skipIf(!CHROMIUM_AVAILABLE)("browser uploadFile into a browser omp launched", () => {
+describe.skipIf(!CHROMIUM_AVAILABLE)("browser uploadFile into a browser Scient Agent launched", () => {
 	test("keeps a tab's staged copies when it moves to a new worker, and removes them with the page", async () => {
 		const session = makeSession();
 		const prelude = createBrowserPrelude(session);
@@ -552,7 +552,7 @@ return "done";`);
 	}, 60_000);
 });
 
-test("sweeps a staging folder a day after its last upload unless an open tab or a running omp owns it", async () => {
+test("sweeps a staging folder a day after its last upload unless an open tab or a running Scient Agent owns it", async () => {
 	const now = Date.now();
 	const dayAgo = new Date(now - 25 * 60 * 60 * 1000);
 	// No process has a pid this large; the parent of this test process is running.

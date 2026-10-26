@@ -412,7 +412,7 @@ describe("InputController escape behavior", () => {
 			description: "Situation report",
 			content: "Situation report. Focus: $ARGUMENTS",
 			side: true,
-			source: "via OMP User",
+			source: "via Scient Agent User",
 		};
 		const plain: FileSlashCommand = { ...sitrep, name: "plain", side: undefined };
 

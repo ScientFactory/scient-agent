@@ -455,7 +455,7 @@ function dryRun(
 	}
 	for (const index of marked) {
 		errors.push(
-			`rules[${index}]: matches \`${TOOL_CALL_MARK}<tool> <intent>\` lines, which are omp's markers of the subagent's tool calls, not its output; read the result lines below them, or skip if none show progress`,
+			`rules[${index}]: matches \`${TOOL_CALL_MARK}<tool> <intent>\` lines, which are scient-agent's markers of the subagent's tool calls, not its output; read the result lines below them, or skip if none show progress`,
 		);
 	}
 	for (const [field, where] of numeric) {

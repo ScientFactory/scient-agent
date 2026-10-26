@@ -1009,7 +1009,7 @@ describe("CollabController", () => {
 		expect(second!.webLink).not.toBe(first.webLink);
 	});
 
-	it("rotates the room when the session moves to a new file because another omp process has it open", async () => {
+	it("rotates the room when the session moves to a new file because another Scient Agent process has it open", async () => {
 		const { ctx, state } = makeControllerContext({ autoStart: "control" });
 		controller = new CollabController(ctx);
 		controller.autoStart();

@@ -52,7 +52,7 @@ function runExtensionWorker(script: string, port: number, manifest: object): () 
 	};
 }
 
-describe("omp browser-relay install", () => {
+describe("scient-agent browser-relay install", () => {
 	let dir: TempDir;
 	let relay: RelayServer | undefined;
 	let stopWorker: (() => void) | undefined;
@@ -71,14 +71,14 @@ describe("omp browser-relay install", () => {
 		await dir.remove();
 	});
 
-	it("stamps the installing omp's version into the extension manifest", async () => {
+	it("stamps the installing Scient Agent's version into the extension manifest", async () => {
 		await runBrowserRelayCommand({ action: "install", port: 0, dir: dir.path() });
 		const manifest = await Bun.file(dir.join("manifest.json")).json();
 		expect(manifest.version_name).toBe(VERSION);
 		expect(manifest.manifest_version).toBe(3);
 	});
 
-	it("reports the omp that installed the running script when Chrome restarts onto a newer manifest", async () => {
+	it("reports the Scient Agent that installed the running script when Chrome restarts onto a newer manifest", async () => {
 		// After reinstalling, a Chrome restart re-reads manifest.json but keeps running the old service worker.
 		const port = await findFreeCdpPort();
 		const hello = Promise.withResolvers<void>();
@@ -94,7 +94,7 @@ describe("omp browser-relay install", () => {
 		stopWorker = runExtensionWorker(runningScript, port, manifestOnDisk);
 		await hello.promise;
 		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toContain(
-			`installed by omp 18.6.1; this is omp ${VERSION}`,
+			`installed by Scient Agent 18.6.1; this is Scient Agent ${VERSION}`,
 		);
 	});
 });

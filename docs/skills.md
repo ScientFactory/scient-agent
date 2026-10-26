@@ -60,7 +60,7 @@ Supported frontmatter fields on the skill type:
 - additional keys are preserved as unknown metadata by conventional scanners
 - `enabled: false` skips a skill in conventional scanners and Skillshare discovery
 
-`globs` and `alwaysApply` are metadata here, not automatic skill-invocation controls. Agent Plugins packages use stricter Agent Skills validation instead of the permissive scanner: required name/description, directory-name agreement, valid naming, and a closed frontmatter field set. OMP-specific fields such as `hide` and `enabled` are not accepted there.
+`globs` and `alwaysApply` are metadata here, not automatic skill-invocation controls. Agent Plugins packages use stricter Agent Skills validation instead of the permissive scanner: required name/description, directory-name agreement, valid naming, and a closed frontmatter field set. Scient Agent-specific fields such as `hide` and `enabled` are not accepted there.
 
 Current runtime behavior:
 
@@ -119,7 +119,7 @@ Filter order is:
 3. not ignored
 4. included (if include list present)
 
-The `agents` provider (`.agent[s]/skills`) has its own `enableAgentsUser`/`enableAgentsProject` toggles — disabling Claude/Codex/Pi does **not** turn it off. Foreign user-level providers are opt-in through `enabledProviders`; their project roots still load by default. Native OMP sources and marketplace plugins registered under `~/.scient-agent/plugins` also load by default. For `claude-plugins`, the opt-in controls only plugins from Claude Code's own user registry.
+The `agents` provider (`.agent[s]/skills`) has its own `enableAgentsUser`/`enableAgentsProject` toggles — disabling Claude/Codex/Pi does **not** turn it off. Foreign user-level providers are opt-in through `enabledProviders`; their project roots still load by default. Native Scient Agent sources and marketplace plugins registered under `~/.scient-agent/plugins` also load by default. For `claude-plugins`, the opt-in controls only plugins from Claude Code's own user registry.
 
 ### Collision and duplicate handling
 
@@ -127,7 +127,7 @@ The `agents` provider (`.agent[s]/skills`) has its own `enableAgentsUser`/`enabl
 - `extensibility/skills.ts` then:
   - de-duplicates identical files by `realpath` (symlink-safe)
   - drops a later same-named skill silently when its body is identical and its parsed frontmatter is deeply equal to a loaded one (the same skill installed twice, e.g. a plugin copy mirrored into `~/.agents/skills`). When the incoming skill outranks the bare holder (below), the identical copies it supersedes (the bare holder and any namespaced aliases) are dropped instead, so an override never re-admits its own duplicate
-  - when same-named skills differ, the higher-precedence skill keeps the bare name and every other variant receives a `<namespace>/<name>` suffix, with collision warnings naming the paths. Precedence: an authored skill outranks a registry-installed package (the `skillshare` provider, `omp skill install`); a custom-directory skill outranks a provider skill (#7190); otherwise whichever was admitted first — provider-priority order for providers, array order within `skills.customDirectories` for custom directories — keeps the bare name. The namespace is the plugin identity from provider metadata when the provider tracks one (every registry-backed provider supplies one: `claude-plugins` and `agent-plugins` use the plugin name, `omp-plugins` the extension package name, `skillshare` the package name — so an installed plugin namespaces by its own name rather than its cache path's version segment, and the namespace survives plugin updates); otherwise the directory owning the skill's `skills/` tree, or the skill root's directory name, falling back to the provider id for dotted homes such as `~/.claude/skills`. A namespaced slot that is itself already taken by a differing skill gets a `~2`, `~3`, … suffix; no differing skill is dropped without a warning.
+  - when same-named skills differ, the higher-precedence skill keeps the bare name and every other variant receives a `<namespace>/<name>` suffix, with collision warnings naming the paths. Precedence: an authored skill outranks a registry-installed package (the `skillshare` provider, `scient-agent skill install`); a custom-directory skill outranks a provider skill (#7190); otherwise whichever was admitted first — provider-priority order for providers, array order within `skills.customDirectories` for custom directories — keeps the bare name. The namespace is the plugin identity from provider metadata when the provider tracks one (every registry-backed provider supplies one: `claude-plugins` and `agent-plugins` use the plugin name, `omp-plugins` the extension package name, `skillshare` the package name — so an installed plugin namespaces by its own name rather than its cache path's version segment, and the namespace survives plugin updates); otherwise the directory owning the skill's `skills/` tree, or the skill root's directory name, falling back to the provider id for dotted homes such as `~/.claude/skills`. A namespaced slot that is itself already taken by a differing skill gets a `~2`, `~3`, … suffix; no differing skill is dropped without a warning.
   - rejects a raw frontmatter `name` containing `/` or `\` (with a warning) for every provider and custom directory: the separator is reserved for the namespaced form and for `skill://<name>/<path>` resolution, so a raw name cannot claim a namespaced address
   - keeps the convenience `loadSkillsFromDir({ dir, source })` API as a thin adapter over `scanSkillsFromDir`
 - Namespaced skills resolve through `skill://<namespace>/<name>[/<path>]` and the `/skill:<namespace>/<name>` token, both leading and mid-prompt (a mid-prompt token accepts exactly one `/`; deeper paths are left as prose). Because skill names never contain `/`, an exact `<host>/<first segment>` match is unambiguous and takes precedence over reading that segment as a path relative to a bare skill of the same name as the namespace.
@@ -222,7 +222,7 @@ MCP-advertised skills:
 - The read waits for MCP servers that are still connecting or listing their resources, exactly as an `mcp://` read does, before reporting `Unknown skill`; the wait is bounded by the MCP connect/request timeouts and ends when the read is cancelled.
 - Actions that need a local file (`%load`, plan-mode write checks, the `:img` selector) report `Unknown skill` without contacting MCP.
 - MCP-served text keeps `read`'s normal result limits; only local skill files read whole.
-- `omp read` starts MCP servers only when a read reaches an MCP resource, so reading a local skill never spawns them.
+- `scient-agent read` starts MCP servers only when a read reaches an MCP resource, so reading a local skill never spawns them.
 
 ## Skills vs AGENTS.md, commands, tools, hooks
 
