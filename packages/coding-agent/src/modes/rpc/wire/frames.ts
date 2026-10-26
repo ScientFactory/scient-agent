@@ -29,6 +29,10 @@ export const frameDefs = {
 				"boolean",
 				"Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).",
 			),
+			"code?": doc(
+				"'cost_cap'",
+				"`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.",
+			),
 		},
 		'Failure detail of a `prompt_result` with `status: "error"`.',
 	),

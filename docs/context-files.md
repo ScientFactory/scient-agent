@@ -21,8 +21,8 @@ The native provider is the recommended format for new projects. It reads from yo
 
 | File                                          | Scope   | Behavior                                                                                                                                                                                                                                             |
 | --------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.scient-agent/agent/AGENTS.md`                      | User    | User-level context for every session unless the `native` provider is disabled.                                                                                                                                                                       |
-| `<nearest-non-empty-ancestor>/.scient-agent/AGENTS.md` | Project | Project context, but only when `AGENTS.md` exists in the **nearest non-empty `.scient-agent/` directory** found while walking from cwd toward the repository root. Scient Agent does not continue to a farther `.scient-agent/` directory when the nearest one lacks this file. |
+| `~/.scient-agent/agent/AGENTS.md`                      | User    | User-level context for main sessions unless the `native` provider is disabled. Task subagents do not receive it; see [Inputs by session type](system-prompt-customization.md#inputs-by-session-type).                                                  |
+| `<nearest-non-empty-ancestor>/.scient-agent/AGENTS.md` | Project | Project context, but only when `AGENTS.md` exists in the **nearest non-empty `.scient-agent/` directory** found while walking from cwd toward the repository root. Scient Agent does not continue to a farther `.scient-agent/` directory when the nearest one lacks this file. Task subagents do not receive it. |
 | `~/.scient-agent/agent/RULES.md`                       | User    | User-level sticky rule content. Loaded as an always-apply rule, not as a context file.                                                                                                                                                               |
 | `<nearest-non-empty-ancestor>/.scient-agent/RULES.md`  | Project | Project sticky content, but only when `RULES.md` exists in the same nearest non-empty `.scient-agent/` directory selected by the walk.                                                                                                                        |
 
@@ -50,7 +50,7 @@ Starting a session in `repo/packages/api`:
 - The native context file is `repo/packages/api/.scient-agent/AGENTS.md` (the nearest one). `repo/.scient-agent/AGENTS.md` is **not** also included.
 - Because `repo/packages/api/.scient-agent/` is the nearest non-empty native directory, project sticky content can only come from `repo/packages/api/.scient-agent/RULES.md`. If that file is absent, `repo/.scient-agent/RULES.md` is **not** used.
 
-Put broad, durable project background in `AGENTS.md`. Reserve `RULES.md` for short, hard requirements that must stay visible across long conversations.
+Put broad, durable project background in `AGENTS.md`. Reserve `RULES.md` for short, hard requirements that must stay visible across long conversations. Task subagents drop every inherited `AGENTS.md` but still get `RULES.md`, so put anything helpers must follow in `RULES.md`.
 
 ## Other supported context conventions
 
