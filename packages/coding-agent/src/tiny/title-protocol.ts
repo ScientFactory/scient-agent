@@ -18,7 +18,7 @@ import type { TinyLocalModelKey } from "./models";
  */
 export const TINY_WORKER_ARG = "__omp_worker_tiny_inference";
 /** Env var carrying the endpoint the ONNX worker must own. */
-export const TINY_WORKER_SOCKET_ENV = "OMP_TINY_WORKER_SOCKET";
+export const TINY_WORKER_SOCKET_ENV = "SCIENT_AGENT_TINY_WORKER_SOCKET";
 /** Env var naming the single local model the ONNX worker serves. */
 export const TINY_WORKER_MODEL_ENV = "OMP_TINY_WORKER_MODEL";
 /** Env var carrying the launch tag the worker echoes in `pong` so stale workers get replaced. */

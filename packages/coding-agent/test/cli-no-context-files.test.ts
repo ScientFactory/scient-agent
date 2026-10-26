@@ -19,7 +19,7 @@ const NESTED_DIR = "nested-context-dir-4d8e";
 // A nested AGENTS.md is not inlined; the prompt lists its path for the agent to read.
 const NESTED_LISTING = `${NESTED_DIR}/AGENTS.md`;
 const MARKERS = [PRIMARY_MARKER, EXTRA_ROOT_MARKER, IMPORTED_MARKER, NESTED_LISTING];
-const ENV_KEYS = ["PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE"] as const;
+const ENV_KEYS = ["SCIENT_AGENT_DIR", "SCIENT_AGENT_PROFILE", "SCIENT_AGENT_PROFILE_FALLBACK"] as const;
 
 describe("--no-context-files", () => {
 	let tempDir: TempDir;
@@ -32,7 +32,7 @@ describe("--no-context-files", () => {
 		tempDir = await TempDir.create("@cli-no-context-files-");
 		// User-level discovery reads the process-global agent dir and home: point both at the
 		// fixture so neither run picks up the developer's own config.
-		setAgentDir(tempDir.join("home/.omp/agent"));
+		setAgentDir(tempDir.join("home/.scient-agent/agent"));
 		homedirSpy = spyOn(os, "homedir").mockReturnValue(tempDir.join("home"));
 		await Promise.all([
 			Bun.write(tempDir.join("project/AGENTS.md"), `${PRIMARY_MARKER}\n`),

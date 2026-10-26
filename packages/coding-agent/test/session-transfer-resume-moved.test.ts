@@ -20,7 +20,7 @@ import { makeAssistantMessage } from "./session-manager/helpers";
 describe("resuming a session that moved away", () => {
 	let root: string;
 	let cwd: string;
-	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 
 	beforeEach(async () => {
 		root = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-moved-resume-"));
@@ -35,7 +35,7 @@ describe("resuming a session that moved away", () => {
 			setAgentDir(originalAgentDir);
 		} else {
 			setAgentDir(path.join(getConfigRootDir(), "agent"));
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		}
 		await fsp.rm(root, { recursive: true, force: true });
 	});

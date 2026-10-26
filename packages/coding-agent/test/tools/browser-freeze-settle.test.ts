@@ -46,7 +46,11 @@ import { chromiumAvailable } from "./chromium-probe";
 
 const CHROMIUM_AVAILABLE = await chromiumAvailable();
 function makeKind(socketSuffix: string): CmuxKind {
-	return { kind: "cmux", socketPath: `/tmp/omp-test-${socketSuffix}.sock`, surface: `surface-${socketSuffix}` };
+	return {
+		kind: "cmux",
+		socketPath: `/tmp/scient-agent-test-${socketSuffix}.sock`,
+		surface: `surface-${socketSuffix}`,
+	};
 }
 
 function makeSession(cwd: string): ToolSession {
@@ -702,7 +706,7 @@ describe("browser settle — lifecycle freeze via CDP", () => {
 			// No pre-attached surface: the tab owns its split, so the race
 			// below contends over one real teardown.
 			const browser = await acquireBrowser(
-				{ kind: "cmux", socketPath: "/tmp/omp-test-settle-join.sock" },
+				{ kind: "cmux", socketPath: "/tmp/scient-agent-test-settle-join.sock" },
 				{ cwd: "/tmp" },
 			);
 			await acquireTab("settle-join", browser, { timeoutMs: 1_000, ownerSessionId: "session-A" });
@@ -810,7 +814,7 @@ describe("browser settle — lifecycle freeze via CDP", () => {
 			// No pre-attached surface: each open mints an owned split, so
 			// the two generations land on distinct targets.
 			const browser = await acquireBrowser(
-				{ kind: "cmux", socketPath: "/tmp/omp-test-settle-recreate.sock" },
+				{ kind: "cmux", socketPath: "/tmp/scient-agent-test-settle-recreate.sock" },
 				{ cwd: "/tmp" },
 			);
 			const first = await acquireTab("settle-gone", browser, { timeoutMs: 1_000, ownerSessionId: "session-A" });

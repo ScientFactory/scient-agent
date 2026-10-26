@@ -28,7 +28,7 @@ export function relayExtensionFiles(ompVersion: string): Record<string, string> 
 	};
 }
 
-/** Where `omp browser-relay install` puts the extension without `--dir` (~/.omp/browser-relay/extension). */
+/** Where `omp browser-relay install` puts the extension without `--dir` (~/.scient-agent/browser-relay/extension). */
 export function defaultRelayExtensionDir(): string {
 	return path.join(getBrowserRelayDir(), "extension");
 }

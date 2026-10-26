@@ -46,7 +46,7 @@ describe("omp session pack/unpack archive", () => {
 	let agentB: string;
 	let cwdA: string;
 	let cwdB: string;
-	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 
 	beforeEach(async () => {
 		root = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-transfer-"));
@@ -65,7 +65,7 @@ describe("omp session pack/unpack archive", () => {
 			setAgentDir(originalAgentDir);
 		} else {
 			setAgentDir(path.join(getConfigRootDir(), "agent"));
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		}
 		await fsp.rm(root, { recursive: true, force: true });
 	});
