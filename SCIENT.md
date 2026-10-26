@@ -631,6 +631,68 @@ The eight failures:
 
 No candidate-specific regression was found.
 
+### Sixth alignment intake — 2026-10-26
+
+Scient Agent 0.1.3 is aligned with Oh My Pi 18.13.0 ([PR #32](https://github.com/ScientFactory/scient-agent/pull/32)).
+
+- Frozen owned `main`: `9b075be95c99c25b5ee99f71bd20ce97f1fe3699`.
+- Accepted source baseline: OMP `18.12.6`, `45c35e40c46166dc726ccc52f5d27f40f2449f99`, from [PR #29](https://github.com/ScientFactory/scient-agent/pull/29), tag `omp-sync/v18.12.6`.
+- Target: OMP `18.13.0`, `011ab732fa2d8657203d17f6af80d57809eb24f4`, under `refs/upstream-tags/v18.13.0`: 603 upstream commits, changing 770 files. Product version `0.1.3`.
+- Inventory: the 15 commits of the accepted replay, replacing all three generated commits, and all three commits after `929589c84500` on `main`. The probe record (`40aed12f7b`) is folded into `SA-RELEASE`; the spool cap (`6d0b65d4bf`) and discovery sources (`9b075be95c`) remain their own contract commits. Discovery also retains its `SA-ROOT` dotenv regression coverage.
+- Replay: `replay/omp-v18.13.0`, 17 commits: generators, identity, 13 contracts in ledger order, wording and RPC clients. Integration imports that replay's exact tree onto frozen `origin/main` as `sync: Oh My Pi 18.13.0`.
+
+| Step | Result |
+|---|---|
+| Identity generator | No stale rule; 569 files renamed. Repo-pinned `nightly-2026-10-06` rustfmt first on PATH. |
+| Contract commits | Only `SA-RELEASE` conflicted: upstream changed `ci.yml`, `flake.lock` and `flake.nix`; all three retain Scient's registered deletions. All other contracts replayed without conflicts. |
+| Wording generator | No stale text; 443 files rewritten. |
+| RPC generator | Regenerated the schema and TypeScript, Python, Rust and Go clients. |
+| Hooked files upstream changed | 12 of 45; reviewed against every ledger contract. |
+| Footprint | Unchanged from frozen `main`: 90 marker blocks, 210 lines, in 45 files. The accepted 18.12.6 replay had 82/196/41; the difference is the already merged spool and discovery contracts. |
+
+No contract hook needed adapting, and no new tests were added. Inherited as is:
+
+| Seam | Incoming change and disposition |
+|---|---|
+| Identity, root and native cache | No new state selector or home folder requiring a rule. Relay extension installation/self-update uses `getBrowserRelayDir()/extension`, under the existing root. Python scans all PATH candidates after the existing managed Python folder. Native loader/cache and root hooks are unchanged. |
+| Services | Marketplace refresh moves until after session setup, still honoring Scient's default `off`. Self-update guard and default-off issue reporting remain. The relay updates its installed extension from bundled assets, not a network updater. |
+| Startup/provider network | llama.cpp discovery gains fallback loopback port 9931 after 8080; `LLAMA_CPP_BASE_URL` still selects one endpoint. Cursor account/plan requests, Xiaomi regional validation and Antigravity request headers/scopes remain provider behavior. `PI_ANTHROPIC_API_VERSION` is tuning, not a state selector. No new automatic OMP reporting or release fetch was found. |
+| Discovery | The capability registry seam and `SCIENT_AGENT_ENABLE_SOURCES` union are unchanged. Skill slash commands gain `side` metadata; `--no-context-files` can suppress context discovery. Skill-description compression changes model-role selection while keeping its existing cache under the root. |
+| Auth and RPC startup | Model registry adds discovery fallbacks/cache namespace changes and account project IDs. Sign-in revalidation, broker ownership, logout and model-less startup hooks remain valid. |
+| Spool | `rpc-output.ts` is unchanged upstream. Scient's byte cap and dead-process cleanup replay intact. |
+| Product, worker, brand, policy, build and release | Product CLI gains upstream flags/Windows console-title handling around the existing runtime-info hook. Worker, symbol, policy and stable-expression hooks are unchanged. Updated upstream CI/Nix files remain deleted; no upstream publication workflow is activated. |
+
+**RPC changes for Desktop.** Protocol versions stay 1 and 2; no command or frame type is added or removed. The complete wire-definition delta is:
+- `prompt_result.error.code?: "cost_cap"`: non-retryable refusal when `session.maxCost`/`--max-cost` is reached. The process stays alive, and later prompts fail until the cap is raised. It can settle without a model run; Desktop must accept the terminal error without waiting for an `agent_start`.
+- `SessionStats.editRejections?: Record<string, number>` in `get_session_stats`.
+- `BtwHistoryRecord.images?` and `BtwHistoryTurn.images?`: image content arrays in `btw`, `get_btw_history` and `btw_record` snapshots. The new TUI-only topic `title` is explicitly stripped from RPC.
+
+Existing notice events can carry source `cost-gate` (warning/error). Open-ended transcript/tool payloads also gain custom message type `rewind-report` and edit failure `details.errorKind` (the source for edit-rejection counts). Skill prompt rendering/currentness handling changes internally without a command-shape change. `dumpTools` still lists top-level tools only; upstream's new documentation explains that MCP devices can instead be mounted under `xd://`, not new RPC commands. These are inherited runtime capabilities, not a claim of Desktop UI support or live Desktop qualification.
+
+**Known failures.** The 18.12.6 entries lapsed. The PR's first CI run passed every bucket except `coding-agent-native`, which failed only the archive re-read test. A probe then ran `coding-agent-native` 8 times on untouched 18.13.0 and 8 times on Scient's replay, side by side, on Scient's runner type and concurrency. Untouched 18.13.0 failed 7 of its 8 runs; Scient's replay failed 4 of 8. Six tests failed untouched, and all six are listed for 18.13.0's commit:
+
+| Test | Untouched 18.13.0 | Scient's replay |
+|---|---|---|
+| "re-reads an archive rewritten in place …" | 4 of 8 | 1 of 8 |
+| "does not rerun a call detached before its code started …" (relay) | 3 of 8 | 1 of 8 |
+| "accepts an untrusted certificate for the tab's lifetime …" | 2 of 8 | 3 of 8 |
+| "opens a default tab in the browser of the tab … used last …" | 1 of 8 | 0 of 8 |
+| "paints each requested image-only page …" (PDF screenshots) | 1 of 8 | 0 of 8 |
+| "puppeteer's own request subscriptions unsubscribe during a run" | 1 of 8 | 0 of 8 |
+
+Two tests failed once each, on Scient's replay only, and are not listed: the libkitty "/shake" end-to-end test (which also failed only on Scient's tree at 18.12.6) and "allows a cancelled bash job to run its TERM cleanup". Neither touches a Scient hook; one failure in eight is within the noise the untouched runs show.
+
+#### Local checks
+
+On macOS arm64 with Bun 1.4.2 and the repo-pinned October nightly:
+- Identity and wording `--check`, all 64 script tests and `check:ts` pass (seven lint warnings in three upstream test files).
+- Replay-mode divergence verification passes: 17 commits, all three generated commits equal their generators, footprint 90/210/45.
+- Scient suites pass both with and without `PI_TEST_RUNTIME`: utils 15, natives 8, coding-agent 48, ai 1. Controllers use disposable homes.
+- Affected upstream RPC/cost/stats suites pass: 82 cases across six files (`rpc-prompt-result`, `rpc-btw`, `rpc-skill-command`, `rpc-mcp-discovery`, `cost-gate`, `agent-session-stats`).
+- Native addon and compiled macOS arm64 executable build; `--runtime-info` reports Scient Agent 0.1.3, OMP 18.13.0 at the full pin above, RPC `[1,2]`, build ID `source`. Compiled isolation passes.
+
+Not run locally: Rust tests and hosted-model turns. CI builds and checks the six platforms and runs the six buckets.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -676,11 +738,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Two tests are listed for 18.12.6. Each was seen failing on an untouched 18.12.6 tree on the same runner type; the counts are under "Fifth alignment intake":
-- a browser relay test, which also failed on untouched 18.12.1 and 18.11.3;
-- an archive test. Its cache keys on ctime, which Linux advances in coarse ticks, and the test rewrites the file in place with the same size and mtime. That was not measured.
-
-The other five tests listed for 18.12.1 did not fail in 20 bucket runs on untouched 18.12.6, so they were dropped. One of them, a browser test, had failed 13 of 16 times on 18.12.1.
+Six tests are listed for 18.13.0. Each was seen failing on untouched 18.13.0 on the same runner type; the counts are under "Sixth alignment intake". The archive and relay-detach tests also failed untouched on 18.12.6 and 18.12.1.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 
