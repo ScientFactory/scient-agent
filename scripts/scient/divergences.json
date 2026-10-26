@@ -100,6 +100,23 @@
 				"bun scripts/scient/isolation-check.ts <binary>"
 			]
 		},
+		"SA-DISCOVERY": {
+			"status": "active",
+			"contract": "A host can add foreign user discovery sources with SCIENT_AGENT_ENABLE_SOURCES, unioned with enabledProviders only for discovery; disabledProviders wins and settings reads and writes never acquire the environment additions. SA-ROOT's dotenv protections apply.",
+			"owned": [
+				"packages/coding-agent/src/scient/discovery-sources.ts",
+				"packages/coding-agent/test/scient/discovery-sources.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/capability/index.ts",
+				"docs/environment-variables.md",
+				"docs/settings.md"
+			],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/discovery-sources.test.ts",
+				"bun --cwd=packages/utils test test/scient/host-root.test.ts"
+			]
+		},
 		"SA-NATIVE-CACHE": {
 			"status": "active",
 			"contract": "A compiled binary extracts its addons into a folder named for their content and loads only from that folder, falling back from the modern addon to the same build's baseline one; under a host-assigned root the natives folder is the root's.",
