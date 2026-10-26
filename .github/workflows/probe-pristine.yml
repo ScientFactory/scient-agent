@@ -1,0 +1,95 @@
+name: Probe 18.13.0 coding-agent-native, untouched and Scient's replay
+
+# Temporary: runs Oh My Pi 18.13.0's TypeScript test buckets, untouched, on the
+# runner and concurrency Scient's upstream-tests job uses, several times each,
+# to list the failures untouched upstream has (KNOWN_FAILURES). Delete this branch afterwards.
+
+on:
+   push:
+      branches: ["probe/**"]
+
+permissions:
+   contents: read
+
+jobs:
+   natives:
+      name: natives ${{ matrix.tree }}
+      strategy:
+         matrix:
+            include:
+               - { tree: untouched, ref: probe/pristine-18130 }
+               - { tree: scient, ref: replay/omp-v18.13.0 }
+      runs-on: ubuntu-22.04
+      timeout-minutes: 60
+      steps:
+         - uses: actions/checkout@v4
+           with:
+              ref: ${{ matrix.ref }}
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+         - run: |
+              sudo apt-get update && sudo apt-get install -y ninja-build
+              rustup show active-toolchain || rustup toolchain install
+              bun install --frozen-lockfile
+              PI_NATIVE_X64_VARIANT=baseline bun run build:native
+              PI_NATIVE_X64_VARIANT=modern bun run build:native
+         - uses: actions/upload-artifact@v4
+           with:
+              name: natives-linux-x64-${{ matrix.tree }}
+              path: packages/natives/native/*.node
+              if-no-files-found: error
+              retention-days: 1
+
+   tests:
+      needs: natives
+      name: ${{ matrix.tree }} ${{ matrix.mode }} run ${{ matrix.run }}
+      runs-on: ubuntu-22.04
+      timeout-minutes: 45
+      strategy:
+         fail-fast: false
+         matrix:
+            include:
+               - { mode: coding-agent-native, concurrency: 4, run: 1, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 2, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 3, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 4, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 5, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 6, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 7, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 8, tree: untouched, ref: probe/pristine-18130 }
+               - { mode: coding-agent-native, concurrency: 4, run: 1, tree: scient, ref: replay/omp-v18.13.0 }
+               - { mode: coding-agent-native, concurrency: 4, run: 2, tree: scient, ref: replay/omp-v18.13.0 }
+               - { mode: coding-agent-native, concurrency: 4, run: 3, tree: scient, ref: replay/omp-v18.13.0 }
+               - { mode: coding-agent-native, concurrency: 4, run: 4, tree: scient, ref: replay/omp-v18.13.0 }
+               - { mode: coding-agent-native, concurrency: 4, run: 5, tree: scient, ref: replay/omp-v18.13.0 }
+               - { mode: coding-agent-native, concurrency: 4, run: 6, tree: scient, ref: replay/omp-v18.13.0 }
+               - { mode: coding-agent-native, concurrency: 4, run: 7, tree: scient, ref: replay/omp-v18.13.0 }
+               - { mode: coding-agent-native, concurrency: 4, run: 8, tree: scient, ref: replay/omp-v18.13.0 }
+      steps:
+         - uses: actions/checkout@v4
+           with:
+              ref: ${{ matrix.ref }}
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.2
+         - run: bun install --frozen-lockfile
+         - uses: actions/download-artifact@v4
+           with:
+              name: natives-linux-x64-${{ matrix.tree }}
+              path: packages/natives/native
+         - name: The bucket
+           continue-on-error: true
+           env:
+              OMP_TEST_CONCURRENCY: ${{ matrix.concurrency }}
+           run: |
+              set +e
+              bun scripts/ci-test-ts.ts ${{ matrix.mode }} --full > bucket.log 2>&1
+              echo "exit=$?"
+              grep -E "\(fail\)|chunk\(s\) FAILED|chunks passed|# Unhandled error" bucket.log || true
+         - uses: actions/upload-artifact@v4
+           if: always()
+           with:
+              name: log-${{ matrix.tree }}-${{ matrix.mode }}-${{ matrix.run }}
+              path: bucket.log
+              retention-days: 5
