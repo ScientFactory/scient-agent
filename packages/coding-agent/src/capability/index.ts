@@ -25,6 +25,9 @@ import type {
 
 import { cfgDisabledExtensions } from "../extensibility/settings";
 import { cfgDisabledProviders, cfgEnabledProviders } from "../config/model-settings";
+// scient(SA-DISCOVERY): begin - Hosts add user sources without changing settings.
+import { withHostEnabledSources } from "../scient/discovery-sources";
+// scient(SA-DISCOVERY): end
 
 // =============================================================================
 // Registry State
@@ -365,7 +368,9 @@ export function isUserSourceEnabled(source: string, ctx?: LoadContext): boolean 
 	if (disabledProviders().has(id)) return false;
 	if (FOREIGN_USER_PROVIDERS[id] !== true) return true;
 	if (ctx?.explicitProviders?.has(id) || ctx?.includeOptOutUserSources) return true;
-	const enabled = enabledProviders();
+	// scient(SA-DISCOVERY): begin - The union is for discovery, never for settings persistence.
+	const enabled = withHostEnabledSources(enabledProviders());
+	// scient(SA-DISCOVERY): end
 	if (enabled.has(id) || enabled.has("*") || enabled.has("all")) return true;
 	if (id === "claude-plugins" && enabled.has("claude")) return true;
 	if (id === "claude" && process.env.CLAUDE_CONFIG_DIR?.trim()) return true;
