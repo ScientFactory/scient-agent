@@ -18,7 +18,7 @@ import type { ToolSession } from "@oh-my-pi/pi-coding-agent/tools";
 import { getConfigRootDir, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
 import { makeAssistantMessage } from "./session-manager/helpers";
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 let root: string;
 let app: string;
 let lib: string;
@@ -74,7 +74,7 @@ afterEach(() => {
 		setAgentDir(originalAgentDir);
 	} else {
 		setAgentDir(path.join(getConfigRootDir(), "agent"));
-		delete process.env.PI_CODING_AGENT_DIR;
+		delete process.env.SCIENT_AGENT_DIR;
 	}
 	removeSyncWithRetries(root);
 });

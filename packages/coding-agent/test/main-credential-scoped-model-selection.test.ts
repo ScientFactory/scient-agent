@@ -23,7 +23,7 @@ import type { CreateAgentSessionOptions } from "@oh-my-pi/pi-coding-agent/sdk";
 import { AuthStorage } from "@oh-my-pi/pi-coding-agent/session/auth-storage";
 import { __resetDirsFromEnvForTests, getModelDbPath, setAgentDir } from "@oh-my-pi/pi-utils";
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 let agentDirRoot: string | undefined;
 
 beforeEach(async () => {
@@ -38,9 +38,9 @@ afterEach(async () => {
 	clearOmpExtensionCliRoots();
 
 	if (originalAgentDir === undefined) {
-		delete process.env.PI_CODING_AGENT_DIR;
+		delete process.env.SCIENT_AGENT_DIR;
 	} else {
-		process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+		process.env.SCIENT_AGENT_DIR = originalAgentDir;
 	}
 	__resetDirsFromEnvForTests();
 	if (agentDirRoot) {

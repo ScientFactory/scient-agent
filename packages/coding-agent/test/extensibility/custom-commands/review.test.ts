@@ -313,10 +313,10 @@ describe("ReviewCommand", () => {
 	it("does not retain a review snapshot when the GitHub cache is disabled", async () => {
 		const dir = createTempDir();
 		const previousToken = process.env.GH_TOKEN;
-		const previousCacheDb = process.env.OMP_GITHUB_CACHE_DB;
+		const previousCacheDb = process.env.SCIENT_AGENT_GITHUB_CACHE_DB;
 		const cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-review-cache-off-"));
 		process.env.GH_TOKEN = "review-cache-disabled";
-		process.env.OMP_GITHUB_CACHE_DB = path.join(cacheDir, "github-cache.db");
+		process.env.SCIENT_AGENT_GITHUB_CACHE_DB = path.join(cacheDir, "github-cache.db");
 		resetCacheForTests();
 		const settings = Settings.isolated({ "github.cache.enabled": false });
 		spyOn(github, "text").mockResolvedValue(SAMPLE_PR_DIFF);
@@ -335,8 +335,8 @@ describe("ReviewCommand", () => {
 			resetCacheForTests();
 			if (previousToken === undefined) delete process.env.GH_TOKEN;
 			else process.env.GH_TOKEN = previousToken;
-			if (previousCacheDb === undefined) delete process.env.OMP_GITHUB_CACHE_DB;
-			else process.env.OMP_GITHUB_CACHE_DB = previousCacheDb;
+			if (previousCacheDb === undefined) delete process.env.SCIENT_AGENT_GITHUB_CACHE_DB;
+			else process.env.SCIENT_AGENT_GITHUB_CACHE_DB = previousCacheDb;
 			resetCacheForTests();
 			await removeWithRetries(cacheDir);
 		}
@@ -348,10 +348,10 @@ describe("ReviewCommand", () => {
 	])(
 		"links each PR file to its actual diff slice with $fileCount reviewable files",
 		async ({ fileCount, lastIndex }) => {
-			const previousCacheDb = process.env.OMP_GITHUB_CACHE_DB;
+			const previousCacheDb = process.env.SCIENT_AGENT_GITHUB_CACHE_DB;
 			const previousGhToken = process.env.GH_TOKEN;
 			const cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-review-cache-"));
-			process.env.OMP_GITHUB_CACHE_DB = path.join(cacheDir, "github-cache.db");
+			process.env.SCIENT_AGENT_GITHUB_CACHE_DB = path.join(cacheDir, "github-cache.db");
 			process.env.GH_TOKEN = "review-test-token";
 			retainGeneration.mockRestore();
 			resetCacheForTests();
@@ -411,8 +411,8 @@ describe("ReviewCommand", () => {
 				}
 			} finally {
 				resetCacheForTests();
-				if (previousCacheDb === undefined) delete process.env.OMP_GITHUB_CACHE_DB;
-				else process.env.OMP_GITHUB_CACHE_DB = previousCacheDb;
+				if (previousCacheDb === undefined) delete process.env.SCIENT_AGENT_GITHUB_CACHE_DB;
+				else process.env.SCIENT_AGENT_GITHUB_CACHE_DB = previousCacheDb;
 				if (previousGhToken === undefined) delete process.env.GH_TOKEN;
 				else process.env.GH_TOKEN = previousGhToken;
 				resetCacheForTests();

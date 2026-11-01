@@ -26,7 +26,7 @@ import { logger } from "@oh-my-pi/pi-utils";
 import type { HindsightApi } from "./client";
 import type { HindsightConfig } from "./config";
 
-const DEFAULT_BANK_NAME = "omp";
+const DEFAULT_BANK_NAME = "scient-agent";
 const PROJECT_TAG_PREFIX = "project:";
 const UNKNOWN_PROJECT = "unknown";
 const MISSION_SET_CAP = 10_000;

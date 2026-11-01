@@ -900,7 +900,7 @@ describe("device-only write transport for explicit lists omitting write", () => 
 			await fs.mkdir(tempDir, { recursive: true });
 			const session = xdevSession(tempDir, {
 				getSessionId: () => "device-only-home",
-				getArtifactsDir: () => path.join(homeDir, ".omp", "artifacts"),
+				getArtifactsDir: () => path.join(homeDir, ".scient-agent", "artifacts"),
 			});
 			const tools = await createTools(session, ["read"]);
 			const write = tools.find(entry => entry.name === "write");
@@ -913,7 +913,7 @@ describe("device-only write transport for explicit lists omitting write", () => 
 					(caught: unknown) => caught,
 				);
 			const message = err instanceof Error ? err.message : String(err);
-			expect(message).toContain("~/.omp/artifacts/local/<name>");
+			expect(message).toContain("~/.scient-agent/artifacts/local/<name>");
 			expect(message).not.toContain(homeDir);
 		} finally {
 			homedirSpy.mockRestore();

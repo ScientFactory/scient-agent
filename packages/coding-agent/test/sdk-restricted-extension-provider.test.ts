@@ -43,9 +43,9 @@ describe("restricted sessions sharing extension providers", () => {
 	let providerRequests: number;
 	let settings: Settings;
 
-	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-	const originalPiProfile = process.env.PI_PROFILE;
-	const originalOmpProfile = process.env.OMP_PROFILE;
+	const originalAgentDir = process.env.SCIENT_AGENT_DIR;
+	const originalPiProfile = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
+	const originalOmpProfile = process.env.SCIENT_AGENT_PROFILE;
 
 	beforeEach(() => {
 		tempDir = path.join(os.tmpdir(), `pi-sdk-restricted-provider-${Snowflake.next()}`);
@@ -65,18 +65,18 @@ describe("restricted sessions sharing extension providers", () => {
 			modelRegistry.clearSourceRegistrations(sourceId);
 			authStorage.close();
 		} finally {
-			restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
-			restoreEnv("PI_PROFILE", originalPiProfile);
-			restoreEnv("OMP_PROFILE", originalOmpProfile);
+			restoreEnv("SCIENT_AGENT_DIR", originalAgentDir);
+			restoreEnv("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
+			restoreEnv("SCIENT_AGENT_PROFILE", originalOmpProfile);
 			__resetDirsFromEnvForTests();
 			removeSyncWithRetries(tempDir);
 		}
 	});
 
 	afterAll(() => {
-		restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
-		restoreEnv("PI_PROFILE", originalPiProfile);
-		restoreEnv("OMP_PROFILE", originalOmpProfile);
+		restoreEnv("SCIENT_AGENT_DIR", originalAgentDir);
+		restoreEnv("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
+		restoreEnv("SCIENT_AGENT_PROFILE", originalOmpProfile);
 		__resetDirsFromEnvForTests();
 	});
 

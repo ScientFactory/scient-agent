@@ -14,17 +14,17 @@ let originalOmpProfile: string | undefined;
 let originalPiProfile: string | undefined;
 
 beforeEach(async () => {
-	originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-	originalOmpProfile = process.env.OMP_PROFILE;
-	originalPiProfile = process.env.PI_PROFILE;
+	originalAgentDir = process.env.SCIENT_AGENT_DIR;
+	originalOmpProfile = process.env.SCIENT_AGENT_PROFILE;
+	originalPiProfile = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 	const agentDir = await createTempDir();
 	setAgentDir(agentDir);
 });
 
 afterEach(async () => {
-	restoreEnvValue("PI_CODING_AGENT_DIR", originalAgentDir);
-	restoreEnvValue("OMP_PROFILE", originalOmpProfile);
-	restoreEnvValue("PI_PROFILE", originalPiProfile);
+	restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDir);
+	restoreEnvValue("SCIENT_AGENT_PROFILE", originalOmpProfile);
+	restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
 	__resetDirsFromEnvForTests();
 	for (const dir of tempDirs.splice(0, tempDirs.length)) {
 		await removeWithRetries(dir);

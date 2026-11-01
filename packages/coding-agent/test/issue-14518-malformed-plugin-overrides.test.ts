@@ -33,7 +33,7 @@ async function plantRoot(prefix: string): Promise<{ home: string; cwd: string; p
 	tempRoots.push(root);
 	const home = path.join(root, "home");
 	const cwd = path.join(root, "project");
-	const pluginsDir = path.join(home, ".omp", "plugins");
+	const pluginsDir = path.join(home, ".scient-agent", "plugins");
 	await fs.mkdir(cwd, { recursive: true });
 
 	const declaredDir = path.join(pluginsDir, "node_modules", "declared-plugin");
@@ -52,8 +52,8 @@ async function plantRoot(prefix: string): Promise<{ home: string; cwd: string; p
 }
 
 async function writeOverrides(cwd: string, contents: string): Promise<string> {
-	const overridesPath = path.join(cwd, ".omp", "plugin-overrides.json");
-	await fs.mkdir(path.join(cwd, ".omp"), { recursive: true });
+	const overridesPath = path.join(cwd, ".scient-agent", "plugin-overrides.json");
+	await fs.mkdir(path.join(cwd, ".scient-agent"), { recursive: true });
 	await Bun.write(overridesPath, contents);
 	return overridesPath;
 }

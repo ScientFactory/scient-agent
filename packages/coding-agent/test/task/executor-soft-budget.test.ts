@@ -733,16 +733,16 @@ describe("task.agentSoftRequestBudget", () => {
 		await Bun.write(overlay, JSON.stringify({ task: { agentSoftRequestBudget: { scout: null } } }));
 
 		// Ambient overlays would join the layers under test.
-		const previousConfigFiles = process.env.PI_CONFIG_FILES;
-		delete process.env.PI_CONFIG_FILES;
+		const previousConfigFiles = process.env.SCIENT_AGENT_CONFIG_FILES;
+		delete process.env.SCIENT_AGENT_CONFIG_FILES;
 		try {
 			const settings = await Settings.loadReadOnly({ agentDir, cwd: tempDir.path(), configFiles: [overlay] });
 			const agentBudgets = cfgTaskAgentSoftRequestBudget.get(settings);
 			expect(resolveSoftRequestBudget("scout", 200, agentBudgets)).toBe(100);
 			expect(resolveSoftRequestBudget("lead", 200, agentBudgets)).toBe(400);
 		} finally {
-			if (previousConfigFiles === undefined) delete process.env.PI_CONFIG_FILES;
-			else process.env.PI_CONFIG_FILES = previousConfigFiles;
+			if (previousConfigFiles === undefined) delete process.env.SCIENT_AGENT_CONFIG_FILES;
+			else process.env.SCIENT_AGENT_CONFIG_FILES = previousConfigFiles;
 		}
 	});
 });

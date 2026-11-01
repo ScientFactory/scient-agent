@@ -20,7 +20,7 @@ const EXIT_DIAGNOSTICS_MODULE = path.join(import.meta.dir, "../../src/session/ex
 const stubSettings = { get: () => undefined } as unknown as Settings;
 
 // Resume writes breadcrumbs and the custom-session-file registry under the agent dir.
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 let agentDir: TempDir | undefined;
 
 beforeEach(() => {
@@ -29,8 +29,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
-	else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+	if (originalAgentDir === undefined) delete process.env.SCIENT_AGENT_DIR;
+	else process.env.SCIENT_AGENT_DIR = originalAgentDir;
 	__resetDirsFromEnvForTests();
 	agentDir?.removeSync();
 	agentDir = undefined;

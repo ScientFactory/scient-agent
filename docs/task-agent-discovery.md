@@ -50,11 +50,11 @@ Parsing comes from frontmatter via `parseAgentFields()` (`src/discovery/helpers.
 
 ## Role-backed custom agents
 
-OMP discovers user agents from `~/.omp/agent/agents/*.md` and project agents from `.omp/agents/*.md`.
+OMP discovers user agents from `~/.scient-agent/agent/agents/*.md` and project agents from `.scient-agent/agents/*.md`.
 
 Give the agent a role alias in frontmatter, then dispatch it by name. For model routing, task dispatch sets only `agent`; it does not set a worker model:
 
-`~/.omp/agent/agents/reviewer.md`:
+`~/.scient-agent/agent/agents/reviewer.md`:
 
 ```md
 ---
@@ -66,7 +66,7 @@ model: "@review"
 Review the assigned change and report concrete findings.
 ```
 
-Set the role mapping in `~/.omp/agent/config.yml`:
+Set the role mapping in `~/.scient-agent/agent/config.yml`:
 
 ```yaml
 modelRoles:
@@ -145,12 +145,12 @@ Because bundled parsing uses `level: "fatal"`, unrecoverable YAML errors or inva
 
 ## Filesystem and plugin discovery
 
-`discoverAgents(cwd, home, extensionRoots?)` (`src/task/discovery.ts`) merges agents from OMP-native roots, OMP extension packages, and Claude marketplace plugin roots before appending bundled definitions. Direct cross-harness roots such as `.claude/agents`, `.codex/agents`, and `.gemini/agents` are intentionally skipped — their frontmatter schema is not the OMP task-agent contract (`TASK_AGENT_CONFIG_SOURCE = ".omp"` filters the native config-dir lists).
+`discoverAgents(cwd, home, extensionRoots?)` (`src/task/discovery.ts`) merges agents from OMP-native roots, OMP extension packages, and Claude marketplace plugin roots before appending bundled definitions. Direct cross-harness roots such as `.claude/agents`, `.codex/agents`, and `.gemini/agents` are intentionally skipped — their frontmatter schema is not the OMP task-agent contract (`TASK_AGENT_CONFIG_SOURCE = ".scient-agent"` filters the native config-dir lists).
 
 ### Discovery inputs and precedence
 
-1. Nearest project `.omp/agents` dir from `findAllNearestProjectConfigDirs("agents", cwd)` (first `.omp` hit only)
-2. User `.omp/agents` dir from `getConfigDirs("agents", { project: false })` (first `.omp` hit only)
+1. Nearest project `.scient-agent/agents` dir from `findAllNearestProjectConfigDirs("agents", cwd)` (first `.scient-agent` hit only)
+2. User `.scient-agent/agents` dir from `getConfigDirs("agents", { project: false })` (first `.scient-agent` hit only)
 3. `<extension-root>/agents` for every enabled OMP extension package returned by `listOmpExtensionRoots(...)`, in this order:
    - explicit CLI `--extension` / SDK `additionalExtensionPaths` directory roots
    - the session's effective `extensions:` array, in its configured order
@@ -173,7 +173,7 @@ Discovery uses first-wins dedup by exact `agent.name`:
 
 Implications:
 
-- Project `.omp` overrides user `.omp`.
+- Project `.scient-agent` overrides user `.scient-agent`.
 - Earlier extension roots override later extension roots, Claude marketplace plugins, and bundled agents.
 - Non-bundled agents override bundled agents with the same name.
 - Name matching is case-sensitive (`Task` and `task` are distinct).
@@ -259,7 +259,7 @@ How grant values match:
 
 Catalog membership, credentials, built-in role defaults and saved transcripts grant nothing. `task.perCallModelAllow`, when set, narrows the result: each trimmed entry is compared literally to the model's canonical `provider/id[@upstream]` (no resolution, `:level` split, glob or bare id), and the model must be granted and listed. A project's list narrows it further: the model must be listed by both, so a project list, including an empty one, never replaces the operator's.
 
-Grants come from the operator's settings or an SDK host's settings instance; a plain `Settings.overlay()` created by a host is its own authority, including its roles and allowlist. Project settings (`.omp/config.yml`, `.omp/settings.json`, `.claude/settings.json` and the other project providers) and settings overlays derived for subagents never grant and defer to the operator's authority; they can only narrow it through `task.perCallModel`, `task.perCallModelAllow` and `task.disabledAgents`. The agent can write a repository's files, and settings are reloaded before every spawn, so a role written there mid-session would otherwise approve its own model. Role and allowlist edits apply live, so removing a role stops it granting.
+Grants come from the operator's settings or an SDK host's settings instance; a plain `Settings.overlay()` created by a host is its own authority, including its roles and allowlist. Project settings (`.scient-agent/config.yml`, `.scient-agent/settings.json`, `.claude/settings.json` and the other project providers) and settings overlays derived for subagents never grant and defer to the operator's authority; they can only narrow it through `task.perCallModel`, `task.perCallModelAllow` and `task.disabledAgents`. The agent can write a repository's files, and settings are reloaded before every spawn, so a role written there mid-session would otherwise approve its own model. Role and allowlist edits apply live, so removing a role stops it granting.
 
 The operator's own files stay trusted: the global config, `--config` files and user-level agent files grant as written, and anything able to edit them can change grants like any other setting. The gate covers only calls that pass `model`; a call without it routes through `task.agentModelOverrides`, agent frontmatter and `modelRoles`, project layers included, as before.
 

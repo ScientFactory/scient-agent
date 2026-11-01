@@ -32,7 +32,7 @@ const PEER_BODY = "Quick question?";
 const PARENT_BODY = "Parent asks: anything else?";
 const WAKE_BODY = "Parent wake: recheck one thing.";
 const MOCK_API_SOURCE = "test/peer-message-after-report";
-const ENV_KEYS = ["HOME", "PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE"] as const;
+const ENV_KEYS = ["HOME", "SCIENT_AGENT_DIR", "SCIENT_AGENT_PROFILE", "SCIENT_AGENT_PROFILE_FALLBACK"] as const;
 
 let savedEnv: Record<string, string | undefined> = {};
 let root: string;
@@ -55,7 +55,7 @@ beforeEach(async () => {
 	await fs.mkdir(home, { recursive: true });
 	restoreEnvValue("HOME", home);
 	vi.spyOn(os, "homedir").mockReturnValue(home);
-	setAgentDir(path.join(home, ".omp", "agent"));
+	setAgentDir(path.join(home, ".scient-agent", "agent"));
 	AgentRegistry.resetGlobalForTests();
 	AgentLifecycleManager.resetGlobalForTests();
 	IrcBus.resetGlobalForTests();

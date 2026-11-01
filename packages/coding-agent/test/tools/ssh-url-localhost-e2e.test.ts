@@ -40,7 +40,7 @@ const sh = async (script: string) => {
 
 describe.skipIf(!SSH_OK)("ssh:// handler against a real localhost ssh", () => {
 	const handler = new SshProtocolHandler();
-	const TMP = `/tmp/omp-ssh-e2e-${process.pid}`;
+	const TMP = `/tmp/scient-agent-ssh-e2e-${process.pid}`;
 
 	beforeAll(async () => {
 		await sh(`mkdir -p ${TMP}`);
@@ -169,7 +169,7 @@ describe.skipIf(!SSH_OK)("ssh:// handler against a real localhost ssh", () => {
 });
 
 describe.skipIf(!SSH_OK)("ssh:// through the real read/grep/write tools (localhost)", () => {
-	const TMP = `/tmp/omp-ssh-tools-e2e-${process.pid}`;
+	const TMP = `/tmp/scient-agent-ssh-tools-e2e-${process.pid}`;
 
 	function createSession(): ToolSession {
 		return {

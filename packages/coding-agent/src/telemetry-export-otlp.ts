@@ -50,7 +50,7 @@ import type { TelemetryModelPricingResolver, TelemetrySignalConfig } from "./tel
  */
 const FLUSH_INTERVAL_MS = 30_000;
 
-const SERVICE_NAME = "oh-my-pi";
+const SERVICE_NAME = "scient-agent";
 
 type OtelLogLevel = "none" | logger.LogLevel;
 

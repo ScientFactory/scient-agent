@@ -81,7 +81,7 @@ describe("plugin --dry-run beyond install, uninstall and link", () => {
 		spyOn(piUtils, "getMarketplacesRegistryPath").mockReturnValue(path.join(root, "state", "marketplaces.json"));
 		spyOn(piUtils, "getProjectDir").mockReturnValue(projectDir);
 		spyOn(piUtils, "getProjectPluginOverridesPath").mockReturnValue(
-			path.join(projectDir, ".omp", "plugin-overrides.json"),
+			path.join(projectDir, ".scient-agent", "plugin-overrides.json"),
 		);
 		output = [];
 		spyOn(console, "log").mockImplementation((...args: unknown[]) => {

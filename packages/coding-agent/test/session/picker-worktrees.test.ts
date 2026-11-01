@@ -17,7 +17,7 @@ const TEST_ENV_KEYS = [
 	"GIT_AUTHOR_EMAIL",
 	"GIT_COMMITTER_NAME",
 	"GIT_COMMITTER_EMAIL",
-	"OMP_WORKTREE_DIR",
+	"SCIENT_AGENT_WORKTREE_DIR",
 ] as const;
 
 /**
@@ -27,7 +27,7 @@ const TEST_ENV_KEYS = [
  * and a session whose worktree was removed must resume from the checkout.
  */
 describe.skipIf(process.platform === "win32")("resume picker across git worktrees", () => {
-	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 	const originalEnv = Object.fromEntries(TEST_ENV_KEYS.map(key => [key, process.env[key]]));
 	let root: string;
 	let repo: string;
@@ -41,7 +41,7 @@ describe.skipIf(process.platform === "win32")("resume picker across git worktree
 			GIT_AUTHOR_EMAIL: "test@example.com",
 			GIT_COMMITTER_NAME: "Test",
 			GIT_COMMITTER_EMAIL: "test@example.com",
-			OMP_WORKTREE_DIR: path.join(root, "wt-base"),
+			SCIENT_AGENT_WORKTREE_DIR: path.join(root, "wt-base"),
 		});
 		setAgentDir(path.join(root, "agent"));
 		repo = path.join(root, "repo");
@@ -54,7 +54,7 @@ describe.skipIf(process.platform === "win32")("resume picker across git worktree
 			setAgentDir(originalAgentDir);
 		} else {
 			setAgentDir(path.join(getConfigRootDir(), "agent"));
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		}
 		for (const key of TEST_ENV_KEYS) {
 			if (originalEnv[key] === undefined) delete process.env[key];
