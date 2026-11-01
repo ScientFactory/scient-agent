@@ -232,6 +232,12 @@
 			"owned": ["packages/coding-agent/src/scient/export-viewer.ts", "packages/coding-agent/test/scient/export-viewer.test.ts"],
 			"upstream": ["packages/coding-agent/src/export/html/index.ts", "packages/coding-agent/scripts/compile-binary.ts"],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/export-viewer.test.ts"]
+		},
+		"SA-HOST-PAGES": {
+			"status": "active",
+			"contract": "A host with its own browser sets SCIENT_AGENT_HOST_PAGES=1: the stats dashboard then reports its address, and the agent opens no system browser beside the host.",
+			"owned": ["packages/coding-agent/src/scient/host-pages.ts"],
+			"upstream": ["packages/coding-agent/src/slash-commands/helpers/stats-dashboard.ts"]
 		}
 	}
 }
