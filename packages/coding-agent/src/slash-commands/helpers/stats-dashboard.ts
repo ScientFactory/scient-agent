@@ -1,4 +1,7 @@
 import * as stats from "@oh-my-pi/omp-stats";
+// scient(SA-HOST-PAGES): begin - whether a host shows pages itself.
+import { hostShowsPages } from "../../scient/host-pages";
+// scient(SA-HOST-PAGES): end
 import { openTernPage } from "../../tools/browser/tern/user-page";
 import * as openUtils from "../../utils/open";
 
@@ -94,7 +97,9 @@ export async function launchStatsDashboard(
 	const url = stats.formatStatsDashboardUrl(activeStatsServer.hostname, activeStatsServer.port);
 	const page = await openTernPage(url, "beside");
 	if (page) page.disconnect();
-	else openUtils.openPath(url);
+	// scient(SA-HOST-PAGES): begin - a host with its own browser opens this address itself.
+	else if (!hostShowsPages()) openUtils.openPath(url);
+	// scient(SA-HOST-PAGES): end
 
 	const serverLine = requestedAddressIgnored
 		? `Dashboard already running at: ${url} (requested ${args.host}:${args.port} ignored)`
