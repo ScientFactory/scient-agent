@@ -13,7 +13,7 @@ permissions:
 
 env:
    UNTOUCHED: 3fedf8d53267e32a6d7521ce725fdcc4a36fdc67
-   SCIENT: 4561c9a0f05123852a8d4ac3393b438a86ef9ffa
+   SCIENT: 942ec876b556bab7e7f2182769eff13af98a8e2e
    OMP_TEST_TIMEOUT: "120"
 
 jobs:
