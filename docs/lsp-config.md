@@ -1,6 +1,6 @@
-# LSP configuration in OMP
+# LSP configuration in Scient Agent
 
-This guide explains how to configure language servers for the OMP coding agent.
+This guide explains how to configure language servers for the Scient Agent coding agent.
 
 Source of truth in code:
 
@@ -10,7 +10,7 @@ Source of truth in code:
 
 ## Auto-detection
 
-OMP starts from the built-in server definitions, applies config overrides, then keeps enabled servers that meet both conditions:
+Scient Agent starts from the built-in server definitions, applies config overrides, then keeps enabled servers that meet both conditions:
 
 1. The current working directory contains at least one of the server's `rootMarkers`.
 2. The server binary is available — checked in supported project-local bin directories first (for example `node_modules/.bin/`, Python virtual environments, Ruby binstubs, and project `bin/` for Go), then `$PATH`.
@@ -19,7 +19,7 @@ Root-marker detection at startup is cwd-only; it does not search parent director
 
 ## Config file locations
 
-OMP merges LSP config from multiple sources, lowest to highest precedence:
+Scient Agent merges LSP config from multiple sources, lowest to highest precedence:
 
 | Precedence | Location                                                                                                     |
 | ---------: | ------------------------------------------------------------------------------------------------------------ |
@@ -96,7 +96,7 @@ For plugin-compatible definitions, `initializationOptions` is accepted when `ini
 
 ### Capabilities
 
-The `capabilities` object enables optional server-specific features that OMP supports on a per-server basis:
+The `capabilities` object enables optional server-specific features that Scient Agent supports on a per-server basis:
 
 ```json
 {

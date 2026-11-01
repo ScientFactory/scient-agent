@@ -725,7 +725,7 @@ describe("Claude saved-reset trigger integration", () => {
 		expect(pooled.session.agent.state.messages.at(-1)).toMatchObject({ role: "assistant", stopReason: "error" });
 	});
 
-	it("adopts a reset `omp usage reset` just spent instead of spending again", async () => {
+	it("adopts a reset `scient-agent usage reset` just spent instead of spending again", async () => {
 		const originalEnv = {
 			SCIENT_AGENT_DIR: process.env.SCIENT_AGENT_DIR,
 			SCIENT_AGENT_PROFILE: process.env.SCIENT_AGENT_PROFILE,

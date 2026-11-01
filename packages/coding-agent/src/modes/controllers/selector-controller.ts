@@ -1856,7 +1856,7 @@ export class SelectorController {
 									const claim = new FileSessionStorage().claimSession(session.id, session.path);
 									if (!claim) {
 										throw new Error(
-											"Failed to rename session: it is currently in use by another omp process",
+											"Failed to rename session: it is currently in use by another Scient Agent process",
 										);
 									}
 									try {

@@ -29,12 +29,12 @@ export default class Grievances extends Command {
 	};
 
 	static examples = [
-		"omp grievances",
-		"omp grievances list --tool find",
-		"omp grievances clean --id 209",
-		"omp grievances clean --tool find",
-		"omp grievances clean --all",
-		"omp grievances push",
+		"scient-agent grievances",
+		"scient-agent grievances list --tool find",
+		"scient-agent grievances clean --id 209",
+		"scient-agent grievances clean --tool find",
+		"scient-agent grievances clean --all",
+		"scient-agent grievances push",
 	];
 
 	async run(): Promise<void> {

@@ -54,7 +54,7 @@ function childKinds(node: TspNode): string[] {
 	return (node.c ?? []).map(child => child.k);
 }
 
-describe("omp buttons on the wire", () => {
+describe("Scient Agent buttons on the wire", () => {
 	it("a Tern that lists `button` gets button nodes and segmented tabs, keeping roles and tones", async () => {
 		harness = await TspHarness.start(tui => tui.addChild(new Toolbar()));
 		const h = harness;

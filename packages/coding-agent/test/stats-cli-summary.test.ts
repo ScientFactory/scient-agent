@@ -11,7 +11,7 @@ const XDG_KEYS = ["XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"] as const;
 // Regression: `omp stats --summary` carried its own printer copy that lacked the
 // unpriced-usage fix, so subscription-only usage with no reference price (e.g.
 // SuperGrok) printed as a real `$0.0000` charge instead of `N/A`.
-describe("omp stats --summary", () => {
+describe("scient-agent stats --summary", () => {
 	const originalAgentDir = getAgentDir();
 	const originalEnv: Record<string, string | undefined> = {};
 	let tempDir: TempDir;

@@ -4,7 +4,7 @@ import { rewriteGitWorktreeAdd } from "@oh-my-pi/pi-coding-agent/tools/bash-work
 const OMP = ["bun", "/opt/omp cli.ts"] as const;
 
 describe("rewriteGitWorktreeAdd", () => {
-	it("routes supported branch creation through omp with an option terminator", () => {
+	it("routes supported branch creation through Scient Agent with an option terminator", () => {
 		expect(rewriteGitWorktreeAdd("git worktree add -b feat ../wt origin/main", OMP)).toBe(
 			"bun '/opt/omp cli.ts' worktree add -b feat -- ../wt origin/main",
 		);

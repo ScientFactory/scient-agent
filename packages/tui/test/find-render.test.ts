@@ -101,7 +101,7 @@ describe("findToolRenderer", () => {
 		expect(native).not.toContain("\\u001b");
 	});
 
-	it("links omp hits to their doc URL instead of joining them onto cwd", async () => {
+	it("links Scient Agent hits to their doc URL instead of joining them onto cwd", async () => {
 		applyHyperlinkSetting("always");
 		const uiTheme = (await getThemeByName("dark"))!;
 		const ompDetails: FindToolDetails = {

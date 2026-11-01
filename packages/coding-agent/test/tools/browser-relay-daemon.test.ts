@@ -267,7 +267,7 @@ try {
 		}
 	}, 60_000);
 
-	it("replaces a broker-owned relay from an older omp version, also after another omp stopped it, but not a starting replacement, a newer relay, or a manually started one", async () => {
+	it("replaces a broker-owned relay from an older Scient Agent version, also after another Scient Agent stopped it, but not a starting replacement, a newer relay, or a manually started one", async () => {
 		const home = await fs.mkdtemp(path.join(os.tmpdir(), "omp-relay-restart-"));
 		const ownedPort = await findFreeCdpPort();
 		let manualPort = await findFreeCdpPort();
@@ -280,7 +280,7 @@ try {
 			`const [port, delayMs, version] = process.argv.slice(2);
 await Bun.sleep(Number(delayMs ?? 0));
 Bun.serve({ hostname: "127.0.0.1", port: Number(port), fetch: () => Response.json({ Browser: "Chrome/1", ompRelayVersion: version }) });
-console.log(\`omp browser relay listening on http://127.0.0.1:\${port}\`);
+console.log(\`scient-agent browser relay listening on http://127.0.0.1:\${port}\`);
 `,
 		);
 		const result = await runWithIsolatedBroker(
@@ -322,7 +322,7 @@ try {
 	await manual.stdout.getReader().read();
 	const owned = await restartRelayDaemon({ cdpUrl: ownedUrl });
 	const ownedVersionIsCurrent = (await versionAt(ownedPort)) === VERSION;
-	// Another omp of this version is still starting its replacement when this one decides to restart.
+	// Another Scient Agent of this version is still starting its replacement when this one decides to restart.
 	await client.request({ op: "stop", name, timeoutMs: 5_000 });
 	const starting = start([ownedPort, "1000", VERSION]);
 	let snapshot = await describe();
@@ -331,7 +331,7 @@ try {
 	const startingRestarted = await restartRelayDaemon({ cdpUrl: ownedUrl });
 	await starting;
 	const startingKeptPid = (await describe())?.pid;
-	// Another omp stopped the outdated relay and has not registered its replacement yet.
+	// Another Scient Agent stopped the outdated relay and has not registered its replacement yet.
 	await client.request({ op: "stop", name, timeoutMs: 5_000 });
 	const exitedRestarted = await restartRelayDaemon({ cdpUrl: ownedUrl });
 	const exitedVersionIsCurrent = (await versionAt(ownedPort)) === VERSION;
@@ -345,7 +345,7 @@ try {
 	const ownedRecordState = (await describe())?.state;
 	manualOnOwnedPort.kill();
 	await manualOnOwnedPort.exited;
-	// A concurrently running newer omp owns a newer relay; replacing it would only start a tug of war.
+	// A concurrently running newer Scient Agent owns a newer relay; replacing it would only start a tug of war.
 	await start([ownedPort, "0", "999.0.0"]);
 	const newerPid = (await describe())?.pid;
 	const newerRestarted = await restartRelayDaemon({ cdpUrl: ownedUrl });
@@ -420,7 +420,7 @@ Bun.serve({
 	fetch: () =>
 		Response.json({ Browser: "Chrome/1", ompRelayVersion: version, ...(clients ? { ompRelayCdpClients: Number(clients) } : {}) }),
 });
-console.log(\`omp browser relay listening on http://127.0.0.1:\${port}\`);
+console.log(\`scient-agent browser relay listening on http://127.0.0.1:\${port}\`);
 `,
 		);
 		const result = await runWithIsolatedBroker(
@@ -502,7 +502,7 @@ try {
 		});
 	}, 60_000);
 
-	it("keeps a replacement another omp started while this one was about to stop the outdated relay", async () => {
+	it("keeps a replacement another Scient Agent started while this one was about to stop the outdated relay", async () => {
 		const home = await fs.mkdtemp(path.join(os.tmpdir(), "omp-relay-restart-race-"));
 		const port = String(await findFreeCdpPort());
 		const standIn = path.join(home, "stand-in-relay.ts");
@@ -510,7 +510,7 @@ try {
 			standIn,
 			`const port = Number(process.argv[2]);
 Bun.serve({ hostname: "127.0.0.1", port, fetch: () => Response.json({ Browser: "Chrome/1" }) });
-console.log(\`omp browser relay listening on http://127.0.0.1:\${port}\`);
+console.log(\`scient-agent browser relay listening on http://127.0.0.1:\${port}\`);
 `,
 		);
 		const result = await runWithIsolatedBroker(
@@ -538,7 +538,7 @@ try {
 			detached: false,
 		},
 	});
-	// The late omp has judged the relay outdated; its stop reaches the broker only after another omp replaced it.
+	// The late Scient Agent has judged the relay outdated; its stop reaches the broker only after another Scient Agent replaced it.
 	const request = client.request.bind(client);
 	const stopHeld = Promise.withResolvers<void>();
 	const stopReleased = Promise.withResolvers<void>();
@@ -591,7 +591,7 @@ import { closeDaemonClients, daemonClientForGlobal } from ${JSON.stringify(path.
 import { acquireBrowser } from ${JSON.stringify(path.resolve(import.meta.dir, "../../src/tools/browser/registry.ts"))};
 const controller = new AbortController();
 let restarting = false;
-// A relay started by hand from an older omp; the acquisition is aborted while the restart probes it.
+// A relay started by hand from an older Scient Agent; the acquisition is aborted while the restart probes it.
 const relay = Bun.serve({
 	hostname: "127.0.0.1",
 	port: 0,
@@ -642,7 +642,7 @@ try {
 			standIn,
 			`import { DISCARDED_TABS_PROTOCOL_VERSION } from ${source("tools/browser/relay/protocol.ts")};
 const port = Number(process.argv[2]);
-// A compatible relay from an older omp with no CDP client; it never accepts an extension.
+// A compatible relay from an older Scient Agent with no CDP client; it never accepts an extension.
 Bun.serve({
 	hostname: "127.0.0.1",
 	port,
@@ -654,7 +654,7 @@ Bun.serve({
 			ompRelayCdpClients: 0,
 		}),
 });
-console.log(\`omp browser relay listening on http://127.0.0.1:\${port}\`);
+console.log(\`scient-agent browser relay listening on http://127.0.0.1:\${port}\`);
 `,
 		);
 		// The acquiring omp is also the worker host the registry spawns its replacement relay through.
@@ -671,7 +671,7 @@ import { startRelayServer } from ${source("tools/browser/relay/server.ts")};
 if (process.argv[2] === "browser-relay") {
 	const port = Number(process.argv[process.argv.indexOf("--port") + 1]);
 	startRelayServer({ port });
-	console.log(\`omp browser relay listening on http://127.0.0.1:\${port}\`);
+	console.log(\`scient-agent browser relay listening on http://127.0.0.1:\${port}\`);
 } else {
 	const [port, standIn] = [Bun.env.OMP_TEST_PORT!, Bun.env.OMP_TEST_STALE_RELAY!];
 	const name = \`omp.browser.relay.\${port}\`;
@@ -740,7 +740,7 @@ if (process.argv[2] === "browser-relay") {
 		expect(result).toEqual({ connected: true, replaced: true, versionIsCurrent: true, cdpClients: 1 });
 	}, 60_000);
 
-	it("probes again when another omp replaced the idle older relay with an incompatible newer one before the restart", async () => {
+	it("probes again when another Scient Agent replaced the idle older relay with an incompatible newer one before the restart", async () => {
 		const home = await fs.mkdtemp(path.join(os.tmpdir(), "omp-relay-idle-raced-"));
 		const result = await runWithIsolatedBroker(
 			home,
@@ -748,7 +748,7 @@ if (process.argv[2] === "browser-relay") {
 import { closeDaemonClients, daemonClientForGlobal } from ${JSON.stringify(path.resolve(import.meta.dir, "../../src/launch/client.ts"))};
 import { acquireBrowser } from ${JSON.stringify(path.resolve(import.meta.dir, "../../src/tools/browser/registry.ts"))};
 import { DISCARDED_TABS_PROTOCOL_VERSION } from ${JSON.stringify(path.resolve(import.meta.dir, "../../src/tools/browser/relay/protocol.ts"))};
-// A compatible relay from an older omp that nobody is connected to, until a newer omp with another protocol replaces it.
+// A compatible relay from an older Scient Agent that nobody is connected to, until a newer Scient Agent with another protocol replaces it.
 let served = {
 	ompRelayVersion: "18.0.0",
 	ompRelayDiscardedTabsProtocol: String(DISCARDED_TABS_PROTOCOL_VERSION),

@@ -79,7 +79,7 @@ describe("reconcileOpenFilesFromDisk", () => {
 		}
 	});
 
-	test("closes an open document deleted outside OMP", async () => {
+	test("closes an open document deleted outside Scient Agent", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-reconcile-open-"));
 		try {
 			const file = path.join(dir, "consumer.py");
@@ -96,7 +96,7 @@ describe("reconcileOpenFilesFromDisk", () => {
 });
 
 describe("refreshFile", () => {
-	test("keeps a missing document open while an OMP write to it is pending", async () => {
+	test("keeps a missing document open while a Scient Agent write to it is pending", async () => {
 		// A new file's overlay is synced before the write commits it to disk, so
 		// ENOENT here means "not written yet", not "deleted".
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-refresh-missing-"));

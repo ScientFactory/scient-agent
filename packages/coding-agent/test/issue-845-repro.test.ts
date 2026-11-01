@@ -38,14 +38,14 @@ describe("issue-845: resolveUpdateMethod follows symlinks/junctions", () => {
 		removeSyncWithRetries(tmpRoot);
 	});
 
-	it("classifies omp reached through a symlinked bin dir as bun-managed", () => {
+	it("classifies Scient Agent reached through a symlinked bin dir as bun-managed", () => {
 		// $which resolves through the symlink, `bun pm bin -g` returns the real path
 		// (or vice versa). Either direction must be recognized.
 		const method = resolveUpdateMethodForTest(ompPathViaLink, realBinDir);
 		expect(method).toBe("bun");
 	});
 
-	it("classifies omp at the real bin dir as bun-managed when bunBinDir is symlinked", () => {
+	it("classifies Scient Agent at the real bin dir as bun-managed when bunBinDir is symlinked", () => {
 		const ompAtReal = path.join(realBinDir, "omp");
 		const method = resolveUpdateMethodForTest(ompAtReal, linkedBinDir);
 		expect(method).toBe("bun");

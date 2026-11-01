@@ -98,7 +98,7 @@ export function parseRecording(text: string): Recording {
 	const { values, error } = Bun.JSONL.parseChunk(text);
 	if (error) throw new Error(`malformed recording: ${error.message}`);
 	const [header, ...lines] = values;
-	if (!isRecordingHeader(header)) throw new Error("not an omp recording (missing ompcast header)");
+	if (!isRecordingHeader(header)) throw new Error("not a Scient Agent recording (missing ompcast header)");
 	if (header.ompcast !== RECORDING_VERSION) throw new Error(`unsupported recording version ${header.ompcast}`);
 	const events: RecordingEvent[] = [];
 	for (const [index, line] of lines.entries()) {

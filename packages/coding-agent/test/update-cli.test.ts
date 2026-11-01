@@ -441,7 +441,7 @@ describe("update-cli install target detection", () => {
 					fetchImpl,
 					validateExistingTarget: target.validateExistingTarget,
 				}),
-			).rejects.toThrow("does not report an OMP version when run directly");
+			).rejects.toThrow("does not report a Scient Agent version when run directly");
 			expect(fetchImpl).not.toHaveBeenCalled();
 		},
 	);
