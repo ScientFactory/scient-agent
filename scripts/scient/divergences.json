@@ -220,6 +220,13 @@
 			"owned": ["packages/coding-agent/src/scient/rpc-spool.ts", "packages/coding-agent/test/scient/rpc-spool.test.ts"],
 			"upstream": ["packages/coding-agent/src/modes/rpc/rpc-output.ts"],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-spool.test.ts"]
+		},
+		"SA-EXPORT": {
+			"status": "active",
+			"contract": "An HTML export from a compiled Scient Agent carries Scient's viewer inside the page: the viewer Oh My Pi hosts is Oh My Pi's, and Scient's differs by its wording, so its checksum would not match. The wording generator refreshes the pin in viewer.generated.json.",
+			"owned": ["packages/coding-agent/src/scient/export-viewer.ts", "packages/coding-agent/test/scient/export-viewer.test.ts"],
+			"upstream": ["packages/coding-agent/src/export/html/index.ts", "packages/coding-agent/scripts/compile-binary.ts"],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/export-viewer.test.ts"]
 		}
 	}
 }

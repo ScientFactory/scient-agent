@@ -10,6 +10,9 @@ import { SessionManager } from "../../session/session-manager";
 import { collectSubSessions, type SubSession } from "../../session/sub-sessions";
 import type { ExportThemeNames } from "./args";
 import templateHtml from "./template.html.txt" with { type: "text" };
+// scient(SA-EXPORT): begin - the viewer a compiled binary carries.
+import { embeddedExportViewer } from "../../scient/export-viewer";
+// scient(SA-EXPORT): end
 import viewerAsset from "./viewer.generated.json" with { type: "json" };
 import { exportThemeStyles, webExportThemeVars } from "./web-palette";
 
@@ -26,6 +29,9 @@ export function getTemplate(): string {
 		!import.meta.dir.split(/[\\/]/).includes("node_modules") &&
 		fs.existsSync(path.join(import.meta.dir, "shell.html"));
 	let viewerScript: string;
+	// scient(SA-EXPORT): begin - a binary carries Scient's viewer; Oh My Pi's CDN holds only its own.
+	const embeddedViewer = embeddedExportViewer();
+	// scient(SA-EXPORT): end
 	if (sourceCheckout) {
 		const viewerPath = path.resolve(import.meta.dir, "../../../export-assets", viewerAsset.file);
 		let viewer: string;
@@ -43,6 +49,10 @@ export function getTemplate(): string {
 		// both shared libraries, and prevent embedded text from closing the tag.
 		const escaped = viewer.replace(/<\/script/gi, match => `<\\/${match.slice(2)}`);
 		viewerScript = `<script>window.addEventListener("DOMContentLoaded",function(){\n${escaped}\n});</script>`;
+		// scient(SA-EXPORT): begin - use the viewer the binary carries.
+	} else if (embeddedViewer) {
+		viewerScript = embeddedViewer;
+		// scient(SA-EXPORT): end
 	} else {
 		const viewerUrl = `https://build.stencil.so/web/omp/${encodeURIComponent(VERSION)}/${viewerAsset.file}`;
 		viewerScript = `<script defer src="${viewerUrl}" integrity="${viewerAsset.integrity}" crossorigin="anonymous" onerror="document.getElementById('viewer-status').textContent='Could not load the session viewer. Connect to the internet and reload this file.'"></script>`;
