@@ -231,6 +231,8 @@ const KEPT: Record<string, string[]> = {
 		"Previous OMP process exited before completing the turn.",
 	],
 	"packages/coding-agent/src/session/session-transfer.ts": ["needs string id, cwd, and omp"],
+	// A URL scheme in a test of how schemes are read: its case is the point, not the name.
+	"packages/tui/test/hyperlink.test.ts": ["OMP+File.v2-remote"],
 };
 
 /** Applies `rewriteText` to `text` around the sentences `KEPT` lists for its file. */
@@ -362,6 +364,10 @@ function rewriteCode(file: string, source: string): string {
  * name), ids of built-in images and icons, and names of stored things.
  */
 const LABELS: Record<string, [from: string, to: string][]> = {
+	// An escaped newline hides this word from the rules; the test's other strings are rewritten.
+	"packages/ai/test/cursor-system-prompt-history.test.ts": [
+		["<rules>\\nomp base prompt", `<rules>\\n${PRODUCT} base prompt`],
+	],
 	"packages/coding-agent/src/tools/ask.ts": [['title: "omp"', `title: "${PRODUCT}"`]],
 	"packages/coding-agent/src/modes/controllers/event-controller.ts": [
 		['sessionName || "omp"', `sessionName || "${PRODUCT}"`],
@@ -447,6 +453,15 @@ function applyLabels(file: string, source: string, missing: string[]): string {
 	return lines.join("\n");
 }
 
+/**
+ * The export viewer is built from the rewritten text, and viewer.generated.json
+ * pins its checksum, so the wording's commit carries the viewer's new pin.
+ */
+async function checkedExportViewer(check = true): Promise<void> {
+	const { buildExportViewer } = await import("../../packages/collab-web/scripts/build-export-viewer");
+	await buildExportViewer({ check });
+}
+
 if (import.meta.main) {
 	const check = process.argv.includes("--check");
 	const read = (file: string): string | undefined => {
@@ -501,6 +516,7 @@ if (import.meta.main) {
 			);
 			process.exit(1);
 		}
+		await checkedExportViewer();
 		console.log("The agent's wording names Scient Agent.");
 	} else {
 		for (const file of changedFiles) await Bun.write(path.join(repoRoot, file), results.get(file)!.next);
@@ -509,6 +525,7 @@ if (import.meta.main) {
 		// Only the files touched: the whole workspace is not this script's to format.
 		const native = changedFiles.filter(file => file.endsWith(".rs"));
 		if (native.length > 0) await $`rustfmt ${native}`.cwd(repoRoot).quiet();
+		await checkedExportViewer(false);
 		console.log(`Rewrote the wording in ${changedFiles.length} files.`);
 	}
 }

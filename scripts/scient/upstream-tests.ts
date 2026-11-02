@@ -28,39 +28,13 @@ interface KnownFailure {
 	evidence: string;
 }
 
-// Each was seen failing on untouched 18.13.0 on ubuntu-22.04 (2026-10-26), in 8
-// coding-agent-native bucket runs; SCIENT.md, "Sixth alignment intake", has the counts.
+// Seen failing on untouched 18.15.0 on ubuntu-22.04 (2026-11-02), in 8 coding-agent-native
+// bucket runs; SCIENT.md, "Seventh alignment intake", has the counts.
 const KNOWN_FAILURES: KnownFailure[] = [
 	{
-		commit: "011ab732fa2d8657203d17f6af80d57809eb24f4",
-		test: "packages/coding-agent/test/tools.test.ts > Coding Agent Tools > read tool > re-reads an archive rewritten in place with the same size and restored mtime",
-		evidence:
-			"Failed in 4 of 8 bucket runs untouched; also failed untouched on 18.12.6 and 18.12.1. Consistent with its archive cache keying on ctime, which Linux advances in coarse ticks.",
-	},
-	{
-		commit: "011ab732fa2d8657203d17f6af80d57809eb24f4",
-		test: "packages/coding-agent/test/tools/browser-relay-detach.test.ts > relay tabs Chrome detaches Scient Agent from > does not rerun a call detached before its code started once the re-adoption spent its budget",
-		evidence: "Failed in 3 of 8 bucket runs untouched; also failed untouched on 18.12.6 and 18.12.1.",
-	},
-	{
-		commit: "011ab732fa2d8657203d17f6af80d57809eb24f4",
-		test: "packages/coding-agent/test/tools/browser-open-options.test.ts > browser open options > accepts an untrusted certificate for the tab's lifetime, across a worker recycle, and checks it again once the tab closes",
-		evidence: "Failed in 2 of 8 bucket runs untouched.",
-	},
-	{
-		commit: "011ab732fa2d8657203d17f6af80d57809eb24f4",
-		test: "packages/coding-agent/test/tools/browser-relay-tab-isolation.test.ts > relay tab ownership > opens a default tab in the browser of the tab Scient Agent used last, not the first selected one",
-		evidence: "Failed in 1 of 8 bucket runs untouched.",
-	},
-	{
-		commit: "011ab732fa2d8657203d17f6af80d57809eb24f4",
-		test: "packages/coding-agent/test/tools/read-pdf-screenshot-chromium.test.ts > PDF page screenshots in Chromium > paints each requested image-only page instead of the empty viewer",
-		evidence: "Failed in 1 of 8 bucket runs untouched.",
-	},
-	{
-		commit: "011ab732fa2d8657203d17f6af80d57809eb24f4",
-		test: "packages/coding-agent/test/tools/browser-run-listeners.test.ts > browser run page listeners > puppeteer's own request subscriptions unsubscribe during a run",
-		evidence: "Failed in 1 of 8 bucket runs untouched.",
+		commit: "3fedf8d53267e32a6d7521ce725fdcc4a36fdc67",
+		test: "packages/coding-agent/test/lsp-mux.test.ts > LspMuxServer > removes the workspace folders a session added before reusing its server",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 ];
 
