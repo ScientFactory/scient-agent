@@ -61,7 +61,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.2
+              bun-version: 1.4.4
 
          # Before any step changes a tracked file, so a clean checkout is not reported dirty.
          - name: Stamp the build id
@@ -155,7 +155,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.2
+              bun-version: 1.4.4
 
          - name: Build the native addon
            run: |
@@ -192,7 +192,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.2
+              bun-version: 1.4.4
 
          - name: Install dependencies
            run: bun install --frozen-lockfile
@@ -206,6 +206,7 @@ jobs:
          - name: Test
            env:
               OMP_TEST_CONCURRENCY: ${{ matrix.concurrency }}
+              OMP_TEST_TIMEOUT: "120"
            run: bun scripts/scient/upstream-tests.ts ${{ matrix.mode }}
 
          # Upstream's workspace job also runs its release-script test and a CLI smoke test.
@@ -229,7 +230,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.2
+              bun-version: 1.4.4
 
          # The checker parses with the locked @babel/parser: without an install, Bun
          # would fetch whatever version is newest when the job runs.
@@ -325,7 +326,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.2
+              bun-version: 1.4.4
 
          - uses: actions/download-artifact@v4
            with:

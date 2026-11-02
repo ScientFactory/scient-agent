@@ -21,6 +21,8 @@ Everything else is upstream's code and behavior.
 | Updates | `scient-agent update` only updates plugins. The startup update check and the startup marketplace refresh are off. A host or installer replaces the executable. |
 | Reporting | Automatic tool-issue reports to OMP's service are off by default. |
 | Browser relay | The relay listens on port 9324 (OMP uses 9224), so each product runs its own. |
+| HTML exports | Oh My Pi's binaries load the export viewer from its CDN. Scient's viewer differs by its wording, so a compiled Scient Agent carries its viewer inside the exported page. The page still loads two pinned libraries from `stencil.so`. |
+| Stats dashboard | The dashboard's tab icon is Scient Agent's symbol. With `SCIENT_AGENT_HOST_PAGES=1` the agent reports the dashboard's address and opens no system browser, so a host can show it. |
 | RPC output spool | While a host is not reading, the agent spools the frames it cannot deliver to a temporary folder. Past 2 GiB (`PI_RPC_SPOOL_MAX_BYTES`) it stops with exit code 1 instead of filling the disk. The folder is named `scient-agent-rpc-output-<pid>-…`, and an agent removes the folders of agents that were killed when it starts; other products' folders stay. Proposed to Oh My Pi as [#16139](https://github.com/can1357/oh-my-pi/issues/16139). |
 | Sign-ins | Over RPC the agent starts without a model (a host signs in and picks one afterwards; a model named with `--model` that cannot be resolved still ends the run). `get_login_providers` also reports each entry's `kind` (`account` or `key`) whether a sign-in is `stored`, and the `store` it is kept under: two entries with one `store` are two ways to sign in to one account and share status and sign-out. `logout` without `credentialId` removes an entry's stored sign-ins and fails when the store still holds them afterwards; with an integer `credentialId`, it retains upstream's per-account removal and reports remaining authentication. When the active credential store is an auth broker's snapshot (`credentials.heldByBroker`), the broker owns the sign-ins: they are listed as not stored and `logout` is refused. `set_model` re-reads the sign-in store before it reports a model as missing, so a session that was already running finds a sign-in completed in another process. It revalidates the active local or broker-backed store and runs the sign-in hooks again (`ModelRegistry.reapplySignInProjections`), and rediscovers that provider's models only when the session holds no discovered catalog for it. No static reload runs, so nothing that was usable is lost. A model that only a second account of an already discovered provider has is still reported missing until the session restarts. |
 
@@ -693,13 +695,73 @@ On macOS arm64 with Bun 1.4.2 and the repo-pinned October nightly:
 
 Not run locally: Rust tests and hosted-model turns. CI builds and checks the six platforms and runs the six buckets.
 
+### Seventh alignment intake — 2026-11-02
+
+Scient Agent 0.1.4 is aligned with Oh My Pi 18.15.0.
+
+- Frozen owned `main`: `9825e522bc2f6b48dd3159b0a72b77e72b1e82e7`.
+- Accepted source baseline: OMP `18.13.0`, `011ab732fa2d8657203d17f6af80d57809eb24f4`, tag `omp-sync/v18.13.0`.
+- Target: OMP `18.15.0`, `3fedf8d53267e32a6d7521ce725fdcc4a36fdc67`, under `refs/upstream-tags/v18.15.0`: 1,809 commits (1,314 without merges), changing 2,073 files. Product version `0.1.4`.
+- Inventory: the 17 commits of the accepted replay, replacing all three generated commits. `main` has no commit after the `sync:` import.
+- Replay: `replay/omp-v18.15.0`: generators, identity, 15 contracts in ledger order, wording and RPC clients.
+
+| Step | Result |
+|---|---|
+| Identity generator | No stale rule; 590 files renamed. |
+| Contract commits | Only `SA-RELEASE` conflicted: upstream changed `ci.yml`, `nix.yml`, `flake.lock`, `flake.nix` and `nix/package.nix`, which keep their deletions. Upstream's two new Nix files are added to that deletion. |
+| Wording generator | No stale text; 454 files rewritten. It now also refreshes the export viewer's pin. |
+| RPC generator | Regenerated the schema and TypeScript, Python, Rust and Go clients. |
+| Hooked files upstream changed | 26 of 47; reviewed against every ledger contract. A separate review of the replay by Codex found no correctness problem. |
+| Footprint | 98 marker blocks, 224 lines, in 49 files, from 90, 210 and 45. The growth is `SA-EXPORT`, `SA-HOST-PAGES` and the favicon hook. |
+
+Changes beyond the replay:
+
+| Change | Why |
+|---|---|
+| Bun 1.4.4 in `scient.yml` | Upstream's engine floor moved past the 1.4.2 the workflow pinned. |
+| `OMP_TEST_TIMEOUT: "120"` in `upstream-tests` | Upstream's CI sets it and Scient's job did not, so tests ran under the 30-second default. `coding-agent-native` on untouched upstream went from failing 7 of 8 runs at 18.13.0 to 1 of 8 here. |
+| New contract `SA-EXPORT` | Upstream's packaged HTML export loads its viewer from a CDN by checksum. Scient's rewritten wording changes the viewer's bytes, so `bun install` refused the stale pin and the file does not exist on that CDN. The binary embeds its viewer. |
+| New contract `SA-HOST-PAGES` | `/stats` opened the system browser beside Scient Desktop. |
+| `SA-BRAND` covers the dashboard's favicon | The dashboard's tab still carried Oh My Pi's mark. |
+| Two wording rules | The generator had rewritten a URL scheme in `hyperlink.test.ts`, and had missed an escaped word in `cursor-system-prompt-history.test.ts`. Both failed every run on Scient's tree only; the probe caught them. |
+
+**RPC changes for Desktop.** Protocol versions stay 1 and 2. New commands: `navigate_tree`, `abort_branch_summary`, `set_label`, `get_session_lease`, `dictation_start`, `dictation_stop`, `live_connect`. New frames: `manual_compaction_start`, `manual_compaction_end`, `dictation_state`, `dictation_transcript`, `dictation_end`. `message_update` deltas now carry the block or message a client needs to rebuild the stream. `extension_ui_request` `input` can carry `secret: true`. Desktop's matching change is a separate pull request; older hosts ignore all of this.
+
+**Behavior that reaches users.** OpenAI live steering is off by default, so a steer on a GPT model waits for the next tool boundary. A `provider/model` name must match exactly. A subagent model the configuration does not allow is refused.
+
+**Known failures.** The 18.13.0 entries lapsed. A probe (branch `probe/pristine-18150`) ran each bucket on untouched 18.15.0 and on Scient's replay side by side, on Scient's runner type, concurrency and per-test ceiling: `coding-agent-native` 8 times each, the other five twice each.
+
+| Test | Untouched 18.15.0 | Scient's replay |
+|---|---|---|
+| "removes the workspace folders a session added …" (LSP mux) | 1 of 8 | 0 of 8 |
+| "opens a default tab in the browser of the tab … used last …" | 0 of 8 | 1 of 8 |
+| "raw predicate wait survives cross-origin document navigation …" | 0 of 8 | 1 of 8 |
+| "hands the scope to a new broker after its runtime dir is deleted …" | 0 of 8 | 1 of 8 |
+| "routes GET-listener progress during a pending POST …" | 0 of 8 | 1 of 8 |
+
+Only the first is listed: the rule is that an entry fails on untouched upstream. The other four are single failures in tests no Scient hook touches, and a recurrence takes a rerun or a second probe. The relay test also failed untouched at 18.13.0.
+
+#### Local checks
+
+On macOS arm64 with Bun 1.4.4 and the repo-pinned October nightly:
+- Identity and wording `--check`, script tests and `check:ts` pass.
+- Replay-mode divergence verification passes: 19 commits, all three generated commits equal their generators.
+- Scient suites pass: utils 946, natives 185, coding-agent 50, ai 1, scripts 64. Affected upstream RPC, session and model suites pass 296, with 14 skipped.
+- Native addon and compiled macOS arm64 executable build; `--runtime-info` reports Scient Agent 0.1.4, OMP 18.15.0 at the full pin above, RPC `[1,2]`. Compiled isolation passes, and the hosts contacted on startup are the same as before.
+- `capability-check.ts` against the v0.1.3 binary passes every case.
+- A real `--export` from the compiled binary renders in headless Chrome, named Scient Agent.
+- Scient Desktop's live suites against the candidate and v0.1.3: identical, 52 passed, 5 failed, 9 skipped. The five are recorded under earlier intakes or need a model this machine lacks.
+- Real turns ran through Scient Desktop's candidate on GPT-6 Luna: questions, steering, Stop, Fast, Compact, subagents, background wake-up, images, edits, Python and resume after a restart.
+
+Not run locally: Rust tests. CI builds and checks the six platforms and runs the six buckets.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
 
 ## Build
 
-Needs Bun 1.4 or newer, `rustup` with the pinned toolchain and components in `rust-toolchain.toml`, CMake and Ninja. Ensure that toolchain's `cargo`, `rustc` and `rustfmt` precede a separate system Rust installation on `PATH`; a Homebrew stable compiler can otherwise be selected by the native build's child processes. The identity and wording generators run that `rustfmt` too: a stable `rustfmt` ignores `rustfmt.toml`'s unstable options, so its output differs from CI's and the generated commits fail there.
+Needs Bun 1.4.4 or newer, `rustup` with the pinned toolchain and components in `rust-toolchain.toml`, CMake and Ninja. Ensure that toolchain's `cargo`, `rustc` and `rustfmt` precede a separate system Rust installation on `PATH`; a Homebrew stable compiler can otherwise be selected by the native build's child processes. The identity and wording generators run that `rustfmt` too: a stable `rustfmt` ignores `rustfmt.toml`'s unstable options, so its output differs from CI's and the generated commits fail there.
 
 ```sh
 bun install --frozen-lockfile
@@ -738,7 +800,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Six tests are listed for 18.13.0. Each was seen failing on untouched 18.13.0 on the same runner type; the counts are under "Sixth alignment intake". The archive and relay-detach tests also failed untouched on 18.12.6 and 18.12.1.
+One test is listed for 18.15.0. It was seen failing on untouched 18.15.0 on the same runner type; the counts are under "Seventh alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 

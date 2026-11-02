@@ -1,4 +1,8 @@
 import * as stats from "@oh-my-pi/omp-stats";
+// scient(SA-HOST-PAGES): begin - whether a host shows pages itself.
+import { hostShowsPages } from "../../scient/host-pages";
+// scient(SA-HOST-PAGES): end
+import { openTernPage } from "../../tools/browser/tern/user-page";
 import * as openUtils from "../../utils/open";
 
 export const DEFAULT_STATS_DASHBOARD_PORT = 3847;
@@ -69,8 +73,9 @@ export function parseStatsDashboardArgs(args: string): StatsDashboardArgs | { er
 }
 
 /**
- * Start (or reuse) the dashboard and open it, without waiting for ingest: the
- * server syncs sessions in the background and streams progress to the page.
+ * Start (or reuse) the dashboard and open it (in a Tern pane, in a browser
+ * block beside omp's; elsewhere in the system browser), without waiting for
+ * ingest: the server syncs sessions in the background and streams progress to the page.
  * `judge` powers the Frustration page's judge runs; a later launch replaces
  * the registered one, so the dashboard always judges through the most recent
  * session.
@@ -90,7 +95,11 @@ export async function launchStatsDashboard(
 	}
 
 	const url = stats.formatStatsDashboardUrl(activeStatsServer.hostname, activeStatsServer.port);
-	openUtils.openPath(url);
+	const page = await openTernPage(url, "beside");
+	if (page) page.disconnect();
+	// scient(SA-HOST-PAGES): begin - a host with its own browser opens this address itself.
+	else if (!hostShowsPages()) openUtils.openPath(url);
+	// scient(SA-HOST-PAGES): end
 
 	const serverLine = requestedAddressIgnored
 		? `Dashboard already running at: ${url} (requested ${args.host}:${args.port} ignored)`

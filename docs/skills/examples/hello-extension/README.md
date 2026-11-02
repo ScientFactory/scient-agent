@@ -19,7 +19,7 @@ With `omp --profile <name>`, use `~/.scient-agent/profiles/<name>/agent/extensio
 ```yaml
 # ~/.scient-agent/agent/config.yml
 extensions:
-  - /path/to/hello-extension
+   - /path/to/hello-extension
 ```
 
 **Option C — load once via CLI flag:**

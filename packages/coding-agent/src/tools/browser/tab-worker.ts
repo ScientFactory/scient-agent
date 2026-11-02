@@ -142,8 +142,7 @@ import {
 	BrowserTracingController,
 } from "./tracing";
 import {
-	installWebMcp,
-	type WebMcpController,
+	WebMcpController,
 	type WebMcpEventsOptions,
 	type WebMcpEventsResult,
 	type WebMcpInvokeOptions,
@@ -1233,17 +1232,17 @@ async function targetIdForPage(page: Page): Promise<string> {
 
 async function createTrackedPage(
 	browser: Browser,
-	relay: { nearTargetId?: string } | undefined,
+	attach: { nearTargetId?: string } | undefined,
 	reportTarget: (targetId: string) => void,
 ): Promise<Page> {
 	let targetId: string;
-	if (relay) {
-		// The omp relay has no attachable browser target, so its tab is created over the root connection:
-		// unselected, in the browser of `nearTargetId` (the relay's own parameter) when given.
+	if (attach) {
+		// Attached browsers may have no page or browser target yet. Create through
+		// the root CDP connection; the relay also uses nearTargetId to choose Chrome.
 		const params: Protocol.Target.CreateTargetRequest & { nearTargetId?: string } = {
 			url: "about:blank",
 			background: true,
-			nearTargetId: relay.nearTargetId,
+			nearTargetId: attach.nearTargetId,
 		};
 		({ targetId } = await browserConnection(browser).send("Target.createTarget", params));
 		reportTarget(targetId);
@@ -1536,6 +1535,8 @@ export class WorkerCore {
 	/** Session holding `ignore_https_errors`; Chromium drops the override once it detaches. */
 	#certificateOverride?: CDPSession;
 	readonly #recording = new RecordingController();
+	/** Set once the core stops for good: by {@link terminate}, or by a close. */
+	#stopped = false;
 	/**
 	 * The page asked to navigate its main frame (a link, a submit button, a script setting `location`) and the new
 	 * document has neither committed nor been abandoned. Chromium reports the request before the click that caused it
@@ -1727,6 +1728,11 @@ export class WorkerCore {
 				defaultViewport: null,
 				protocolTimeout: BROWSER_PROTOCOL_TIMEOUT_MS,
 			});
+			// Terminated while it connected: nothing will drop this connection later.
+			if (this.#stopped) {
+				void this.#browser.disconnect();
+				return;
+			}
 
 			// Realm setup is done: puppeteer loaded and browser connected. Sent before
 			// page acquisition so the supervisor's cold-start budget bounds only the
@@ -1736,13 +1742,20 @@ export class WorkerCore {
 				// Create the target directly so its id is reportable before
 				// Puppeteer waits for target/page initialization. If that wait
 				// wedges, the supervisor can still close the created target.
-				const relay =
+				const attach =
 					payload.mode === "attach" && payload.page.kind === "create"
 						? { nearTargetId: payload.page.nearTargetId }
 						: undefined;
-				this.#page = await createTrackedPage(this.#browser, relay, targetId => {
-					this.#transport.send({ type: "page-created", targetId });
-				});
+				try {
+					this.#page = await createTrackedPage(this.#browser, attach, targetId => {
+						this.#transport.send({ type: "page-created", targetId });
+					});
+				} catch (error) {
+					if (!attach) throw error;
+					throw new ToolError(
+						`Could not create a managed tab in the attached browser profile: ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
 				this.#observeDialogs();
 				if (payload.mode === "headless") {
 					await applyStealthPatches(this.#browser, this.#page, { browserSession: null, override: null });
@@ -1778,7 +1791,7 @@ export class WorkerCore {
 				// interactive without raising a window; explicit settle-freeze still applies.
 				await this.#page.emulateFocusedPage(true);
 			}
-			this.#webmcp = await installWebMcp(this.#page);
+			this.#webmcp = new WebMcpController(this.#page);
 			await installVitalsObservers(this.#page);
 			if (payload.userAgent !== undefined) await applyUserAgentOverride(this.#page, payload.userAgent);
 			if (payload.ignoreHttpsErrors) this.#certificateOverride = await applyIgnoreHttpsErrors(this.#page);
@@ -1813,7 +1826,7 @@ export class WorkerCore {
 			if (payload.mode === "headless" && page && !page.isClosed()) {
 				await page.close().catch(() => undefined);
 			}
-			// So would a relay tab it opened in the background.
+			// Attached browsers also own tabs created by omp, including spawned Chrome.
 			if (payload.mode === "attach" && payload.page.kind === "create" && page && !page.isClosed()) {
 				await page.close().catch(() => undefined);
 			}
@@ -2263,8 +2276,7 @@ export class WorkerCore {
 							? `selector matches ${probe.count} element(s)`
 							: `could not count matches: ${probe.failure}`;
 				let hint = "";
-				if (interrupted)
-					hint = `; typing stopped after ${interrupted.typed} of ${interrupted.total} characters (the field keeps what was typed)`;
+				if (interrupted) hint = `; ${interrupted.progress}`;
 				else if (refusal)
 					hint = `; the element never became clickable (last check: ${refusal}${countNote ? `; ${countNote}` : ""})`;
 				else if (probe && "count" in probe) hint = formatSelectorMatchHint(probe.count);
@@ -2747,14 +2759,15 @@ export class WorkerCore {
 					}),
 				),
 			recording: () => op("tab.recording()", quickOpMs, () => Promise.resolve(this.#recording.status())),
-			webmcpList: opts => op("tab.webmcpList()", quickOpMs, sig => untilAborted(sig, () => webmcp.list(opts))),
+			webmcpList: opts => op("tab.webmcpList()", quickOpMs, sig => untilAborted(sig, () => webmcp.list(opts, sig))),
 			webmcpInvoke: (toolName, params, opts) => {
 				const w = waitMs(opts?.timeout);
 				return op(`tab.webmcpInvoke(${JSON.stringify(toolName)})`, w, sig =>
-					untilAborted(sig, () => webmcp.invoke(toolName, params, opts)),
+					untilAborted(sig, () => webmcp.invoke(toolName, params, opts, sig)),
 				);
 			},
-			webmcpEvents: opts => op("tab.webmcpEvents()", quickOpMs, sig => untilAborted(sig, () => webmcp.events(opts))),
+			webmcpEvents: opts =>
+				op("tab.webmcpEvents()", quickOpMs, sig => untilAborted(sig, () => webmcp.events(opts, sig))),
 			a11y: opts =>
 				read("tab.a11y()", budgetBound, async sig => {
 					const result = await untilAborted(sig, () => runA11yAudit(page, opts));
@@ -3546,9 +3559,27 @@ export class WorkerCore {
 		}
 	}
 
-	async #close(): Promise<void> {
+	/**
+	 * Inline counterpart of `Worker.terminate()`: stop taking messages, abort the active run, and drop the browser
+	 * connection (a connected core keeps Chrome's debugger attached to the tab), even under a close in progress.
+	 */
+	terminate(): void {
+		this.#stop();
+		this.#active?.ac.abort(postmortem.markExpectedCleanupError(new ToolAbortError("Tab worker terminated")));
+		if (this.#browser?.connected) void this.#browser.disconnect();
+	}
+
+	/** Stop taking messages; false when the core had already stopped. */
+	#stop(): boolean {
+		if (this.#stopped) return false;
+		this.#stopped = true;
 		this.#unsub();
 		this.#uninstallRejectionGuard();
+		return true;
+	}
+
+	async #close(): Promise<void> {
+		if (!this.#stop()) return;
 		this.#clearElementCache();
 		const page = this.#page;
 		await this.#recording.close().catch(error => {

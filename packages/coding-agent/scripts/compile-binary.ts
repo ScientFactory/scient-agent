@@ -6,6 +6,14 @@ import { buildDocsIndexPayload } from "./generate-docs-index";
 import { createJsonParsePlugin } from "./json-parse-plugin";
 import { createLegacyPiVirtualModulePlugin } from "./legacy-pi-virtual-module";
 
+// scient(SA-EXPORT): begin - read the viewer build-binary.ts generated.
+async function exportViewerSource(repoRoot: string): Promise<string> {
+	const agentDir = `${repoRoot}/packages/coding-agent`;
+	const viewer = await Bun.file(`${agentDir}/src/export/html/viewer.generated.json`).json();
+	return await Bun.file(`${agentDir}/export-assets/${viewer.file}`).text();
+}
+
+// scient(SA-EXPORT): end
 /** Native runtime dependencies always resolved from the on-demand install instead of embedded into compiled binaries. */
 export const COMPILED_EXTERNAL_DEPENDENCIES: readonly string[] = Object.freeze(["fastembed", "onnxruntime-node"]);
 
@@ -53,6 +61,9 @@ export async function compileCodingAgent(options: CodingAgentCompileOptions): Pr
 				"process.env.PI_COMPILED": JSON.stringify("true"),
 				"process.env.PI_TINY_TRANSFORMERS_VERSION": JSON.stringify(options.transformersVersion),
 				"process.env.PI_DOCS_EMBED": JSON.stringify((await buildDocsIndexPayload()).payload),
+				// scient(SA-EXPORT): begin - exports from a binary carry Scient's viewer.
+				"process.env.SCIENT_EXPORT_VIEWER": JSON.stringify(await exportViewerSource(options.repoRoot)),
+				// scient(SA-EXPORT): end
 			},
 			// Precompiled bytecode skips parsing the ~20 MB bundle at boot:
 			// `omp --version` 256 ms -> 30 ms on M4 Max (+52 MB binary).
