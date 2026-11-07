@@ -7,7 +7,7 @@ import { removeWithRetries } from "@oh-my-pi/pi-utils";
 
 const CLI_ENTRY = path.join(import.meta.dir, "..", "src", "cli.ts");
 
-describe("omp read skill resources", () => {
+describe("scient-agent read skill resources", () => {
 	let root: string;
 	let projectDir: string;
 	let agentDir: string;

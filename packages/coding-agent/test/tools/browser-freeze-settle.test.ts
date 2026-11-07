@@ -799,7 +799,7 @@ describe("browser settle — lifecycle freeze via CDP", () => {
 			expect(second.tab.persist).toBe(true);
 		}, 120_000);
 
-		it("closes a persist tab in omp's own Chromium when its session ends", async () => {
+		it("closes a persist tab in Scient Agent's own Chromium when its session ends", async () => {
 			const browser = await acquireBrowser({ kind: "headless", headless: true }, { cwd: process.cwd() });
 			if (!("browser" in browser)) throw new Error("Expected a Puppeteer browser");
 			const name = `settle-persist-end-${process.pid}`;

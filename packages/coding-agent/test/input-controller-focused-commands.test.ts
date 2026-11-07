@@ -148,7 +148,7 @@ describe("focused subagent view slash commands", () => {
 					description: "",
 					content: "Report. Focus: $ARGUMENTS",
 					side: true,
-					source: "via OMP User",
+					source: "via Scient Agent User",
 				},
 			],
 		});
@@ -169,7 +169,9 @@ describe("focused subagent view slash commands", () => {
 		const focused = createFocusedContext();
 		Object.assign(focused.raw, { fileSlashCommands: new Set(["clear"]) });
 		Object.assign(focused.raw.session, {
-			slashCommands: [{ name: "clear", description: "", content: "Side", side: true, source: "via OMP User" }],
+			slashCommands: [
+				{ name: "clear", description: "", content: "Side", side: true, source: "via Scient Agent User" },
+			],
 		});
 		const controller = new InputController(focused.ctx);
 		controller.setupEditorSubmitHandler();

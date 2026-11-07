@@ -1490,7 +1490,7 @@ async function loadClaudePluginRoots({
 				}
 			}
 		} else {
-			warnings.push(`Failed to parse OMP plugin registry: ${ompRegistryPath}`);
+			warnings.push(`Failed to parse Scient Agent plugin registry: ${ompRegistryPath}`);
 		}
 	}
 

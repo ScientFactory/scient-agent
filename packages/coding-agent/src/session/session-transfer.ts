@@ -204,7 +204,7 @@ async function requireDirectory(dir: string): Promise<void> {
 async function requireSessionId(file: string): Promise<string> {
 	await requireFile(file, "Session file");
 	const id = await readSessionHeaderId(file);
-	if (id === undefined) throw new SessionTransferError(`Not an omp session file (no session header): ${file}`);
+	if (id === undefined) throw new SessionTransferError(`Not a Scient Agent session file (no session header): ${file}`);
 	return id;
 }
 
@@ -217,7 +217,7 @@ function claimSessionOrRefuse(id: string, file: string, action: string): () => v
 	const release = new FileSessionStorage().claimSession(id, file);
 	if (!release) {
 		throw new SessionTransferError(
-			`Cannot ${action} ${file}: another live omp process writes this session. Exit it first. Nothing was changed.`,
+			`Cannot ${action} ${file}: another live Scient Agent process writes this session. Exit it first. Nothing was changed.`,
 		);
 	}
 	return release;
@@ -287,7 +287,7 @@ export async function packSession(sessionFile: string, outPath: string): Promise
 		const journalText = journal.toString("utf8");
 		const header = parseSessionContent(journalText).entries[0];
 		if (header?.type !== "session") {
-			throw new SessionTransferError(`Not an omp session file (no session header): ${source}`);
+			throw new SessionTransferError(`Not a Scient Agent session file (no session header): ${source}`);
 		}
 		const manifest: SessionArchiveManifest = {
 			version: SESSION_ARCHIVE_VERSION,
@@ -364,9 +364,9 @@ function parseManifest(bytes: Uint8Array, archive: string): SessionArchiveManife
 		throw new SessionTransferError(`Bad session archive ${archive}: manifest.json has no version.`);
 	}
 	if (version !== SESSION_ARCHIVE_VERSION) {
-		const hint = version > SESSION_ARCHIVE_VERSION ? " Update omp on this machine." : "";
+		const hint = version > SESSION_ARCHIVE_VERSION ? " Update Scient Agent on this machine." : "";
 		throw new SessionTransferError(
-			`Unsupported session archive version ${version} in ${archive}: omp ${VERSION} reads version ${SESSION_ARCHIVE_VERSION}.${hint}`,
+			`Unsupported session archive version ${version} in ${archive}: Scient Agent ${VERSION} reads version ${SESSION_ARCHIVE_VERSION}.${hint}`,
 		);
 	}
 	if (typeof id !== "string" || typeof cwd !== "string" || typeof omp !== "string") {

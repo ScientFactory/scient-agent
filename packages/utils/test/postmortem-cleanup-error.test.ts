@@ -175,7 +175,7 @@ describe("postmortem expected cleanup errors", () => {
 
 			let saved = false;
 			const cancelHint = postmortem.registerFatalRecoveryHint(() =>
-				saved ? { label: "Main", command: "omp --resume 019cafe0-dead-beef" } : undefined,
+				saved ? { label: "Main", command: "scient-agent --resume 019cafe0-dead-beef" } : undefined,
 			);
 			postmortem.register("session", async () => {
 				await Promise.resolve();
@@ -188,7 +188,7 @@ describe("postmortem expected cleanup errors", () => {
 
 		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toContain("[Unhandled Rejection] Error: session crashed");
-		expect(result.stderr).toContain("[Recovery]\n  Main: omp --resume 019cafe0-dead-beef");
+		expect(result.stderr).toContain("[Recovery]\n  Main: scient-agent --resume 019cafe0-dead-beef");
 	});
 
 	it.skipIf(process.platform === "win32")(
@@ -199,7 +199,7 @@ describe("postmortem expected cleanup errors", () => {
 
 			let saved = false;
 			const cancelHint = postmortem.registerFatalRecoveryHint(() =>
-				saved ? { label: "Main", command: "omp --resume 019cafe0-dead-beef" } : undefined,
+				saved ? { label: "Main", command: "scient-agent --resume 019cafe0-dead-beef" } : undefined,
 			);
 			postmortem.register("session", async () => {
 				// postmortem's own SIGTERM listener runs first, so once this one fires the
@@ -218,7 +218,9 @@ describe("postmortem expected cleanup errors", () => {
 		`);
 
 			expect(result.exitCode).toBe(143);
-			expect(result.stderr).toContain("[Stopped by SIGTERM]\n[Recovery]\n  Main: omp --resume 019cafe0-dead-beef");
+			expect(result.stderr).toContain(
+				"[Stopped by SIGTERM]\n[Recovery]\n  Main: scient-agent --resume 019cafe0-dead-beef",
+			);
 			expect(result.stderr.split("[Recovery]")).toHaveLength(2);
 		},
 	);

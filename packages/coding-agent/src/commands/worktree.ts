@@ -68,14 +68,14 @@ export default class Worktree extends Command {
 	};
 
 	static examples = [
-		"omp worktree",
-		"omp worktree list --json",
-		"omp worktree add ../feature",
-		"omp worktree add -b feature ../feature origin/main",
-		"omp worktree add --detach ../review HEAD~2",
-		"omp worktree clear",
-		"omp worktree clear --dry-run",
-		"omp worktree clear --all",
+		"scient-agent worktree",
+		"scient-agent worktree list --json",
+		"scient-agent worktree add ../feature",
+		"scient-agent worktree add -b feature ../feature origin/main",
+		"scient-agent worktree add --detach ../review HEAD~2",
+		"scient-agent worktree clear",
+		"scient-agent worktree clear --dry-run",
+		"scient-agent worktree clear --all",
 	];
 
 	async run(): Promise<void> {

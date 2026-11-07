@@ -64,7 +64,7 @@ export async function runIfBenchCommand(
 	deps: IfBenchDependencies = {},
 ): Promise<IfBenchSummary> {
 	if (command.models.length === 0) {
-		throw new Error("Pass at least one model selector, e.g. `omp if-bench opus gpt-5.2`");
+		throw new Error("Pass at least one model selector, e.g. `scient-agent if-bench opus gpt-5.2`");
 	}
 	const maxTurns = positiveInteger("turns", command.flags.turns, DEFAULT_TURNS);
 	const arrayLength = positiveInteger("length", command.flags.length, DEFAULT_ARRAY_LENGTH);

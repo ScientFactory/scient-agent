@@ -166,7 +166,7 @@ describe("waitForRelayExtension", () => {
 		expect(await waitForRelayExtension(`http://127.0.0.1:${fake.port}`)).toBe("outdated-relay");
 	});
 
-	it("accepts a compatible relay from another OMP version", async () => {
+	it("accepts a compatible relay from another Scient Agent version", async () => {
 		fake = Bun.serve({
 			hostname: "127.0.0.1",
 			port: 0,
@@ -296,26 +296,26 @@ describe("relayExtensionNotice", () => {
 		return socket;
 	}
 
-	it("says nothing for an extension installed by this omp", async () => {
+	it("says nothing for an extension installed by this Scient Agent", async () => {
 		const port = await startRelay();
 		await connectExtension(port, { ...EXTENSION_HELLO, ompVersion: VERSION });
 		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toBeNull();
 	});
 
-	it("names the older omp that installed a protocol-compatible extension and how to update it", async () => {
+	it("names the older Scient Agent that installed a protocol-compatible extension and how to update it", async () => {
 		const port = await startRelay();
 		await connectExtension(port, { ...EXTENSION_HELLO, ompVersion: "18.6.1" });
 		expect(await waitForRelayExtension(`http://127.0.0.1:${port}`)).toBe("ready");
 		const notice = await relayExtensionNotice(`http://127.0.0.1:${port}`);
-		expect(notice).toContain("installed by omp 18.6.1");
+		expect(notice).toContain("installed by Scient Agent 18.6.1");
 		expect(notice).toContain(UPDATE_RELAY_EXTENSION);
 	});
 
-	it("flags an extension installed before omp stamped its version", async () => {
+	it("flags an extension installed before Scient Agent stamped its version", async () => {
 		const port = await startRelay();
 		await connectExtension(port, EXTENSION_HELLO);
 		const notice = await relayExtensionNotice(`http://127.0.0.1:${port}`);
-		expect(notice).toContain("installed by an older omp");
+		expect(notice).toContain("installed by an older Scient Agent");
 		expect(notice).toContain(UPDATE_RELAY_EXTENSION);
 	});
 
@@ -333,7 +333,7 @@ describe("relayExtensionNotice", () => {
 		const old = { ...EXTENSION_HELLO, instanceId: "old-browser", ompVersion: "18.6.1" };
 		const current = { ...EXTENSION_HELLO, instanceId: "current-browser", ompVersion: VERSION };
 		for (const hello of stale === "first" ? [old, current] : [current, old]) await connectExtension(port, hello);
-		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toContain("installed by omp 18.6.1");
+		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toContain("installed by Scient Agent 18.6.1");
 	});
 
 	it.each([
@@ -344,7 +344,7 @@ describe("relayExtensionNotice", () => {
 		const old = { ...EXTENSION_HELLO, instanceId: "old-browser", ompVersion: "18.6.1" };
 		const custom = { ...EXTENSION_HELLO, instanceId: "custom-browser", ompVersion: "build rc2" };
 		for (const hello of stale === "first" ? [old, custom] : [custom, old]) await connectExtension(port, hello);
-		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toContain("installed by omp 18.6.1");
+		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toContain("installed by Scient Agent 18.6.1");
 	});
 
 	it("says nothing for an extension whose stamp is not a version, since its age is unknown", async () => {
@@ -376,7 +376,7 @@ describe("relayExtensionNotice", () => {
 		await connectExtension(port, { ...EXTENSION_HELLO, instanceId: "old-browser", ompVersion: "18.6.1" });
 		await connectExtension(port, current);
 		await connectExtension(port, current);
-		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toContain("installed by omp 18.6.1");
+		expect(await relayExtensionNotice(`http://127.0.0.1:${port}`)).toContain("installed by Scient Agent 18.6.1");
 	});
 
 	it("says nothing when the relay is too old to report its extension's version", async () => {
@@ -403,7 +403,7 @@ describe("relayExtensionNotice", () => {
 });
 
 describe("isOlderOmpVersion", () => {
-	it("never calls a reported version older than an omp version it cannot rank, so restarts leave that relay alone", () => {
+	it("never calls a reported version older than a Scient Agent version it cannot rank, so restarts leave that relay alone", () => {
 		expect(isOlderOmpVersion("999.0.0", "18.8.7+build")).toBeFalse();
 		expect(isOlderOmpVersion("999.0.0", "18.8.7-canary-foo")).toBeFalse();
 	});

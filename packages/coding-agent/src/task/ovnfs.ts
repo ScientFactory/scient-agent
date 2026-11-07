@@ -118,7 +118,7 @@ class OvnfsWorkspace implements IsolationWorkspace {
 		try {
 			await removeCheckout(this.command, this.checkout);
 		} catch (err) {
-			logger.warn("ovnfs checkout removal failed; `omp worktree clear` retries it", {
+			logger.warn("ovnfs checkout removal failed; `scient-agent worktree clear` retries it", {
 				checkout: this.checkout,
 				error: err instanceof Error ? err.message : String(err),
 			});

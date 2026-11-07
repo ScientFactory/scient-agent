@@ -633,7 +633,7 @@ describe("extension transcript presenters", () => {
 		expect(chat()).toContain("OUTPUT-call1");
 	});
 
-	it("restores omp's own drawing when the presenter is disposed", async () => {
+	it("restores Scient Agent's own drawing when the presenter is disposed", async () => {
 		// Regression guard: an unloaded or toggled-off plugin leaving its compact rows behind.
 		let dispose: (() => void) | undefined;
 		await installExtensions(pi => {

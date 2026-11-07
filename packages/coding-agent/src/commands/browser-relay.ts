@@ -27,16 +27,16 @@ export default class BrowserRelay extends Command {
 			description: "Extension install directory (install; default ~/.scient-agent/browser-relay/extension)",
 		}),
 		"no-group": Flags.boolean({
-			description: "Don't gather controllable tabs into an 'omp' tab group",
+			description: "Don't gather controllable tabs into a 'Scient Agent' tab group",
 			default: false,
 		}),
 		verbose: Flags.boolean({ char: "v", description: "Log relay traffic summaries to stderr", default: false }),
 	};
 
 	static examples = [
-		"omp browser-relay install    # write the Chrome extension to disk + setup steps",
-		"omp browser-relay            # serve the relay on the default port",
-		"omp browser-relay -p 9333 --token s3cret",
+		"scient-agent browser-relay install    # write the Chrome extension to disk + setup steps",
+		"scient-agent browser-relay            # serve the relay on the default port",
+		"scient-agent browser-relay -p 9333 --token s3cret",
 	];
 
 	async run(): Promise<void> {

@@ -2874,7 +2874,7 @@ describe("runGcCommand session compression", () => {
 		expect(await snapshot(file)).toEqual(before);
 	});
 
-	test("omp gc --compress --apply fails when the compression probe cannot run", async () => {
+	test("scient-agent gc --compress --apply fails when the compression probe cannot run", async () => {
 		// A supported volume, but no sessions directory to hold the probe's scratch dir.
 		const volume = spyOn(gcCompress, "compressMethod").mockResolvedValue("ntfs");
 		try {

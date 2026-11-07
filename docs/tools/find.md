@@ -20,7 +20,7 @@ The cascade follows the semantic-search strategy of [jegrep](https://github.com/
 
 ## CLI
 
-`omp find "<query>" [path] [-k keyword]... [--hidden] [--json] [-q]` runs the same cascade from the shell (`packages/coding-agent/src/cli/find-cli.ts`): progress goes to stderr and the ranked digest (or JSON with hits and stats) to stdout. A host-directory scope supplies the settings/extensions used to resolve the `judge` role; file/URL scopes use the caller's cwd. Hits are cwd-relative within the cwd, absolute outside it, or internal URLs. Exits 1 for an invalid query/root or when every judgment request failed.
+`scient-agent find "<query>" [path] [-k keyword]... [--hidden] [--json] [-q]` runs the same cascade from the shell (`packages/coding-agent/src/cli/find-cli.ts`): progress goes to stderr and the ranked digest (or JSON with hits and stats) to stdout. A host-directory scope supplies the settings/extensions used to resolve the `judge` role; file/URL scopes use the caller's cwd. Hits are cwd-relative within the cwd, absolute outside it, or internal URLs. Exits 1 for an invalid query/root or when every judgment request failed.
 
 ## Inputs
 
@@ -46,9 +46,9 @@ Use `find` first when the implementing location is unknown. Use `grep` for known
 - No hits: `no hits for "query" (τ 0.20)` plus the footer; the result is marked `useless`.
 - Some judge requests failed: a `partial: F of R judge requests failed; unjudged files may still match` line follows the header.
 - The 20 s budget ran out during verification after at least one hit was verified: the hits verified so far are returned, followed by ``partial: timed out after 20.0s with V of P passages verified; unverified files may still match. Narrow `path` for a complete search.``; `coverage` is `partial`, `details.timeout` holds `verified` and `passages`, and the renderer shows `timed out, V/P passages verified`.
-- Every judge request failed (for example no judge configured, or the provider rejects the account): the header reads `find unavailable for "query": all R judge requests failed, nothing was judged. This is not evidence of absence; use grep.` and the result is an error. `omp find` prints the same status and exits 1.
+- Every judge request failed (for example no judge configured, or the provider rejects the account): the header reads `find unavailable for "query": all R judge requests failed, nothing was judged. This is not evidence of absence; use grep.` and the result is an error. `scient-agent find` prints the same status and exits 1.
 - When `path` narrows the search, the header reads `N hit(s) for "query" in <dir>/ …` and the renderer shows `in <dir>/`.
-- `details`: `query`, `keywords` (lexical keywords used), `threshold`, `hits` (`rel` as a readable host path or URL, `nameScore`, `contentScore`, merged `ranges` with `start`/`end`/`p`/`snippet`, `linesSeen`, `truncated`), `coverage` (`complete`, `partial`, or `unavailable`, from `stats.failed` vs `stats.requests`, and `partial` when the budget cut verification short; also in `omp find --json`), `stats` (`failed` counts failed judge requests, `unanswered` counts unusable answers), `timeout` (set when the budget cut verification short), `elapsedMs`, `cwd` (hyperlink base), and `scopePath` (display form of `path`, absent when searching the cwd).
+- `details`: `query`, `keywords` (lexical keywords used), `threshold`, `hits` (`rel` as a readable host path or URL, `nameScore`, `contentScore`, merged `ranges` with `start`/`end`/`p`/`snippet`, `linesSeen`, `truncated`), `coverage` (`complete`, `partial`, or `unavailable`, from `stats.failed` vs `stats.requests`, and `partial` when the budget cut verification short; also in `scient-agent find --json`), `stats` (`failed` counts failed judge requests, `unanswered` counts unusable answers), `timeout` (set when the budget cut verification short), `elapsedMs`, `cwd` (hyperlink base), and `scopePath` (display form of `path`, absent when searching the cwd).
 - Streaming: phase progress (`lexical scan`, `filename ranking 64/128`, `verifying 8 passages in 5 files`, …) is emitted through `onUpdate` and shown in the transcript header while the call runs.
 
 ## Flow
@@ -70,7 +70,7 @@ Each judged phase drains through a dispatcher with 16 requests in flight before 
 
 - Candidates judged by name: 128; files read: 20; windows per file: 24; window size: 8 KB; sketch: 384 B; passages verified: 40; sketch cutoff 0.45; hit threshold 0.20 (`packages/coding-agent/src/tools/jfind/cascade.ts`).
 - Native lexical scan timeout: 30 s. Native judgments use `NativeJudge` (10 s per attempt, up to three attempts); the tool's 20 s wall budget can abort them earlier.
-- Per-call wall-clock budget: `20_000ms` (`FIND_TIMEOUT_MS` in `packages/coding-agent/src/tools/jfind/index.ts`), so a stalled judge never blocks the turn. Running out during verification returns the hits verified so far, marked partial; running out earlier, or before any hit was verified, raises a timeout error. The `omp find` CLI is not bounded this way.
+- Per-call wall-clock budget: `20_000ms` (`FIND_TIMEOUT_MS` in `packages/coding-agent/src/tools/jfind/index.ts`), so a stalled judge never blocks the turn. Running out during verification returns the hits verified so far, marked partial; running out earlier, or before any hit was verified, raises a timeout error. The `scient-agent find` CLI is not bounded this way.
 - Files over 4 MB are scanned by the lexical pass only up to the native grep cap and read only up to 4 MB (trimmed to the last full line).
 
 ## Errors

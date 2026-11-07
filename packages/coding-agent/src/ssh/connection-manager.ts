@@ -296,7 +296,7 @@ async function lookupControlPathOwner(target: string, port?: number): Promise<Co
 	try {
 		const { exitCode, stdout, stderr } = await runSshCaptureSync(args);
 		if (exitCode !== 0) {
-			logger.debug("ssh -G failed; using omp ControlPath", { target, error: stderr });
+			logger.debug("ssh -G failed; using Scient Agent ControlPath", { target, error: stderr });
 			return "omp";
 		}
 		for (const line of stdout.split("\n")) {
@@ -306,7 +306,7 @@ async function lookupControlPathOwner(target: string, port?: number): Promise<Co
 		}
 		return "omp";
 	} catch (err) {
-		logger.debug("ssh -G failed; using omp ControlPath", { target, error: String(err) });
+		logger.debug("ssh -G failed; using Scient Agent ControlPath", { target, error: String(err) });
 		return "omp";
 	}
 }
