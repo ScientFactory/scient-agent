@@ -8,6 +8,9 @@ import { AsyncJobManager } from "../../src/async/job-manager";
 import { snapshotJobs } from "../../src/async/job-control";
 import { Settings } from "../../src/config/settings";
 import { type JobWidgetAuthorRequest, JobWidgets } from "../../src/job-widgets";
+// scient(SA-SHELL-TRACE): begin - The redirect test opts into the running command's trace.
+import { cfgDisplayShellVisualization } from "../../src/modes/settings";
+// scient(SA-SHELL-TRACE): end
 import type { AsyncJobInspection } from "../../src/session/agent-session-types";
 import { inspectAsyncJob } from "../../src/session/async-job-views";
 import type { ToolSession } from "../../src/tools";
@@ -96,6 +99,9 @@ describe("bash job widgets", () => {
 	it("offers the file a command redirects its output into as a stream, beside the running command's trace", async () => {
 		const manager = new AsyncJobManager({});
 		const session = toolSession(manager);
+		// scient(SA-SHELL-TRACE): begin - Scient records the trace this test inspects only when visualization is on.
+		cfgDisplayShellVisualization.set(session.settings, true);
+		// scient(SA-SHELL-TRACE): end
 		// The shell's own spelling of the directory: the temp dir is a symlink on macOS.
 		const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "omp-redirect-")));
 		try {
