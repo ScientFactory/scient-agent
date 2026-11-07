@@ -136,9 +136,11 @@
 		},
 		"SA-SERVICES": {
 			"status": "active",
-			"contract": "Oh My Pi's self-updater, startup update check, startup marketplace refresh and automatic issue reports stay off; a host or installer replaces the executable.",
+			"contract": "Oh My Pi's self-updater and its background auto-update, startup update check, startup marketplace refresh and automatic issue reports stay off; a host or installer replaces the executable.",
 			"owned": ["packages/coding-agent/src/scient/updates.ts", "packages/coding-agent/test/scient/services.test.ts"],
 			"upstream": [
+				"packages/coding-agent/src/cli/auto-update.ts",
+				"packages/coding-agent/src/cli/update-cli.ts",
 				"packages/coding-agent/src/commands/update.ts",
 				"packages/coding-agent/src/main.ts",
 				"packages/coding-agent/src/modes/settings.ts",
@@ -174,7 +176,10 @@
 				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
 				"packages/coding-agent/src/modes/rpc/wire/commands.ts",
 				"packages/coding-agent/src/modes/rpc/wire/state.ts",
-				"packages/coding-agent/src/slash-commands/helpers/logout.ts"
+				"packages/coding-agent/src/slash-commands/helpers/logout.ts",
+				"packages/coding-agent/src/thread/services/auth-protocol.ts",
+				"packages/coding-agent/src/thread/services/auth-remote.ts",
+				"packages/coding-agent/src/thread/services/auth.ts"
 			],
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/sign-in-providers.test.ts test/scient/reload-sign-ins.test.ts"
@@ -233,6 +238,17 @@
 			"contract": "A host with its own browser sets SCIENT_AGENT_HOST_PAGES=1: the stats dashboard then reports its address, and the agent opens no system browser beside the host.",
 			"owned": ["packages/coding-agent/src/scient/host-pages.ts"],
 			"upstream": ["packages/coding-agent/src/slash-commands/helpers/stats-dashboard.ts"]
+		},
+		"SA-SHELL-TRACE": {
+			"status": "active",
+			"contract": "The bash tool records no execution trace unless the user turns the shell visualization on: Scient Agent's host draws none, and every live frame of a running command would carry the whole trace, up to megabytes, to the host and the session file.",
+			"owned": ["packages/coding-agent/test/scient/shell-trace.test.ts"],
+			"upstream": [
+				"packages/coding-agent/src/modes/settings.ts",
+				"packages/coding-agent/test/bash-failure-result.test.ts",
+				"packages/coding-agent/test/usage-row-placement.test.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/shell-trace.test.ts"]
 		}
 	}
 }

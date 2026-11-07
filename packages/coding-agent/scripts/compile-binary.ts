@@ -15,7 +15,11 @@ async function exportViewerSource(repoRoot: string): Promise<string> {
 
 // scient(SA-EXPORT): end
 /** Native runtime dependencies always resolved from the on-demand install instead of embedded into compiled binaries. */
-export const COMPILED_EXTERNAL_DEPENDENCIES: readonly string[] = Object.freeze(["fastembed", "onnxruntime-node"]);
+export const COMPILED_EXTERNAL_DEPENDENCIES: readonly string[] = Object.freeze([
+	"@huggingface/transformers",
+	"fastembed",
+	"onnxruntime-node",
+]);
 
 /** Inputs shared by local and release coding-agent binary builds. */
 export interface CodingAgentCompileOptions {
@@ -25,8 +29,6 @@ export interface CodingAgentCompileOptions {
 	readonly entrypoint: string;
 	/** Absolute standalone executable output path. */
 	readonly outfile: string;
-	/** Concrete Transformers.js version baked into the tiny-model worker. */
-	readonly transformersVersion: string;
 	/**
 	 * Native addon target embedded for the runtime loader to extract; `null`
 	 * compiles without one (probe builds that never load the addon).
@@ -59,7 +61,6 @@ export async function compileCodingAgent(options: CodingAgentCompileOptions): Pr
 			files: options.native ? await embeddedAddonFiles(options.native) : {},
 			define: {
 				"process.env.PI_COMPILED": JSON.stringify("true"),
-				"process.env.PI_TINY_TRANSFORMERS_VERSION": JSON.stringify(options.transformersVersion),
 				"process.env.PI_DOCS_EMBED": JSON.stringify((await buildDocsIndexPayload()).payload),
 				// scient(SA-EXPORT): begin - exports from a binary carry Scient's viewer.
 				"process.env.SCIENT_EXPORT_VIEWER": JSON.stringify(await exportViewerSource(options.repoRoot)),

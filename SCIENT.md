@@ -18,8 +18,9 @@ Everything else is upstream's code and behavior.
 | Native addon cache | A compiled binary extracts its addons into a directory named for their content, so two builds on one upstream version never load each other's, and it loads only from that directory. A modern addon that fails to load falls back to the same build's baseline addon; an addon found beside the executable is not a fallback. |
 | Symbol | The sign-in page every browser sign-in ends on and the `stats` dashboard show Scient Agent's symbol (`packages/utils/src/scient/scient-agent-symbol.svg.txt`, the file Scient Desktop shows for the agent; copy it over when the symbol changes) in Scient's colors. |
 | Shared workers | The tiny model worker and the shared embedding server are reused while their launch tag matches. The tag carries the product version, not the upstream package version, so a new Scient Agent release replaces a worker an earlier release left running. |
-| Updates | `scient-agent update` only updates plugins. The startup update check and the startup marketplace refresh are off. A host or installer replaces the executable. |
+| Updates | `scient-agent update` only updates plugins. The startup update check and the startup marketplace refresh are off, and Oh My Pi's background auto-update is never offered or started. A host or installer replaces the executable. |
 | Reporting | Automatic tool-issue reports to OMP's service are off by default. |
+| Shell traces | The bash tool records no execution trace unless the user turns `display.shellVisualization` on. Scient Agent's host draws no shell visualization, and every live frame of a running command would carry the whole trace, up to megabytes. |
 | Browser relay | The relay listens on port 9324 (OMP uses 9224), so each product runs its own. |
 | HTML exports | Oh My Pi's binaries load the export viewer from its CDN. Scient's viewer differs by its wording, so a compiled Scient Agent carries its viewer inside the exported page. The page still loads two pinned libraries from `stencil.so`. |
 | Stats dashboard | The dashboard's tab icon is Scient Agent's symbol. With `SCIENT_AGENT_HOST_PAGES=1` the agent reports the dashboard's address and opens no system browser, so a host can show it. |
@@ -755,6 +756,63 @@ On macOS arm64 with Bun 1.4.4 and the repo-pinned October nightly:
 
 Not run locally: Rust tests. CI builds and checks the six platforms and runs the six buckets.
 
+### Eighth alignment intake — 2026-11-07
+
+Scient Agent 0.1.4 is aligned with Oh My Pi 18.18.0. The 0.1.4 of the seventh intake (Oh My Pi 18.15.0) was never released, so the version stays the next one users receive.
+
+- Frozen owned `main`: `dcd4a55a88eb0831a1a2fdf52ff56799a858af95`.
+- Accepted source baseline: OMP `18.15.0`, `3fedf8d53267e32a6d7521ce725fdcc4a36fdc67`, tag `omp-sync/v18.15.0`.
+- Target: OMP `18.18.0`, `b5a6b2f7e5b6606b6562e678ead83f21738f34a0`, under `refs/upstream-tags/v18.18.0`: 1,049 commits (817 without merges), changing 2,938 files. Product version `0.1.4`.
+- Inventory: the 19 commits of the accepted replay, replacing all three generated commits. `main` has no commit after the `sync:` import.
+- Replay: `replay/omp-v18.18.0`: generators, identity, 16 contracts in ledger order, wording and RPC clients.
+
+| Step | Result |
+|---|---|
+| Identity generator | No stale rule; 598 files renamed. Two new rules rename the launcher a new updater test writes onto `PATH`. |
+| Contract commits | `SA-RELEASE` conflicted as before on CI and Nix files that keep their deletions; upstream added none. `SA-PRODUCT` met upstream's new SQLite lock shim in `cli.ts`: `--runtime-info` returns before it, as `--help` and `--version` do. `SA-SERVICES` met the new auto-update in `main.ts`. |
+| Wording generator | No stale text; 467 files rewritten. |
+| RPC generator | Regenerated the schema and TypeScript, Python, Rust and Go clients. |
+| Hooked files upstream changed | 29 of 56; reviewed against every ledger contract. A Codex review of the replay found one defect, fixed below. |
+| Footprint | 109 marker blocks, 237 lines, in 56 files, from 98, 224 and 49. |
+
+Changes beyond the replay:
+
+| Change | Why |
+|---|---|
+| `SA-SERVICES` covers the background auto-update | 18.17 added `update.auto`, offered by the setup wizard. It installs Oh My Pi releases. `canSelfUpdate()` now answers no, so the wizard never offers it and no launch starts its worker, and the worker's hidden entry point refuses to run (Codex found that it bypassed both guards). |
+| `SA-AUTH` covers worker-thread subagents | 18.17 runs subagents in worker threads that reach the main thread's credential store through a bridge. `credentials.heldByBroker` crosses it like upstream's own properties. |
+| New contract `SA-SHELL-TRACE` | 18.17 records each bash command's execution trace for the terminal's shell view: up to 8 MiB, polled every 80 ms, and every live frame carries the whole trace. Scient Desktop draws none of it. A ten-second loop saved a 3.5 MB trace for 625 bytes of output and kept Desktop's server above 100% CPU for the whole command; with the trace off, the session took 8 KB and the server stayed under 12%. `display.shellVisualization` defaults to off; a user can turn it on. |
+| Sign-in classification test | 18.17 added three custom sign-ins (`devin-cli`, `devin-windsurf`, `mistral-vibe-sign-in`). None asks for a pasted key, so they are account sign-ins, as the classification already reported. |
+
+**Reviewed and left as upstream.** Spotlight (`spotlight.experiment`) sends tool results to Stencil's service but is off by default and needs a Stencil credential, like `share` and `collab`. The tiny model and local speech now install their runtimes on first use, under the agent's root. Text verbosity now defaults to low, which shortens answers. No new variable chooses where state lives.
+
+**RPC changes for Desktop.** Protocol versions stay 1 and 2. `bash` results report truncation (`elidedBytes`, `elidedLines`, `columnTruncated*`, `columnMax`) and, when asked, a `trace`. Nothing Desktop reads changed shape.
+
+**Known failures.** The 18.15.0 entry lapsed. A probe (branch `probe/pristine-18180`) ran each bucket on untouched 18.18.0 and on Scient's replay side by side, on Scient's runner type, concurrency and per-test ceiling: `coding-agent-native` 8 times each, the other five twice each. Only `coding-agent-native` failed: 6 of 8 runs untouched, 4 of 8 on the replay. Every other bucket passed every run on both.
+
+| Test | Untouched 18.18.0 | Scient's replay |
+|---|---|---|
+| 14 tests: browser relay, crashed-tab reattach, frozen tabs, PDF screenshots, input cut mid-gesture, Responses WebSocket recovery | 1 or 2 of 8 each | 0 or 1 of 8 each |
+| "allows a cancelled bash job to run its TERM cleanup" | 0 of 8 | 1 of 8 |
+
+The fourteen are listed in `upstream-tests.ts` with their counts. The last is a single failure in a test no Scient hook touches and is not listed; a recurrence takes a rerun or a second probe.
+
+A second probe followed when the pull request's `workspace` job failed twice on "aborts a pipe holder after an earlier graceful stop finishes" (`packages/utils/test/ptree-signal.test.ts`, added upstream the day before 18.18.0). It ran `workspace` six times on each tree: the test failed once on untouched 18.18.0 and once on the replay, and is listed. The cause is in the test's fixture: the root shell reports readiness right after forking, before its descendant has run `trap "" TERM`, so the graceful stop's SIGTERM can end the descendant first and leave the later abort nothing to act on. Delaying that `trap` makes it fail every run. The fix belongs upstream; Scient's tree keeps the test as written.
+
+#### Local checks
+
+On macOS arm64 with Bun 1.4.4 and the repo-pinned October nightly:
+- Identity and wording `--check`, script tests and `check:ts` pass.
+- Replay-mode divergence verification passes: 20 commits, all three generated commits equal their generators.
+- Scient suites pass: utils 951, natives 194, coding-agent 52, ai 1, scripts 64. Affected upstream RPC, session, model, auth, updater and setup-wizard suites pass 1,005, with 15 skipped; the bash, shell, trace and settings suites pass 614.
+- Native addon and compiled macOS arm64 executable build; `--runtime-info` reports Scient Agent 0.1.4, OMP 18.18.0 at the full pin above, RPC `[1,2]`. Compiled isolation passes, and the hosts contacted on startup are the same as v0.1.3's.
+- `capability-check.ts` against the v0.1.3 binary passes every case.
+- A real `--export` from the compiled binary renders in headless Chrome, named Scient Agent, with its viewer embedded.
+- Scient Desktop's live suites against the candidate and v0.1.3: identical, 66 passed, 5 failed, 9 skipped. The five fail on both and need a model this machine lacks or are recorded under earlier intakes.
+- Real turns through a Scient Desktop dev app on `main` (`8d32bf8e12`) with GPT-6 Luna: bash with Hebrew, Chinese and accented text, a question through `ask`, a subagent running Python, Stop and continue, Compact, `/stats` opening in Scient's browser, and resume after a restart. One compaction, right after a stopped command, lost two earlier answers; a later fact survived compaction and restart. This compaction path is unchanged since before 18.15.0.
+
+Not run locally: Rust tests. CI builds and checks the six platforms and runs the six buckets.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -800,7 +858,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-One test is listed for 18.15.0. It was seen failing on untouched 18.15.0 on the same runner type; the counts are under "Seventh alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
+Fifteen tests are listed for 18.18.0. Each was seen failing on untouched 18.18.0 on the same runner type; the counts are under "Eighth alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 

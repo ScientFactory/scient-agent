@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { logger, Snowflake, workerHostEntry } from "@oh-my-pi/pi-utils";
+import { isRecord, logger, Snowflake, workerHostEntry } from "@oh-my-pi/pi-utils";
 import {
 	createWorkerHandle,
 	createWorkerSubprocess,
@@ -13,6 +13,7 @@ import { safeSend as safeSendIpc } from "../../utils/ipc";
 import { EVAL_TIMEOUT_PAUSE_OP, EVAL_TIMEOUT_RESUME_OP } from "../bridge-timeout";
 import { getEnabledEvalPreludes } from "../preludes";
 import {
+	abortReasonError,
 	attachSessionOwner,
 	EvalKernelNotRunningError,
 	formatKernelRestartNotice,
@@ -222,10 +223,6 @@ export async function executeInVmContext(options: {
 	return result;
 }
 
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 /** Describe or invoke tools defined in a retained JavaScript kernel. */
 export async function invokeJsTool(
 	request: JsToolRequest,
@@ -258,7 +255,7 @@ export async function invokeJsTool(
 		if (pending.settled) return;
 		pending.aborted = true;
 		pending.settled = true;
-		const error = reasonToError(options.signal?.reason, "Tool invocation aborted");
+		const error = abortReasonError(options.signal?.reason, "Tool invocation aborted");
 		for (const controller of pending.toolCalls.values()) controller.abort(error);
 		reject(error);
 	};
@@ -275,7 +272,7 @@ export async function invokeJsTool(
 		session.pending.delete(runId);
 	}
 
-	if (!isUnknownRecord(envelope) || envelope.ok !== true) {
+	if (!isRecord(envelope) || envelope.ok !== true) {
 		return { ok: false, error: "JavaScript tool request returned an invalid response" };
 	}
 	if (request.op === "call") {
@@ -286,9 +283,9 @@ export async function invokeJsTool(
 	const rawTools = Array.isArray(envelope.tools) ? envelope.tools : [];
 	const tools: EvalToolDescriptor[] = [];
 	for (const rawTool of rawTools) {
-		if (!isUnknownRecord(rawTool)) continue;
+		if (!isRecord(rawTool)) continue;
 		const { name, description, parameters } = rawTool;
-		if (typeof name !== "string" || typeof description !== "string" || !isUnknownRecord(parameters)) continue;
+		if (typeof name !== "string" || typeof description !== "string" || !isRecord(parameters)) continue;
 		tools.push({ name, description, parameters, language: "js" });
 	}
 	const missing = Array.isArray(envelope.missing)
@@ -535,7 +532,7 @@ async function runOnce(
 
 	const onAbort = (): void => {
 		const reason = options.runState.signal?.reason;
-		const abortError = reasonToError(reason, "Execution aborted");
+		const abortError = abortReasonError(reason, "Execution aborted");
 		// Stop delegated work at once — this is what kills spawned subagents —
 		// and refuse further bridge calls so the drain below stays bounded to
 		// phases that had already started.
@@ -932,12 +929,6 @@ function safeSend(session: JsSession, msg: WorkerInbound): void {
 	} catch (err) {
 		logger.debug("js worker send failed", { error: err instanceof Error ? err.message : String(err) });
 	}
-}
-
-function reasonToError(reason: unknown, fallback: string): Error {
-	if (reason instanceof Error) return reason;
-	if (typeof reason === "string") return new ToolAbortError(reason);
-	return new ToolAbortError(fallback);
 }
 
 function errorFromPayload(payload: RunErrorPayload): Error {

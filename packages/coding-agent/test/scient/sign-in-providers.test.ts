@@ -54,13 +54,26 @@ describe("sign-in providers", () => {
 		"alibaba-coding-plan",
 		"alibaba-token-plan",
 	];
-	const ACCOUNT_SIGN_INS = ["github-copilot", "cursor", "perplexity", "kilo", "openai-codex-device", "snowflake"];
+	const ACCOUNT_SIGN_INS = [
+		"github-copilot",
+		"cursor",
+		"perplexity",
+		"kilo",
+		"openai-codex-device",
+		"snowflake",
+		// A browser sign-in, or adopting the Devin CLI's stored sign-in: nothing to paste.
+		"mistral-vibe-sign-in",
+		"devin-cli",
+		"devin-windsurf",
+	];
+	/** Hooks named differently from the entry that uses them. */
+	const HOOK_ENTRY: Record<string, string> = { "mistral-vibe-sign-in": "mistral" };
 
 	it("goes by what a hook-implemented sign-in asks for, not by how it is implemented", () => {
 		// These hooks prompt for a pasted key or token.
 		for (const id of KEY_SIGN_INS) expect(entry(id)?.kind, id).toBe("key");
 		// These run a browser, device or one-time-code flow.
-		for (const id of ACCOUNT_SIGN_INS) expect(entry(id)?.kind, id).toBe("account");
+		for (const id of ACCOUNT_SIGN_INS) expect(entry(HOOK_ENTRY[id] ?? id)?.kind, id).toBe("account");
 	});
 
 	it("classifies every custom sign-in upstream defines", () => {
