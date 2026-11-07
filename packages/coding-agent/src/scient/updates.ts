@@ -18,3 +18,13 @@ export function refuseSelfUpdate(flags: { readonly plugins: boolean }): void {
 		);
 	}
 }
+
+/**
+ * Refuses the background auto-update worker. Nothing in Scient Agent starts it,
+ * but its hidden entry point would otherwise install an Oh My Pi release.
+ */
+export function refuseAutoUpdateWorker(): void {
+	if (!SELF_UPDATE) {
+		throw new CliUsageError("scient-agent does not update itself. Scient updates it, or install a newer release.");
+	}
+}

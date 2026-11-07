@@ -308,6 +308,8 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		['path.join(dir, "opt", "omp")', `path.join(dir, "opt", "${COMMAND}")`],
 		['path.join(prefix, "bin", "omp")', `path.join(prefix, "bin", "${COMMAND}")`],
 		['path.join(linkedBin, "omp")', `path.join(linkedBin, "${COMMAND}")`],
+		['path.join(first, "omp")', `path.join(first, "${COMMAND}")`],
+		['path.join(second, "omp")', `path.join(second, "${COMMAND}")`],
 		["restored previous omp binary", `restored previous ${COMMAND} binary`],
 		["restored previous omp launcher", `restored previous ${COMMAND} launcher`],
 		['omp: "#!/bin/sh', `"${COMMAND}": "#!/bin/sh`],

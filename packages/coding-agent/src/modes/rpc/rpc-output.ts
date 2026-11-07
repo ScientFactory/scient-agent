@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import type { Writable } from "node:stream";
-import { logger, TempDir } from "@oh-my-pi/pi-utils";
+import { logger, TempDir, toError } from "@oh-my-pi/pi-utils";
 import type { BunFile } from "bun";
 // scient(SA-RPC-SPOOL): begin - The spool is capped and named for its process, so a stale one is removed.
 import { checkSpoolSize, spoolFolderPrefix, startStaleSpoolSweep } from "../../scient/rpc-spool";
@@ -157,7 +157,7 @@ export class RpcOutputWriter {
 
 	#fail(error: unknown): void {
 		if (this.#failure) return;
-		this.#failure = error instanceof Error ? error : new Error(String(error));
+		this.#failure = toError(error);
 		try {
 			this.#removeSpool();
 		} catch (cleanupError) {
