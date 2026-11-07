@@ -1,0 +1,103 @@
+name: Probe 18.18.0 buckets, untouched and Scient's replay
+
+# Temporary: runs Oh My Pi 18.18.0's TypeScript test buckets on untouched upstream
+# and on Scient's replay, on the runner, concurrency and per-test ceiling Scient's
+# upstream-tests job uses, to list what untouched upstream fails (KNOWN_FAILURES).
+
+on:
+   push:
+      branches: ["probe/**"]
+
+permissions:
+   contents: read
+
+env:
+   UNTOUCHED: b5a6b2f7e5b6606b6562e678ead83f21738f34a0
+   SCIENT: c7ba3900fdd3bacc97a9b431385abebde0f6e325
+   OMP_TEST_TIMEOUT: "120"
+
+jobs:
+   natives:
+      name: natives ${{ matrix.tree }}
+      strategy:
+         matrix:
+            tree: [untouched, scient]
+      runs-on: ubuntu-22.04
+      timeout-minutes: 60
+      steps:
+         - uses: actions/checkout@v4
+           with:
+              ref: ${{ matrix.tree == 'untouched' && env.UNTOUCHED || env.SCIENT }}
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.4
+         - run: |
+              sudo apt-get update && sudo apt-get install -y ninja-build
+              rustup show active-toolchain || rustup toolchain install
+              bun install --frozen-lockfile
+              PI_NATIVE_X64_VARIANT=baseline bun run build:native
+              PI_NATIVE_X64_VARIANT=modern bun run build:native
+         - uses: actions/upload-artifact@v4
+           with:
+              name: natives-linux-x64-${{ matrix.tree }}
+              path: packages/natives/native/*.node
+              if-no-files-found: error
+              retention-days: 2
+
+   tests:
+      needs: natives
+      name: ${{ matrix.tree }} ${{ matrix.bucket.mode }} run ${{ matrix.bucket.run }}
+      runs-on: ubuntu-22.04
+      timeout-minutes: 45
+      strategy:
+         fail-fast: false
+         matrix:
+            tree: [untouched, scient]
+            bucket:
+               - { mode: coding-agent-native, concurrency: 4, run: 1 }
+               - { mode: coding-agent-native, concurrency: 4, run: 2 }
+               - { mode: coding-agent-native, concurrency: 4, run: 3 }
+               - { mode: coding-agent-native, concurrency: 4, run: 4 }
+               - { mode: coding-agent-native, concurrency: 4, run: 5 }
+               - { mode: coding-agent-native, concurrency: 4, run: 6 }
+               - { mode: coding-agent-native, concurrency: 4, run: 7 }
+               - { mode: coding-agent-native, concurrency: 4, run: 8 }
+               - { mode: workspace, concurrency: 4, run: 1 }
+               - { mode: workspace, concurrency: 4, run: 2 }
+               - { mode: native, concurrency: 4, run: 1 }
+               - { mode: native, concurrency: 4, run: 2 }
+               - { mode: coding-agent-singleton, concurrency: 1, run: 1 }
+               - { mode: coding-agent-singleton, concurrency: 1, run: 2 }
+               - { mode: coding-agent-ui, concurrency: 2, run: 1 }
+               - { mode: coding-agent-ui, concurrency: 2, run: 2 }
+               - { mode: coding-agent-runtime, concurrency: 4, run: 1 }
+               - { mode: coding-agent-runtime, concurrency: 4, run: 2 }
+      steps:
+         - uses: actions/checkout@v4
+           with:
+              ref: ${{ matrix.tree == 'untouched' && env.UNTOUCHED || env.SCIENT }}
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.4
+         - run: bun install --frozen-lockfile
+         - uses: actions/download-artifact@v4
+           with:
+              name: natives-linux-x64-${{ matrix.tree }}
+              path: packages/natives/native
+         - name: The bucket
+           continue-on-error: true
+           env:
+              OMP_TEST_CONCURRENCY: ${{ matrix.bucket.concurrency }}
+           run: |
+              set +e
+              bun scripts/ci-test-ts.ts ${{ matrix.bucket.mode }} --full > bucket.log 2>&1
+              echo "exit=$?" | tee bucket.exit
+              grep -E "\(fail\)|chunk\(s\) FAILED|chunks passed|# Unhandled error" bucket.log || true
+         - uses: actions/upload-artifact@v4
+           if: always()
+           with:
+              name: log-${{ matrix.tree }}-${{ matrix.bucket.mode }}-${{ matrix.bucket.run }}
+              path: |
+                 bucket.log
+                 bucket.exit
+              retention-days: 5
