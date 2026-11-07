@@ -174,9 +174,9 @@ describe("/fork terminal placement", () => {
 		expect(request).toMatchObject({ multiplexer: "tmux", placement: "pane" });
 		const command = request?.command ?? [];
 		expect(command[0]).toBe("env");
-		expect(command).toContain("PI_CODING_AGENT_DIR=/user/agent");
-		expect(command).toContain("OMP_PROFILE=active-profile");
-		expect(command).toContain("PI_PROFILE=active-profile");
+		expect(command).toContain("SCIENT_AGENT_DIR=/user/agent");
+		expect(command).toContain("SCIENT_AGENT_PROFILE=active-profile");
+		expect(command).toContain("SCIENT_AGENT_PROFILE_FALLBACK=active-profile");
 		expect(command.slice(command.indexOf("omp-entry") + 1)).toEqual([
 			"--profile",
 			"active-profile",
@@ -220,16 +220,22 @@ describe("/fork terminal placement", () => {
 		const { controller, launchTerminal } = createContext({
 			activeProfile: null,
 			environment: () =>
-				({ TMUX: "server,1,0", TMUX_PANE: "%1", PI_CODING_AGENT_SESSION_DIR: sessionsDir }) as NodeJS.ProcessEnv,
+				({ TMUX: "server,1,0", TMUX_PANE: "%1", SCIENT_AGENT_SESSION_DIR: sessionsDir }) as NodeJS.ProcessEnv,
 		});
 		await controller.handleForkCommand("pane");
 		const command = launchTerminal.mock.calls[0]?.[0].command ?? [];
 		const envArgs = command.slice(0, command.indexOf("omp-entry"));
-		for (const name of ["XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "OMP_PROFILE", "PI_PROFILE"]) {
+		for (const name of [
+			"XDG_DATA_HOME",
+			"XDG_STATE_HOME",
+			"XDG_CACHE_HOME",
+			"SCIENT_AGENT_PROFILE",
+			"SCIENT_AGENT_PROFILE_FALLBACK",
+		]) {
 			expect(envArgs[envArgs.indexOf(name) - 1]).toBe("-u");
 			expect(envArgs.some(arg => arg.startsWith(`${name}=`))).toBe(false);
 		}
-		expect(envArgs).toContain(`PI_CODING_AGENT_SESSION_DIR=${sessionsDir}`);
+		expect(envArgs).toContain(`SCIENT_AGENT_SESSION_DIR=${sessionsDir}`);
 		// `env` rejects `-u` after the first assignment.
 		const lastUnset = envArgs.lastIndexOf("-u");
 		const firstAssignment = envArgs.findIndex(arg => arg.includes("="));
@@ -271,10 +277,10 @@ describe("/fork terminal placement", () => {
 				({
 					TMUX: "server,1,0",
 					TMUX_PANE: "%1",
-					OMP_PROFILE: "stale-server-profile",
-					PI_PROFILE: "stale-server-profile",
-					PI_CODING_AGENT_DIR: "/stale/server/agent",
-					PI_CONFIG_FILES: configFiles,
+					SCIENT_AGENT_PROFILE: "stale-server-profile",
+					SCIENT_AGENT_PROFILE_FALLBACK: "stale-server-profile",
+					SCIENT_AGENT_DIR: "/stale/server/agent",
+					SCIENT_AGENT_CONFIG_FILES: configFiles,
 					XDG_DATA_HOME: dataDir,
 					XDG_STATE_HOME: stateDir,
 					XDG_CACHE_HOME: cacheDir,
@@ -295,8 +301,8 @@ describe("/fork terminal placement", () => {
 		await controller.handleForkCommand("pane");
 
 		const command = launchTerminal.mock.calls[0]?.[0].command ?? [];
-		expect(command).toContain(`PI_CODING_AGENT_DIR=${agentDir}`);
-		expect(command).toContain(`PI_CONFIG_FILES=${configFiles}`);
+		expect(command).toContain(`SCIENT_AGENT_DIR=${agentDir}`);
+		expect(command).toContain(`SCIENT_AGENT_CONFIG_FILES=${configFiles}`);
 		expect(command).toContain(`XDG_DATA_HOME=${dataDir}`);
 		expect(command).toContain(`XDG_STATE_HOME=${stateDir}`);
 		expect(command).toContain(`XDG_CACHE_HOME=${cacheDir}`);
@@ -339,7 +345,7 @@ describe("/fork terminal placement", () => {
 				({
 					TMUX: "server,1,0",
 					TMUX_PANE: "%1",
-					PI_CONFIG_FILES: staleConfigPath,
+					SCIENT_AGENT_CONFIG_FILES: staleConfigPath,
 					OPENAI_API_KEY: secret,
 				}) as NodeJS.ProcessEnv,
 			argv: ["--cwd", oldCwd, "--config", "./stale-startup-overlay.yml", "--thinking", "low", "prompt"],
@@ -350,8 +356,8 @@ describe("/fork terminal placement", () => {
 		const request = launchTerminal.mock.calls[0]?.[0];
 		expect(request?.cwd).toBe(newCwd);
 		const command = request?.command ?? [];
-		const configFilesEnv = command.find(arg => arg.startsWith("PI_CONFIG_FILES="));
-		expect(configFilesEnv?.slice("PI_CONFIG_FILES=".length).split(path.delimiter)).toContain(overlayPath);
+		const configFilesEnv = command.find(arg => arg.startsWith("SCIENT_AGENT_CONFIG_FILES="));
+		expect(configFilesEnv?.slice("SCIENT_AGENT_CONFIG_FILES=".length).split(path.delimiter)).toContain(overlayPath);
 		expect(configFilesEnv).not.toContain(staleConfigPath);
 		expect(command.join("\0")).not.toContain(secret);
 

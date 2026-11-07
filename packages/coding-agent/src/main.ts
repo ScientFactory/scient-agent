@@ -1949,7 +1949,7 @@ export async function runRootCommand(
 			stopPendingStartupComposer();
 		}
 		// Account routing must use the effective settings, including `--config` and
-		// `PI_CONFIG_FILES` overlays, rather than independently re-reading only the
+		// `SCIENT_AGENT_CONFIG_FILES` overlays, rather than independently re-reading only the
 		// main config file during auth discovery.
 		const settingsPromise = deps.settings
 			? Promise.resolve(deps.settings)
@@ -2361,7 +2361,7 @@ export async function runRootCommand(
 		// read of a live store elsewhere in this process can corrupt it (issue #15586).
 		if (process.platform === "linux" && !ensureSqliteLockShim()) {
 			startupWarning(
-				"SQLite lock protection is unavailable with this Bun build: reading omp's own databases from inside omp (e.g. `grep -r ~/.omp`, `cp ~/.omp/agent/agent.db`) can corrupt them. Avoid it, and report this with your Bun version (#15586).",
+				"SQLite lock protection is unavailable with this Bun build: reading omp's own databases from inside omp (e.g. `grep -r ~/.scient-agent`, `cp ~/.scient-agent/agent/agent.db`) can corrupt them. Avoid it, and report this with your Bun version (#15586).",
 			);
 		}
 		const buildStartupSessionOptions = async (manager: SessionManager | undefined) => {

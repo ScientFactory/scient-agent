@@ -314,7 +314,7 @@ async function rpcHarness(options: { slow?: boolean; fail?: boolean; failDispose
 		cwd: dir,
 		env: {
 			...process.env,
-			PI_CODING_AGENT_DIR: dir,
+			SCIENT_AGENT_DIR: dir,
 			PI_NO_TITLE: "1",
 			RPC_SLOW_DICTATION: options.slow ? "1" : "",
 			RPC_FAIL_DICTATION: options.fail ? "1" : "",
@@ -634,7 +634,7 @@ describe("dictation over RPC", () => {
 		using client = new RpcClient({
 			command: [process.execPath, path.join(import.meta.dir, "fixtures", "live-rpc-agent.ts")],
 			cwd: dir,
-			env: { PI_CODING_AGENT_DIR: dir, PI_NO_TITLE: "1", RPC_SLOW_DICTATION: "" },
+			env: { SCIENT_AGENT_DIR: dir, PI_NO_TITLE: "1", RPC_SLOW_DICTATION: "" },
 		});
 		try {
 			const frames: RpcDictationFrame[] = [];

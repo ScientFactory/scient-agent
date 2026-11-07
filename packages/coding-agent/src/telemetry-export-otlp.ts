@@ -52,7 +52,7 @@ const FLUSH_INTERVAL_MS = 30_000;
 /** OTLP delivery is best-effort at process exit; a stalled collector must not hold the terminal open. */
 const SHUTDOWN_EXPORT_BUDGET_MS = 750;
 
-const SERVICE_NAME = "oh-my-pi";
+const SERVICE_NAME = "scient-agent";
 
 type OtelLogLevel = "none" | logger.LogLevel;
 

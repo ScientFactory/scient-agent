@@ -148,10 +148,10 @@ function readFirstPickedFile(picker: PagePicker): Promise<string> | string {
 }
 
 /**
- * Staging folders are `omp-uploads-<pid>-<id>` in the temp directory; the pid names the omp process that owns one. The
+ * Staging folders are `scient-agent-uploads-<pid>-<id>` in the temp directory; the pid names the omp process that owns one. The
  * route check's own folder shares the prefix, so one a crash left behind is swept the same way.
  */
-const STAGING_FOLDER = /^omp-uploads-(\d+)-/;
+const STAGING_FOLDER = /^scient-agent-uploads-(\d+)-/;
 
 /**
  * How long a staging folder no open tab owns stays after its last upload: a page omp let go of may still be open in the
@@ -161,7 +161,7 @@ const STAGING_KEPT_MS = 24 * 60 * 60 * 1000;
 
 /** The staging folder path for a new tab; it is created on the tab's first upload. */
 export function newUploadStagingDir(): string {
-	return path.join(os.tmpdir(), `omp-uploads-${process.pid}-${crypto.randomUUID().slice(0, 8)}`);
+	return path.join(os.tmpdir(), `scient-agent-uploads-${process.pid}-${crypto.randomUUID().slice(0, 8)}`);
 }
 
 /** Remove a tab's staging folder, once the page that may read its copies is gone. */
@@ -307,7 +307,7 @@ export class UploadStaging {
 	async #checkRoute(page: Page): Promise<{ route: UploadRoute; decided: boolean }> {
 		const token = crypto.randomUUID();
 		// Its own folder, so a tab that never stages a file leaves no staging folder behind.
-		const checkDirectory = await fs.mkdtemp(path.join(os.tmpdir(), `omp-uploads-${process.pid}-check-`));
+		const checkDirectory = await fs.mkdtemp(path.join(os.tmpdir(), `scient-agent-uploads-${process.pid}-check-`));
 		try {
 			const tokenPath = path.join(checkDirectory, "route-check");
 			await Bun.write(tokenPath, token);

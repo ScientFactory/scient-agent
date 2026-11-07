@@ -33,7 +33,7 @@ import { SubagentWorkerPool, setSubagentWorkerPoolForTests } from "../../src/thr
 import { EventBus } from "../../src/utils/event-bus";
 import { createInMemoryAuthStorage } from "../helpers/agent-session-setup";
 
-const ENV_KEYS = ["HOME", "PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE"] as const;
+const ENV_KEYS = ["HOME", "SCIENT_AGENT_DIR", "SCIENT_AGENT_PROFILE", "SCIENT_AGENT_PROFILE_FALLBACK"] as const;
 const MODEL = "fake/fake-model";
 const TEST_TIMEOUT_MS = 120_000;
 /**
@@ -231,15 +231,15 @@ beforeEach(async () => {
 	savedEnv = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]));
 	root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-executor-routing-"));
 	const home = path.join(root, "home");
-	const agentDir = path.join(home, ".omp", "agent");
+	const agentDir = path.join(home, ".scient-agent", "agent");
 	cwd = path.join(root, "work");
 	await fs.mkdir(agentDir, { recursive: true });
 	await fs.mkdir(cwd, { recursive: true });
 	// Workers read these at start-up, so set them before the pool spawns any.
 	setEnv("HOME", home);
-	setEnv("PI_CODING_AGENT_DIR", agentDir);
-	setEnv("OMP_PROFILE", undefined);
-	setEnv("PI_PROFILE", undefined);
+	setEnv("SCIENT_AGENT_DIR", agentDir);
+	setEnv("SCIENT_AGENT_PROFILE", undefined);
+	setEnv("SCIENT_AGENT_PROFILE_FALLBACK", undefined);
 	__resetDirsFromEnvForTests();
 	AgentRegistry.resetGlobalForTests();
 	AgentLifecycleManager.resetGlobalForTests();

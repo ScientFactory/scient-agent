@@ -1463,7 +1463,7 @@ export class DapSessionManager {
 
 	#buildInitializeArguments(adapter: DapResolvedAdapter): DapInitializeArguments {
 		return {
-			clientID: "omp",
+			clientID: "scient-agent",
 			clientName: "omp",
 			adapterID: adapter.name,
 			locale: "en-US",

@@ -29,7 +29,7 @@ async function start(): Promise<{ rpc: RpcClient; events: AgentSessionEvent[] }>
 	client = new RpcClient({
 		command: [process.execPath, FIXTURE],
 		cwd: directory,
-		env: { PI_CODING_AGENT_DIR: directory, PI_NO_TITLE: "1" },
+		env: { SCIENT_AGENT_DIR: directory, PI_NO_TITLE: "1" },
 	});
 	const events: AgentSessionEvent[] = [];
 	client.onSessionEvent(event => events.push(event));

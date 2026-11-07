@@ -38,7 +38,7 @@ describe.skipIf(process.platform === "win32")("fatal stderr terminal handoff", (
 				// (ci-test-ts children inherit PI_TEST_RUNTIME=1).
 				env: {
 					...process.env,
-					OMP_TUI_DEBUG: undefined,
+					SCIENT_AGENT_TUI_DEBUG: undefined,
 					PI_TEST_RUNTIME: undefined,
 					BUN_ENV: undefined,
 					NODE_ENV: undefined,

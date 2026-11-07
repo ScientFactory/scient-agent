@@ -1416,9 +1416,9 @@ export function buildResumeArgs(cfg: Config, jobDir: string): string[] {
 }
 
 const FORWARD_ENV_DENYLIST = new Set([
-	"PI_CODING_AGENT_DIR",
-	"PI_CONFIG_DIR",
-	"PI_PROFILE",
+	"SCIENT_AGENT_DIR",
+	"SCIENT_AGENT_CONFIG_DIR",
+	"SCIENT_AGENT_PROFILE_FALLBACK",
 	"PI_PACKAGE_DIR",
 	"PI_SESSION_FILE",
 	"PI_ARTIFACTS_DIR",

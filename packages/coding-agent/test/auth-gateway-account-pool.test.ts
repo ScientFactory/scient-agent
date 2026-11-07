@@ -10,11 +10,11 @@ import { getAgentDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils"
 
 const BROKER_TOKEN = "gateway-account-pool-token";
 const ENV_KEYS = [
-	"OMP_AUTH_BROKER_URL",
-	"OMP_AUTH_BROKER_TOKEN",
-	"OMP_AUTH_BROKER_ACCOUNT_POOL_FILE",
-	"PI_CODING_AGENT_DIR",
-	"PI_CONFIG_FILES",
+	"SCIENT_AGENT_AUTH_BROKER_URL",
+	"SCIENT_AGENT_AUTH_BROKER_TOKEN",
+	"SCIENT_AGENT_AUTH_BROKER_ACCOUNT_POOL_FILE",
+	"SCIENT_AGENT_DIR",
+	"SCIENT_AGENT_CONFIG_FILES",
 ] as const;
 const originalAgentDir = getAgentDir();
 
@@ -28,7 +28,7 @@ describe("auth-gateway account pool", () => {
 	beforeEach(async () => {
 		savedEnv = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]])) as typeof savedEnv;
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-auth-gateway-pool-"));
-		process.env.PI_CODING_AGENT_DIR = tempDir;
+		process.env.SCIENT_AGENT_DIR = tempDir;
 		setAgentDir(tempDir);
 		resetSettingsForTest();
 		brokerStore = await SqliteAuthCredentialStore.open(path.join(tempDir, "agent.db"));
@@ -54,9 +54,9 @@ describe("auth-gateway account pool", () => {
 		});
 		const poolPath = path.join(tempDir, "account-pool.json");
 		await Bun.write(poolPath, JSON.stringify({ anthropic: ["email:allowed@example.com"] }));
-		process.env.OMP_AUTH_BROKER_URL = handle.url;
-		process.env.OMP_AUTH_BROKER_TOKEN = BROKER_TOKEN;
-		process.env.OMP_AUTH_BROKER_ACCOUNT_POOL_FILE = poolPath;
+		process.env.SCIENT_AGENT_AUTH_BROKER_URL = handle.url;
+		process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = BROKER_TOKEN;
+		process.env.SCIENT_AGENT_AUTH_BROKER_ACCOUNT_POOL_FILE = poolPath;
 	});
 
 	afterEach(async () => {
@@ -91,7 +91,7 @@ describe("auth-gateway account pool", () => {
 		await brokerStorage!.credentials.upsert("anthropic", { type: "api_key", key: "hidden-anthropic-key" });
 		await brokerStorage!.credentials.upsert("openrouter", { type: "api_key", key: "hidden-openrouter-key" });
 		await Bun.write(
-			process.env.OMP_AUTH_BROKER_ACCOUNT_POOL_FILE!,
+			process.env.SCIENT_AGENT_AUTH_BROKER_ACCOUNT_POOL_FILE!,
 			JSON.stringify({ "*": false, anthropic: { accounts: ["email:allowed@example.com"], apiKeys: false } }),
 		);
 		let output = "";
@@ -108,7 +108,7 @@ describe("auth-gateway account pool", () => {
 		]);
 	});
 
-	test("check uses effective PI_CONFIG_FILES account policies", async () => {
+	test("check uses effective SCIENT_AGENT_CONFIG_FILES account policies", async () => {
 		const overlayPath = path.join(tempDir, "overlay.yml");
 		await Promise.all([
 			Bun.write(
@@ -138,7 +138,7 @@ describe("auth-gateway account pool", () => {
 				].join("\n"),
 			),
 		]);
-		process.env.PI_CONFIG_FILES = overlayPath;
+		process.env.SCIENT_AGENT_CONFIG_FILES = overlayPath;
 		resetSettingsForTest();
 		let output = "";
 		vi.spyOn(process.stdout, "write").mockImplementation(chunk => {

@@ -43,14 +43,14 @@ export const cfgAuthBrokerUrl = register({
 	id: "auth.broker.url",
 	type: "string",
 	default: undefined,
-	env: "OMP_AUTH_BROKER_URL",
+	env: "SCIENT_AGENT_AUTH_BROKER_URL",
 });
 
 export const cfgAuthBrokerToken = register({
 	id: "auth.broker.token",
 	type: "string",
 	default: undefined,
-	env: "OMP_AUTH_BROKER_TOKEN",
+	env: "SCIENT_AGENT_AUTH_BROKER_TOKEN",
 	credential: true,
 });
 
@@ -100,7 +100,8 @@ export const cfgModelRoleStorage = register({
 			{
 				value: "project",
 				label: "Per-project",
-				description: "Save project role models in .omp/config.yml; missing project roles use global defaults",
+				description:
+					"Save project role models in .scient-agent/config.yml; missing project roles use global defaults",
 			},
 		],
 	},
