@@ -29,6 +29,9 @@ function makeSession(): ToolSession {
 			"astEdit.enabled": false,
 			"grep.enabled": false,
 			"glob.enabled": false,
+			// scient(SA-SHELL-TRACE): begin - Traces are off by default in Scient Agent; this test records them.
+			"display.shellVisualization": true,
+			// scient(SA-SHELL-TRACE): end
 		}),
 		getClientBridge: () => undefined,
 	} as unknown as ToolSession;
