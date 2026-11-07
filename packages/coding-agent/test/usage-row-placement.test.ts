@@ -18,6 +18,9 @@ import { formatNumber } from "@oh-my-pi/pi-utils";
 import { VirtualTerminal } from "../../tui/test/virtual-terminal";
 
 import { cfgDisplayShowTokenUsage } from "@oh-my-pi/pi-coding-agent/modes/settings";
+// scient(SA-SHELL-TRACE): begin - Shell visualization is off by default in Scient Agent; a test here draws it.
+import { cfgDisplayShellVisualization } from "@oh-my-pi/pi-coding-agent/modes/settings";
+// scient(SA-SHELL-TRACE): end
 
 // 4242 → "4.2K": distinctive enough not to collide with a read group's render.
 const USAGE_INPUT = 4242;
@@ -181,6 +184,9 @@ describe("ChatTranscriptBuilder token-usage row timestamp", () => {
 	});
 
 	it("deep-links tool-only assistant entries to their first rendered row", () => {
+		// scient(SA-SHELL-TRACE): begin - Shell visualization is off by default in Scient Agent; this test draws it.
+		cfgDisplayShellVisualization.set(settings, true);
+		// scient(SA-SHELL-TRACE): end
 		const builder = new ChatTranscriptBuilder({
 			ui: new TUI(new VirtualTerminal(120, 20)),
 			cwd: process.cwd(),
