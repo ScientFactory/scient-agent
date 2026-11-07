@@ -125,7 +125,9 @@ it.skipIf(process.platform === "win32")(
 it.skipIf(process.platform === "win32")(
 	"keeps background jobs an overlapping call starts alive and says they stay in its copy",
 	async () => {
-		const tool = bashTool({ "bash.autoBackground.thresholdMs": 100 });
+		// scient(SA-SHELL-TRACE): begin - Untraced, a run whose job holds the pipe drains 250 ms, past this threshold.
+		const tool = bashTool({ "bash.autoBackground.thresholdMs": 100, "display.shellVisualization": true });
+		// scient(SA-SHELL-TRACE): end
 		expect((await run(tool, "sleep 2")).async?.state).toBe("running");
 
 		const overlapping = await run(tool, "/bin/sleep 30 & printf %s $!");
