@@ -820,7 +820,9 @@ export const cfgDisplayCacheMissMarker = register({
 export const cfgDisplayShellVisualization = register({
 	id: "display.shellVisualization",
 	type: "boolean",
-	default: true,
+	// scient(SA-SHELL-TRACE): begin - A host draws no shell visualization; each live frame would carry the whole trace.
+	default: false,
+	// scient(SA-SHELL-TRACE): end
 	ui: {
 		tab: "appearance",
 		group: "Display",
