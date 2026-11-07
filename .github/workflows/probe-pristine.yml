@@ -13,7 +13,7 @@ permissions:
 
 env:
    UNTOUCHED: b5a6b2f7e5b6606b6562e678ead83f21738f34a0
-   SCIENT: c7ba3900fdd3bacc97a9b431385abebde0f6e325
+   SCIENT: 35a26ed53c2625fba5e45f5a4ce0ff258ec1eb27
    OMP_TEST_TIMEOUT: "120"
 
 jobs:
@@ -54,24 +54,12 @@ jobs:
          matrix:
             tree: [untouched, scient]
             bucket:
-               - { mode: coding-agent-native, concurrency: 4, run: 1 }
-               - { mode: coding-agent-native, concurrency: 4, run: 2 }
-               - { mode: coding-agent-native, concurrency: 4, run: 3 }
-               - { mode: coding-agent-native, concurrency: 4, run: 4 }
-               - { mode: coding-agent-native, concurrency: 4, run: 5 }
-               - { mode: coding-agent-native, concurrency: 4, run: 6 }
-               - { mode: coding-agent-native, concurrency: 4, run: 7 }
-               - { mode: coding-agent-native, concurrency: 4, run: 8 }
                - { mode: workspace, concurrency: 4, run: 1 }
                - { mode: workspace, concurrency: 4, run: 2 }
-               - { mode: native, concurrency: 4, run: 1 }
-               - { mode: native, concurrency: 4, run: 2 }
-               - { mode: coding-agent-singleton, concurrency: 1, run: 1 }
-               - { mode: coding-agent-singleton, concurrency: 1, run: 2 }
-               - { mode: coding-agent-ui, concurrency: 2, run: 1 }
-               - { mode: coding-agent-ui, concurrency: 2, run: 2 }
-               - { mode: coding-agent-runtime, concurrency: 4, run: 1 }
-               - { mode: coding-agent-runtime, concurrency: 4, run: 2 }
+               - { mode: workspace, concurrency: 4, run: 3 }
+               - { mode: workspace, concurrency: 4, run: 4 }
+               - { mode: workspace, concurrency: 4, run: 5 }
+               - { mode: workspace, concurrency: 4, run: 6 }
       steps:
          - uses: actions/checkout@v4
            with:
