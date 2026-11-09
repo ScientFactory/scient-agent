@@ -3586,6 +3586,12 @@
 				},
 				"store": {
 					"type": "string"
+				},
+				"emails": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
 				}
 			},
 			"required": [

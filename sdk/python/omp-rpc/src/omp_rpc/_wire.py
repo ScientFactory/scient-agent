@@ -960,6 +960,7 @@ class LoginProvider:
     kind: Literal["account", "key"]
     stored: bool
     store: str
+    emails: tuple[str, ...] | None = None
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -2368,6 +2369,7 @@ def parse_login_provider(value: object, path: str = "LoginProvider") -> LoginPro
         kind=required(payload, "kind", cast('Decoder[Literal["account", "key"]]', literal(frozenset({"account", "key"}))), path),
         stored=required(payload, "stored", decode_bool, path),
         store=required(payload, "store", decode_str, path),
+        emails=optional(payload, "emails", array(decode_str), path),
     )
 
 

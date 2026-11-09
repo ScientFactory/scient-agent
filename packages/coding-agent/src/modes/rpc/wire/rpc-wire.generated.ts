@@ -777,6 +777,7 @@ export interface LoginProvider {
 	kind: "account" | "key";
 	stored: boolean;
 	store: string;
+	emails?: string[];
 }
 
 /** A stored credential `logout` can remove; `active` marks credentials the session may be using. */

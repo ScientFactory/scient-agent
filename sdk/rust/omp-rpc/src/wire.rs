@@ -3510,6 +3510,8 @@ pub struct LoginProvider {
 	pub kind: LoginProviderKind,
 	pub stored: bool,
 	pub store: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub emails: Option<Vec<String>>,
 }
 
 /// A stored credential `logout` can remove; `active` marks credentials the session may be using.

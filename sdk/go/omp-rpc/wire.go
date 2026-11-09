@@ -3385,6 +3385,7 @@ type LoginProvider struct {
 	Kind          LoginProviderKind `json:"kind"`
 	Stored        bool              `json:"stored"`
 	Store         string            `json:"store"`
+	Emails        []string          `json:"emails,omitempty"`
 }
 
 func (v *LoginProvider) UnmarshalJSON(data []byte) error {
@@ -3401,6 +3402,7 @@ func (v *LoginProvider) decodeFrom(raw map[string]json.RawMessage) error {
 	d.required("kind", &out.Kind)
 	d.required("stored", &out.Stored)
 	d.required("store", &out.Store)
+	d.optional("emails", &out.Emails)
 	if d.err != nil {
 		return d.err
 	}
