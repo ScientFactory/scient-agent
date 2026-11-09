@@ -350,6 +350,7 @@ export const stateDefs = {
 		kind: "'account' | 'key'",
 		stored: "boolean",
 		store: "string",
+		"emails?": "string[]",
 	},
 	// scient(SA-AUTH): end
 	LogoutAccount: doc(
