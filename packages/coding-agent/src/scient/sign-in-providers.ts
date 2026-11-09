@@ -20,6 +20,8 @@ export interface RpcLoginProvider {
 	 * `openai-codex`), and share their status and their sign-out.
 	 */
 	store: string;
+	/** Email identities supplied by active stored OAuth accounts; no tokens or keys. */
+	emails?: string[];
 }
 
 /**
@@ -69,6 +71,15 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
 	const heldByBroker = authStorage.credentials.heldByBroker;
 	return getOAuthProviders().map(provider => {
 		const storeId = provider.storeCredentialsAs ?? provider.id;
+		const emails = [
+			...new Set(
+				authStorage.credentials.list(storeId).flatMap(row => {
+					if (row.disabledCause !== null || row.credential.type !== "oauth") return [];
+					const email = row.credential.email?.trim().toLowerCase();
+					return email && email.length <= 254 && /^[^\s@]+@[^\s@]+$/u.test(email) ? [email] : [];
+				}),
+			),
+		].slice(0, 32);
 		return {
 			id: provider.id,
 			name: provider.name,
@@ -77,6 +88,7 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
 			kind: signInKind(provider.id),
 			stored: !heldByBroker && authStorage.credentials.has(storeId),
 			store: storeId,
+			...(emails.length > 0 ? { emails } : {}),
 		};
 	});
 }

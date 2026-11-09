@@ -83,6 +83,22 @@ describe("sign-in providers", () => {
 		expect(hooks.filter(hook => !KEY_SIGN_INS.includes(hook) && !ACCOUNT_SIGN_INS.includes(hook))).toEqual([]);
 	});
 
+	it("exposes only OAuth email identities to hosts, never stored secrets", async () => {
+		await auth.credentials.set("openai-codex", {
+			type: "oauth",
+			access: "synthetic-access",
+			refresh: "synthetic-refresh",
+			expires: Date.now() + 60000,
+			email: " Ada@Scient.Test ",
+		});
+		expect(entry("openai-codex")?.emails).toEqual(["ada@scient.test"]);
+		expect(entry("openai-codex-device")?.emails).toEqual(["ada@scient.test"]);
+		const json = JSON.stringify(listSignInProviders(auth));
+		expect(json).not.toContain("synthetic-access");
+		expect(json).not.toContain("synthetic-refresh");
+		expect(entry("deepseek")?.emails).toBeUndefined();
+	});
+
 	it("reports nothing as signed in on a new store", () => {
 		for (const id of ["openai-codex", "deepseek"]) {
 			expect(entry(id)).toMatchObject({ authenticated: false, stored: false });
