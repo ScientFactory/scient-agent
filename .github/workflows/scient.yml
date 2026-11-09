@@ -357,11 +357,53 @@ jobs:
          - name: Check state isolation
            run: bun scripts/scient/isolation-check.ts "$BINARY"
 
+   # Each binary's zstd copy, about 40% of its size, which Scient Desktop
+   # downloads first. Made from the bytes the release publishes (signed, for
+   # macOS) on every run, so every pull request proves it unpacks to them.
+   compress:
+      name: Compress the binaries
+      needs: [build, sign-macos]
+      runs-on: ubuntu-24.04
+      timeout-minutes: 45
+      steps:
+         - uses: actions/download-artifact@v4
+           with:
+              pattern: scient-agent-*
+              path: release
+              merge-multiple: true
+
+         - name: Compress
+           working-directory: release
+           run: |
+              set -euo pipefail
+              zstd --version
+              mkdir ../compressed
+              for binary in scient-agent-*; do
+                 case "$binary" in *.sha256 | *.zst) continue ;; esac
+                 sha256sum -c "$binary.sha256"
+                 # A window of 2^27 (128 MiB): Desktop refuses a copy that needs more.
+                 zstd -q -19 --long=27 -T0 "$binary" -o "../compressed/$binary.zst"
+                 unpacked="$(zstd -q -d --long=27 -c "../compressed/$binary.zst" | sha256sum | cut -d' ' -f1)"
+                 if [ "$unpacked" != "$(cut -d' ' -f1 "$binary.sha256")" ]; then
+                    echo "::error::$binary.zst does not unpack to $binary."
+                    exit 1
+                 fi
+                 (cd ../compressed && sha256sum "$binary.zst" | tee "$binary.zst.sha256")
+              done
+              ls -l . ../compressed
+
+         - uses: actions/upload-artifact@v4
+           with:
+              # `scient-agent-*`, so the release collects it.
+              name: scient-agent-compressed
+              path: compressed/
+              if-no-files-found: error
+
    release:
       name: Draft release
       # Job conditions cannot read workflow env, so this repeats RELEASE.
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-      needs: [build, verify-macos, divergence, upstream-tests]
+      needs: [build, verify-macos, compress, divergence, upstream-tests]
       runs-on: ubuntu-24.04
       permissions:
          contents: write
