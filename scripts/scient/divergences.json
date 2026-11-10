@@ -282,6 +282,19 @@
 				"packages/coding-agent/test/usage-row-placement.test.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/shell-trace.test.ts"]
+		},
+		"SA-ASK-FORM": {
+			"status": "active",
+			"contract": "An RPC host that enables set_ask_dialog receives the ask tool's form on one ask card. Choices carry their options and recommendation, text fields accept free text, and the question text includes the form's other content. A field that fails validation returns on the card with the reason. Other hosts receive Oh My Pi's whole form request.",
+			"owned": [
+				"packages/coding-agent/src/scient/rpc-form.ts",
+				"packages/coding-agent/test/scient/rpc-form.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/test/rpc-extension-ui.test.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-form.test.ts test/rpc-extension-ui.test.ts"]
 		}
 	}
 }

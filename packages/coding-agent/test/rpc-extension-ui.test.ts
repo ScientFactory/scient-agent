@@ -1096,7 +1096,9 @@ describe("RPC ask dialog", () => {
 		expect(onTimeout).not.toHaveBeenCalled();
 	});
 
-	it("submits the ask tool's whole form without opt-in, independently of extension ask dialogs", async () => {
+	// scient(SA-ASK-FORM): begin - A host receives the form on its ask card after opting in.
+	it("submits the ask tool's whole form by default and uses the ask card after opt-in", async () => {
+		// scient(SA-ASK-FORM): end
 		await using temp = await TempDir.create("@rpc-ask-dialog-");
 		const extensionPath = temp.join("scripted-ask.ts");
 		await Bun.write(extensionPath, scriptedAskProvider);
@@ -1158,7 +1160,14 @@ describe("RPC ask dialog", () => {
 					await send({ type: "extension_ui_response", id: frame.id, value: "Postgres" });
 				} else if (frame.type === "extension_ui_request" && frame.method === "ask") {
 					askRequests.push(frame);
-					await send({ type: "extension_ui_response", id: frame.id, cancelled: true });
+					// scient(SA-ASK-FORM): begin - Only the opted-in host answers the card.
+					expect(optInResponse).toBeDefined();
+					await send({
+						type: "extension_ui_response",
+						id: frame.id,
+						answers: [{ id: "db", selectedOptions: ["Postgres"] }],
+					});
+					// scient(SA-ASK-FORM): end
 				} else if (frame.type === "extension_ui_request" && frame.method === "form") {
 					formRequests.push(frame);
 					await send({ type: "extension_ui_response", id: frame.id, data: { db: "pg" } });
@@ -1190,11 +1199,15 @@ describe("RPC ask dialog", () => {
 			success: true,
 			data: { enabled: true },
 		});
-		expect(askRequests).toEqual([]);
-		expect(formRequests).toEqual([
-			expect.objectContaining({ method: "form", html }),
-			expect.objectContaining({ method: "form", html }),
+		// scient(SA-ASK-FORM): begin - One whole form before opt-in and one ask card with the recommended choice after.
+		expect(askRequests).toMatchObject([
+			{
+				method: "ask",
+				questions: [{ id: "db", options: [{ label: "Postgres" }, { label: "SQLite" }], recommended: 1 }],
+			},
 		]);
+		expect(formRequests).toEqual([expect.objectContaining({ method: "form", html })]);
+		// scient(SA-ASK-FORM): end
 		const answered = expect.objectContaining({
 			details: { answers: [{ name: "db", question: "Which database?", answer: "Postgres" }] },
 		});

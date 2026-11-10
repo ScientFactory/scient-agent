@@ -88,6 +88,9 @@ import { cfgSpellingAutocomplete } from "../settings";
 import { isRpcHostToolResult, isRpcHostToolUpdate, RpcHostToolBridge } from "./host-tools";
 import { isRpcHostUriResult, RpcHostUriBridge } from "./host-uris";
 import { MAX_RPC_FRAME_BYTES, MAX_RPC_REASSEMBLED_BYTES, RpcFrameEncoder } from "./rpc-frame";
+// scient(SA-ASK-FORM): begin - Show the form on the host's ask card when it enables ask dialogs.
+import { askFormOnAskCard } from "../../scient/rpc-form";
+// scient(SA-ASK-FORM): end
 import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
 // scient(SA-AUTH): begin - A host sees and signs out stored sign-ins, and finds one made elsewhere.
 import { reloadSignIns } from "../../scient/reload-sign-ins";
@@ -1732,6 +1735,10 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 		}
 
 		get formDialog(): ExtensionUIContext["formDialog"] {
+			// scient(SA-ASK-FORM): begin - Show the form on the host's ask card when it enables ask dialogs.
+			const askDialog = this.askDialog;
+			if (askDialog) return (html, dialogOptions) => askFormOnAskCard({ askDialog }, html, dialogOptions);
+			// scient(SA-ASK-FORM): end
 			return (html, dialogOptions) =>
 				requestRpcFormDialog(
 					this.pendingRequests,
