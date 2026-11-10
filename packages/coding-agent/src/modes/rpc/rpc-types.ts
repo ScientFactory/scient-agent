@@ -76,6 +76,10 @@ export type RpcCommand =
 			token_budget?: number;
 	  }
 	| { id?: string; type: "set_ask_dialog"; enabled: boolean }
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	/** Opt in to receiving the `ask` tool's whole form (`method: "form"`). */
+	| { id?: string; type: "set_form_dialog"; enabled: boolean }
+	// scient(SA-ASK-FORM): end
 	| { id?: string; type: "get_available_commands" }
 	| { id?: string; type: "get_entries"; since?: string }
 	| { id?: string; type: "get_tree" }
@@ -478,6 +482,9 @@ export type RpcResponse =
 	| { id?: string; type: "response"; command: "set_slow_mode"; success: true; data: { enabled: boolean } }
 	| { id?: string; type: "response"; command: "goal"; success: true; data: RpcGoalResult }
 	| { id?: string; type: "response"; command: "set_ask_dialog"; success: true; data: { enabled: boolean } }
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	| { id?: string; type: "response"; command: "set_form_dialog"; success: true; data: { enabled: boolean } }
+	// scient(SA-ASK-FORM): end
 	| {
 			id?: string;
 			type: "response";
@@ -840,6 +847,10 @@ export type RpcExtensionUIRequest =
 			questions: RpcAskDialogQuestion[];
 			timeout?: number;
 	  }
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	/** The `ask` tool's HTML form; emitted only after the host opts in with `set_form_dialog`. */
+	| { type: "extension_ui_request"; id: string; method: "form"; html: string; timeout?: number }
+	// scient(SA-ASK-FORM): end
 	| { type: "extension_ui_request"; id: string; method: "cancel"; targetId: string }
 	| {
 			type: "extension_ui_request";
@@ -995,7 +1006,11 @@ export type RpcExtensionUIResponse =
 			type: "extension_ui_response";
 			id: string;
 			answers: Array<{ id: string; selectedOptions: string[]; customInput?: string }>;
-	  };
+			// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	  }
+	/** The data of a `form` request, by control name: text, a number, or a group's checked values. */
+	| { type: "extension_ui_response"; id: string; data: Record<string, string | number | string[]> };
+// scient(SA-ASK-FORM): end
 
 // ============================================================================
 // Helper type for extracting command types

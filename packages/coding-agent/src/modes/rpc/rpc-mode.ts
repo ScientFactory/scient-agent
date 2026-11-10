@@ -81,6 +81,9 @@ import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
 import { reloadSignIns } from "../../scient/reload-sign-ins";
 import { listSignInProviders, signOutOverRpc } from "../../scient/sign-in-providers";
 // scient(SA-AUTH): end
+// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+import { rpcFormDialog } from "../../scient/rpc-form";
+// scient(SA-ASK-FORM): end
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcBtwController } from "./rpc-btw";
 import { RpcGoalController } from "./rpc-goal";
@@ -1539,6 +1542,17 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				requestRpcAskDialog(this.pendingRequests, this.output, questions, dialogOptions);
 		}
 
+		// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+		/** Set by `set_form_dialog`: the host draws the ask tool's whole form. */
+		formDialogEnabled = false;
+
+		get formDialog(): ExtensionUIContext["formDialog"] {
+			return rpcFormDialog(this, (opts, request, parse) =>
+				requestRpcDialog(this.pendingRequests, this.output, opts, undefined, request, parse),
+			);
+		}
+
+		// scient(SA-ASK-FORM): end
 		select(
 			title: string,
 			options: ExtensionUISelectItem[],
@@ -1733,6 +1747,12 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 		rpcUiContext.askDialogEnabled = command.enabled === true;
 		return success(command.id, "set_ask_dialog", { enabled: rpcUiContext.askDialogEnabled });
 	};
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	const setFormDialog = (command: RpcCommand & { type: "set_form_dialog" }): RpcResponse => {
+		rpcUiContext.formDialogEnabled = command.enabled === true;
+		return success(command.id, "set_form_dialog", { enabled: rpcUiContext.formDialogEnabled });
+	};
+	// scient(SA-ASK-FORM): end
 	const onPromptError = (id: string | undefined, command: string) => (promptError: Error) =>
 		output(error(id, command, promptError.message));
 
@@ -1747,6 +1767,10 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			pendingExtensionRequests.get(parsed.id)?.resolve(parsed);
 		} else if (isRecord(parsed) && parsed.type === "set_ask_dialog") {
 			output(setAskDialog(parsed as RpcCommand & { type: "set_ask_dialog" }));
+			// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+		} else if (isRecord(parsed) && parsed.type === "set_form_dialog") {
+			output(setFormDialog(parsed as RpcCommand & { type: "set_form_dialog" }));
+			// scient(SA-ASK-FORM): end
 		} else {
 			heldFrames.push(parsed);
 		}
@@ -2343,6 +2367,11 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			case "set_ask_dialog":
 				return setAskDialog(command);
 
+			// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+			case "set_form_dialog":
+				return setFormDialog(command);
+
+			// scient(SA-ASK-FORM): end
 			case "get_available_commands": {
 				return success(id, "get_available_commands", { commands: await getAvailableCommands() });
 			}

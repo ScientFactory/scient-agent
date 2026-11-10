@@ -111,6 +111,15 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 		result: { enabled: "boolean" },
 		unwrap: "enabled",
 	},
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	{
+		name: "set_form_dialog",
+		doc: "Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.",
+		params: { enabled: "boolean" },
+		result: { enabled: "boolean" },
+		unwrap: "enabled",
+	},
+	// scient(SA-ASK-FORM): end
 	{
 		name: "get_available_commands",
 		doc: "List the slash-command catalog.",

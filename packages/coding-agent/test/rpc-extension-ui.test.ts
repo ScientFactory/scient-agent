@@ -707,7 +707,9 @@ describe("RPC ask dialog", () => {
 		expect(onTimeout).not.toHaveBeenCalled();
 	});
 
-	it("walks the ask tool's form through select prompts, also after the host opts into ask dialogs", async () => {
+	// scient(SA-ASK-FORM): begin - a host that opts into ask dialogs gets the form on its ask card.
+	it("walks the ask tool's form through select prompts, and onto the ask card once the host opts into ask dialogs", async () => {
+		// scient(SA-ASK-FORM): end
 		await using temp = await TempDir.create("@rpc-ask-dialog-");
 		const extensionPath = temp.join("scripted-ask.ts");
 		await Bun.write(extensionPath, scriptedAskProvider);
@@ -768,7 +770,13 @@ describe("RPC ask dialog", () => {
 					await send({ type: "extension_ui_response", id: frame.id, value: "Postgres" });
 				} else if (frame.type === "extension_ui_request" && frame.method === "ask") {
 					askRequests.push(frame);
-					await send({ type: "extension_ui_response", id: frame.id, cancelled: true });
+					// scient(SA-ASK-FORM): begin - the card answers the form's one question.
+					await send({
+						type: "extension_ui_response",
+						id: frame.id,
+						answers: [{ id: "db", selectedOptions: ["Postgres"] }],
+					});
+					// scient(SA-ASK-FORM): end
 				} else if (frame.type === "tool_execution_end" && frame.toolName === "ask") {
 					toolResults.push(frame.result);
 				} else if (frame.type === "prompt_result" && frame.id === "fallback") {
@@ -789,7 +797,9 @@ describe("RPC ask dialog", () => {
 
 		if (!finished) throw new Error(`RPC ask fixture did not finish: ${await stderr}`);
 		await stderr;
-		expect(selectRequests).toHaveLength(2);
+		// scient(SA-ASK-FORM): begin - only the host without an ask dialog is asked field by field.
+		expect(selectRequests).toHaveLength(1);
+		// scient(SA-ASK-FORM): end
 		expect(selectRequests[0]).toMatchObject({ method: "select", title: "Which database?" });
 		expect(optInResponse).toEqual({
 			id: "opt-in",
@@ -798,7 +808,13 @@ describe("RPC ask dialog", () => {
 			success: true,
 			data: { enabled: true },
 		});
-		expect(askRequests).toEqual([]);
+		// scient(SA-ASK-FORM): begin - after opting in, the whole form arrives as one ask card, its default recommended.
+		expect(askRequests).toHaveLength(1);
+		expect(askRequests[0]).toMatchObject({
+			method: "ask",
+			questions: [{ id: "db", options: [{ label: "Postgres" }, { label: "SQLite" }], recommended: 1 }],
+		});
+		// scient(SA-ASK-FORM): end
 		const answered = expect.objectContaining({
 			details: { answers: [{ name: "db", question: "Which database?", answer: "Postgres" }] },
 		});

@@ -197,6 +197,12 @@ export const frameDefs = {
 		{ type: UI, id: "string", method: "'ask'", questions: "AskQuestion[]", "timeout?": "number.integer" },
 		"Every question of one `ask` tool call; sent only after `set_ask_dialog` enables it.",
 	),
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	FormUiRequest: doc(
+		{ type: UI, id: "string", method: "'form'", html: "string", "timeout?": "number.integer" },
+		"The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.",
+	),
+	// scient(SA-ASK-FORM): end
 	CancelUiRequest: doc(
 		{ type: UI, id: "string", method: "'cancel'", targetId: "string" },
 		"Close the dialog opened by request `targetId`; a later answer to it is ignored.",
@@ -233,10 +239,12 @@ export const frameDefs = {
 		"launchUrl?": doc("string", "Short loopback redirect to `url`; the truncation-safe copy target."),
 		"instructions?": "string",
 	},
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
 	ExtensionUiRequest: doc(
-		"SelectUiRequest | ConfirmUiRequest | InputUiRequest | EditorUiRequest | AskUiRequest | CancelUiRequest | NotifyUiRequest | SetStatusUiRequest | SetWidgetUiRequest | SetTitleUiRequest | SetEditorTextUiRequest | OpenUrlUiRequest",
+		"SelectUiRequest | ConfirmUiRequest | InputUiRequest | EditorUiRequest | AskUiRequest | FormUiRequest | CancelUiRequest | NotifyUiRequest | SetStatusUiRequest | SetWidgetUiRequest | SetTitleUiRequest | SetEditorTextUiRequest | OpenUrlUiRequest",
 		"Extension UI request, discriminated by `method`.",
 	),
+	// scient(SA-ASK-FORM): end
 	AskAnswer: doc(
 		{ id: "string", selectedOptions: "string[]", "customInput?": "string" },
 		"Answer to one `ask` question: exact option labels, plus optional free text.",
@@ -257,10 +265,16 @@ export const frameDefs = {
 		{ type: "'extension_ui_response'", id: "string", answers: "AskAnswer[]" },
 		"Answers an `ask` request: one `AskAnswer` per question, in question order.",
 	),
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	FormUiResponse: doc(
+		{ type: "'extension_ui_response'", id: "string", data: "Record<string, string | number | string[]>" },
+		"Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.",
+	),
 	ExtensionUiResponse: doc(
-		"ValueUiResponse | ConfirmUiResponse | CancelUiResponse | AnswersUiResponse",
+		"ValueUiResponse | ConfirmUiResponse | CancelUiResponse | AnswersUiResponse | FormUiResponse",
 		"Host reply to an extension UI request; variants share `type` and differ by their payload key.",
 	),
+	// scient(SA-ASK-FORM): end
 
 	HostToolCallRequest: {
 		type: "'host_tool_call'",
