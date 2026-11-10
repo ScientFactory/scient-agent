@@ -773,6 +773,52 @@ impl<'de> Deserialize<'de> for Usage {
 	}
 }
 
+/// Parent-agent IRC message carried by a steer; render it instead of the model-facing `content` envelope.
+///
+/// Open record: declared fields are decoded leniently (a value that does not fit stays
+/// in `extra`) and every other key is kept in `extra`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ParentIrc {
+	/// Sending parent agent id.
+	pub from: Option<String>,
+	/// Message body as the parent wrote it.
+	pub body: Option<String>,
+	/// Every key not decoded into a declared field.
+	pub extra: Map<String, Value>,
+}
+
+impl Serialize for ParentIrc {
+	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		let mut map = serializer.serialize_map(None)?;
+		if let Some(value) = &self.from {
+			map.serialize_entry("from", value)?;
+		}
+		if let Some(value) = &self.body {
+			map.serialize_entry("body", value)?;
+		}
+		for (key, value) in &self.extra {
+			match key.as_str() {
+				"from" if self.from.is_some() => continue,
+				"body" if self.body.is_some() => continue,
+				_ => {}
+			}
+			map.serialize_entry(key, value)?;
+		}
+		map.end()
+	}
+}
+
+impl<'de> Deserialize<'de> for ParentIrc {
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		let mut extra = Map::<String, Value>::deserialize(deserializer)?;
+		Ok(Self {
+			from: take(&mut extra, "from"),
+			body: take(&mut extra, "body"),
+			extra,
+		})
+	}
+}
+
 ///
 /// Open record: declared fields are decoded leniently (a value that does not fit stays
 /// in `extra`) and every other key is kept in `extra`.
@@ -780,6 +826,7 @@ impl<'de> Deserialize<'de> for Usage {
 pub struct UserMessage {
 	pub content: Option<MessageContent>,
 	pub timestamp: Option<f64>,
+	pub parent_irc: Option<ParentIrc>,
 	pub synthetic: Option<bool>,
 	pub steering: Option<bool>,
 	pub live_steered: Option<bool>,
@@ -798,6 +845,9 @@ impl Serialize for UserMessage {
 		}
 		if let Some(value) = &self.timestamp {
 			map.serialize_entry("timestamp", value)?;
+		}
+		if let Some(value) = &self.parent_irc {
+			map.serialize_entry("parentIrc", value)?;
 		}
 		if let Some(value) = &self.synthetic {
 			map.serialize_entry("synthetic", value)?;
@@ -821,6 +871,7 @@ impl Serialize for UserMessage {
 			match key.as_str() {
 				"content" if self.content.is_some() => continue,
 				"timestamp" if self.timestamp.is_some() => continue,
+				"parentIrc" if self.parent_irc.is_some() => continue,
 				"synthetic" if self.synthetic.is_some() => continue,
 				"steering" if self.steering.is_some() => continue,
 				"liveSteered" if self.live_steered.is_some() => continue,
@@ -841,6 +892,7 @@ impl<'de> Deserialize<'de> for UserMessage {
 		Ok(Self {
 			content: take(&mut extra, "content"),
 			timestamp: take(&mut extra, "timestamp"),
+			parent_irc: take(&mut extra, "parentIrc"),
 			synthetic: take(&mut extra, "synthetic"),
 			steering: take(&mut extra, "steering"),
 			live_steered: take(&mut extra, "liveSteered"),
@@ -4093,6 +4145,9 @@ pub struct ReadyEvent {
 	pub max_frame_bytes: Option<i64>,
 	#[serde(rename = "maxReassembledFrameBytes", default, skip_serializing_if = "Option::is_none")]
 	pub max_reassembled_frame_bytes: Option<i64>,
+	/// `bash` accepts `excludeFromContext`; require exactly true before sending excluded commands.
+	#[serde(rename = "supportsBashExcludeFromContext", default, skip_serializing_if = "Option::is_none")]
+	pub supports_bash_exclude_from_context: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -4531,6 +4586,15 @@ pub struct AskUiRequest {
 	pub timeout: Option<i64>,
 }
 
+/// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FormUiRequest {
+	pub id: String,
+	pub html: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub timeout: Option<i64>,
+}
+
 /// Close the dialog opened by request `targetId`; a later answer to it is ignored.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CancelUiRequest {
@@ -4599,6 +4663,8 @@ pub enum ExtensionUiRequest {
 	Editor(EditorUiRequest),
 	/// Every question of one `ask` tool call; sent only after `set_ask_dialog` enables it.
 	Ask(AskUiRequest),
+	/// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+	Form(FormUiRequest),
 	/// Close the dialog opened by request `targetId`; a later answer to it is ignored.
 	Cancel(CancelUiRequest),
 	Notify(NotifyUiRequest),
@@ -4618,6 +4684,7 @@ impl ExtensionUiRequest {
 			Some("input") => |value| serde_json::from_value(value).map(Self::Input),
 			Some("editor") => |value| serde_json::from_value(value).map(Self::Editor),
 			Some("ask") => |value| serde_json::from_value(value).map(Self::Ask),
+			Some("form") => |value| serde_json::from_value(value).map(Self::Form),
 			Some("cancel") => |value| serde_json::from_value(value).map(Self::Cancel),
 			Some("notify") => |value| serde_json::from_value(value).map(Self::Notify),
 			Some("setStatus") => |value| serde_json::from_value(value).map(Self::SetStatus),
@@ -4641,6 +4708,7 @@ impl Serialize for ExtensionUiRequest {
 			Self::Input(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "input")], serializer),
 			Self::Editor(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "editor")], serializer),
 			Self::Ask(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "ask")], serializer),
+			Self::Form(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "form")], serializer),
 			Self::Cancel(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "cancel")], serializer),
 			Self::Notify(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "notify")], serializer),
 			Self::SetStatus(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "setStatus")], serializer),
@@ -4698,6 +4766,13 @@ pub struct AnswersUiResponse {
 	pub answers: Vec<AskAnswer>,
 }
 
+/// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FormUiResponse {
+	pub id: String,
+	pub data: BTreeMap<String, StringOrNumberOrStringList>,
+}
+
 /// Host reply to an extension UI request; variants share `type` and differ by their payload key.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExtensionUiResponse {
@@ -4709,6 +4784,8 @@ pub enum ExtensionUiResponse {
 	CancelUiResponse(CancelUiResponse),
 	/// Answers an `ask` request: one `AskAnswer` per question, in question order.
 	AnswersUiResponse(AnswersUiResponse),
+	/// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
+	FormUiResponse(FormUiResponse),
 }
 
 impl ExtensionUiResponse {
@@ -4726,6 +4803,9 @@ impl ExtensionUiResponse {
 		if let Ok(member) = AnswersUiResponse::deserialize(&value) {
 			return Ok(Self::AnswersUiResponse(member));
 		}
+		if let Ok(member) = FormUiResponse::deserialize(&value) {
+			return Ok(Self::FormUiResponse(member));
+		}
 		Err(serde_json::Error::custom("no ExtensionUiResponse variant matches"))
 	}
 }
@@ -4737,6 +4817,7 @@ impl Serialize for ExtensionUiResponse {
 			Self::ConfirmUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
 			Self::CancelUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
 			Self::AnswersUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
+			Self::FormUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
 		}
 	}
 }
@@ -5272,6 +5353,16 @@ pub struct SetAskDialogResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetFormDialogParams {
+	pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetFormDialogResult {
+	pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GetAvailableCommandsResult {
 	pub commands: Vec<AvailableSlashCommand>,
 }
@@ -5491,6 +5582,8 @@ pub struct SetAutoRetryParams {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BashParams {
 	pub command: String,
+	#[serde(rename = "excludeFromContext", default, skip_serializing_if = "Option::is_none")]
+	pub exclude_from_context: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6009,6 +6102,15 @@ impl<'de> Deserialize<'de> for LitTrue {
 	}
 }
 
+/// Untagged union: the first variant that decodes wins.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum StringOrNumberOrStringList {
+	String(String),
+	Number(f64),
+	StringList(Vec<String>),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum HostUriResultContentType {
 	#[serde(rename = "text/markdown")]
@@ -6413,6 +6515,22 @@ impl Command for SetAskDialogCommand {
 
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		serde_json::from_value::<SetAskDialogResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.enabled)
+	}
+}
+
+/// Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetFormDialogCommand {
+	pub enabled: bool,
+}
+
+impl Command for SetFormDialogCommand {
+	const NAME: &'static str = "set_form_dialog";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = bool;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<SetFormDialogResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.enabled)
 	}
 }
 
@@ -6947,10 +7065,12 @@ impl Command for AbortRetryCommand {
 	}
 }
 
-/// Run a shell command.
+/// Run a shell command. Before excluding output, require ready.supportsBashExcludeFromContext to be true.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BashCommand {
 	pub command: String,
+	#[serde(rename = "excludeFromContext", default, skip_serializing_if = "Option::is_none")]
+	pub exclude_from_context: Option<bool>,
 }
 
 impl Command for BashCommand {

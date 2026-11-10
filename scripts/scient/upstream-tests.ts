@@ -28,84 +28,68 @@ interface KnownFailure {
 	evidence: string;
 }
 
-// Seen failing on untouched 18.18.0 on ubuntu-22.04 (2026-11-07), in 8 coding-agent-native and
-// 8 workspace bucket runs; SCIENT.md, "Eighth alignment intake", has the counts.
+// Seen failing on untouched 18.18.6 on ubuntu-22.04 (2026-11-10), in 8 coding-agent-native bucket runs;
+// SCIENT.md, "Ninth alignment intake", has the counts.
 const KNOWN_FAILURES: KnownFailure[] = [
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > first-event timeout remains a local failure and TurnRecovery continues over SSE instead of treating it as caller cancellation",
-		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
+		test: "packages/coding-agent/test/tools/browser-screenshot-background.test.ts > browser screenshots of background tabs > captures a targeted background tab without switching the user's visible tab",
+		evidence: "Failed in 8 of 8 bucket runs untouched, and in 8 of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > idle timeout remains a local failure and TurnRecovery continues over SSE instead of treating it as caller cancellation",
-		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
-	},
-	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > retains text already delivered over RPC and TurnRecovery sends a new SSE continuation, not a replay",
-		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
-	},
-	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/tools/browser-freeze-settle.test.ts > browser settle \u2014 lifecycle freeze via CDP > browser settle \u2014 real headless Chromium > closes a frozen tab directly",
-		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
-	},
-	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/tools/browser-interactions.test.ts > browser input cut off mid-gesture > a click that timed out on a page busy in its own script does not click its target once the page answers",
-		evidence: "Failed in 1 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
-	},
-	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/tools/browser-relay-detach.test.ts > relay tabs Chrome detaches Scient Agent from > keeps the recovered tab but fails an open whose navigation never started before its budget ran out",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
+		test: "packages/coding-agent/test/tools/browser-nav-frames-dialogs.test.ts > browser navigation, frames, dialogs, and tab listing > does not call a cancelled run's page listeners for the requests the cancel stops",
 		evidence: "Failed in 2 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/tools/browser-relay-tab-isolation.test.ts > relay tab ownership > opens a default tab in the browser of the tab Scient Agent used last, not the first selected one",
-		evidence: "Failed in 1 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
-	},
-	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > closes a reattached headless tab's page when the tab is released",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > leaves a tab closed while its crashed page is being reattached closed",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > leaves a tab reopened under the same name alone when the closed one's reattach fails",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > reattaches to a page Puppeteer has not listed yet because its URL is still empty",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > reports the reload when an open navigates a tab whose renderer crashed",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
 		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > closing a Scient Agent-owned page > closes the page by id when its worker reports closed without closing it",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/coding-agent/test/tools/read-pdf-screenshot-chromium.test.ts > PDF page screenshots in Chromium > paints each requested image-only page instead of the empty viewer",
-		evidence: "Failed in 2 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
+		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > 426 uses the original HTTP 429 retry, tool and usage path, stays sticky, and resets on RPC newSession",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "b5a6b2f7e5b6606b6562e678ead83f21738f34a0",
-		test: "packages/utils/test/ptree-signal.test.ts > ptree signal abort handling > aborts a pipe holder after an earlier graceful stop finishes",
-		evidence:
-			"Workspace bucket: failed in 1 of 6 runs untouched and 1 of 6 on Scient's replay in a second probe, and in 2 of 3 runs of the alignment pull request. The fixture signals readiness from the root shell before its descendant ignores SIGTERM.",
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
+		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > an active complete service outage fails boundedly, then same-address restore uses SSE until a new session",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
+		test: "packages/coding-agent/test/cli-responses-websocket-recovery.test.ts > real CLI Responses WebSocket recovery > caller cancellation creates no late recovery or sticky downgrade and the next prompt still uses WS",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "9058ab9d229663e229e2867824ba6df6f21e9e59",
+		test: "packages/coding-agent/test/tools/browser-relay-tab-isolation.test.ts > relay tab ownership > opens a default tab in the browser of the tab Scient Agent used last, not the first selected one",
+		evidence: "Failed in 1 of 8 bucket runs untouched (named for omp there), and in 2 of 8 on Scient's replay.",
 	},
 ];
 

@@ -11,7 +11,7 @@ Everything else is upstream's code and behavior.
 | Area | Change |
 |---|---|
 | Name | The executable is `scient-agent`, and shell profile aliases run it. `--version` prints `scient-agent/<version>`; `--runtime-info` prints a JSON description (product, version, upstream release and commit, RPC versions, build id) for hosts. Process titles, log files and Windows named pipes carry the name. |
-| Wording | The agent calls itself Scient Agent, and its command `scient-agent`, wherever a person or a model reads its words: messages, help, sign-in instructions, prompts, the built-in documentation, window and notification titles. `scripts/scient/rename-wording.ts` generates this. |
+| Wording | The agent calls itself Scient Agent, and its command `scient-agent`, wherever a person or a model reads its words: messages, help, sign-in instructions, prompts, the built-in documentation, window and notification titles. The prompts also address researchers: the model's role is a research and coding assistant, and each personality matches its explanations to the reader's expertise instead of assuming a technical reader. `scripts/scient/rename-wording.ts` generates this. |
 | State | The config root is `~/.scient-agent` (project folder `.scient-agent/`), or the absolute directory a host sets in `SCIENT_AGENT_ROOT`. User config lookups, the native addon cache, browser storage state and crash logs follow it. A host's root is authoritative: `SCIENT_AGENT_DIR` is ignored under it, and a `.env` in the project or the home directory cannot set any `SCIENT_AGENT_*` variable (a `.env` inside the root can). The root is taken only from the launch environment, never from a `.env`. Standalone use keeps upstream's `.env` overrides. |
 | Variables | The variables that choose where state lives have `SCIENT_AGENT_*` names: `CONFIG_DIR`, `CONFIG_FILES`, `DIR`, `PROFILE`, `SESSION_DIR`, `WORKTREE_DIR`, `AUTH_BROKER_*`, `NATIVES_DIR`, the cache database overrides, and the runtime directory, socket and configuration variables the agent hands its own workers. OMP's names for them are ignored. Tuning variables (`PI_*`) are unchanged. |
 | Discovery | A host can add foreign user-level sources with `SCIENT_AGENT_ENABLE_SOURCES` (provider ids separated by commas or whitespace). These are unioned with `enabledProviders` for discovery without changing or persisting that setting; `disabledProviders` still wins. The same aliases apply, including `claude` enabling `claude-plugins`. Under a host root, project and home `.env` files cannot add sources. |
@@ -26,6 +26,7 @@ Everything else is upstream's code and behavior.
 | Stats dashboard | The dashboard's tab icon is Scient Agent's symbol. With `SCIENT_AGENT_HOST_PAGES=1` the agent reports the dashboard's address and opens no system browser, so a host can show it. |
 | RPC output spool | While a host is not reading, the agent spools the frames it cannot deliver to a temporary folder. Past 2 GiB (`PI_RPC_SPOOL_MAX_BYTES`) it stops with exit code 1 instead of filling the disk. The folder is named `scient-agent-rpc-output-<pid>-…`, and an agent removes the folders of agents that were killed when it starts; other products' folders stay. Proposed to Oh My Pi as [#16139](https://github.com/can1357/oh-my-pi/issues/16139). |
 | Sign-ins | Over RPC the agent starts without a model (a host signs in and picks one afterwards; a model named with `--model` that cannot be resolved still ends the run). `get_login_providers` includes optional `emails` containing active stored OAuth identities, without tokens or keys; absent provider metadata stays absent. It also reports each entry's `kind` (`account` or `key`) whether a sign-in is `stored`, and the `store` it is kept under: two entries with one `store` are two ways to sign in to one account and share status and sign-out. `logout` without `credentialId` removes an entry's stored sign-ins and fails when the store still holds them afterwards; with an integer `credentialId`, it retains upstream's per-account removal and reports remaining authentication. When the active credential store is an auth broker's snapshot (`credentials.heldByBroker`), the broker owns the sign-ins: they are listed as not stored and `logout` is refused. `set_model` re-reads the sign-in store before it reports a model as missing, so a session that was already running finds a sign-in completed in another process. It revalidates the active local or broker-backed store and runs the sign-in hooks again (`ModelRegistry.reapplySignInProjections`), and rediscovers that provider's models only when the session holds no discovered catalog for it. No static reload runs, so nothing that was usable is lost. A model that only a second account of an already discovered provider has is still reported missing until the session restarts. |
+| Questions | Since Oh My Pi 18.18.3 the `ask` tool sends one HTML form, which a host without a form surface, RPC included, answers one field at a time. A host that sends `set_form_dialog` receives the whole form (`extension_ui_request` with `method: "form"` and its `html`) and answers with `data`, the form's values by control name. A host that only sends `set_ask_dialog`, as Scient Desktop did before forms, gets every field on its one ask card: choices as options with the agent's recommendation, text fields as free-text questions, and the form's other content (findings, lists, tables, code, a picture's description) in the question text. An answer that fails the form's checks comes back on the card with the reason. |
 
 Left as upstream, on purpose:
 
@@ -813,6 +814,58 @@ On macOS arm64 with Bun 1.4.4 and the repo-pinned October nightly:
 
 Not run locally: Rust tests. CI builds and checks the six platforms and runs the six buckets.
 
+### Ninth alignment intake — 2026-11-10
+
+Scient Agent 0.1.5 is aligned with Oh My Pi 18.18.6.
+
+- Frozen owned `main`: `b131cb176ce747c1c008caaa41f4da10357f2a51`.
+- Accepted source baseline: OMP `18.18.0`, `b5a6b2f7e5b6606b6562e678ead83f21738f34a0`, tag `omp-sync/v18.18.0`.
+- Target: OMP `18.18.6`, `9058ab9d229663e229e2867824ba6df6f21e9e59`, under `refs/upstream-tags/v18.18.6`: 1,002 commits (737 without merges), changing 1,028 files. Product version `0.1.5`.
+- Inventory: the 20 commits of the accepted replay, replacing all three generated commits, and the five commits on `main` after the `sync:` import, each folded into its contract: the release copy to `downloads.scientfactory.com`, OAuth email metadata for hosts and its regenerated clients, the zstd copy of each release binary, and the Intel Mac Rust cache.
+- Replay: `replay/omp-v18.18.6`: generators, identity, 17 contracts in ledger order, wording and RPC clients.
+
+| Step | Result |
+|---|---|
+| Identity generator | No stale rule and no new one; 609 files renamed. |
+| Contract commits | `SA-RELEASE` conflicted as before on the CI and Nix files it deletes. `SA-ROOT` met upstream's new OpenTelemetry handling of `.env` values in `env.ts`. `SA-AUTH` met 18.18.2's sign-out, which now goes through the agent session; one Scient test changed with it. |
+| Wording generator | No stale text; 474 files rewritten, with four new rules for the prompts (below). |
+| RPC generator | Regenerated the schema and TypeScript, Python, Rust and Go clients, now with the form messages below. |
+| Hooked files upstream changed | 20 of 56; reviewed against every ledger contract. |
+| Footprint | 126 marker blocks, 300 lines, in 58 files, from 109, 237 and 56. |
+
+Changes beyond the replay:
+
+| Change | Why |
+|---|---|
+| New contract `SA-ASK-FORM` | 18.18.3 made `ask` send one HTML form. RPC has no form surface, so every RPC host, Scient Desktop included, would have been asked one field at a time instead of on the one question card it shows today. Desktops update the agent on their own, so the fallback ships with the agent: a host that sends `set_form_dialog` receives the whole form (`form` request, answered with the form's data); a host that only sends `set_ask_dialog` gets the form on its one card, with choices as options, text fields as free-text questions, the rest of the form in the question text, and a failing answer asked again. Hidden inputs are submitted as the form has them. Upstream's test that an opted-in host is still asked field by field changes with it, in marked blocks. |
+| Prompts for researchers | Upstream's role, "trusted coding assistant", and three personality lines assumed a programmer. The role is now "Scient's trusted research and coding assistant", and each personality matches its explanations to the reader's expertise instead of assuming a technical reader. `rename-wording.ts` owns the four sentences and stops when upstream moves one. Everything else in 18.18.2's rewritten prompt comes in as written. |
+| Toolchain | Upstream's Rust nightly moved from 2026-10-06 to 2026-11-08. The generated commits were made with that toolchain's `rustfmt` first on `PATH`. |
+
+**RPC changes for Desktop.** Protocol versions stay 1 and 2. New: the `set_form_dialog` command, the `form` UI request and its response, all used only by a host that opts in. A host that does not opt in sees `ask` exactly as before.
+
+**Known failures.** The 18.18.0 entries lapsed. A probe (branch `probe/pristine-18186`, run 42796894484) ran each bucket on untouched 18.18.6 and on Scient's replay, on Scient's runner type, concurrency and per-test ceiling: `coding-agent-native` 8 times each, the other five twice each. The probe's jobs report success whatever their tests do, so their logs were read test by test. Every bucket but `coding-agent-native` passed every run on both trees.
+
+| Test | Untouched 18.18.6 | Scient's replay |
+|---|---|---|
+| "captures a targeted background tab without switching the user's visible tab" | 8 of 8 | 8 of 8 |
+| 10 tests: crashed-tab reattach, closing an owned page, cancelled page listeners, Responses WebSocket recovery | 1 or 2 of 8 each | 0 of 8 each |
+| "opens a default tab in the browser of the tab … used last" | 1 of 8 | 2 of 8 |
+| The `ask` RPC test above, before it changed with `SA-ASK-FORM` | 0 of 8 | 8 of 8 |
+| 2 tests: a click cut off mid-gesture, incomplete tool arguments over WebSocket | 0 of 8 | 1 of 8 each |
+
+The twelve that failed untouched are listed in `upstream-tests.ts` with their counts. The `ask` test failed on every replay run because the contract changes what it checks; it now checks the contract. The last two failed once each in code no Scient hook touches and are not listed; a recurrence takes a rerun or a second probe. The first CI run of this alignment read the probe's jobs as passing and listed nothing; its `coding-agent-native` job failed on the `ask` test, the background-tab screenshot, and two tests the probe never saw fail ("closes a frozen tab directly", and a Responses WebSocket first-event timeout listed for 18.18.0).
+
+#### Local checks
+
+On macOS arm64 with Bun 1.4.4 and the repo-pinned November nightly:
+- Identity and wording `--check`, the script tests (73) and `check:ts` pass; the ask fallback's tests pass (11).
+- Replay-mode divergence verification passes: 21 commits, all three generated commits equal their generators.
+- Compiled macOS arm64 executable: `--runtime-info` reports Scient Agent 0.1.5, OMP 18.18.6 at the full pin above, RPC `[1,2]`. Compiled isolation passes, the hosts contacted on startup are the same as v0.1.4's, and `capability-check.ts` passes every case.
+- Scient Desktop's live suites against the candidate and v0.1.4: the same tests fail on both. They need a model in a fresh root, which this machine lacks (its Ollama has none), or fail on v0.1.4 the same way.
+- Real turns through a Scient Desktop dev app on `main` with GPT-6 Luna: the role wording, bash with Hebrew, Chinese and accented text, a two-question `ask` form on one Desktop card with both answers received, a subagent running a paired t-test in Python (numbers checked independently), Stop and continue, Compact with earlier facts kept, `/stats` in Scient's browser, and resume after a restart. With GPT-6.1 Terra on `main` after Scient Desktop #822, a read-only computer-control call. The test found one defect, a text field's example shown as "For example: e.g. 0.05"; it was fixed and checked again in the app.
+
+Not run locally: Rust tests. CI builds and checks the six platforms and runs the six buckets.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -858,7 +911,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Fifteen tests are listed for 18.18.0. Each was seen failing on untouched 18.18.0 on the same runner type; the counts are under "Eighth alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
+Twelve tests are listed for 18.18.6. Each was seen failing on untouched 18.18.6 on the same runner type; the counts are under "Ninth alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 

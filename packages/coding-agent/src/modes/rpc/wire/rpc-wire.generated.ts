@@ -91,10 +91,19 @@ export interface Usage {
 	credits?: Record<string, unknown>;
 }
 
+/** Parent-agent IRC message carried by a steer; render it instead of the model-facing `content` envelope. */
+export interface ParentIrc {
+	/** Sending parent agent id. */
+	from: string;
+	/** Message body as the parent wrote it. */
+	body: string;
+}
+
 export interface UserMessage {
 	role: "user";
 	content: MessageContent;
 	timestamp: number;
+	parentIrc?: ParentIrc;
 	synthetic?: boolean;
 	steering?: boolean;
 	liveSteered?: boolean;
@@ -1064,6 +1073,8 @@ export interface ReadyEvent {
 	supportedProtocolVersions?: number[];
 	maxFrameBytes?: number;
 	maxReassembledFrameBytes?: number;
+	/** `bash` accepts `excludeFromContext`; require exactly true before sending excluded commands. */
+	supportsBashExcludeFromContext?: boolean;
 }
 
 export type PromptStatus = "completed" | "aborted" | "error";
@@ -1324,6 +1335,15 @@ export interface AskUiRequest {
 	timeout?: number;
 }
 
+/** The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`. */
+export interface FormUiRequest {
+	type: "extension_ui_request";
+	id: string;
+	method: "form";
+	html: string;
+	timeout?: number;
+}
+
 /** Close the dialog opened by request `targetId`; a later answer to it is ignored. */
 export interface CancelUiRequest {
 	type: "extension_ui_request";
@@ -1382,7 +1402,7 @@ export interface OpenUrlUiRequest {
 }
 
 /** Extension UI request, discriminated by `method`. */
-export type ExtensionUiRequest = SelectUiRequest | ConfirmUiRequest | InputUiRequest | EditorUiRequest | AskUiRequest | CancelUiRequest | NotifyUiRequest | SetStatusUiRequest | SetWidgetUiRequest | SetTitleUiRequest | SetEditorTextUiRequest | OpenUrlUiRequest;
+export type ExtensionUiRequest = SelectUiRequest | ConfirmUiRequest | InputUiRequest | EditorUiRequest | AskUiRequest | FormUiRequest | CancelUiRequest | NotifyUiRequest | SetStatusUiRequest | SetWidgetUiRequest | SetTitleUiRequest | SetEditorTextUiRequest | OpenUrlUiRequest;
 
 /** Answer to one `ask` question: exact option labels, plus optional free text. */
 export interface AskAnswer {
@@ -1420,8 +1440,15 @@ export interface AnswersUiResponse {
 	answers: AskAnswer[];
 }
 
+/** Answers a `form` request with the form's data by control name: text, a number, or a group's checked values. */
+export interface FormUiResponse {
+	type: "extension_ui_response";
+	id: string;
+	data: Record<string, string | number | string[]>;
+}
+
 /** Host reply to an extension UI request; variants share `type` and differ by their payload key. */
-export type ExtensionUiResponse = ValueUiResponse | ConfirmUiResponse | CancelUiResponse | AnswersUiResponse;
+export type ExtensionUiResponse = ValueUiResponse | ConfirmUiResponse | CancelUiResponse | AnswersUiResponse | FormUiResponse;
 
 export interface HostToolCallRequest {
 	type: "host_tool_call";
@@ -1615,6 +1642,14 @@ export interface SetAskDialogResult {
 	enabled: boolean;
 }
 
+export interface SetFormDialogParams {
+	enabled: boolean;
+}
+
+export interface SetFormDialogResult {
+	enabled: boolean;
+}
+
 export interface GetAvailableCommandsResult {
 	commands: AvailableSlashCommand[];
 }
@@ -1775,6 +1810,7 @@ export interface SetAutoRetryParams {
 
 export interface BashParams {
 	command: string;
+	excludeFromContext?: boolean;
 }
 
 export interface GetSessionLeaseParams {
@@ -1931,6 +1967,7 @@ export interface RpcWireCommands {
 	set_slow_mode: { params: SetSlowModeParams; result: SetSlowModeResult };
 	goal: { params: GoalParams; result: GoalResult };
 	set_ask_dialog: { params: SetAskDialogParams; result: SetAskDialogResult };
+	set_form_dialog: { params: SetFormDialogParams; result: SetFormDialogResult };
 	get_available_commands: { params: undefined; result: GetAvailableCommandsResult };
 	get_entries: { params: GetEntriesParams; result: SessionEntries };
 	get_tree: { params: undefined; result: SessionTree };

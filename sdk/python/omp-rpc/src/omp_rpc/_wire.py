@@ -191,8 +191,8 @@ _WIDGET_PLACEMENT_VALUES: Final[frozenset[str]] = frozenset({"aboveEditor", "bel
 _decode_widget_placement = cast("Decoder[WidgetPlacement]", literal(_WIDGET_PLACEMENT_VALUES))
 
 
-ExtensionUiMethod: TypeAlias = Literal["select", "confirm", "input", "editor", "ask", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"]
-_EXTENSION_UI_METHOD_VALUES: Final[frozenset[str]] = frozenset({"select", "confirm", "input", "editor", "ask", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"})
+ExtensionUiMethod: TypeAlias = Literal["select", "confirm", "input", "editor", "ask", "form", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"]
+_EXTENSION_UI_METHOD_VALUES: Final[frozenset[str]] = frozenset({"select", "confirm", "input", "editor", "ask", "form", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"})
 _decode_extension_ui_method = cast("Decoder[ExtensionUiMethod]", literal(_EXTENSION_UI_METHOD_VALUES))
 
 
@@ -277,10 +277,15 @@ class Usage(TypedDict):
     credits: NotRequired[JsonObject]
 
 
+ParentIrc = TypedDict("ParentIrc", {"from": "str", "body": "str"})
+"""Parent-agent IRC message carried by a steer; render it instead of the model-facing `content` envelope."""
+
+
 class UserMessage(TypedDict):
     role: Literal["user"]
     content: MessageContent
     timestamp: float
+    parentIrc: NotRequired[ParentIrc]
     synthetic: NotRequired[bool]
     steering: NotRequired[bool]
     liveSteered: NotRequired[bool]
@@ -1271,6 +1276,8 @@ class ReadyEvent:
     supported_protocol_versions: tuple[int, ...] | None = None
     max_frame_bytes: int | None = None
     max_reassembled_frame_bytes: int | None = None
+    supports_bash_exclude_from_context: bool | None = None
+    """`bash` accepts `excludeFromContext`; require exactly true before sending excluded commands."""
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1548,6 +1555,16 @@ class AskUiRequest:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class FormUiRequest:
+    """The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`."""
+    type: Literal["extension_ui_request"] = "extension_ui_request"
+    id: str
+    method: Literal["form"] = "form"
+    html: str
+    timeout: int | None = None
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class CancelUiRequest:
     """Close the dialog opened by request `targetId`; a later answer to it is ignored."""
     type: Literal["extension_ui_request"] = "extension_ui_request"
@@ -1627,6 +1644,7 @@ class ExtensionUiRequest(ExtensionUiRequestMixin):
     prefill: str | None = None
     prompt_style: bool | None = None
     questions: tuple[AskQuestion, ...] | None = None
+    html: str | None = None
     target_id: str | None = None
     notify_type: NotifyType | None = None
     status_key: str | None = None
@@ -1755,6 +1773,10 @@ parse_usage_cost = cast("Decoder[UsageCost]", open_record(None, None))
 
 parse_usage = cast("Decoder[Usage]", open_record(None, None))
 """Decodes a `Usage` open record: checks the discriminator and keeps every key."""
+
+
+parse_parent_irc = cast("Decoder[ParentIrc]", open_record(None, None))
+"""Decodes a `ParentIrc` open record: checks the discriminator and keeps every key."""
 
 
 parse_user_message = cast("Decoder[UserMessage]", open_record("role", frozenset({"user"})))
@@ -2723,6 +2745,7 @@ def parse_ready_event(value: object, path: str = "ReadyEvent") -> ReadyEvent:
         supported_protocol_versions=optional(payload, "supportedProtocolVersions", array(decode_int), path),
         max_frame_bytes=optional(payload, "maxFrameBytes", decode_int, path),
         max_reassembled_frame_bytes=optional(payload, "maxReassembledFrameBytes", decode_int, path),
+        supports_bash_exclude_from_context=optional(payload, "supportsBashExcludeFromContext", decode_bool, path),
     )
 
 
@@ -3035,6 +3058,17 @@ def parse_ask_ui_request(value: object, path: str = "AskUiRequest") -> AskUiRequ
     )
 
 
+def parse_form_ui_request(value: object, path: str = "FormUiRequest") -> FormUiRequest:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["extension_ui_request"]]', literal(frozenset({"extension_ui_request"}))), path)
+    required(payload, "method", cast('Decoder[Literal["form"]]', literal(frozenset({"form"}))), path)
+    return FormUiRequest(
+        id=required(payload, "id", decode_str, path),
+        html=required(payload, "html", decode_str, path),
+        timeout=optional(payload, "timeout", decode_int, path),
+    )
+
+
 def parse_cancel_ui_request(value: object, path: str = "CancelUiRequest") -> CancelUiRequest:
     payload = expect_object(value, path)
     required(payload, "type", cast('Decoder[Literal["extension_ui_request"]]', literal(frozenset({"extension_ui_request"}))), path)
@@ -3127,6 +3161,7 @@ def parse_extension_ui_request(value: object, path: str = "ExtensionUiRequest") 
         prefill=optional(payload, "prefill", decode_str, path),
         prompt_style=optional(payload, "promptStyle", decode_bool, path),
         questions=optional(payload, "questions", array(parse_ask_question), path),
+        html=optional(payload, "html", decode_str, path),
         target_id=optional(payload, "targetId", decode_str, path),
         notify_type=optional(payload, "notifyType", _decode_notify_type, path),
         status_key=optional(payload, "statusKey", decode_str, path),
@@ -3423,6 +3458,12 @@ class WireClient:
         params["enabled"] = enabled
         return required(expect_object(self._command("set_ask_dialog", params), "set_ask_dialog"), "enabled", decode_bool, "set_ask_dialog")
 
+    def set_form_dialog(self, enabled: bool) -> bool:
+        """Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting."""
+        params: dict[str, object] = {}
+        params["enabled"] = enabled
+        return required(expect_object(self._command("set_form_dialog", params), "set_form_dialog"), "enabled", decode_bool, "set_form_dialog")
+
     def get_available_commands(self) -> tuple[AvailableSlashCommand, ...]:
         """List the slash-command catalog."""
         params: dict[str, object] = {}
@@ -3606,10 +3647,12 @@ class WireClient:
         params: dict[str, object] = {}
         self._command("abort_retry", params)
 
-    def bash(self, command: str) -> BashResult:
-        """Run a shell command."""
+    def bash(self, command: str, *, exclude_from_context: bool | None = None) -> BashResult:
+        """Run a shell command. Before excluding output, require ready.supportsBashExcludeFromContext to be true."""
         params: dict[str, object] = {}
         params["command"] = command
+        if exclude_from_context is not None:
+            params["excludeFromContext"] = exclude_from_context
         return parse_bash_result(self._command("bash", params), "bash")
 
     def abort_bash(self) -> None:
@@ -4073,6 +4116,7 @@ __all__ = [
     "FastModeResult",
     "FileMentionItem",
     "FileMentionMessage",
+    "FormUiRequest",
     "GetSessionLeaseResult",
     "Goal",
     "GoalModeState",
@@ -4118,6 +4162,7 @@ __all__ = [
     "NotifyUiRequest",
     "OpenSessionResult",
     "OpenUrlUiRequest",
+    "ParentIrc",
     "PromoteQueuedMessageResult",
     "PromptAck",
     "PromptError",
@@ -4263,6 +4308,7 @@ __all__ = [
     "parse_fast_mode_result",
     "parse_file_mention_item",
     "parse_file_mention_message",
+    "parse_form_ui_request",
     "parse_get_session_lease_result",
     "parse_goal",
     "parse_goal_mode_state",
@@ -4301,6 +4347,7 @@ __all__ = [
     "parse_notify_ui_request",
     "parse_open_session_result",
     "parse_open_url_ui_request",
+    "parse_parent_irc",
     "parse_promote_queued_message_result",
     "parse_prompt_ack",
     "parse_prompt_error",
