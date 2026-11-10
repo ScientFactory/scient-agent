@@ -835,6 +835,17 @@
 				"timeoutMs": null,
 				"completion": null,
 				"clientOmit": []
+			},
+			{
+				"name": "predict_next_message",
+				"doc": "The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one.",
+				"params": null,
+				"result": "PredictNextMessageResult",
+				"nullable": false,
+				"unwrap": "text",
+				"timeoutMs": 30000,
+				"completion": null,
+				"clientOmit": []
 			}
 		]
 	},
@@ -7351,6 +7362,24 @@
 			},
 			"required": [
 				"records"
+			]
+		},
+		"PredictNextMessageResult": {
+			"type": "object",
+			"properties": {
+				"text": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "null"
+						}
+					]
+				}
+			},
+			"required": [
+				"text"
 			]
 		}
 	}
