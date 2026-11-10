@@ -527,7 +527,7 @@ function expectAcpNotifications(updates: SessionNotification[]): void {
 }
 
 const cleanupRoots: string[] = [];
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 const fallbackAgentDir = path.join(getConfigRootDir(), "agent");
 
 afterEach(async () => {
@@ -536,7 +536,7 @@ afterEach(async () => {
 		setAgentDir(originalAgentDir);
 	} else {
 		setAgentDir(fallbackAgentDir);
-		delete process.env.PI_CODING_AGENT_DIR;
+		delete process.env.SCIENT_AGENT_DIR;
 	}
 	resetSettingsForTest();
 
@@ -922,7 +922,7 @@ describe("ACP agent", () => {
 		expect(result.content[0]?.text).toMatch(/Plan approved/);
 		expect(result.content[0]?.text).not.toContain(harness.cwdA);
 		expect(result.content[0]?.text).not.toContain("autosaved to");
-		const saved = path.join(harness.cwdA, ".omp", "plans", "WORDS_COUNTER_PLAN.md");
+		const saved = path.join(harness.cwdA, ".scient-agent", "plans", "WORDS_COUNTER_PLAN.md");
 		expect(await Bun.file(saved).text()).toBe("# Words Counter\n\nFile contents.");
 		expect(session.planModeState).toBeUndefined();
 
@@ -1446,9 +1446,9 @@ describe("ACP agent", () => {
 		await Bun.write(path.join(other, "wrong.ts"), "export default function wrong() {}\n");
 		await Bun.write(path.join(target, "package.json"), JSON.stringify({ omp: { extensions: ["./hello.ts"] } }));
 		await Bun.write(path.join(target, "hello.ts"), "export default function hello() {}\n");
-		await Bun.write(path.join(harness.cwdA, ".omp", "config.yml"), "extensions:\n  - ./other\n");
+		await Bun.write(path.join(harness.cwdA, ".scient-agent", "config.yml"), "extensions:\n  - ./other\n");
 		await Bun.write(
-			path.join(harness.cwdB, ".omp", "config.yml"),
+			path.join(harness.cwdB, ".scient-agent", "config.yml"),
 			"extensions:\n  - ./fleet\ndisabledExtensions:\n  - extension-module:hello\n",
 		);
 		cfgExtensions.set(Settings.instance, [other]);
@@ -2401,7 +2401,7 @@ describe("ACP agent", () => {
 
 	it("refreshes task agent descriptions on ACP /reload-plugins", async () => {
 		const harness = await createHarness();
-		const agentDir = path.join(harness.cwdA, ".omp", "agents");
+		const agentDir = path.join(harness.cwdA, ".scient-agent", "agents");
 		const agentFile = path.join(agentDir, "acp-reload-agent.md");
 		await fs.promises.mkdir(agentDir, { recursive: true });
 		await fs.promises.writeFile(

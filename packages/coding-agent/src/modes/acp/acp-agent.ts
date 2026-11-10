@@ -1033,7 +1033,7 @@ export class AcpAgent implements Agent {
 			{
 				id: "agent",
 				name: "Use existing local credentials",
-				description: "Authenticate via the provider keys/OAuth state already configured under ~/.omp.",
+				description: "Authenticate via the provider keys/OAuth state already configured under ~/.scient-agent.",
 			},
 		];
 		if (params.clientCapabilities?.auth?.terminal === true) {
@@ -1048,7 +1048,7 @@ export class AcpAgent implements Agent {
 		return {
 			protocolVersion: PROTOCOL_VERSION,
 			agentInfo: {
-				name: "omp",
+				name: "scient-agent",
 				title: "omp",
 				version: VERSION,
 			},

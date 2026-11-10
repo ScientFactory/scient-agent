@@ -78,19 +78,19 @@ describe("build service targets", () => {
 	it("maps platform, architecture, and libc to the service target and release file name", () => {
 		expect(resolveBuildHost("darwin", "arm64", false)).toEqual({
 			target: "macos-arm64",
-			fileName: "omp-darwin-arm64",
+			fileName: "scient-agent-darwin-arm64",
 		});
 		expect(resolveBuildHost("linux", "x64", true)).toEqual({
 			target: "linux-musl-x86_64",
-			fileName: "omp-linux-musl-x64",
+			fileName: "scient-agent-linux-musl-x64",
 		});
 		expect(resolveBuildHost("linux", "arm64", false)).toEqual({
 			target: "linux-arm64",
-			fileName: "omp-linux-arm64",
+			fileName: "scient-agent-linux-arm64",
 		});
 		expect(resolveBuildHost("win32", "x64", false)).toEqual({
 			target: "windows-x86_64",
-			fileName: "omp-windows-x64.exe",
+			fileName: "scient-agent-windows-x64.exe",
 		});
 	});
 
@@ -148,7 +148,7 @@ describe("fetchBuild", () => {
 		expect(requests[0].url).toBe(
 			"https://build.test/api/products/omp/latest/macos-arm64?channel=canary&from_version=18.8.8",
 		);
-		expect(requests[0].userAgent).toBe(`omp/${VERSION}`);
+		expect(requests[0].userAgent).toBe(`scient-agent/${VERSION}`);
 		expect(requests[0].signal).toBeInstanceOf(AbortSignal);
 		expect(build.patch?.fromVersion).toBe("18.8.8");
 	});
@@ -177,6 +177,6 @@ describe("fetchBuild", () => {
 				{ channel: "stable" },
 				{ host, fetchImpl: async () => Response.json({ error: "no_build" }, { status: 404 }) },
 			),
-		).rejects.toThrow("No omp stable build for macos-arm64 is published");
+		).rejects.toThrow("No scient-agent stable build for macos-arm64 is published");
 	});
 });

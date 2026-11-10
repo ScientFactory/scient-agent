@@ -626,7 +626,7 @@ describe("hindsightBackend live bank routing", () => {
 	// Regression for issue #1902: changing `hindsight.bankId` during a live
 	// session used to leave the active `HindsightSessionState` pinned to the
 	// bank that was selected when the session started, so subsequent retains
-	// kept landing in the stale bank ("omp") instead of the new one
+	// kept landing in the stale bank ("scient-agent") instead of the new one
 	// ("Minigames"). The bank-routing settings must re-resolve on `set`.
 	it("rebuilds the primary state when hindsight.bankId changes mid-session", async () => {
 		vi.spyOn(HindsightApi.prototype, "createBank").mockResolvedValue({} as never);
@@ -639,7 +639,7 @@ describe("hindsightBackend live bank routing", () => {
 		// follow-up `set` writes to `#global` while `get` keeps returning the
 		// `#overrides` value — exactly the precedence the live settings UI
 		// does NOT have, since real config writes land in `#global`.
-		cfgHindsightBankId.set(settings, "omp");
+		cfgHindsightBankId.set(settings, "scient-agent");
 		const session = makeFakeSession({ sessionId: "s-rebuild", settings });
 
 		await hindsightBackend.start({
@@ -651,7 +651,7 @@ describe("hindsightBackend live bank routing", () => {
 		});
 
 		const initial = session.getHindsightSessionState();
-		expect(initial?.bankId).toBe("omp");
+		expect(initial?.bankId).toBe("scient-agent");
 
 		cfgHindsightBankId.set(settings, "Minigames");
 		await hindsightBackend.applySettings!(session as never, ["hindsight.bankId"]);
@@ -682,14 +682,14 @@ describe("hindsightBackend live bank routing", () => {
 		});
 
 		const initial = session.getHindsightSessionState();
-		expect(initial?.bankId).toBe("omp");
+		expect(initial?.bankId).toBe("scient-agent");
 		expect(initial?.retainTags).toBeUndefined();
 
 		cfgHindsightScoping.set(settings, "per-project");
 		await hindsightBackend.applySettings!(session as never, ["hindsight.scoping"]);
 
 		const next = session.getHindsightSessionState();
-		expect(next?.bankId).toBe("omp-proj");
+		expect(next?.bankId).toBe("scient-agent-proj");
 		expect(next).not.toBe(initial);
 	});
 
@@ -702,7 +702,7 @@ describe("hindsightBackend live bank routing", () => {
 			"memory.backend": "hindsight",
 			"hindsight.apiUrl": "http://localhost:8888",
 		});
-		cfgHindsightBankId.set(settings, "omp");
+		cfgHindsightBankId.set(settings, "scient-agent");
 		const session = makeFakeSession({ sessionId: "s-noop", settings });
 
 		await hindsightBackend.start({
@@ -714,7 +714,7 @@ describe("hindsightBackend live bank routing", () => {
 		});
 
 		const initial = session.getHindsightSessionState();
-		cfgHindsightBankId.set(settings, "omp"); // unchanged
+		cfgHindsightBankId.set(settings, "scient-agent"); // unchanged
 		await hindsightBackend.applySettings!(session as never, ["hindsight.bankId"]);
 
 		expect(session.getHindsightSessionState()).toBe(initial);
@@ -779,15 +779,15 @@ describe("hindsightBackend live bank routing", () => {
 
 		const next = session.getHindsightSessionState();
 		expect(next).not.toBe(initial);
-		// With scoping=per-project the base falls back to the default ("omp"),
+		// With scoping=per-project the base falls back to the default ("scient-agent"),
 		// so the reset bank id picks up the project suffix from cwd.
-		expect(next?.bankId).toBe("omp-_new_xengamekit");
+		expect(next?.bankId).toBe("scient-agent-_new_xengamekit");
 
 		await next!.enqueueRetain("call-reset", [{ content: "post-reset fact", context: "reset routing" }]);
 		await next!.flushRetainQueue();
 
 		expect(retainBatchSpy).toHaveBeenCalledTimes(1);
-		expect(retainBatchSpy.mock.calls[0][0]).toBe("omp-_new_xengamekit");
+		expect(retainBatchSpy.mock.calls[0][0]).toBe("scient-agent-_new_xengamekit");
 	});
 
 	// Companion case: when `hindsight.scoping` is `global`, clearing the
@@ -817,13 +817,13 @@ describe("hindsightBackend live bank routing", () => {
 		await hindsightBackend.applySettings!(session as never, ["hindsight.bankId"]);
 
 		const next = session.getHindsightSessionState();
-		expect(next?.bankId).toBe("omp");
+		expect(next?.bankId).toBe("scient-agent");
 
 		await next!.enqueueRetain("call-reset-global", [{ content: "post-reset global fact" }]);
 		await next!.flushRetainQueue();
 
 		expect(retainBatchSpy).toHaveBeenCalledTimes(1);
-		expect(retainBatchSpy.mock.calls[0][0]).toBe("omp");
+		expect(retainBatchSpy.mock.calls[0][0]).toBe("scient-agent");
 	});
 
 	it("coalesces synchronous routing edits so rebuilt states do not leak agent listeners", async () => {
@@ -834,7 +834,7 @@ describe("hindsightBackend live bank routing", () => {
 			"hindsight.apiUrl": "http://localhost:8888",
 			"hindsight.retainEveryNTurns": 1,
 		});
-		cfgHindsightBankId.set(settings, "omp");
+		cfgHindsightBankId.set(settings, "scient-agent");
 		cfgHindsightScoping.set(settings, "global");
 		const entries = [
 			{ role: "user" as const, text: "remember this routing coalesce fact" },
@@ -956,18 +956,18 @@ describe("hindsightBackend cwd rebind", () => {
 			agentDir: "/tmp",
 			taskDepth: 0,
 		});
-		expect(session.getHindsightSessionState()?.bankId).toBe("omp-source");
+		expect(session.getHindsightSessionState()?.bankId).toBe("scient-agent-source");
 
 		deps.cwd = "/work/destination";
 		await rebindMemoryBackendForCwd(session as never);
 
 		const next = session.getHindsightSessionState();
-		expect(next?.bankId).toBe("omp-destination");
+		expect(next?.bankId).toBe("scient-agent-destination");
 
 		await next!.enqueueRetain("call-destination", [{ content: "fact from the destination project" }]);
 		await next!.flushRetainQueue();
 		expect(retainBatchSpy).toHaveBeenCalledTimes(1);
-		expect(retainBatchSpy.mock.calls[0][0]).toBe("omp-destination");
+		expect(retainBatchSpy.mock.calls[0][0]).toBe("scient-agent-destination");
 	});
 
 	it.each([
@@ -1144,7 +1144,7 @@ describe("hindsightBackend retain queue flush on session teardown", () => {
 		const settings = Settings.isolated({
 			"memory.backend": "hindsight",
 			"hindsight.apiUrl": "http://localhost:8888",
-			"hindsight.bankId": "omp",
+			"hindsight.bankId": "scient-agent",
 		});
 		const session = makeFakeSession({ sessionId: "s-dispose-flush", settings });
 
@@ -1164,7 +1164,7 @@ describe("hindsightBackend retain queue flush on session teardown", () => {
 
 		expect(retainBatchSpy).toHaveBeenCalledTimes(1);
 		const [bankId, items] = retainBatchSpy.mock.calls[0];
-		expect(bankId).toBe("omp");
+		expect(bankId).toBe("scient-agent");
 		expect(items).toHaveLength(1);
 		expect(items[0].content).toBe("durable fact");
 		expect(items[0].timestamp).toBeInstanceOf(Date);

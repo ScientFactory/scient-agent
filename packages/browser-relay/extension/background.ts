@@ -21,7 +21,7 @@ import { ownedDebuggerTabs } from "./debugger-ownership";
 import { DownloadPairing } from "./download-pairing";
 import { pastForeignFrames } from "./foreign-frames";
 
-const DEFAULT_PORT = 9224;
+const DEFAULT_PORT = 9324;
 const PING_INTERVAL_MS = 20_000;
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 10_000;

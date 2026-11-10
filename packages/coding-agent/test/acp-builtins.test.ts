@@ -688,13 +688,13 @@ describe("ACP builtin slash commands", () => {
 	it("dump: outputs transcript with LLM request JSON path when sidecar succeeds", async () => {
 		const { output, runtime } = createRuntime();
 		runtime.session.formatSessionAsText = () => "Session content here";
-		runtime.session.dumpLlmRequestToTmpDir = async () => "/tmp/omp-llm-request-test.json";
+		runtime.session.dumpLlmRequestToTmpDir = async () => "/tmp/scient-agent-llm-request-test.json";
 
 		const result = await executeAcpBuiltinSlashCommand("/dump", runtime);
 
 		expect(result).toEqual({ consumed: true });
 		expect(output[0]).toContain("Session content here");
-		expect(output[0]).toContain("LLM request JSON: /tmp/omp-llm-request-test.json");
+		expect(output[0]).toContain("LLM request JSON: /tmp/scient-agent-llm-request-test.json");
 		expect(output[0]).toContain("persists on disk");
 	});
 
@@ -724,7 +724,7 @@ describe("ACP builtin slash commands", () => {
 		const { output, runtime } = createRuntime();
 		runtime.session.formatSessionAsText = () => "Session content here";
 		runtime.session.dumpSessionArchiveToTmpDir = async () => ({
-			path: "/tmp/omp-dump-test.zip",
+			path: "/tmp/scient-agent-dump-test.zip",
 			files: ["session.md", "llm-request.json", "subagents/Scout.md"],
 			subagentCount: 1,
 			subagentError: "EACCES: permission denied",
@@ -734,7 +734,7 @@ describe("ACP builtin slash commands", () => {
 		await executeAcpBuiltinSlashCommand("/dump", runtime);
 		await executeAcpBuiltinSlashCommand("/dump everything", runtime);
 
-		expect(output[0]).toContain("Session dump archive: /tmp/omp-dump-test.zip");
+		expect(output[0]).toContain("Session dump archive: /tmp/scient-agent-dump-test.zip");
 		expect(output[0]).toContain("  subagents/Scout.md");
 		expect(output[0]).toContain("Subagent transcripts unavailable: EACCES: permission denied");
 		expect(output[1]).toBe("Session content here");
@@ -1163,8 +1163,8 @@ describe("wave 3 commands", () => {
 		const repoDir = path.join(root, "repo");
 		const worktreeBase = path.join(root, "wt");
 		const originalProjectDir = process.cwd();
-		const originalWorktreeDir = process.env.OMP_WORKTREE_DIR;
-		process.env.OMP_WORKTREE_DIR = worktreeBase;
+		const originalWorktreeDir = process.env.SCIENT_AGENT_WORKTREE_DIR;
+		process.env.SCIENT_AGENT_WORKTREE_DIR = worktreeBase;
 		const git = async (...args: string[]) => {
 			const proc = Bun.spawn(["git", ...args], { cwd: repoDir, stdout: "pipe", stderr: "pipe" });
 			const [stdout, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
@@ -1203,8 +1203,8 @@ describe("wave 3 commands", () => {
 			expect(await git("symbolic-ref", "HEAD")).toBe("refs/heads/main");
 		} finally {
 			setProjectDir(originalProjectDir);
-			if (originalWorktreeDir === undefined) delete process.env.OMP_WORKTREE_DIR;
-			else process.env.OMP_WORKTREE_DIR = originalWorktreeDir;
+			if (originalWorktreeDir === undefined) delete process.env.SCIENT_AGENT_WORKTREE_DIR;
+			else process.env.SCIENT_AGENT_WORKTREE_DIR = originalWorktreeDir;
 			await fs.rm(root, { recursive: true, force: true });
 		}
 	});
@@ -1216,8 +1216,8 @@ describe("wave 3 commands", () => {
 		const repoDir = path.join(root, "repo");
 		const worktreeBase = path.join(root, "wt");
 		const originalProjectDir = process.cwd();
-		const originalWorktreeDir = process.env.OMP_WORKTREE_DIR;
-		process.env.OMP_WORKTREE_DIR = worktreeBase;
+		const originalWorktreeDir = process.env.SCIENT_AGENT_WORKTREE_DIR;
+		process.env.SCIENT_AGENT_WORKTREE_DIR = worktreeBase;
 		const git = async (...args: string[]) => {
 			const proc = Bun.spawn(["git", ...args], { cwd: repoDir, stdout: "pipe", stderr: "pipe" });
 			const [stdout, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
@@ -1261,8 +1261,8 @@ describe("wave 3 commands", () => {
 			expect(await git("status", "--porcelain")).toBe("");
 		} finally {
 			setProjectDir(originalProjectDir);
-			if (originalWorktreeDir === undefined) delete process.env.OMP_WORKTREE_DIR;
-			else process.env.OMP_WORKTREE_DIR = originalWorktreeDir;
+			if (originalWorktreeDir === undefined) delete process.env.SCIENT_AGENT_WORKTREE_DIR;
+			else process.env.SCIENT_AGENT_WORKTREE_DIR = originalWorktreeDir;
 			await fs.rm(root, { recursive: true, force: true });
 		}
 	});
@@ -1274,8 +1274,8 @@ describe("wave 3 commands", () => {
 		const repoDir = path.join(root, "repo");
 		const worktreeBase = path.join(root, "wt");
 		const originalProjectDir = process.cwd();
-		const originalWorktreeDir = process.env.OMP_WORKTREE_DIR;
-		process.env.OMP_WORKTREE_DIR = worktreeBase;
+		const originalWorktreeDir = process.env.SCIENT_AGENT_WORKTREE_DIR;
+		process.env.SCIENT_AGENT_WORKTREE_DIR = worktreeBase;
 		const git = async (...args: string[]) => {
 			const proc = Bun.spawn(["git", ...args], { cwd: repoDir, stdout: "pipe", stderr: "pipe" });
 			const [stdout, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
@@ -1308,8 +1308,8 @@ describe("wave 3 commands", () => {
 			expect(wtDirs).toEqual([]);
 		} finally {
 			setProjectDir(originalProjectDir);
-			if (originalWorktreeDir === undefined) delete process.env.OMP_WORKTREE_DIR;
-			else process.env.OMP_WORKTREE_DIR = originalWorktreeDir;
+			if (originalWorktreeDir === undefined) delete process.env.SCIENT_AGENT_WORKTREE_DIR;
+			else process.env.SCIENT_AGENT_WORKTREE_DIR = originalWorktreeDir;
 			await fs.rm(root, { recursive: true, force: true });
 		}
 	});
@@ -1555,7 +1555,7 @@ describe("wave 4 commands", () => {
 describe("wave 5 — adapters and polish", () => {
 	// /mcp add — verify parsing and output message
 	it("/mcp add foo --url https://example.com --token X --scope project: outputs success or propagates write error", async () => {
-		// Uses project scope so it writes to /tmp/project/.omp/mcp.json which test infra controls.
+		// Uses project scope so it writes to /tmp/project/.scient-agent/mcp.json which test infra controls.
 		// We verify the command either reports success or a meaningful error (not a parse error).
 		const mcpModule = await import("@oh-my-pi/pi-coding-agent/mcp/config-writer");
 		const spy = spyOn(mcpModule, "addMCPServer").mockResolvedValue(undefined);

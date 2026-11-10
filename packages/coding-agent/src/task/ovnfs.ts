@@ -39,7 +39,7 @@ import { writeIsolationOwner } from "./isolation-ownership";
 import { captureIsolationBaseline, taskIsolationBaseDir, type WorktreeBaseline } from "./worktree";
 
 /** Record of the checkout an isolation dir stands for. */
-export const OVNFS_CHECKOUT_FILE = ".omp-ovnfs-checkout.json";
+export const OVNFS_CHECKOUT_FILE = ".scient-agent-ovnfs-checkout.json";
 
 /** Contents of {@link OVNFS_CHECKOUT_FILE}. */
 interface CheckoutRecord {

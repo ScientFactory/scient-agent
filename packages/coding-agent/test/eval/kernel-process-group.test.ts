@@ -221,7 +221,7 @@ describe("BaseKernel shutdown", () => {
 	test.skipIf(!POSIX).each(["graceful", "timeout"] as const)(
 		"kills TERM-resistant descendants after a %s leader exit",
 		async exitMode => {
-			const pidFile = `/tmp/omp-kernel-process-group-${process.pid}-${Date.now()}`;
+			const pidFile = `/tmp/scient-agent-kernel-process-group-${process.pid}-${Date.now()}`;
 			const child = `sh -c 'trap "" TERM; echo ready > "$1"; exec sleep 30' sh '${pidFile}' &`;
 			const command =
 				exitMode === "graceful"

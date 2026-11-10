@@ -64,7 +64,7 @@ describe("auto-learn skill notice", () => {
 		tempCwd = path.join(tempHome, "work");
 		await fs.mkdir(tempCwd, { recursive: true });
 		spyOn(os, "homedir").mockReturnValue(tempHome);
-		setAgentDir(path.join(tempHome, ".omp", "agent"));
+		setAgentDir(path.join(tempHome, ".scient-agent", "agent"));
 		bodies = [];
 		vi.spyOn(globalThis, "fetch").mockImplementation(
 			asGlobalFetch((_input, init) => {

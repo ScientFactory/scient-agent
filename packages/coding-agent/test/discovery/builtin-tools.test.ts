@@ -36,14 +36,14 @@ describe("native executable custom tool discovery", () => {
 		clearClaudePluginRootsCache();
 		clearFsCache();
 		originalHome = process.env.HOME;
-		originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfileEnv = process.env.OMP_PROFILE;
-		originalPiProfileEnv = process.env.PI_PROFILE;
+		originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
+		originalOmpProfileEnv = process.env.SCIENT_AGENT_PROFILE;
+		originalPiProfileEnv = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-builtin-tools-"));
 		const home = path.join(root, "home");
 		project = path.join(root, "project");
-		projectTools = path.join(project, ".omp", "tools");
-		userTools = path.join(home, ".omp", "agent", "tools");
+		projectTools = path.join(project, ".scient-agent", "tools");
+		userTools = path.join(home, ".scient-agent", "agent", "tools");
 		process.env.HOME = home;
 		vi.spyOn(os, "homedir").mockReturnValue(home);
 		setAgentDir(path.dirname(userTools));
@@ -61,9 +61,9 @@ describe("native executable custom tool discovery", () => {
 		clearFsCache();
 		vi.restoreAllMocks();
 		restoreEnvValue("HOME", originalHome);
-		restoreEnvValue("OMP_PROFILE", originalOmpProfileEnv);
-		restoreEnvValue("PI_PROFILE", originalPiProfileEnv);
-		restoreEnvValue("PI_CODING_AGENT_DIR", originalAgentDirEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE", originalOmpProfileEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfileEnv);
+		restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDirEnv);
 		__resetDirsFromEnvForTests();
 		// Loading the fixtures opens the legacy extension parse cache under the temp HOME; Windows can't remove it while open.
 		__closeExtensionParseCacheForTests();

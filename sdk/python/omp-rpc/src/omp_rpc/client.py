@@ -455,7 +455,7 @@ class RpcClient(WireClient):
         self,
         *,
         command: Sequence[str] | None = None,
-        executable: str = "omp",
+        executable: str = "scient-agent",
         provider: str | None = None,
         model: str | None = None,
         session_dir: str | Path | None = None,

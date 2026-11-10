@@ -149,7 +149,7 @@ describe("RpcPromptResults", () => {
 					stopReason: "error",
 					errorStatus: 400,
 					errorMessage:
-						"400 invalid_request_error: messages.0: bad block\nraw-http-request=/home/u/.omp/logs/x.json",
+						"400 invalid_request_error: messages.0: bad block\nraw-http-request=/home/u/.scient-agent/logs/x.json",
 				}),
 			]),
 		);

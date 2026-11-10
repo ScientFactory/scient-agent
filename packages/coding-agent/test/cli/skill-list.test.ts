@@ -21,7 +21,7 @@ beforeEach(async () => {
 	originalAgentDir = getAgentDir();
 	tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "omp-skill-list-home-"));
 	spyOn(os, "homedir").mockReturnValue(tempHome);
-	setAgentDir(path.join(tempHome, ".omp", "agent"));
+	setAgentDir(path.join(tempHome, ".scient-agent", "agent"));
 });
 
 afterEach(async () => {
@@ -125,7 +125,7 @@ describe("runSkillsCommand", () => {
 describe("handleSkillList", () => {
 	// `handleSkillList` reads the inspected directory's config through
 	// `Settings.init({ cwd })`, which returns an already-initialized singleton
-	// unchanged; start from none so the fixture's `.omp/config.yml` is read.
+	// unchanged; start from none so the fixture's `.scient-agent/config.yml` is read.
 	beforeEach(() => {
 		resetSettingsForTest();
 	});
@@ -147,7 +147,7 @@ describe("handleSkillList", () => {
 			);
 		}
 		await Bun.write(
-			path.join(directory, ".omp", "config.yml"),
+			path.join(directory, ".scient-agent", "config.yml"),
 			"skills:\n  customDirectories:\n    - first\n    - second\n",
 		);
 
@@ -199,7 +199,7 @@ describe("handleSkillList", () => {
 
 		const readJson = async (projectConfig?: string) => {
 			resetSettingsForTest();
-			const configPath = path.join(projectDir, ".omp", "config.yml");
+			const configPath = path.join(projectDir, ".scient-agent", "config.yml");
 			if (projectConfig === undefined) {
 				await fs.rm(path.dirname(configPath), { recursive: true, force: true });
 			} else {

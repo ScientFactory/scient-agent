@@ -62,13 +62,13 @@ describe("run status OSC 7501 reporting", () => {
 		setRunStatus({ state: "error", msg: " \n " });
 
 		expect(writes).toEqual([
-			report("state=working:app=omp"),
+			report("state=working:app=scient-agent"),
 			report(
-				`state=blocked:kind=question:app=omp:msg=${Buffer.from("Which branch? main or dev?").toString("base64")}`,
+				`state=blocked:kind=question:app=scient-agent:msg=${Buffer.from("Which branch? main or dev?").toString("base64")}`,
 			),
-			report("state=done:app=omp"),
-			report(`state=error:app=omp:msg=${Buffer.from("boom").toString("base64")}`),
-			report("state=error:app=omp"),
+			report("state=done:app=scient-agent"),
+			report(`state=error:app=scient-agent:msg=${Buffer.from("boom").toString("base64")}`),
+			report("state=error:app=scient-agent"),
 		]);
 	});
 
@@ -94,7 +94,7 @@ describe("run status OSC 7501 reporting", () => {
 		writes.length = 0;
 		initProgramStatus();
 		setRunStatus({ state: "idle" });
-		expect(writes).toEqual([report("state=idle:app=omp")]);
+		expect(writes).toEqual([report("state=idle:app=scient-agent")]);
 	});
 
 	it("clears the record when turned off and reports the current status when turned back on", () => {
@@ -105,7 +105,7 @@ describe("run status OSC 7501 reporting", () => {
 		setRunStatus({ state: "blocked", kind: "permission" });
 		setProgramStatusEnabled(true);
 
-		expect(writes).toEqual([CLEAR, report("state=blocked:kind=permission:app=omp")]);
+		expect(writes).toEqual([CLEAR, report("state=blocked:kind=permission:app=scient-agent")]);
 	});
 
 	it("re-sends prompt-invalidated working and blocked records but never repeats a done result", () => {
@@ -117,11 +117,15 @@ describe("run status OSC 7501 reporting", () => {
 		resendProgramStatus();
 
 		expect(writes).toEqual([
-			report("state=working:app=omp"),
-			report("state=working:app=omp"),
-			report(`state=blocked:kind=permission:app=omp:msg=${Buffer.from("Approve the command?").toString("base64")}`),
-			report(`state=blocked:kind=permission:app=omp:msg=${Buffer.from("Approve the command?").toString("base64")}`),
-			report("state=done:app=omp"),
+			report("state=working:app=scient-agent"),
+			report("state=working:app=scient-agent"),
+			report(
+				`state=blocked:kind=permission:app=scient-agent:msg=${Buffer.from("Approve the command?").toString("base64")}`,
+			),
+			report(
+				`state=blocked:kind=permission:app=scient-agent:msg=${Buffer.from("Approve the command?").toString("base64")}`,
+			),
+			report("state=done:app=scient-agent"),
 		]);
 	});
 
@@ -135,7 +139,7 @@ describe("run status OSC 7501 reporting", () => {
 		setRunStatus({ state: "working" });
 		setRunStatus({ state: "done" });
 		settleStartupRun();
-		expect(writes).toEqual([report("state=working:app=omp"), report("state=done:app=omp")]);
+		expect(writes).toEqual([report("state=working:app=scient-agent"), report("state=done:app=scient-agent")]);
 
 		disposeProgramStatus();
 		writes.length = 0;
@@ -146,6 +150,6 @@ describe("run status OSC 7501 reporting", () => {
 		expect(titleGenerator.setTerminalTitleState).toHaveBeenLastCalledWith("working");
 		setProgramStatusEnabled(true);
 		settleStartupRun();
-		expect(writes).toEqual([report("state=working:app=omp"), report("state=idle:app=omp")]);
+		expect(writes).toEqual([report("state=working:app=scient-agent"), report("state=idle:app=scient-agent")]);
 	});
 });
