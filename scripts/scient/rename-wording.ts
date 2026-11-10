@@ -412,11 +412,7 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 	"crates/pi-natives/src/oauth_callback/linux.rs": [["Name=omp OAuth Callback", `Name=${PRODUCT} OAuth Callback`]],
 	"crates/pi-natives/src/applefm/mod.rs": [["This omp build", `This ${PRODUCT} build`]],
 	"crates/pi-voice/src/device/linux.rs": [['c"omp"', `c"${COMMAND}"`]],
-	// Prompts, where the model reads the agent's words as rewritten above: the
-	// role it is given, and things that are the agent's rather than the product's.
-	"packages/coding-agent/src/prompts/system/system-prompt.md": [
-		[`You are ${PRODUCT}'s trusted coding assistant.`, "You are Scient's trusted coding assistant."],
-	],
+	// Prompts, where things are the agent's rather than the product's.
 	"packages/coding-agent/src/prompts/internal-urls/cfg.md": [
 		[`\`cfg://\`: ${COMMAND} settings;`, "`cfg://`: agent settings;"],
 	],
@@ -430,6 +426,50 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 	// The Python client's README, which names the command the client starts.
 	"sdk/python/omp-rpc/README.md": [["omp --mode rpc", `${COMMAND} --mode rpc`]],
 };
+
+/** Exact research-audience anchors; the role also accepts the previous generated wording. */
+const RESEARCH_WORDING = [
+	{
+		file: "packages/coding-agent/src/prompts/system/system-prompt.md",
+		from: [`You are ${PRODUCT}'s trusted coding assistant.`, "You are Scient's trusted coding assistant."],
+		to: "You are Scient's trusted research and coding assistant.",
+	},
+	{
+		file: "packages/coding-agent/src/prompts/system/personalities/default.md",
+		from: ["- Assume technical reader; don't narrate obvious steps or over-explain basics."],
+		to: "- Match the reader's expertise; explain unfamiliar concepts when needed.",
+	},
+	{
+		file: "packages/coding-agent/src/prompts/system/personalities/friendly.md",
+		from: ["- MUST assume reader technical; warmth NEVER means dumbing down."],
+		to: "- Match the reader's expertise; warmth NEVER means sacrificing precision.",
+	},
+	{
+		file: "packages/coding-agent/src/prompts/system/personalities/pragmatic.md",
+		from: ["- MUST assume reader technical."],
+		to: "- Match the reader's expertise.",
+	},
+];
+
+/** Validate every named file before returning any writes; generic product naming runs first. */
+export function researchWording(read: (file: string) => string | undefined): Map<string, string> {
+	const results = new Map<string, string>();
+	for (const { file, from, to } of RESEARCH_WORDING) {
+		const source = read(file);
+		if (source === undefined) throw new Error(`${file} (no such file): ${from.join(" or ")}`);
+		const text = rewriteProse(file, source);
+		const count = [...from, to].reduce((total, sentence) => total + text.split(sentence).length - 1, 0);
+		if (count !== 1) {
+			throw new Error(
+				`${file}: expected exactly one source or replaced sentence (${count} found): ${from.join(" or ")} => ${to}`,
+			);
+		}
+		let next = text;
+		for (const sentence of from) next = next.replace(sentence, to);
+		results.set(file, next);
+	}
+	return results;
+}
 
 const isCommentLine = (line: string): boolean => /^\s*(?:\/\/|\/\*|\*)/.test(line);
 
@@ -506,6 +546,11 @@ if (import.meta.main) {
 	if (missing.length > 0) {
 		console.error(`Listed texts that are no longer in the source:\n  ${missing.join("\n  ")}`);
 		process.exit(1);
+	}
+
+	// Validate all research anchors before the first file is written, even if a file moved out of scope.
+	for (const [file, next] of researchWording(file => results.get(file)?.next ?? read(file))) {
+		results.set(file, { source: results.get(file)?.source ?? read(file)!, next });
 	}
 
 	const changedFiles = [...results].filter(([, result]) => result.next !== result.source).map(([file]) => file);

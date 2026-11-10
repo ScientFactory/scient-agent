@@ -111,6 +111,15 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 		result: { enabled: "boolean" },
 		unwrap: "enabled",
 	},
+	// scient(SA-ASK-FORM): begin - The ask tool's form reaches a host whole, or on its ask card.
+	{
+		name: "set_form_dialog",
+		doc: "Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.",
+		params: { enabled: "boolean" },
+		result: { enabled: "boolean" },
+		unwrap: "enabled",
+	},
+	// scient(SA-ASK-FORM): end
 	{
 		name: "get_available_commands",
 		doc: "List the slash-command catalog.",
@@ -264,7 +273,12 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	},
 	{ name: "set_auto_retry", doc: "Enable or disable auto-retry.", params: { enabled: "boolean" } },
 	{ name: "abort_retry", doc: "Abort a pending auto-retry." },
-	{ name: "bash", doc: "Run a shell command.", params: { command: "string" }, result: "BashResult" },
+	{
+		name: "bash",
+		doc: "Run a shell command. Before excluding output, require ready.supportsBashExcludeFromContext to be true.",
+		params: { command: "string", "excludeFromContext?": "boolean" },
+		result: "BashResult",
+	},
 	{ name: "abort_bash", doc: "Abort the running shell command." },
 
 	{ name: "get_session_stats", doc: "Session statistics.", result: "SessionStats" },

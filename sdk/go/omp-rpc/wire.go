@@ -535,9 +535,43 @@ func (v Usage) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), "", v.Extra)
 }
 
+// Parent-agent IRC message carried by a steer; render it instead of the model-facing `content` envelope.
+type ParentIrc struct {
+	// Sending parent agent id.
+	From string `json:"from"`
+	// Message body as the parent wrote it.
+	Body string `json:"body"`
+	// Extra holds undeclared keys and declared keys whose value did not decode (that field stays zero).
+	// Encoding writes them back, over a declared field with the same key.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+func (v *ParentIrc) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "ParentIrc", v.decodeFrom)
+}
+
+func (v *ParentIrc) decodeFrom(raw map[string]json.RawMessage) error {
+	var out ParentIrc
+	d := fieldDecoder{raw: raw, owner: "ParentIrc", open: true}
+	d.required("from", &out.From)
+	d.required("body", &out.Body)
+	out.Extra = d.rest()
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v ParentIrc) MarshalJSON() ([]byte, error) {
+	type plain ParentIrc
+	return encodeObject(plain(v), "", v.Extra)
+}
+
 type UserMessage struct {
 	Content          MessageContent             `json:"content"`
 	Timestamp        float64                    `json:"timestamp"`
+	ParentIrc        *ParentIrc                 `json:"parentIrc,omitempty"`
 	Synthetic        *bool                      `json:"synthetic,omitempty"`
 	Steering         *bool                      `json:"steering,omitempty"`
 	LiveSteered      *bool                      `json:"liveSteered,omitempty"`
@@ -559,6 +593,7 @@ func (v *UserMessage) decodeFrom(raw map[string]json.RawMessage) error {
 	d.constant("role", "user")
 	d.required("content", &out.Content)
 	d.required("timestamp", &out.Timestamp)
+	d.optional("parentIrc", &out.ParentIrc)
 	d.optional("synthetic", &out.Synthetic)
 	d.optional("steering", &out.Steering)
 	d.optional("liveSteered", &out.LiveSteered)
@@ -4726,6 +4761,8 @@ type ReadyEvent struct {
 	SupportedProtocolVersions []int64 `json:"supportedProtocolVersions,omitempty"`
 	MaxFrameBytes             *int64  `json:"maxFrameBytes,omitempty"`
 	MaxReassembledFrameBytes  *int64  `json:"maxReassembledFrameBytes,omitempty"`
+	// `bash` accepts `excludeFromContext`; require exactly true before sending excluded commands.
+	SupportsBashExcludeFromContext *bool `json:"supportsBashExcludeFromContext,omitempty"`
 }
 
 func (v *ReadyEvent) UnmarshalJSON(data []byte) error {
@@ -4740,6 +4777,7 @@ func (v *ReadyEvent) decodeFrom(raw map[string]json.RawMessage) error {
 	d.optional("supportedProtocolVersions", &out.SupportedProtocolVersions)
 	d.optional("maxFrameBytes", &out.MaxFrameBytes)
 	d.optional("maxReassembledFrameBytes", &out.MaxReassembledFrameBytes)
+	d.optional("supportsBashExcludeFromContext", &out.SupportsBashExcludeFromContext)
 	if d.err != nil {
 		return d.err
 	}
@@ -5822,6 +5860,37 @@ func (v AskUiRequest) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_request","method":"ask"`, nil)
 }
 
+// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+type FormUiRequest struct {
+	ID      string `json:"id"`
+	HTML    string `json:"html"`
+	Timeout *int64 `json:"timeout,omitempty"`
+}
+
+func (v *FormUiRequest) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "FormUiRequest", v.decodeFrom)
+}
+
+func (v *FormUiRequest) decodeFrom(raw map[string]json.RawMessage) error {
+	var out FormUiRequest
+	d := fieldDecoder{raw: raw, owner: "FormUiRequest"}
+	d.constant("type", "extension_ui_request")
+	d.required("id", &out.ID)
+	d.constant("method", "form")
+	d.required("html", &out.HTML)
+	d.optional("timeout", &out.Timeout)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v FormUiRequest) MarshalJSON() ([]byte, error) {
+	type plain FormUiRequest
+	return encodeObject(plain(v), `"type":"extension_ui_request","method":"form"`, nil)
+}
+
 // Close the dialog opened by request `targetId`; a later answer to it is ignored.
 type CancelUiRequest struct {
 	ID       string `json:"id"`
@@ -6048,6 +6117,7 @@ func (ConfirmUiRequest) isExtensionUiRequest()       {}
 func (InputUiRequest) isExtensionUiRequest()         {}
 func (EditorUiRequest) isExtensionUiRequest()        {}
 func (AskUiRequest) isExtensionUiRequest()           {}
+func (FormUiRequest) isExtensionUiRequest()          {}
 func (CancelUiRequest) isExtensionUiRequest()        {}
 func (NotifyUiRequest) isExtensionUiRequest()        {}
 func (SetStatusUiRequest) isExtensionUiRequest()     {}
@@ -6081,6 +6151,8 @@ func (v *ExtensionUiRequest) decodeFrom(raw map[string]json.RawMessage) error {
 		value, err = decodeVariant[EditorUiRequest](raw)
 	case "ask":
 		value, err = decodeVariant[AskUiRequest](raw)
+	case "form":
+		value, err = decodeVariant[FormUiRequest](raw)
 	case "cancel":
 		value, err = decodeVariant[CancelUiRequest](raw)
 	case "notify":
@@ -6242,6 +6314,73 @@ func (v AnswersUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
 }
 
+// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
+type FormUiResponse struct {
+	ID   string                                 `json:"id"`
+	Data map[string]StringOrNumberOrStringArray `json:"data"`
+}
+
+func (v *FormUiResponse) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "FormUiResponse", v.decodeFrom)
+}
+
+func (v *FormUiResponse) decodeFrom(raw map[string]json.RawMessage) error {
+	var out FormUiResponse
+	d := fieldDecoder{raw: raw, owner: "FormUiResponse"}
+	d.constant("type", "extension_ui_response")
+	d.required("id", &out.ID)
+	d.required("data", &out.Data)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v FormUiResponse) MarshalJSON() ([]byte, error) {
+	type plain FormUiResponse
+	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
+}
+
+// StringOrNumberOrStringArray holds exactly one of its fields, chosen by the JSON kind of the value.
+type StringOrNumberOrStringArray struct {
+	String *string
+	Number *float64
+	Array  []string
+}
+
+func (v StringOrNumberOrStringArray) MarshalJSON() ([]byte, error) {
+	switch {
+	case v.String != nil:
+		return json.Marshal(*v.String)
+	case v.Number != nil:
+		return json.Marshal(*v.Number)
+	case v.Array != nil:
+		return json.Marshal(v.Array)
+	}
+	return nil, emptyUnion("StringOrNumberOrStringArray")
+}
+
+func (v *StringOrNumberOrStringArray) UnmarshalJSON(data []byte) error {
+	var out StringOrNumberOrStringArray
+	var err error
+	switch jsonKind(data) {
+	case '"':
+		err = json.Unmarshal(data, &out.String)
+	case '0':
+		err = json.Unmarshal(data, &out.Number)
+	case '[':
+		err = json.Unmarshal(data, &out.Array)
+	default:
+		return unexpectedKind("StringOrNumberOrStringArray", data)
+	}
+	if err != nil {
+		return err
+	}
+	*v = out
+	return nil
+}
+
 // Host reply to an extension UI request; variants share `type` and differ by their payload key.
 type ExtensionUiResponse struct {
 	// Value holds one variant. Encode-only: no discriminator tells the variants apart.
@@ -6257,6 +6396,7 @@ func (ValueUiResponse) isExtensionUiResponse()   {}
 func (ConfirmUiResponse) isExtensionUiResponse() {}
 func (CancelUiResponse) isExtensionUiResponse()  {}
 func (AnswersUiResponse) isExtensionUiResponse() {}
+func (FormUiResponse) isExtensionUiResponse()    {}
 
 func (v ExtensionUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeVariant("ExtensionUiResponse", v.Value)
@@ -6609,6 +6749,7 @@ func (ValueUiResponse) isRpcInbound()   {}
 func (ConfirmUiResponse) isRpcInbound() {}
 func (CancelUiResponse) isRpcInbound()  {}
 func (AnswersUiResponse) isRpcInbound() {}
+func (FormUiResponse) isRpcInbound()    {}
 func (HostToolUpdate) isRpcInbound()    {}
 func (HostToolResult) isRpcInbound()    {}
 func (HostUriResult) isRpcInbound()     {}
@@ -7197,6 +7338,25 @@ func (v *SetAskDialogResult) UnmarshalJSON(data []byte) error {
 func (v *SetAskDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
 	var out SetAskDialogResult
 	d := fieldDecoder{raw: raw, owner: "SetAskDialogResult"}
+	d.required("enabled", &out.Enabled)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+type SetFormDialogResult struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (v *SetFormDialogResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "SetFormDialogResult", v.decodeFrom)
+}
+
+func (v *SetFormDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out SetFormDialogResult
+	d := fieldDecoder{raw: raw, owner: "SetFormDialogResult"}
 	d.required("enabled", &out.Enabled)
 	if d.err != nil {
 		return d.err
@@ -7930,6 +8090,18 @@ func (c Commands) SetAskDialog(ctx context.Context, p SetAskDialogCommand) (bool
 	return out.Enabled, err
 }
 
+// SetFormDialogCommand holds the parameters of "set_form_dialog".
+type SetFormDialogCommand struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetFormDialog sends "set_form_dialog": Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.
+func (c Commands) SetFormDialog(ctx context.Context, p SetFormDialogCommand) (bool, error) {
+	var out SetFormDialogResult
+	err := c.call(ctx, "set_form_dialog", p, 0, &out)
+	return out.Enabled, err
+}
+
 // GetAvailableCommands sends "get_available_commands": List the slash-command catalog.
 func (c Commands) GetAvailableCommands(ctx context.Context) ([]AvailableSlashCommand, error) {
 	var out GetAvailableCommandsResult
@@ -8253,10 +8425,11 @@ func (c Commands) AbortRetry(ctx context.Context) error {
 
 // BashCommand holds the parameters of "bash".
 type BashCommand struct {
-	Command string `json:"command"`
+	Command            string `json:"command"`
+	ExcludeFromContext *bool  `json:"excludeFromContext,omitempty"`
 }
 
-// Bash sends "bash": Run a shell command.
+// Bash sends "bash": Run a shell command. Before excluding output, require ready.supportsBashExcludeFromContext to be true.
 func (c Commands) Bash(ctx context.Context, p BashCommand) (BashResult, error) {
 	var out BashResult
 	err := c.call(ctx, "bash", p, 0, &out)

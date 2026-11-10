@@ -13,7 +13,7 @@
 		},
 		"GEN-WORDING": {
 			"status": "active",
-			"contract": "The agent calls itself Scient Agent wherever a person or a model reads its words, prompts and the Python client's README included. Regenerated at every alignment.",
+			"contract": "The agent calls itself Scient Agent wherever a person or a model reads its words, prompts and the Python client's README included. The prompts give the model a research and coding role and match explanations to the reader's expertise. Regenerated at every alignment.",
 			"owned": [
 				"scripts/scient/rename-wording.ts",
 				"scripts/scient/rename-wording.test.ts",
@@ -249,6 +249,19 @@
 				"packages/coding-agent/test/usage-row-placement.test.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/shell-trace.test.ts"]
+		},
+		"SA-ASK-FORM": {
+			"status": "active",
+			"contract": "The ask tool's HTML form reaches an RPC host whole when it sends set_form_dialog (a form request, answered with the form's data), and on its one ask card when it only sends set_ask_dialog: choices as options, text fields as free-text questions, the form's other content in the question text, and a failing answer asked again on the card. A host with neither is asked one field at a time, as upstream does.",
+			"owned": ["packages/coding-agent/src/scient/rpc-form.ts", "packages/coding-agent/test/scient/rpc-form.test.ts"],
+			"upstream": [
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				"packages/coding-agent/src/modes/rpc/wire/commands.ts",
+				"packages/coding-agent/src/modes/rpc/wire/frames.ts",
+				"packages/coding-agent/test/rpc-extension-ui.test.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-form.test.ts"]
 		}
 	}
 }

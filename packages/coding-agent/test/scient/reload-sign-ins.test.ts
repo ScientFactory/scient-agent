@@ -56,6 +56,12 @@ describe("reloadSignIns", () => {
 	let otherProcess: AuthStorage;
 	let registry: ModelRegistry;
 	const saved = new Map<string, string | undefined>();
+	/** What `logoutCredential` reads from an agent session: this registry, under the given session id. */
+	const logoutSession = (sessionId: string) => ({
+		modelRegistry: registry,
+		sessionId,
+		refreshScopedModels: async () => {},
+	});
 
 	beforeEach(async () => {
 		for (const name of PROVIDER_ENV) {
@@ -178,7 +184,7 @@ describe("reloadSignIns", () => {
 			.spyOn(registry, "refreshDiscoverableProviders")
 			.mockRejectedValueOnce(new Error("Discovery unavailable"));
 		try {
-			await expect(logoutCredential(registry, EXTENSION_PROVIDER, row.id, "reject-proof")).rejects.toThrow(
+			await expect(logoutCredential(logoutSession("reject-proof"), EXTENSION_PROVIDER, row.id)).rejects.toThrow(
 				"Discovery unavailable",
 			);
 			const after = session.credentials.getOAuth(EXTENSION_PROVIDER);
@@ -243,7 +249,7 @@ describe("reloadSignIns", () => {
 				.list(EXTENSION_PROVIDER)
 				.find(candidate => candidate.credential.type === "oauth" && candidate.credential.access === before.access);
 			if (!row) throw new Error("Missing stored row");
-			const result = await logoutCredential(registry, EXTENSION_PROVIDER, row.id, "logout-proof");
+			const result = await logoutCredential(logoutSession("logout-proof"), EXTENSION_PROVIDER, row.id);
 			expect(result.removed).toBe(true);
 			const after = session.credentials.getOAuth(EXTENSION_PROVIDER);
 			if (!after) throw new Error("Remaining account disappeared");

@@ -483,8 +483,8 @@ mod tests {
 	fn resolve_logs_dir_reroots_absolute_pi_config_dir_under_home() {
 		// JS resolves the config root via `path.join(os.homedir(),
 		// getConfigDirName())`, which never honors an absolute
-		// SCIENT_AGENT_CONFIG_DIR — it is always re-rooted under `$HOME`
-		// (and `..` components are normalized away).
+		// SCIENT_AGENT_CONFIG_DIR — it is always re-rooted under `$HOME` (and
+		// `..` components are normalized away).
 		let dir = resolve_logs_dir(
 			Path::new("/tmp/pi-natives-test-home"),
 			Some(OsStr::new("/var/tmp/pi-natives-state")),
