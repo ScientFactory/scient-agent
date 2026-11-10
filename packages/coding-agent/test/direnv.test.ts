@@ -182,7 +182,7 @@ describe.skipIf(!hasDirenv)("loadDirenvEnv (real direnv, allow-list honored)", (
 		expect((await loadDirenvEnv(root))?.set.DIRENV_DENY_TEST).toBe("allowed");
 	});
 
-	it("restarts from a clean baseline when the OMP process environment changes", async () => {
+	it("restarts from a clean baseline when the Scient Agent process environment changes", async () => {
 		const root = tmp();
 		await Bun.write(path.join(root, ".envrc"), "export PI_DIRENV_CHILD_TEST=$PI_DIRENV_PARENT_TEST\n");
 		await allowEnvrc(root);

@@ -1476,7 +1476,7 @@ function notificationToLine(n: TerminalNotification): string {
 // C0/C1 control characters that are unsafe inside an OSC payload (must base64).
 const OSC99_UNSAFE = /[\x00-\x1f\x7f\x80-\x9f]/u;
 const OSC99_MAX_PAYLOAD_BYTES = 2048;
-const OSC99_APP_NAME = "omp";
+const OSC99_APP_NAME = "Scient Agent";
 // Kitty matches notification ids across its whole process, not per window, so
 // a bare counter would collide between omp sessions sharing one kitty instance
 // and turn a new notification into a silent replacement of another session's.

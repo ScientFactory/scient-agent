@@ -358,7 +358,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE)("relay tab ownership", () => {
 		}
 	}, 60_000);
 
-	it("opens a default tab in the browser of the tab omp used last, not the first selected one", async () => {
+	it("opens a default tab in the browser of the tab Scient Agent used last, not the first selected one", async () => {
 		const secondHello = Promise.withResolvers<void>();
 		let hellos = 0;
 		const fixture = await launchRelayFixture(message => {
@@ -500,7 +500,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE)("relay tab ownership", () => {
 		}
 	}, 60_000);
 
-	it("empties a password manager's menu only in the tab omp drives", async () => {
+	it("empties a password manager's menu only in the tab Scient Agent drives", async () => {
 		// A stand-in password manager: a focused password field opens its inline menu, a chrome-extension:// frame in
 		// a closed shadow root, the way 1Password draws it.
 		const vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-relay-vault-"));

@@ -102,7 +102,7 @@ describe("MCP catalog-change after connect", () => {
 			{
 				name: SERVER,
 				command: process.execPath,
-				_source: { provider: "native", providerName: "OMP", level: "user", path: workDir },
+				_source: { provider: "native", providerName: "Scient Agent", level: "user", path: workDir },
 			},
 			manager,
 		);

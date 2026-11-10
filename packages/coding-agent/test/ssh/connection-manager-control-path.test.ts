@@ -111,7 +111,7 @@ describe.skipIf(process.platform === "win32")("ssh_config ControlPath (#15974)",
 		expect(calls.some(call => call.includes("-O exit"))).toBe(false);
 	});
 
-	it("keeps omp's socket when ssh_config sets no ControlPath or `none`", async () => {
+	it("keeps Scient Agent's socket when ssh_config sets no ControlPath or `none`", async () => {
 		for (const name of ["plain-host", "none-host"]) {
 			const args = await buildRemoteCommand({ name, host: name }, "true", { platform: "linux" });
 			expect(args).toContain(`ControlPath=${getControlPathTemplate()}`);

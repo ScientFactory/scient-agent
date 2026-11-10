@@ -428,7 +428,7 @@ describe("$envExact", () => {
 	});
 });
 
-describe("OTEL_* from omp's own .env files", () => {
+describe("OTEL_* from Scient Agent's own .env files", () => {
 	interface ProbeResult {
 		bunEnv: Record<string, string | null>;
 		otelEnv: Record<string, string | null>;

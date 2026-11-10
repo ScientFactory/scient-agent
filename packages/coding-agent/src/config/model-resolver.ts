@@ -2290,7 +2290,7 @@ function resolveCliModelInScope(
 			model: undefined,
 			selector: undefined,
 			warning: undefined,
-			error: `Unknown provider "${cliProvider}". Run "omp models" to see available providers/models.`,
+			error: `Unknown provider "${cliProvider}". Run "scient-agent models" to see available providers/models.`,
 		};
 	}
 
@@ -2379,7 +2379,7 @@ function resolveCliModelInScope(
 					selector: undefined,
 					thinkingLevel: undefined,
 					warning: resolved.warning,
-					error: `Model "${trimmedModel}" not found. Run "omp models" to see available models.`,
+					error: `Model "${trimmedModel}" not found. Run "scient-agent models" to see available models.`,
 				};
 			}
 		}
@@ -2440,7 +2440,7 @@ function resolveCliModelInScope(
 			selector: undefined,
 			thinkingLevel: undefined,
 			warning,
-			error: `Model "${display}" not found.${hint} Run "omp models" to see available models.`,
+			error: `Model "${display}" not found.${hint} Run "scient-agent models" to see available models.`,
 		};
 	}
 

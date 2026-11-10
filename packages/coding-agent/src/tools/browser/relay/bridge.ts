@@ -1519,7 +1519,7 @@ export class RelayBridge {
 				this.#reply(conn, msg, {});
 				return;
 			case "Target.createBrowserContext":
-				this.#replyError(conn, msg, "Browser contexts are not supported by the omp browser relay");
+				this.#replyError(conn, msg, "Browser contexts are not supported by the Scient Agent browser relay");
 				return;
 			default:
 				this.#replyError(conn, msg, `'${msg.method}' wasn't found`, CDP_ERROR_METHOD_NOT_FOUND);
@@ -2163,7 +2163,7 @@ export class RelayBridge {
 			this.#replyError(
 				conn,
 				msg,
-				"the omp relay extension in this browser predates download tracking; run `omp browser-relay install` and reload the extension in chrome://extensions",
+				"the Scient Agent relay extension in this browser predates download tracking; run `scient-agent browser-relay install` and reload the extension in chrome://extensions",
 			);
 			return false;
 		}

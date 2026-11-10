@@ -109,7 +109,9 @@ async function report(command: string, verb: "start" | "status", signal?: AbortS
 			typeof status.socket !== "string" ||
 			typeof status.mount !== "string"
 		) {
-			throw new Error(`${command} speaks admin protocol ${version}; omp needs ${PROTOCOL_VERSION}: update ovnfs`);
+			throw new Error(
+				`${command} speaks admin protocol ${version}; Scient Agent needs ${PROTOCOL_VERSION}: update ovnfs`,
+			);
 		}
 		// Searches compare real paths. Resolving only the parent, as the daemon
 		// does (macOS /tmp is /private/tmp), never looks inside the mount.

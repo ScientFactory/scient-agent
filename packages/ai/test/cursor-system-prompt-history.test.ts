@@ -20,7 +20,7 @@ const model: Model<"cursor-agent"> = buildModel({
 	maxTokens: 32_000,
 });
 
-const systemPrompt = ["omp base prompt", "The project codeword is PERIWINKLE-4821."];
+const systemPrompt = ["Scient Agent base prompt", "The project codeword is PERIWINKLE-4821."];
 
 const firstUser: Message = { role: "user", content: "Reply with just: hi", timestamp: 1 };
 const firstAnswer: AssistantMessage = {
@@ -60,9 +60,12 @@ describe("cursor system prompt on history-bearing roots", () => {
 		const root = await rootEntries({ systemPrompt, messages: [firstUser, firstAnswer, secondUser] });
 
 		expect(root).toEqual([
-			{ role: "system", content: "omp base prompt" },
+			{ role: "system", content: "Scient Agent base prompt" },
 			{ role: "system", content: "The project codeword is PERIWINKLE-4821." },
-			{ role: "user", content: "<rules>\nomp base prompt\n\nThe project codeword is PERIWINKLE-4821.\n</rules>" },
+			{
+				role: "user",
+				content: "<rules>\nScient Agent base prompt\n\nThe project codeword is PERIWINKLE-4821.\n</rules>",
+			},
 			{ role: "user", content: [{ type: "text", text: "Reply with just: hi" }] },
 			{ role: "assistant", content: [{ type: "text", text: "hi" }] },
 		]);
@@ -72,7 +75,7 @@ describe("cursor system prompt on history-bearing roots", () => {
 		const root = await rootEntries({ systemPrompt, messages: [firstUser] });
 
 		expect(root).toEqual([
-			{ role: "system", content: "omp base prompt" },
+			{ role: "system", content: "Scient Agent base prompt" },
 			{ role: "system", content: "The project codeword is PERIWINKLE-4821." },
 		]);
 	});

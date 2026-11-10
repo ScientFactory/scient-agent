@@ -336,7 +336,9 @@ describe("shared Chromium session-restore state", () => {
 		const warnSpy = spyOn(piUtils.logger, "warn").mockImplementation(() => {});
 		let lockSpy: { mockRestore(): void } | undefined;
 		const holdClaimElsewhere = () => {
-			lockSpy = spyOn(piUtils, "acquireFileLock").mockRejectedValue(new Error("lock held by another omp process"));
+			lockSpy = spyOn(piUtils, "acquireFileLock").mockRejectedValue(
+				new Error("lock held by another Scient Agent process"),
+			);
 		};
 		const releaseClaim = () => {
 			lockSpy?.mockRestore();

@@ -15,7 +15,7 @@ In the TUI, `/marketplace` with no arguments opens the interactive plugin browse
 
 A **marketplace** is a Git repository (or local directory) containing a catalog file at `.omp-plugin/marketplace.json` (preferred) or `.claude-plugin/marketplace.json` (Claude Code-compatible fallback). The catalog lists available plugins with their sources, descriptions, and metadata.
 
-A **plugin** is a directory containing Claude/OMP plugin content such as skills, commands, agents, rules, hooks, tools, MCP servers, LSP servers, or DAP adapters. Root `plugin.json` packages declaring the Agent Plugins 1.0.0 schema use the portable `agent-plugins` discovery provider for skills and `mcp.json`; hybrid packages can still expose OMP-specific content. Marketplace installs also load extension modules declared by `package.json` `omp.extensions`: installation symlinks the cached plugin into the scope's `node_modules` tree and records it in `omp-plugins.lock.json`, the same runtime surfaces used by npm-installed and `omp plugin link`ed plugins. Plugins are identified by `name@marketplace` (e.g. `code-review@claude-plugins-official`).
+A **plugin** is a directory containing Claude/Scient Agent plugin content such as skills, commands, agents, rules, hooks, tools, MCP servers, LSP servers, or DAP adapters. Root `plugin.json` packages declaring the Agent Plugins 1.0.0 schema use the portable `agent-plugins` discovery provider for skills and `mcp.json`; hybrid packages can still expose Scient Agent-specific content. Marketplace installs also load extension modules declared by `package.json` `omp.extensions`: installation symlinks the cached plugin into the scope's `node_modules` tree and records it in `omp-plugins.lock.json`, the same runtime surfaces used by npm-installed and `scient-agent plugin link`ed plugins. Plugins are identified by `name@marketplace` (e.g. `code-review@claude-plugins-official`).
 
 **Scopes**: marketplace plugins can be installed at two scopes:
 
@@ -24,7 +24,7 @@ A **plugin** is a directory containing Claude/OMP plugin content such as skills,
 
 Enabled project-scoped installs shadow enabled user-scoped installs of the same plugin. A disabled project install does not shadow the user install.
 
-On Linux and macOS, `omp config init-xdg` initializes the XDG data, state, and cache roots; it does not move existing data. With `XDG_DATA_HOME` set and its `omp/` directory initialized, user marketplace/plugin state resolves under `$XDG_DATA_HOME/omp` (including `marketplaces.json` and `plugins/`). Named profiles use their own roots; XDG routing requires the corresponding `omp/profiles/<name>/` directory. The `~/.scient-agent` paths below are the default-profile, non-XDG defaults.
+On Linux and macOS, `scient-agent config init-xdg` initializes the XDG data, state, and cache roots; it does not move existing data. With `XDG_DATA_HOME` set and its `omp/` directory initialized, user marketplace/plugin state resolves under `$XDG_DATA_HOME/omp` (including `marketplaces.json` and `plugins/`). Named profiles use their own roots; XDG routing requires the corresponding `omp/profiles/<name>/` directory. The `~/.scient-agent` paths below are the default-profile, non-XDG defaults.
 
 On first XDG registry resolution, an existing config-root `marketplaces.json` is copied best-effort if the XDG target is absent; the old file remains. Plugin installation trees are not copied by this helper.
 
@@ -63,23 +63,23 @@ On first XDG registry resolution, an existing config-root `marketplaces.json` is
 The same operations are available from the command line:
 
 ```
-omp plugin marketplace add <source>
-omp plugin marketplace remove <name>
-omp plugin marketplace update [name]
-omp plugin marketplace list
-omp plugin discover [marketplace]
-omp plugin install [--dry-run] [--force] [--scope user|project] name@marketplace
-omp plugin uninstall [--dry-run] [--scope user|project] name@marketplace
-omp plugin upgrade [--dry-run] [--scope user|project] [name@marketplace]
-omp plugin enable [--scope user|project] name@marketplace
-omp plugin disable [--scope user|project] name@marketplace
-omp plugin list
+scient-agent plugin marketplace add <source>
+scient-agent plugin marketplace remove <name>
+scient-agent plugin marketplace update [name]
+scient-agent plugin marketplace list
+scient-agent plugin discover [marketplace]
+scient-agent plugin install [--dry-run] [--force] [--scope user|project] name@marketplace
+scient-agent plugin uninstall [--dry-run] [--scope user|project] name@marketplace
+scient-agent plugin upgrade [--dry-run] [--scope user|project] [name@marketplace]
+scient-agent plugin enable [--scope user|project] name@marketplace
+scient-agent plugin disable [--scope user|project] name@marketplace
+scient-agent plugin list
 
 ```
 
 TUI `/plugins enable` and `/plugins disable` refresh the active session's skills, slash commands, task agents, and MCP servers immediately; `--scope` selects a marketplace install when needed and npm/link toggles are global. Other TUI marketplace mutations (explicit commands and the selector) update disk state and invalidate discovery caches but do not refresh the active session. Run `/reload-plugins` after those mutations to refresh task agents, skills, slash commands, and MCP servers; restart the session for newly installed non-MCP tools, hooks, or extension modules. ACP/RPC marketplace handlers refresh skills and slash commands automatically; ACP also refreshes task-agent discovery. Neither remote handler reconnects MCP servers or rebuilds every initialized capability set.
 
-CLI `--dry-run` install validates the cached catalog, scope, existing install, and locally checkable source constraints without fetching plugin repositories or writing plugin state. Uninstall previews retain installed-scope ambiguity checks without removing anything. `upgrade --dry-run` with no id lists each outdated plugin and scope as `from -> to` against the cached catalogs, the pairs a real `upgrade` reinstalls; `omp update --plugins --check` prints the same list. `upgrade name@marketplace --dry-run` lists every scope the real command reinstalls, as an upgrade, reinstall (same version) or downgrade, because naming a plugin always forces a reinstall of the catalog's current version. Neither installs anything. `upgrade` of an npm/git plugin, `marketplace add`, `remove` and `update`, `enable` and `disable` reject `--dry-run` with an error and change nothing. TUI/ACP/RPC slash commands do not accept `--dry-run`.
+CLI `--dry-run` install validates the cached catalog, scope, existing install, and locally checkable source constraints without fetching plugin repositories or writing plugin state. Uninstall previews retain installed-scope ambiguity checks without removing anything. `upgrade --dry-run` with no id lists each outdated plugin and scope as `from -> to` against the cached catalogs, the pairs a real `upgrade` reinstalls; `scient-agent update --plugins --check` prints the same list. `upgrade name@marketplace --dry-run` lists every scope the real command reinstalls, as an upgrade, reinstall (same version) or downgrade, because naming a plugin always forces a reinstall of the catalog's current version. Neither installs anything. `upgrade` of an npm/git plugin, `marketplace add`, `remove` and `update`, `enable` and `disable` reject `--dry-run` with an error and change nothing. TUI/ACP/RPC slash commands do not accept `--dry-run`.
 
 ## Marketplace sources
 
@@ -97,7 +97,7 @@ Git and local sources must contain a catalog at `.omp-plugin/marketplace.json` (
 
 ## Catalog format (marketplace.json)
 
-A marketplace catalog lives at `.omp-plugin/marketplace.json` in the repository root. When omp is the only intended consumer, prefer this path. To remain Claude Code-compatible (omp loads the same shape from either path), publish at `.claude-plugin/marketplace.json` instead — omp uses it as a fallback when `.omp-plugin/marketplace.json` is absent. A repository may ship both: omp reads the `.omp-plugin/` copy, Claude Code reads the `.claude-plugin/` copy. Same catalog format either way:
+A marketplace catalog lives at `.omp-plugin/marketplace.json` in the repository root. When Scient Agent is the only intended consumer, prefer this path. To remain Claude Code-compatible (Scient Agent loads the same shape from either path), publish at `.claude-plugin/marketplace.json` instead — Scient Agent uses it as a fallback when `.omp-plugin/marketplace.json` is absent. A repository may ship both: Scient Agent reads the `.omp-plugin/` copy, Claude Code reads the `.claude-plugin/` copy. Same catalog format either way:
 
 ```json
 {
@@ -132,7 +132,7 @@ A marketplace catalog lives at `.omp-plugin/marketplace.json` in the repository 
 | `owner.name` | Marketplace owner name                                                                                               |
 | `plugins`    | Array of plugin entries                                                                                              |
 
-Top-level `metadata.description`, `metadata.version`, and `metadata.pluginRoot` are optional. `metadata.pluginRoot` names the directory that bare-name plugin sources (`"my-plugin"`) resolve under; a source that starts with `./` resolves from the marketplace root. Catalogs written for omp's earlier rule, where `pluginRoot` was prefixed to `./` sources, keep installing: a `./` source absent or not a directory at the root is tried under `pluginRoot`. Other filesystem errors stop validation.
+Top-level `metadata.description`, `metadata.version`, and `metadata.pluginRoot` are optional. `metadata.pluginRoot` names the directory that bare-name plugin sources (`"my-plugin"`) resolve under; a source that starts with `./` resolves from the marketplace root. Catalogs written for Scient Agent's earlier rule, where `pluginRoot` was prefixed to `./` sources, keep installing: a `./` source absent or not a directory at the root is tried under `pluginRoot`. Other filesystem errors stop validation.
 
 Install version resolution tries catalog `version`, `.claude-plugin/plugin.json`, root `plugin.json`, then `package.json`; it then falls back to the source definition's first seven SHA characters or `0.0.0`. Versions used in cache paths must be 1–128 ASCII letters/digits or `._+-` and cannot contain `..`.
 
@@ -225,7 +225,7 @@ Invalid catalog JSON or invalid required top-level fields reject the catalog. An
 ## Updates, removal, and scope
 
 - `/marketplace update [name]` refreshes catalogs only; it does not reinstall plugins.
-- `omp plugin upgrade name@marketplace` reinstalls every installed scope when `--scope` is omitted. `/marketplace upgrade name@marketplace`, uninstall, and enable/disable require `--scope user|project` when the plugin exists in both scopes.
+- `scient-agent plugin upgrade name@marketplace` reinstalls every installed scope when `--scope` is omitted. `/marketplace upgrade name@marketplace`, uninstall, and enable/disable require `--scope user|project` when the plugin exists in both scopes.
 - Upgrading all plugins compares only catalog entries that declare `version`. Semver versions must be newer; non-semver versions are treated as changed when unequal. Each installed scope is checked independently. Per-plugin failures are skipped, so an all-plugin upgrade can partially succeed. CLI `--scope` is ignored when upgrading all plugins.
 - Reinstall/upgrade preserves disabled state, feature selection, and settings. User and project installs share version-keyed cache directories, so forcing a reinstall of the same version replaces content used by both scopes. Runtime package-name and cache-path collisions with other plugins are rejected.
 - `marketplace.autoUpdate` controls startup checks: `off`, `notify` (default), or `auto`. Catalogs older than 24 hours are refreshed best-effort before version checks. Despite its name, current `notify` mode writes update availability only to the debug log; it does not show a user-facing notification.

@@ -155,14 +155,14 @@ describe("relay extension self-update decisions", () => {
 		expect(bridge.ready).toBe(true);
 	});
 
-	it("leaves an extension installed by this omp or a newer one alone", () => {
+	it("leaves an extension installed by this Scient Agent or a newer one alone", () => {
 		const { bridge, calls } = bridgeWithUpdater();
 		hello(bridge, new FakeExtSocket(), { ompVersion: VERSION });
 		hello(bridge, new FakeExtSocket(), { ompVersion: "999.0.0" });
 		expect(calls).toEqual([]);
 	});
 
-	it("leaves an extension with no omp version stamp alone", () => {
+	it("leaves an extension with no Scient Agent version stamp alone", () => {
 		const { bridge, calls } = bridgeWithUpdater();
 		hello(bridge, new FakeExtSocket(), { ompVersion: "" });
 		hello(bridge, new FakeExtSocket(), { ompVersion: "dev" });
@@ -289,7 +289,7 @@ describe("relay extension self-update decisions", () => {
 		expect(socket.reloads).toBe(1);
 	});
 
-	it("waits out a tab create and its close when the client left mid-create, so the tab omp opened is closed", async () => {
+	it("waits out a tab create and its close when the client left mid-create, so the tab Scient Agent opened is closed", async () => {
 		const { bridge, calls, finish } = bridgeWithUpdater();
 		const conn = bridge.cdpConnected(FAKE_CDP);
 		const socket = new FakeExtSocket();
@@ -447,7 +447,7 @@ describe("relay extension self-update on a real relay", () => {
 		for (const name in files) expect(await Bun.file(`${dir}/${name}`).text()).toBe(files[name]!);
 	}
 
-	it("rewrites the copy Chrome loaded from the install directory to this omp's files and asks for a reload", async () => {
+	it("rewrites the copy Chrome loaded from the install directory to this Scient Agent's files and asks for a reload", async () => {
 		const dir = home.join("extension");
 		await writeRelayExtension(dir, OLD);
 		const { port, events, settled } = await startRelay(dir);
@@ -481,7 +481,7 @@ describe("relay extension self-update on a real relay", () => {
 		expect(await installedRelayExtensionVersion(elsewhere)).toBe(OLD);
 	});
 
-	it("leaves files a newer omp installed for that omp's relay", async () => {
+	it("leaves files a newer Scient Agent installed for that Scient Agent's relay", async () => {
 		const dir = home.join("extension");
 		await writeRelayExtension(dir, "999.0.0");
 		const { port, events, settled } = await startRelay(dir);

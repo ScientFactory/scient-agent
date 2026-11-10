@@ -209,7 +209,7 @@ describe("RelayBridge target discovery", () => {
 });
 
 describe("RelayBridge tab grouping", () => {
-	it("groups nothing on hello or tab lifecycle events — only claimed tabs join the omp group", () => {
+	it("groups nothing on hello or tab lifecycle events — only claimed tabs join the Scient Agent group", () => {
 		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
 		const socket = new FakeExtSocket();
 		connect(bridge, socket, [tab({ tabId: 1 }), tab({ tabId: 2 }), tab({ tabId: 3, url: "about:blank" })]);
@@ -355,7 +355,7 @@ describe("RelayBridge tab grouping", () => {
 		expect(create).not.toHaveProperty("active");
 	});
 
-	it("never re-groups a tab the user pulled out of the omp group", async () => {
+	it("never re-groups a tab the user pulled out of the Scient Agent group", async () => {
 		const bridge = new RelayBridge({ group: { title: "omp", color: "cyan" } });
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
@@ -850,12 +850,15 @@ describe("RelayBridge command deadlines", () => {
 		["Runtime.callFunctionOn", { functionDeclaration: "() => new Promise(() => {})", awaitPromise: true }],
 		["Runtime.awaitPromise", { promiseObjectId: "1" }],
 		["Page.navigate", { url: "https://example.com/slow" }],
-	])("keeps waiting on %s, whose answer waits on the page, until omp's own client gave up", async (method, params) => {
-		expect(await unansweredFor(method, params, clientGivesUpMs)).toBeUndefined();
-		expect(JSON.stringify(await unansweredFor(method, params, pageBoundMs))).toContain(
-			`${method} on tab 1: Chrome sent no answer within ${pageBoundMs}ms`,
-		);
-	});
+	])(
+		"keeps waiting on %s, whose answer waits on the page, until Scient Agent's own client gave up",
+		async (method, params) => {
+			expect(await unansweredFor(method, params, clientGivesUpMs)).toBeUndefined();
+			expect(JSON.stringify(await unansweredFor(method, params, pageBoundMs))).toContain(
+				`${method} on tab 1: Chrome sent no answer within ${pageBoundMs}ms`,
+			);
+		},
+	);
 
 	it("fails a command Chrome answers at once after 20 s, naming the command and the tab", async () => {
 		expect(
@@ -2241,7 +2244,7 @@ describe("RelayBridge auto-attach gating", () => {
 	});
 });
 
-describe("RelayBridge front app on a window omp's input opens", () => {
+describe("RelayBridge front app on a window Scient Agent's input opens", () => {
 	/** A relay reading the front app as `n` (the read count), recording each app it holds in front and for how long. */
 	function frontAppRecorder(): { holds: Array<{ app: number; ms: number }>; frontApp: () => FrontApp } {
 		const holds: Array<{ app: number; ms: number }> = [];
@@ -2282,7 +2285,7 @@ describe("RelayBridge front app on a window omp's input opens", () => {
 		bridge.extMessage(ext, JSON.stringify({ t: "cdpEvent", tabId, sessionId, method: "Page.windowOpen", params }));
 	}
 
-	it("holds the app that was in front at omp's input to a tab in front once that tab's page opens a window", async () => {
+	it("holds the app that was in front at Scient Agent's input to a tab in front once that tab's page opens a window", async () => {
 		const { holds, frontApp } = frontAppRecorder();
 		const bridge = new RelayBridge();
 		bridge.keepFrontAppWith(frontApp);
@@ -2322,9 +2325,9 @@ describe("RelayBridge front app on a window omp's input opens", () => {
 	});
 
 	it.each([
-		{ case: "no input of omp's came before it", inputTab: null, after: 0 },
-		{ case: "omp's last input to its tab was over a second before it", inputTab: 1, after: 1_001 },
-		{ case: "omp's input went to another of its tabs", inputTab: 2, after: 0 },
+		{ case: "no input of Scient Agent's came before it", inputTab: null, after: 0 },
+		{ case: "Scient Agent's last input to its tab was over a second before it", inputTab: 1, after: 1_001 },
+		{ case: "Scient Agent's input went to another of its tabs", inputTab: 2, after: 0 },
 	])("holds no app in front for a window when $case", async ({ inputTab, after }) => {
 		jest.useFakeTimers();
 		try {
@@ -2347,7 +2350,7 @@ describe("RelayBridge front app on a window omp's input opens", () => {
 		}
 	});
 
-	it("reads the front app only on omp's inputs that can open a window, not on moves, key-ups or inserted text", async () => {
+	it("reads the front app only on Scient Agent's inputs that can open a window, not on moves, key-ups or inserted text", async () => {
 		const { holds, frontApp } = frontAppRecorder();
 		const bridge = new RelayBridge();
 		bridge.keepFrontAppWith(frontApp);
@@ -2375,7 +2378,7 @@ describe("RelayBridge front app on a window omp's input opens", () => {
 		expect(holds).toEqual([{ app: 1, ms: 500 }]);
 	});
 
-	it("still forwards omp's input when reading the front app throws, and stops reading it", async () => {
+	it("still forwards Scient Agent's input when reading the front app throws, and stops reading it", async () => {
 		let reads = 0;
 		const bridge = new RelayBridge();
 		bridge.keepFrontAppWith(() => {
@@ -2839,7 +2842,7 @@ describe("RelayBridge foreign extension frames", () => {
 		expect(flags(2)).toEqual(new Set([false]));
 	});
 
-	it("takes the claim an older omp worker sends on its page session", async () => {
+	it("takes the claim an older Scient Agent worker sends on its page session", async () => {
 		const bridge = new RelayBridge({});
 		const ext = new FakeExtSocket();
 		connect(bridge, ext, [tab({ tabId: 1 })]);
@@ -2921,7 +2924,7 @@ describe("RelayBridge download paths", () => {
 		const { cdp, id } = await askPath(bridge, ext);
 		expect(ext.rpcs("findDownload")).toEqual([]);
 		expect(cdp.messages.find(m => m.id === id)).toMatchObject({
-			error: { message: expect.stringContaining("run `omp browser-relay install`") },
+			error: { message: expect.stringContaining("run `scient-agent browser-relay install`") },
 		});
 	});
 });

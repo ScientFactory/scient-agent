@@ -198,7 +198,7 @@ module graph loads comes from Tern instead: the composer's `editor` node
 carries `typeahead: true` (`Editor.nativeTypeahead`, set by `Composer.start`),
 and Tern keeps the text typed into it, draws it at the caret, and writes it to
 the pty as typed once the prop clears, or ahead of the first key it does not
-keep. Typing that reaches omp during startup (from such a flush, or a Tern
+keep. Typing that reaches Scient Agent during startup (from such a flush, or a Tern
 without typeahead) splits in the TUI: plain typing (printable text, Backspace)
 edits the component focused at start live; the first other key (a shortcut,
 Enter, an arrow, a paste) and every key after it are held, in typing order. A
@@ -220,7 +220,7 @@ debug socket's `doc` op returns the reference document
 
 #### Explicit composer submission
 
-omp's `q: "hello"` advertises `features: ["edit", "undo", "send"]`.
+Scient Agent's `q: "hello"` advertises `features: ["edit", "undo", "send"]`.
 The `editor`/`input` prop `sendable` is separate from text editability:
 `sendable: true` means the owner is ready to accept an atomic prompt submission.
 An absent or false value is not ready, even if the field is writable or focused.

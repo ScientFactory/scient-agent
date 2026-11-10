@@ -111,7 +111,7 @@ async function releaseCheckoutRecord(dir: string, command: string, checkout: str
 	try {
 		if (!(await releaseOvnfsCheckout(dir))) await removeCheckout(command, checkout);
 	} catch (err) {
-		logger.warn("ovnfs checkout removal failed; `omp worktree clear` retries it", {
+		logger.warn("ovnfs checkout removal failed; `scient-agent worktree clear` retries it", {
 			dir,
 			checkout,
 			error: err instanceof Error ? err.message : String(err),
@@ -199,7 +199,7 @@ class OvnfsWorkspace implements IsolationWorkspace {
 				await removeCheckout(this.command, start);
 				await Bun.write(recordPath, JSON.stringify(record));
 			} catch (err) {
-				logger.warn("ovnfs start checkout removal failed; `omp worktree clear` retries it", {
+				logger.warn("ovnfs start checkout removal failed; `scient-agent worktree clear` retries it", {
 					checkout: start,
 					error: err instanceof Error ? err.message : String(err),
 				});
@@ -280,7 +280,7 @@ export function ovnfsWorkspace(command: string): OpenWorkspace {
 						error: message,
 					});
 					throw new Error(
-						`ovnfs isolation failed: could not release the previous checkout (${message}); its record was kept for \`omp worktree clear\` (set isolation.backend to a native backend to bypass ovnfs)`,
+						`ovnfs isolation failed: could not release the previous checkout (${message}); its record was kept for \`scient-agent worktree clear\` (set isolation.backend to a native backend to bypass ovnfs)`,
 					);
 				}
 				logger.warn("moved a stale ovnfs checkout record aside after removal failed", {

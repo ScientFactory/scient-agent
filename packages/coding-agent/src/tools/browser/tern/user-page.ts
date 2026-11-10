@@ -99,7 +99,7 @@ export async function openTernPage(url: string, how: TernPagePlacement): Promise
 		}
 		const block = opened.block;
 		await client.request({ op: "release", block }, { timeoutMs: OP_TIMEOUT_MS }).catch(error => {
-			logger.debug("Tern kept driving the page omp opened", { block, error: String(error) });
+			logger.debug("Tern kept driving the page Scient Agent opened", { block, error: String(error) });
 		});
 		return new TernPage(client, block);
 	} catch (error) {

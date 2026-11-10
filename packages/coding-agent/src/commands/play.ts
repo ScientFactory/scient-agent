@@ -18,15 +18,15 @@ export default class Play extends Command {
 	};
 
 	static examples = [
-		"omp play",
-		"omp play /tmp/scient-agent-recordings/2026-09-22T10-00-00-1a2b3c4d.ompcast -s 2 -i 1",
+		"scient-agent play",
+		"scient-agent play /tmp/scient-agent-recordings/2026-09-22T10-00-00-1a2b3c4d.ompcast -s 2 -i 1",
 	];
 
 	async run(): Promise<void> {
 		const { args, flags } = await this.parse(Play);
 		const speed = parsePositive("--speed", flags.speed) ?? 1;
 		const idleLimit = parsePositive("--idle-limit", flags["idle-limit"]);
-		if (!process.stdout.isTTY) throw new CliUsageError("omp play needs an interactive terminal");
+		if (!process.stdout.isTTY) throw new CliUsageError("scient-agent play needs an interactive terminal");
 
 		const file = args.file ? path.resolve(args.file) : await latestRecording();
 		if (!file) throw new CliUsageError(`no recordings in ${recordingsDir()}; start one with /record`);

@@ -20,12 +20,12 @@ const UPDATE_ITEMS: readonly SelectItem[] = [
 	{
 		value: "notify",
 		label: "2  Notify me",
-		description: "Show a notice on startup; run omp update yourself",
+		description: "Show a notice on startup; run scient-agent update yourself",
 	},
 ];
 
 class UpdatesSceneController implements SetupSceneController {
-	title = "Keep omp up to date";
+	title = "Keep Scient Agent up to date";
 	subtitle = "Choose how new releases reach you.";
 	#selectList: SelectList;
 	#committing = false;
@@ -108,7 +108,7 @@ class UpdatesSceneController implements SetupSceneController {
  */
 export const updatesSetupScene: SetupScene = {
 	id: "auto-update",
-	title: "Keep omp up to date",
+	title: "Keep Scient Agent up to date",
 	step: "Updates",
 	minVersion: 3,
 	shouldRun: ctx => ctx.canAutoUpdate(),
