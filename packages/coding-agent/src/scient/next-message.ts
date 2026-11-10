@@ -34,7 +34,15 @@ type PredictionSession = Pick<
 	| "sessionManager"
 	| "runEphemeralTurn"
 	| "ephemeralMaxTokensPreservesRequest"
+	| "subscribe"
 >;
+
+/** Events that make a prediction in flight obsolete, as the TUI controller cancels on them. */
+const OBSOLETING_EVENTS: ReadonlySet<string> = new Set([
+	"agent_start",
+	"auto_compaction_start",
+	"manual_compaction_start",
+]);
 
 /** The message the prediction answers: the last one that is not a silent advisor card. */
 function anchor(session: PredictionSession): AgentMessage | undefined {
@@ -45,7 +53,10 @@ function anchor(session: PredictionSession): AgentMessage | undefined {
 	return undefined;
 }
 
-/** One prediction per RPC session at a time; a newer request replaces the one in flight. */
+/**
+ * One prediction per RPC session at a time; a newer request replaces the one in flight, and a turn
+ * or compaction that starts cancels it, so an obsolete request stops costing inference.
+ */
 export class RpcNextMessagePredictor {
 	readonly #session: PredictionSession;
 	readonly #deadlineMs: number;
@@ -54,16 +65,24 @@ export class RpcNextMessagePredictor {
 	constructor(session: PredictionSession, options: { deadlineMs?: number } = {}) {
 		this.#session = session;
 		this.#deadlineMs = options.deadlineMs ?? DEADLINE_MS;
+		session.subscribe(event => {
+			if (OBSOLETING_EVENTS.has(event.type)) this.cancel();
+		});
+	}
+
+	/** Abort the prediction in flight; its request answers null. */
+	cancel(): void {
+		this.#abort?.abort();
+		this.#abort = undefined;
 	}
 
 	/**
 	 * The user's likely next message, or `null` when there is no confident guess, no model, a turn or
-	 * compaction is running, the conversation moved on, the deadline passed, or a newer request
-	 * replaced this one. Rejects when the model request itself fails.
+	 * compaction is running or starts, the conversation moved on, the deadline passed, or a newer
+	 * request replaced this one. Rejects when the model request itself fails.
 	 */
 	async predict(): Promise<string | null> {
-		this.#abort?.abort();
-		this.#abort = undefined;
+		this.cancel();
 		const session = this.#session;
 		if (!session.model || session.isStreaming || session.isCompacting) return null;
 		const abort = new AbortController();
