@@ -429,4 +429,13 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 		result: { records: "BtwHistoryRecord[]" },
 		unwrap: "records",
 	},
+	// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
+	{
+		name: "predict_next_message",
+		doc: "The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one.",
+		result: { text: "string | null" },
+		unwrap: "text",
+		timeoutMs: 30_000,
+	},
+	// scient(SA-NEXT-MESSAGE): end
 ];

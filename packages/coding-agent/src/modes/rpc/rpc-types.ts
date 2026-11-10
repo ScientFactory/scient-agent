@@ -161,6 +161,9 @@ export type RpcCommand =
 
 	// Word prediction (composer ghost text); `cursor` is a UTF-16 offset into `text`
 	| { id?: string; type: "predict_word"; text: string; cursor: number }
+	// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
+	| { id?: string; type: "predict_next_message" }
+	// scient(SA-NEXT-MESSAGE): end
 	| {
 			id?: string;
 			type: "predict_word_feedback";
@@ -682,6 +685,9 @@ export type RpcResponse =
 	// Word prediction
 	| { id?: string; type: "response"; command: "predict_word"; success: true; data: { suffix: string | null } }
 	| { id?: string; type: "response"; command: "predict_word_feedback"; success: true }
+	// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
+	| { id?: string; type: "response"; command: "predict_next_message"; success: true; data: { text: string | null } }
+	// scient(SA-NEXT-MESSAGE): end
 
 	// Side questions (/btw)
 	| { id?: string; type: "response"; command: "btw"; success: true; data: { record: RpcBtwHistoryRecord } }
