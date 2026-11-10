@@ -3429,7 +3429,7 @@ pub struct AvailableSlashCommand {
 	pub subcommands: Option<Vec<SlashSubcommand>>,
 }
 
-/// OMP-native session entries in append order.
+/// Scient Agent-native session entries in append order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionEntries {
 	pub entries: Vec<Map<String, Value>>,
@@ -3559,6 +3559,11 @@ pub struct LoginProvider {
 	pub name: String,
 	pub available: bool,
 	pub authenticated: bool,
+	pub kind: LoginProviderKind,
+	pub stored: bool,
+	pub store: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub emails: Option<Vec<String>>,
 }
 
 /// A stored credential `logout` can remove; `active` marks credentials the session may be using.
@@ -4170,7 +4175,7 @@ impl PromptStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromptError {
 	pub message: String,
-	/// Transient: resubmitting later may succeed (omp's own retries are exhausted).
+	/// Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).
 	pub retryable: bool,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub provider: Option<String>,
@@ -4178,7 +4183,7 @@ pub struct PromptError {
 	pub model: Option<String>,
 	#[serde(rename = "httpStatus", default, skip_serializing_if = "Option::is_none")]
 	pub http_status: Option<i64>,
-	/// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request.
+	/// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub code: Option<LitCostCap>,
 }
@@ -4581,6 +4586,15 @@ pub struct AskUiRequest {
 	pub timeout: Option<i64>,
 }
 
+/// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FormUiRequest {
+	pub id: String,
+	pub html: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub timeout: Option<i64>,
+}
+
 /// Close the dialog opened by request `targetId`; a later answer to it is ignored.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CancelUiRequest {
@@ -4649,6 +4663,8 @@ pub enum ExtensionUiRequest {
 	Editor(EditorUiRequest),
 	/// Every question of one `ask` tool call; sent only after `set_ask_dialog` enables it.
 	Ask(AskUiRequest),
+	/// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+	Form(FormUiRequest),
 	/// Close the dialog opened by request `targetId`; a later answer to it is ignored.
 	Cancel(CancelUiRequest),
 	Notify(NotifyUiRequest),
@@ -4668,6 +4684,7 @@ impl ExtensionUiRequest {
 			Some("input") => |value| serde_json::from_value(value).map(Self::Input),
 			Some("editor") => |value| serde_json::from_value(value).map(Self::Editor),
 			Some("ask") => |value| serde_json::from_value(value).map(Self::Ask),
+			Some("form") => |value| serde_json::from_value(value).map(Self::Form),
 			Some("cancel") => |value| serde_json::from_value(value).map(Self::Cancel),
 			Some("notify") => |value| serde_json::from_value(value).map(Self::Notify),
 			Some("setStatus") => |value| serde_json::from_value(value).map(Self::SetStatus),
@@ -4691,6 +4708,7 @@ impl Serialize for ExtensionUiRequest {
 			Self::Input(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "input")], serializer),
 			Self::Editor(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "editor")], serializer),
 			Self::Ask(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "ask")], serializer),
+			Self::Form(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "form")], serializer),
 			Self::Cancel(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "cancel")], serializer),
 			Self::Notify(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "notify")], serializer),
 			Self::SetStatus(member) => serialize_tagged(member, &[("type", "extension_ui_request"), ("method", "setStatus")], serializer),
@@ -4748,6 +4766,13 @@ pub struct AnswersUiResponse {
 	pub answers: Vec<AskAnswer>,
 }
 
+/// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FormUiResponse {
+	pub id: String,
+	pub data: BTreeMap<String, StringOrNumberOrStringList>,
+}
+
 /// Host reply to an extension UI request; variants share `type` and differ by their payload key.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExtensionUiResponse {
@@ -4759,6 +4784,8 @@ pub enum ExtensionUiResponse {
 	CancelUiResponse(CancelUiResponse),
 	/// Answers an `ask` request: one `AskAnswer` per question, in question order.
 	AnswersUiResponse(AnswersUiResponse),
+	/// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
+	FormUiResponse(FormUiResponse),
 }
 
 impl ExtensionUiResponse {
@@ -4776,6 +4803,9 @@ impl ExtensionUiResponse {
 		if let Ok(member) = AnswersUiResponse::deserialize(&value) {
 			return Ok(Self::AnswersUiResponse(member));
 		}
+		if let Ok(member) = FormUiResponse::deserialize(&value) {
+			return Ok(Self::FormUiResponse(member));
+		}
 		Err(serde_json::Error::custom("no ExtensionUiResponse variant matches"))
 	}
 }
@@ -4787,6 +4817,7 @@ impl Serialize for ExtensionUiResponse {
 			Self::ConfirmUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
 			Self::CancelUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
 			Self::AnswersUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
+			Self::FormUiResponse(member) => serialize_tagged(member, &[("type", "extension_ui_response")], serializer),
 		}
 	}
 }
@@ -5322,6 +5353,16 @@ pub struct SetAskDialogResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetFormDialogParams {
+	pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetFormDialogResult {
+	pub enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GetAvailableCommandsResult {
 	pub commands: Vec<AvailableSlashCommand>,
 }
@@ -5677,14 +5718,16 @@ pub struct GetLogoutAccountsResult {
 pub struct LogoutParams {
 	#[serde(rename = "providerId")]
 	pub provider_id: String,
-	#[serde(rename = "credentialId")]
-	pub credential_id: i64,
+	#[serde(rename = "credentialId", default, skip_serializing_if = "Option::is_none")]
+	pub credential_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogoutResult {
 	#[serde(rename = "remainingSource", default, skip_serializing_if = "Option::is_none")]
 	pub remaining_source: Option<String>,
+	#[serde(rename = "providerId", default, skip_serializing_if = "Option::is_none")]
+	pub provider_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5961,6 +6004,24 @@ impl<'de> Deserialize<'de> for LitCompleted {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LoginProviderKind {
+	#[serde(rename = "account")]
+	Account,
+	#[serde(rename = "key")]
+	Key,
+}
+
+impl LoginProviderKind {
+	/// Wire value.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Account => "account",
+			Self::Key => "key",
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LogoutAccountType {
 	#[serde(rename = "api_key")]
 	ApiKey,
@@ -6039,6 +6100,15 @@ impl<'de> Deserialize<'de> for LitTrue {
 			Err(D::Error::custom(format!("expected true, got {value}")))
 		}
 	}
+}
+
+/// Untagged union: the first variant that decodes wins.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum StringOrNumberOrStringList {
+	String(String),
+	Number(f64),
+	StringList(Vec<String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -6445,6 +6515,22 @@ impl Command for SetAskDialogCommand {
 
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		serde_json::from_value::<SetAskDialogResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.enabled)
+	}
+}
+
+/// Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SetFormDialogCommand {
+	pub enabled: bool,
+}
+
+impl Command for SetFormDialogCommand {
+	const NAME: &'static str = "set_form_dialog";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = bool;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<SetFormDialogResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.enabled)
 	}
 }
 
@@ -7319,13 +7405,13 @@ impl Command for GetLogoutAccountsCommand {
 	}
 }
 
-/// Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.
+/// Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogoutCommand {
 	#[serde(rename = "providerId")]
 	pub provider_id: String,
-	#[serde(rename = "credentialId")]
-	pub credential_id: i64,
+	#[serde(rename = "credentialId", default, skip_serializing_if = "Option::is_none")]
+	pub credential_id: Option<i64>,
 }
 
 impl Command for LogoutCommand {

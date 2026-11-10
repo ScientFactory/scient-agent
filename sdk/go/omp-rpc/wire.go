@@ -3198,7 +3198,7 @@ func (v *AvailableSlashCommand) decodeFrom(raw map[string]json.RawMessage) error
 	return nil
 }
 
-// OMP-native session entries in append order.
+// Scient Agent-native session entries in append order.
 type SessionEntries struct {
 	Entries []map[string]json.RawMessage `json:"entries"`
 	LeafID  *string                      `json:"leafId"`
@@ -3413,10 +3413,14 @@ func (v *BtwHistoryRecord) decodeFrom(raw map[string]json.RawMessage) error {
 }
 
 type LoginProvider struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Available     bool   `json:"available"`
-	Authenticated bool   `json:"authenticated"`
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Available     bool              `json:"available"`
+	Authenticated bool              `json:"authenticated"`
+	Kind          LoginProviderKind `json:"kind"`
+	Stored        bool              `json:"stored"`
+	Store         string            `json:"store"`
+	Emails        []string          `json:"emails,omitempty"`
 }
 
 func (v *LoginProvider) UnmarshalJSON(data []byte) error {
@@ -3430,11 +3434,35 @@ func (v *LoginProvider) decodeFrom(raw map[string]json.RawMessage) error {
 	d.required("name", &out.Name)
 	d.required("available", &out.Available)
 	d.required("authenticated", &out.Authenticated)
+	d.required("kind", &out.Kind)
+	d.required("stored", &out.Stored)
+	d.required("store", &out.Store)
+	d.optional("emails", &out.Emails)
 	if d.err != nil {
 		return d.err
 	}
 	*v = out
 	return nil
+}
+
+type LoginProviderKind string
+
+const (
+	LoginProviderKindAccount LoginProviderKind = "account"
+	LoginProviderKindKey     LoginProviderKind = "key"
+)
+
+func (v *LoginProviderKind) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "LoginProviderKind")
+	if err != nil {
+		return err
+	}
+	switch value := LoginProviderKind(s); value {
+	case LoginProviderKindAccount, LoginProviderKindKey:
+		*v = value
+		return nil
+	}
+	return unknownValue("LoginProviderKind", s)
 }
 
 // A stored credential `logout` can remove; `active` marks credentials the session may be using.
@@ -4786,12 +4814,12 @@ func (v *PromptStatus) UnmarshalJSON(data []byte) error {
 // Failure detail of a `prompt_result` with `status: "error"`.
 type PromptError struct {
 	Message string `json:"message"`
-	// Transient: resubmitting later may succeed (omp's own retries are exhausted).
+	// Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).
 	Retryable  bool    `json:"retryable"`
 	Provider   *string `json:"provider,omitempty"`
 	Model      *string `json:"model,omitempty"`
 	HTTPStatus *int64  `json:"httpStatus,omitempty"`
-	// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request.
+	// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.
 	Code *PromptErrorCode `json:"code,omitempty"`
 }
 
@@ -5832,6 +5860,37 @@ func (v AskUiRequest) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_request","method":"ask"`, nil)
 }
 
+// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+type FormUiRequest struct {
+	ID      string `json:"id"`
+	HTML    string `json:"html"`
+	Timeout *int64 `json:"timeout,omitempty"`
+}
+
+func (v *FormUiRequest) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "FormUiRequest", v.decodeFrom)
+}
+
+func (v *FormUiRequest) decodeFrom(raw map[string]json.RawMessage) error {
+	var out FormUiRequest
+	d := fieldDecoder{raw: raw, owner: "FormUiRequest"}
+	d.constant("type", "extension_ui_request")
+	d.required("id", &out.ID)
+	d.constant("method", "form")
+	d.required("html", &out.HTML)
+	d.optional("timeout", &out.Timeout)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v FormUiRequest) MarshalJSON() ([]byte, error) {
+	type plain FormUiRequest
+	return encodeObject(plain(v), `"type":"extension_ui_request","method":"form"`, nil)
+}
+
 // Close the dialog opened by request `targetId`; a later answer to it is ignored.
 type CancelUiRequest struct {
 	ID       string `json:"id"`
@@ -6058,6 +6117,7 @@ func (ConfirmUiRequest) isExtensionUiRequest()       {}
 func (InputUiRequest) isExtensionUiRequest()         {}
 func (EditorUiRequest) isExtensionUiRequest()        {}
 func (AskUiRequest) isExtensionUiRequest()           {}
+func (FormUiRequest) isExtensionUiRequest()          {}
 func (CancelUiRequest) isExtensionUiRequest()        {}
 func (NotifyUiRequest) isExtensionUiRequest()        {}
 func (SetStatusUiRequest) isExtensionUiRequest()     {}
@@ -6091,6 +6151,8 @@ func (v *ExtensionUiRequest) decodeFrom(raw map[string]json.RawMessage) error {
 		value, err = decodeVariant[EditorUiRequest](raw)
 	case "ask":
 		value, err = decodeVariant[AskUiRequest](raw)
+	case "form":
+		value, err = decodeVariant[FormUiRequest](raw)
 	case "cancel":
 		value, err = decodeVariant[CancelUiRequest](raw)
 	case "notify":
@@ -6252,6 +6314,73 @@ func (v AnswersUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
 }
 
+// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
+type FormUiResponse struct {
+	ID   string                                 `json:"id"`
+	Data map[string]StringOrNumberOrStringArray `json:"data"`
+}
+
+func (v *FormUiResponse) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "FormUiResponse", v.decodeFrom)
+}
+
+func (v *FormUiResponse) decodeFrom(raw map[string]json.RawMessage) error {
+	var out FormUiResponse
+	d := fieldDecoder{raw: raw, owner: "FormUiResponse"}
+	d.constant("type", "extension_ui_response")
+	d.required("id", &out.ID)
+	d.required("data", &out.Data)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v FormUiResponse) MarshalJSON() ([]byte, error) {
+	type plain FormUiResponse
+	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
+}
+
+// StringOrNumberOrStringArray holds exactly one of its fields, chosen by the JSON kind of the value.
+type StringOrNumberOrStringArray struct {
+	String *string
+	Number *float64
+	Array  []string
+}
+
+func (v StringOrNumberOrStringArray) MarshalJSON() ([]byte, error) {
+	switch {
+	case v.String != nil:
+		return json.Marshal(*v.String)
+	case v.Number != nil:
+		return json.Marshal(*v.Number)
+	case v.Array != nil:
+		return json.Marshal(v.Array)
+	}
+	return nil, emptyUnion("StringOrNumberOrStringArray")
+}
+
+func (v *StringOrNumberOrStringArray) UnmarshalJSON(data []byte) error {
+	var out StringOrNumberOrStringArray
+	var err error
+	switch jsonKind(data) {
+	case '"':
+		err = json.Unmarshal(data, &out.String)
+	case '0':
+		err = json.Unmarshal(data, &out.Number)
+	case '[':
+		err = json.Unmarshal(data, &out.Array)
+	default:
+		return unexpectedKind("StringOrNumberOrStringArray", data)
+	}
+	if err != nil {
+		return err
+	}
+	*v = out
+	return nil
+}
+
 // Host reply to an extension UI request; variants share `type` and differ by their payload key.
 type ExtensionUiResponse struct {
 	// Value holds one variant. Encode-only: no discriminator tells the variants apart.
@@ -6267,6 +6396,7 @@ func (ValueUiResponse) isExtensionUiResponse()   {}
 func (ConfirmUiResponse) isExtensionUiResponse() {}
 func (CancelUiResponse) isExtensionUiResponse()  {}
 func (AnswersUiResponse) isExtensionUiResponse() {}
+func (FormUiResponse) isExtensionUiResponse()    {}
 
 func (v ExtensionUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeVariant("ExtensionUiResponse", v.Value)
@@ -6619,6 +6749,7 @@ func (ValueUiResponse) isRpcInbound()   {}
 func (ConfirmUiResponse) isRpcInbound() {}
 func (CancelUiResponse) isRpcInbound()  {}
 func (AnswersUiResponse) isRpcInbound() {}
+func (FormUiResponse) isRpcInbound()    {}
 func (HostToolUpdate) isRpcInbound()    {}
 func (HostToolResult) isRpcInbound()    {}
 func (HostUriResult) isRpcInbound()     {}
@@ -7215,6 +7346,25 @@ func (v *SetAskDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
 	return nil
 }
 
+type SetFormDialogResult struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (v *SetFormDialogResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "SetFormDialogResult", v.decodeFrom)
+}
+
+func (v *SetFormDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out SetFormDialogResult
+	d := fieldDecoder{raw: raw, owner: "SetFormDialogResult"}
+	d.required("enabled", &out.Enabled)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 type GetAvailableCommandsResult struct {
 	Commands []AvailableSlashCommand `json:"commands"`
 }
@@ -7660,6 +7810,7 @@ func (v *GetLogoutAccountsResult) decodeFrom(raw map[string]json.RawMessage) err
 
 type LogoutResult struct {
 	RemainingSource *string `json:"remainingSource,omitempty"`
+	ProviderID      *string `json:"providerId,omitempty"`
 }
 
 func (v *LogoutResult) UnmarshalJSON(data []byte) error {
@@ -7670,6 +7821,7 @@ func (v *LogoutResult) decodeFrom(raw map[string]json.RawMessage) error {
 	var out LogoutResult
 	d := fieldDecoder{raw: raw, owner: "LogoutResult"}
 	d.optional("remainingSource", &out.RemainingSource)
+	d.optional("providerId", &out.ProviderID)
 	if d.err != nil {
 		return d.err
 	}
@@ -7935,6 +8087,18 @@ type SetAskDialogCommand struct {
 func (c Commands) SetAskDialog(ctx context.Context, p SetAskDialogCommand) (bool, error) {
 	var out SetAskDialogResult
 	err := c.call(ctx, "set_ask_dialog", p, 0, &out)
+	return out.Enabled, err
+}
+
+// SetFormDialogCommand holds the parameters of "set_form_dialog".
+type SetFormDialogCommand struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetFormDialog sends "set_form_dialog": Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.
+func (c Commands) SetFormDialog(ctx context.Context, p SetFormDialogCommand) (bool, error) {
+	var out SetFormDialogResult
+	err := c.call(ctx, "set_form_dialog", p, 0, &out)
 	return out.Enabled, err
 }
 
@@ -8468,10 +8632,10 @@ func (c Commands) GetLogoutAccounts(ctx context.Context, p GetLogoutAccountsComm
 // LogoutCommand holds the parameters of "logout".
 type LogoutCommand struct {
 	ProviderID   string `json:"providerId"`
-	CredentialID int64  `json:"credentialId"`
+	CredentialID *int64 `json:"credentialId,omitempty"`
 }
 
-// Logout sends "logout": Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.
+// Logout sends "logout": Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.
 func (c Commands) Logout(ctx context.Context, p LogoutCommand) (LogoutResult, error) {
 	var out LogoutResult
 	err := c.call(ctx, "logout", p, 0, &out)

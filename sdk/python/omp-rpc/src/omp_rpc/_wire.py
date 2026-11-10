@@ -191,8 +191,8 @@ _WIDGET_PLACEMENT_VALUES: Final[frozenset[str]] = frozenset({"aboveEditor", "bel
 _decode_widget_placement = cast("Decoder[WidgetPlacement]", literal(_WIDGET_PLACEMENT_VALUES))
 
 
-ExtensionUiMethod: TypeAlias = Literal["select", "confirm", "input", "editor", "ask", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"]
-_EXTENSION_UI_METHOD_VALUES: Final[frozenset[str]] = frozenset({"select", "confirm", "input", "editor", "ask", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"})
+ExtensionUiMethod: TypeAlias = Literal["select", "confirm", "input", "editor", "ask", "form", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"]
+_EXTENSION_UI_METHOD_VALUES: Final[frozenset[str]] = frozenset({"select", "confirm", "input", "editor", "ask", "form", "cancel", "notify", "setStatus", "setWidget", "setTitle", "set_editor_text", "open_url"})
 _decode_extension_ui_method = cast("Decoder[ExtensionUiMethod]", literal(_EXTENSION_UI_METHOD_VALUES))
 
 
@@ -885,7 +885,7 @@ class AvailableSlashCommand:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class SessionEntries:
-    """OMP-native session entries in append order."""
+    """Scient Agent-native session entries in append order."""
     entries: tuple[JsonObject, ...]
     leaf_id: str | None
 
@@ -962,6 +962,10 @@ class LoginProvider:
     name: str
     available: bool
     authenticated: bool
+    kind: Literal["account", "key"]
+    stored: bool
+    store: str
+    emails: tuple[str, ...] | None = None
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1281,12 +1285,12 @@ class PromptError:
     """Failure detail of a `prompt_result` with `status: "error"`."""
     message: str
     retryable: bool
-    """Transient: resubmitting later may succeed (omp's own retries are exhausted)."""
+    """Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted)."""
     provider: str | None = None
     model: str | None = None
     http_status: int | None = None
     code: Literal["cost_cap"] | None = None
-    """`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request."""
+    """`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request."""
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1551,6 +1555,16 @@ class AskUiRequest:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class FormUiRequest:
+    """The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`."""
+    type: Literal["extension_ui_request"] = "extension_ui_request"
+    id: str
+    method: Literal["form"] = "form"
+    html: str
+    timeout: int | None = None
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class CancelUiRequest:
     """Close the dialog opened by request `targetId`; a later answer to it is ignored."""
     type: Literal["extension_ui_request"] = "extension_ui_request"
@@ -1630,6 +1644,7 @@ class ExtensionUiRequest(ExtensionUiRequestMixin):
     prefill: str | None = None
     prompt_style: bool | None = None
     questions: tuple[AskQuestion, ...] | None = None
+    html: str | None = None
     target_id: str | None = None
     notify_type: NotifyType | None = None
     status_key: str | None = None
@@ -1691,6 +1706,7 @@ class GetSessionLeaseResult:
 @dataclass(slots=True, frozen=True, kw_only=True)
 class LogoutResult:
     remaining_source: str | None = None
+    provider_id: str | None = None
 
 
 UserContent: TypeAlias = TextContent | ImageContent
@@ -2372,6 +2388,10 @@ def parse_login_provider(value: object, path: str = "LoginProvider") -> LoginPro
         name=required(payload, "name", decode_str, path),
         available=required(payload, "available", decode_bool, path),
         authenticated=required(payload, "authenticated", decode_bool, path),
+        kind=required(payload, "kind", cast('Decoder[Literal["account", "key"]]', literal(frozenset({"account", "key"}))), path),
+        stored=required(payload, "stored", decode_bool, path),
+        store=required(payload, "store", decode_str, path),
+        emails=optional(payload, "emails", array(decode_str), path),
     )
 
 
@@ -3038,6 +3058,17 @@ def parse_ask_ui_request(value: object, path: str = "AskUiRequest") -> AskUiRequ
     )
 
 
+def parse_form_ui_request(value: object, path: str = "FormUiRequest") -> FormUiRequest:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["extension_ui_request"]]', literal(frozenset({"extension_ui_request"}))), path)
+    required(payload, "method", cast('Decoder[Literal["form"]]', literal(frozenset({"form"}))), path)
+    return FormUiRequest(
+        id=required(payload, "id", decode_str, path),
+        html=required(payload, "html", decode_str, path),
+        timeout=optional(payload, "timeout", decode_int, path),
+    )
+
+
 def parse_cancel_ui_request(value: object, path: str = "CancelUiRequest") -> CancelUiRequest:
     payload = expect_object(value, path)
     required(payload, "type", cast('Decoder[Literal["extension_ui_request"]]', literal(frozenset({"extension_ui_request"}))), path)
@@ -3130,6 +3161,7 @@ def parse_extension_ui_request(value: object, path: str = "ExtensionUiRequest") 
         prefill=optional(payload, "prefill", decode_str, path),
         prompt_style=optional(payload, "promptStyle", decode_bool, path),
         questions=optional(payload, "questions", array(parse_ask_question), path),
+        html=optional(payload, "html", decode_str, path),
         target_id=optional(payload, "targetId", decode_str, path),
         notify_type=optional(payload, "notifyType", _decode_notify_type, path),
         status_key=optional(payload, "statusKey", decode_str, path),
@@ -3203,6 +3235,7 @@ def parse_logout_result(value: object, path: str = "LogoutResult") -> LogoutResu
     payload = expect_object(value, path)
     return LogoutResult(
         remaining_source=optional(payload, "remainingSource", decode_str, path),
+        provider_id=optional(payload, "providerId", decode_str, path),
     )
 
 
@@ -3424,6 +3457,12 @@ class WireClient:
         params: dict[str, object] = {}
         params["enabled"] = enabled
         return required(expect_object(self._command("set_ask_dialog", params), "set_ask_dialog"), "enabled", decode_bool, "set_ask_dialog")
+
+    def set_form_dialog(self, enabled: bool) -> bool:
+        """Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting."""
+        params: dict[str, object] = {}
+        params["enabled"] = enabled
+        return required(expect_object(self._command("set_form_dialog", params), "set_form_dialog"), "enabled", decode_bool, "set_form_dialog")
 
     def get_available_commands(self) -> tuple[AvailableSlashCommand, ...]:
         """List the slash-command catalog."""
@@ -3735,11 +3774,12 @@ class WireClient:
         params["providerId"] = provider_id
         return required(expect_object(self._command("get_logout_accounts", params), "get_logout_accounts"), "accounts", array(parse_logout_account), "get_logout_accounts")
 
-    def logout(self, provider_id: str, credential_id: int) -> LogoutResult:
-        """Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies."""
+    def logout(self, provider_id: str, *, credential_id: int | None = None) -> LogoutResult:
+        """Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out."""
         params: dict[str, object] = {}
         params["providerId"] = provider_id
-        params["credentialId"] = credential_id
+        if credential_id is not None:
+            params["credentialId"] = credential_id
         return parse_logout_result(self._command("logout", params), "logout")
 
     def predict_word(self, text: str, cursor: int) -> str | None:
@@ -4076,6 +4116,7 @@ __all__ = [
     "FastModeResult",
     "FileMentionItem",
     "FileMentionMessage",
+    "FormUiRequest",
     "GetSessionLeaseResult",
     "Goal",
     "GoalModeState",
@@ -4267,6 +4308,7 @@ __all__ = [
     "parse_fast_mode_result",
     "parse_file_mention_item",
     "parse_file_mention_message",
+    "parse_form_ui_request",
     "parse_get_session_lease_result",
     "parse_goal",
     "parse_goal_mode_state",

@@ -186,6 +186,17 @@
 				"clientOmit": []
 			},
 			{
+				"name": "set_form_dialog",
+				"doc": "Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.",
+				"params": "SetFormDialogParams",
+				"result": "SetFormDialogResult",
+				"nullable": false,
+				"unwrap": "enabled",
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
 				"name": "get_available_commands",
 				"doc": "List the slash-command catalog.",
 				"params": null,
@@ -761,7 +772,7 @@
 			},
 			{
 				"name": "logout",
-				"doc": "Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.",
+				"doc": "Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.",
 				"params": "LogoutParams",
 				"result": "LogoutResult",
 				"nullable": false,
@@ -3595,13 +3606,35 @@
 				},
 				"authenticated": {
 					"type": "boolean"
+				},
+				"kind": {
+					"enum": [
+						"account",
+						"key"
+					],
+					"type": "string"
+				},
+				"stored": {
+					"type": "boolean"
+				},
+				"store": {
+					"type": "string"
+				},
+				"emails": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
 				}
 			},
 			"required": [
 				"id",
 				"name",
 				"available",
-				"authenticated"
+				"authenticated",
+				"kind",
+				"stored",
+				"store"
 			]
 		},
 		"LogoutAccount": {
@@ -5339,6 +5372,33 @@
 			],
 			"description": "Every question of one `ask` tool call; sent only after `set_ask_dialog` enables it."
 		},
+		"FormUiRequest": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "extension_ui_request"
+				},
+				"id": {
+					"type": "string"
+				},
+				"method": {
+					"const": "form"
+				},
+				"html": {
+					"type": "string"
+				},
+				"timeout": {
+					"type": "integer"
+				}
+			},
+			"required": [
+				"type",
+				"id",
+				"method",
+				"html"
+			],
+			"description": "The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`."
+		},
 		"CancelUiRequest": {
 			"type": "object",
 			"properties": {
@@ -5541,6 +5601,9 @@
 					"$ref": "#/$defs/AskUiRequest"
 				},
 				{
+					"$ref": "#/$defs/FormUiRequest"
+				},
+				{
 					"$ref": "#/$defs/CancelUiRequest"
 				},
 				{
@@ -5672,6 +5735,43 @@
 			],
 			"description": "Answers an `ask` request: one `AskAnswer` per question, in question order."
 		},
+		"FormUiResponse": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "extension_ui_response"
+				},
+				"id": {
+					"type": "string"
+				},
+				"data": {
+					"type": "object",
+					"properties": {},
+					"additionalProperties": {
+						"anyOf": [
+							{
+								"type": "string"
+							},
+							{
+								"type": "number"
+							},
+							{
+								"type": "array",
+								"items": {
+									"type": "string"
+								}
+							}
+						]
+					}
+				}
+			},
+			"required": [
+				"type",
+				"id",
+				"data"
+			],
+			"description": "Answers a `form` request with the form's data by control name: text, a number, or a group's checked values."
+		},
 		"ExtensionUiResponse": {
 			"anyOf": [
 				{
@@ -5685,6 +5785,9 @@
 				},
 				{
 					"$ref": "#/$defs/AnswersUiResponse"
+				},
+				{
+					"$ref": "#/$defs/FormUiResponse"
 				}
 			],
 			"description": "Host reply to an extension UI request; variants share `type` and differ by their payload key."
@@ -6330,6 +6433,28 @@
 			]
 		},
 		"SetAskDialogResult": {
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"enabled"
+			]
+		},
+		"SetFormDialogParams": {
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"enabled"
+			]
+		},
+		"SetFormDialogResult": {
 			"type": "object",
 			"properties": {
 				"enabled": {
@@ -7100,14 +7225,16 @@
 				}
 			},
 			"required": [
-				"providerId",
-				"credentialId"
+				"providerId"
 			]
 		},
 		"LogoutResult": {
 			"type": "object",
 			"properties": {
 				"remainingSource": {
+					"type": "string"
+				},
+				"providerId": {
 					"type": "string"
 				}
 			}
