@@ -79,6 +79,16 @@ jobs:
          - name: Install dependencies
            run: bun install --frozen-lockfile
 
+         - name: Cache Intel macOS Rust compilation
+           if: matrix.id == 'darwin-x64'
+           uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+           with:
+              prefix-key: scient-native-v1
+              key: ${{ matrix.id }}-both-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
+              env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
+              cache-bin: false
+              cache-on-failure: true
+
          - name: Check the generated commits and types
            if: matrix.id == 'darwin-arm64'
            run: |
@@ -88,14 +98,17 @@ jobs:
 
          # On x86-64 the binary carries two addons and picks one at startup:
          # `modern` (AVX2) and `baseline`, for processors without AVX2.
+         - name: Build the baseline native addon
+           if: matrix.x64
+           run: PI_NATIVE_X64_VARIANT=baseline bun run build:native
+
+         - name: Build the modern native addon
+           if: matrix.x64
+           run: PI_NATIVE_X64_VARIANT=modern bun run build:native
+
          - name: Build the native addon
-           run: |
-              if [ "${{ matrix.x64 }}" = "true" ]; then
-                 PI_NATIVE_X64_VARIANT=baseline bun run build:native
-                 PI_NATIVE_X64_VARIANT=modern bun run build:native
-              else
-                 bun run build:native
-              fi
+           if: ${{ !matrix.x64 }}
+           run: bun run build:native
 
          # Scient's own tests, and the packages whose state layout differs by
          # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).
