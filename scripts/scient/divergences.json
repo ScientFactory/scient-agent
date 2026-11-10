@@ -262,6 +262,17 @@
 				"packages/coding-agent/test/rpc-extension-ui.test.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-form.test.ts"]
+		},
+		"SA-NEXT-MESSAGE": {
+			"status": "active",
+			"contract": "A host asks for Oh My Pi's composer prediction of the user's next message with predict_next_message, which runs outside the command queue, so a prediction never delays the next prompt. It is Oh My Pi's prompt and reply parsing on the session's model and context; the session's history is not changed and the request is recorded in its usage. The host's own switch decides whether to ask.",
+			"owned": ["packages/coding-agent/src/scient/next-message.ts", "packages/coding-agent/test/scient/next-message.test.ts"],
+			"upstream": [
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				"packages/coding-agent/src/modes/rpc/wire/commands.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/next-message.test.ts"]
 		}
 	}
 }
