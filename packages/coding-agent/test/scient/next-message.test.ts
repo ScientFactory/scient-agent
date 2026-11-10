@@ -11,7 +11,12 @@ interface FakeTurn {
 function fakeSession() {
 	const turns: FakeTurn[] = [];
 	const usage: unknown[] = [];
+	const listeners: Array<(event: { type: string }) => void> = [];
 	const session = {
+		subscribe: (listener: (event: { type: string }) => void) => {
+			listeners.push(listener);
+			return () => {};
+		},
 		model: { provider: "test", id: "model" },
 		messages: [{ role: "assistant", content: [] }] as unknown as AgentMessage[],
 		isStreaming: false,
@@ -35,7 +40,10 @@ function fakeSession() {
 			return promise;
 		},
 	};
-	return { session, turns, usage };
+	const emit = (type: string) => {
+		for (const listener of listeners) listener({ type });
+	};
+	return { session, turns, usage, emit };
 }
 
 function predictor(session: ReturnType<typeof fakeSession>["session"]) {
@@ -53,8 +61,8 @@ describe("predict_next_message", () => {
 		expect(usage).toHaveLength(1);
 	});
 
-	it("returns null for a skip, a running turn, a newer request and a conversation that moved on", async () => {
-		const { session, turns } = fakeSession();
+	it("returns null for a skip, a newer request, a turn that starts, a conversation that moved on and a running turn", async () => {
+		const { session, turns, emit } = fakeSession();
 		const p = predictor(session);
 
 		const skipped = p.predict();
@@ -67,13 +75,17 @@ describe("predict_next_message", () => {
 		turns[2].resolve("Next");
 		expect(await newer).toBe("Next");
 
+		const turnStarted = p.predict();
+		emit("agent_start");
+		expect(await turnStarted).toBeNull();
+
 		const movedOn = p.predict();
 		session.messages = [...session.messages, { role: "user", content: [] } as unknown as AgentMessage];
-		turns[3].resolve("Too late");
+		turns[4].resolve("Too late");
 		expect(await movedOn).toBeNull();
 
 		session.isStreaming = true;
 		expect(await p.predict()).toBeNull();
-		expect(turns).toHaveLength(4);
+		expect(turns).toHaveLength(5);
 	});
 });
