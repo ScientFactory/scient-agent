@@ -3818,6 +3818,11 @@ class WireClient:
         params: dict[str, object] = {}
         return required(expect_object(self._command("get_btw_history", params), "get_btw_history"), "records", array(parse_btw_history_record), "get_btw_history")
 
+    def predict_next_message(self) -> str | None:
+        """The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one."""
+        params: dict[str, object] = {}
+        return required(expect_object(self._command("predict_next_message", params, timeout=30), "predict_next_message"), "text", nullable(decode_str), "predict_next_message")
+
     def on_ready(self, listener: Callable[[ReadyEvent], None]) -> Callable[[], None]:
         """Subscribe to `ready`: First frame after startup; transport fields are absent on servers without protocol v2."""
         return self._listen("ready", listener)

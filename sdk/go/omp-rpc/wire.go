@@ -7905,6 +7905,25 @@ func (v *GetBtwHistoryResult) decodeFrom(raw map[string]json.RawMessage) error {
 	return nil
 }
 
+type PredictNextMessageResult struct {
+	Text *string `json:"text"`
+}
+
+func (v *PredictNextMessageResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PredictNextMessageResult", v.decodeFrom)
+}
+
+func (v *PredictNextMessageResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PredictNextMessageResult
+	d := fieldDecoder{raw: raw, owner: "PredictNextMessageResult"}
+	d.nullable("text", &out.Text)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 // NegotiateProtocolCommand holds the parameters of "negotiate_protocol".
 type NegotiateProtocolCommand struct {
 	ProtocolVersion int64 `json:"protocolVersion"`
@@ -8698,4 +8717,11 @@ func (c Commands) GetBtwHistory(ctx context.Context) ([]BtwHistoryRecord, error)
 	var out GetBtwHistoryResult
 	err := c.call(ctx, "get_btw_history", nil, 0, &out)
 	return out.Records, err
+}
+
+// PredictNextMessage sends "predict_next_message": The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one.
+func (c Commands) PredictNextMessage(ctx context.Context) (*string, error) {
+	var out PredictNextMessageResult
+	err := c.call(ctx, "predict_next_message", nil, 30*time.Second, &out)
+	return out.Text, err
 }

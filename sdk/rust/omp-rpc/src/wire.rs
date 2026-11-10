@@ -5778,6 +5778,12 @@ pub struct GetBtwHistoryResult {
 	pub records: Vec<BtwHistoryRecord>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PredictNextMessageResult {
+	#[serde(deserialize_with = "Deserialize::deserialize")]
+	pub text: Option<String>,
+}
+
 /// The constant `"image"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct LitImage;
@@ -7507,5 +7513,19 @@ impl Command for GetBtwHistoryCommand {
 
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		serde_json::from_value::<GetBtwHistoryResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.records)
+	}
+}
+
+/// The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct PredictNextMessageCommand {}
+
+impl Command for PredictNextMessageCommand {
+	const NAME: &'static str = "predict_next_message";
+	const TIMEOUT_MS: Option<u64> = Some(30000);
+	type Output = Option<String>;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<PredictNextMessageResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.text)
 	}
 }

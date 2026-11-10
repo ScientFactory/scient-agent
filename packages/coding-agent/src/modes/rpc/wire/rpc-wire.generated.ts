@@ -1949,6 +1949,10 @@ export interface GetBtwHistoryResult {
 	records: BtwHistoryRecord[];
 }
 
+export interface PredictNextMessageResult {
+	text: string | null;
+}
+
 /** Every RPC command's parameters and successful response `data`. */
 export interface RpcWireCommands {
 	negotiate_protocol: { params: NegotiateProtocolParams; result: NegotiateProtocolResult };
@@ -2026,4 +2030,5 @@ export interface RpcWireCommands {
 	btw: { params: BtwParams; result: BtwResult };
 	btw_cancel: { params: BtwCancelParams; result: BtwCancelResult };
 	get_btw_history: { params: undefined; result: GetBtwHistoryResult };
+	predict_next_message: { params: undefined; result: PredictNextMessageResult };
 }
