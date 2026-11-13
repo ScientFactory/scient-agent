@@ -1293,6 +1293,8 @@ class PromptError:
     """`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request."""
     reset_at: int | None = None
     """Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say."""
+    kinds: tuple[str, ...] | None = None
+    """The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none."""
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -2761,6 +2763,7 @@ def parse_prompt_error(value: object, path: str = "PromptError") -> PromptError:
         http_status=optional(payload, "httpStatus", decode_int, path),
         code=optional(payload, "code", cast('Decoder[Literal["cost_cap"]]', literal(frozenset({"cost_cap"}))), path),
         reset_at=optional(payload, "resetAt", decode_int, path),
+        kinds=optional(payload, "kinds", array(decode_str), path),
     )
 
 

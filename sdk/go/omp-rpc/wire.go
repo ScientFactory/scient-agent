@@ -4823,6 +4823,8 @@ type PromptError struct {
 	Code *PromptErrorCode `json:"code,omitempty"`
 	// Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.
 	ResetAt *int64 `json:"resetAt,omitempty"`
+	// The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none.
+	Kinds []string `json:"kinds,omitempty"`
 }
 
 func (v *PromptError) UnmarshalJSON(data []byte) error {
@@ -4839,6 +4841,7 @@ func (v *PromptError) decodeFrom(raw map[string]json.RawMessage) error {
 	d.optional("httpStatus", &out.HTTPStatus)
 	d.optional("code", &out.Code)
 	d.optional("resetAt", &out.ResetAt)
+	d.optional("kinds", &out.Kinds)
 	if d.err != nil {
 		return d.err
 	}

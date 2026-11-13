@@ -1091,6 +1091,8 @@ export interface PromptError {
 	code?: "cost_cap";
 	/** Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say. */
 	resetAt?: number;
+	/** The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none. */
+	kinds?: string[];
 }
 
 /** Terminal outcome of one accepted `prompt` / `abort_and_prompt`, keyed by request `id`. */
