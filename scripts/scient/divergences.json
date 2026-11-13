@@ -432,6 +432,21 @@
 			],
 			"upstream": ["packages/coding-agent/src/cli-commands.ts"],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/dictation.test.ts"]
+		},
+		"SA-PROMPT-CACHE": {
+			"status": "active",
+			"contract": "An assistant reply's message_end frame carries promptCache ({ tier, touchedAt, ttlMs }), the prompt-cache entry the reply's response confirmed, while the next request would still read it. It is absent for an inferred entry, a changed conversation, a model without a declared lifetime, and a cache that never expires. Each time an active warming run stops, by any cause, a cache_warming_stopped frame names the reason, stamps stoppedAt (epoch ms at the agent, independent of delivery time), and carries the same confirmed entry as warming left it (touchedAt is the last refresh that hit), absent on the same terms, so a host compacts an idle conversation on a five-minute cache while it is still warm. The agent's own idle compaction stays off over RPC, so a host that compacts before the entry expires never races it. Hosts that do not read these are unaffected.",
+			"owned": ["packages/coding-agent/src/scient/prompt-cache.ts", "packages/coding-agent/test/scient/prompt-cache.test.ts"],
+			"upstream": [
+				"packages/coding-agent/src/modes/controllers/event-controller.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-client.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/wire/events.ts",
+				"packages/coding-agent/src/session/agent-session-events.ts",
+				"packages/coding-agent/src/session/agent-session.ts",
+				"packages/coding-agent/src/session/cache-warmer.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/prompt-cache.test.ts"]
 		}
 	}
 }
