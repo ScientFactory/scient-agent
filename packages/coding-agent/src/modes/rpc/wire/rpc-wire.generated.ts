@@ -1089,6 +1089,8 @@ export interface PromptError {
 	httpStatus?: number;
 	/** `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request. */
 	code?: "cost_cap";
+	/** Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say. */
+	resetAt?: number;
 }
 
 /** Terminal outcome of one accepted `prompt` / `abort_and_prompt`, keyed by request `id`. */

@@ -4186,6 +4186,9 @@ pub struct PromptError {
 	/// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub code: Option<LitCostCap>,
+	/// Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.
+	#[serde(rename = "resetAt", default, skip_serializing_if = "Option::is_none")]
+	pub reset_at: Option<i64>,
 }
 
 /// Terminal outcome of one accepted `prompt` / `abort_and_prompt`, keyed by request `id`.

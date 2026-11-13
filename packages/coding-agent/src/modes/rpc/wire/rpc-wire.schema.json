@@ -4635,6 +4635,10 @@
 				"code": {
 					"const": "cost_cap",
 					"description": "`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request."
+				},
+				"resetAt": {
+					"type": "integer",
+					"description": "Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say."
 				}
 			},
 			"required": [
