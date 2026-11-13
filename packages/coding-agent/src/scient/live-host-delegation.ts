@@ -32,6 +32,16 @@ function userText(message: AgentMessage): string | undefined {
 }
 
 /**
+ * Whether a prompt is the host's message for `request`: the request itself, or the request
+ * followed by what the host appends on later lines (attachment paths). A different message that
+ * merely contains the request does not count.
+ */
+function carries(text: string | undefined, request: string): boolean {
+	const prompt = text?.trim();
+	return prompt === request || prompt?.startsWith(`${request}\n`) === true;
+}
+
+/**
  * Holds back a delegated request's progress and answer until the turn that carries it starts.
  * The host may queue the request behind a turn already running; that turn's answer must not be
  * spoken as this request's.
@@ -47,7 +57,7 @@ export class HostTurnGate {
 	/** Whether `event` comes before the awaited request's turn and must be ignored. */
 	blocks(event: AgentSessionEvent): boolean {
 		if (this.#awaiting === undefined) return false;
-		if (event.type === "message_start" && userText(event.message)?.includes(this.#awaiting)) {
+		if (event.type === "message_start" && carries(userText(event.message), this.#awaiting)) {
 			this.#awaiting = undefined;
 		}
 		return true;
