@@ -760,6 +760,11 @@ pub(in crate::desktop) fn ax_window_ids(pid: libc::pid_t) -> Option<Vec<u32>> {
 /// Hit-tests the global point `(x, y)` the way the pointer would, returning
 /// the surface and its owner together so refusal lookups use the same hit.
 pub(super) fn point_owner(x: f64, y: f64) -> Option<(PointOwner, CFRetained<AXUIElement>)> {
+	// scient(SA-AX-QUIET): begin - An untrusted AX message makes macOS prompt.
+	if !is_trusted() {
+		return None;
+	}
+	// scient(SA-AX-QUIET): end
 	let (pid, element) = element_at_point(x, y)?;
 	let window = element_window(&element);
 	Some((PointOwner { pid, window: window.as_deref().and_then(window_id) }, element))
@@ -3154,6 +3159,10 @@ fn ensure_trusted() -> CoreResult<()> {
 }
 
 fn create_application(pid: libc::pid_t) -> CoreResult<CFRetained<AXUIElement>> {
+	// scient(SA-AX-QUIET): begin - An untrusted AX message makes macOS prompt.
+	#[cfg(not(test))]
+	ensure_trusted()?;
+	// scient(SA-AX-QUIET): end
 	// SAFETY: AXUIElementCreateApplication accepts any process id and returns a
 	// +1 retained CF object.
 	let raw = unsafe { AXUIElementCreateApplication(pid) };

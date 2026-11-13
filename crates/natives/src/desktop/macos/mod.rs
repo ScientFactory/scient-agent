@@ -24,6 +24,11 @@ mod scient_fresh_grant;
 #[cfg(test)]
 pub(super) use ax::application_handle;
 pub(super) use ax::{ax_window_ids, has_open_window, is_standard_window, menus};
+// scient(SA-AX-QUIET): begin - The trust check, for AX callers elsewhere.
+pub(super) fn ax_trusted() -> bool {
+	ax::is_trusted()
+}
+// scient(SA-AX-QUIET): end
 pub(super) use capture::{application_windows, has_onscreen_window, window_titles};
 pub(super) use clicks::ClickJournal;
 use image::RgbaImage;
