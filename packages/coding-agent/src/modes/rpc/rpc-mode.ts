@@ -99,6 +99,9 @@ import { listSignInProviders, signOutOverRpc } from "../../scient/sign-in-provid
 // scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
 import { RpcNextMessagePredictor } from "../../scient/next-message";
 // scient(SA-NEXT-MESSAGE): end
+// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation before its prompt cache expires.
+import { withPromptCache } from "../../scient/prompt-cache";
+// scient(SA-PROMPT-CACHE): end
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcBtwController } from "./rpc-btw";
 import { RpcGoalController } from "./rpc-goal";
@@ -2026,7 +2029,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 
 	// Output all agent events as JSON; prompt results follow the frame that settled them.
 	session.subscribe(event => {
-		sessionEvents.forward(event);
+		// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation before its prompt cache expires.
+		sessionEvents.forward(withPromptCache(event, session));
+		// scient(SA-PROMPT-CACHE): end
 		// Before the prompt-result and settle reports: a goal continuation decided at this
 		// agent_end is scheduled (and reported as pending) before either reads settlement.
 		goalController.observe(event);

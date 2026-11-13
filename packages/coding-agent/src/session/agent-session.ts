@@ -2451,6 +2451,10 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 				this.#recordCacheWarmUsage(message, extensionOverride, refresh);
 			warmer.onRefreshStart = refresh => void this.#emitSessionEvent({ type: "cache_warming_start", ...refresh });
 			warmer.onRefreshEnd = refresh => void this.#emitSessionEvent({ type: "cache_warming_end", ...refresh });
+			// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+			warmer.onStop = reason =>
+				void this.#emitSessionEvent({ type: "cache_warming_stopped", reason, stoppedAt: Date.now() });
+			// scient(SA-PROMPT-CACHE): end
 			this.subscribeRunState(state => {
 				if (state === "idle") warmer.onAgentSettled();
 			});

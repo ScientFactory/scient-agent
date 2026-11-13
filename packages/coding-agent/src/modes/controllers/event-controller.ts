@@ -470,6 +470,12 @@ export class EventController {
 				this.ctx.statusLine.invalidate();
 				this.ctx.ui.requestRender();
 			},
+			// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+			cache_warming_stopped: async () => {
+				this.ctx.statusLine.invalidate();
+				this.ctx.ui.requestRender();
+			},
+			// scient(SA-PROMPT-CACHE): end
 			retry_fallback_applied: e => this.#handleRetryFallbackApplied(e),
 			retry_fallback_succeeded: e => this.#handleRetryFallbackSucceeded(e),
 			ttsr_triggered: e => this.#handleTtsrTriggered(e),

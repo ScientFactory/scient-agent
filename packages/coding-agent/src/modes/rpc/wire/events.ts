@@ -48,7 +48,22 @@ export const eventDefs = {
 		assistantMessageEvent: "AssistantMessageEvent",
 		"messageId?": MESSAGE_ID,
 	},
-	MessageEndEvent: { type: "'message_end'", message: "AgentMessage", "messageId?": MESSAGE_ID },
+	// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation before its prompt cache expires.
+	MessageEndEvent: {
+		type: "'message_end'",
+		message: "AgentMessage",
+		"messageId?": MESSAGE_ID,
+		"promptCache?": doc(
+			"PromptCacheEntry",
+			"On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires.",
+		),
+	},
+	PromptCacheEntry: {
+		tier: doc("'short' | 'long'", "Retention tier the provider wrote the entry under: minutes or about an hour."),
+		touchedAt: doc("number.integer", "Epoch ms when a request last wrote or read the entry (its send time)."),
+		ttlMs: doc("number.integer", "How long the provider keeps the entry after `touchedAt`."),
+	},
+	// scient(SA-PROMPT-CACHE): end
 	ToolExecutionStartEvent: {
 		type: "'tool_execution_start'",
 		toolCallId: "string",
@@ -148,6 +163,23 @@ export const eventDefs = {
 		},
 		"Outcome of the refresh announced by the matching `cache_warming_start`.",
 	),
+	// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+	CacheWarmingStoppedEvent: doc(
+		{
+			type: "'cache_warming_stopped'",
+			reason: doc("string", "Why warming stopped."),
+			stoppedAt: doc(
+				"number.integer",
+				"Epoch ms when warming stopped, which may be well before a host reads the frame.",
+			),
+			"promptCache?": doc(
+				"PromptCacheEntry",
+				"The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.",
+			),
+		},
+		"Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm.",
+	),
+	// scient(SA-PROMPT-CACHE): end
 	RetryFallbackAppliedEvent: {
 		type: "'retry_fallback_applied'",
 		from: "string",
@@ -223,6 +255,9 @@ export const eventDefs = {
 			"AutoRetryEndEvent",
 			"CacheWarmingStartEvent",
 			"CacheWarmingEndEvent",
+			// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+			"CacheWarmingStoppedEvent",
+			// scient(SA-PROMPT-CACHE): end
 			"RetryFallbackAppliedEvent",
 			"RetryFallbackSucceededEvent",
 			"ModelChangedEvent",
