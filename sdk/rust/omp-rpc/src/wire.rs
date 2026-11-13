@@ -3768,6 +3768,21 @@ pub struct MessageEndEvent {
 	/// Shared by the start, updates, and end of one message; unique per process.
 	#[serde(rename = "messageId", default, skip_serializing_if = "Option::is_none")]
 	pub message_id: Option<String>,
+	/// On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires.
+	#[serde(rename = "promptCache", default, skip_serializing_if = "Option::is_none")]
+	pub prompt_cache: Option<PromptCacheEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PromptCacheEntry {
+	/// Retention tier the provider wrote the entry under: minutes or about an hour.
+	pub tier: PromptCacheEntryTier,
+	/// Epoch ms when a request last wrote or read the entry (its send time).
+	#[serde(rename = "touchedAt")]
+	pub touched_at: i64,
+	/// How long the provider keeps the entry after `touchedAt`.
+	#[serde(rename = "ttlMs")]
+	pub ttl_ms: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6066,6 +6081,24 @@ impl LogoutAccountType {
 		match self {
 			Self::ApiKey => "api_key",
 			Self::Oauth => "oauth",
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PromptCacheEntryTier {
+	#[serde(rename = "short")]
+	Short,
+	#[serde(rename = "long")]
+	Long,
+}
+
+impl PromptCacheEntryTier {
+	/// Wire value.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Short => "short",
+			Self::Long => "long",
 		}
 	}
 }

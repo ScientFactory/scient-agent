@@ -1049,6 +1049,18 @@ class MessageEndEvent:
     message: AgentMessage
     message_id: str | None = None
     """Shared by the start, updates, and end of one message; unique per process."""
+    prompt_cache: PromptCacheEntry | None = None
+    """On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class PromptCacheEntry:
+    tier: Literal["short", "long"]
+    """Retention tier the provider wrote the entry under: minutes or about an hour."""
+    touched_at: int
+    """Epoch ms when a request last wrote or read the entry (its send time)."""
+    ttl_ms: int
+    """How long the provider keeps the entry after `touchedAt`."""
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -2495,6 +2507,16 @@ def parse_message_end_event(value: object, path: str = "MessageEndEvent") -> Mes
     return MessageEndEvent(
         message=required(payload, "message", parse_agent_message, path),
         message_id=optional(payload, "messageId", decode_str, path),
+        prompt_cache=optional(payload, "promptCache", parse_prompt_cache_entry, path),
+    )
+
+
+def parse_prompt_cache_entry(value: object, path: str = "PromptCacheEntry") -> PromptCacheEntry:
+    payload = expect_object(value, path)
+    return PromptCacheEntry(
+        tier=required(payload, "tier", cast('Decoder[Literal["short", "long"]]', literal(frozenset({"short", "long"}))), path),
+        touched_at=required(payload, "touchedAt", decode_int, path),
+        ttl_ms=required(payload, "ttlMs", decode_int, path),
     )
 
 
@@ -4207,6 +4229,7 @@ __all__ = [
     "ParentIrc",
     "PromoteQueuedMessageResult",
     "PromptAck",
+    "PromptCacheEntry",
     "PromptError",
     "PromptResultEvent",
     "PromptStatus",
@@ -4393,6 +4416,7 @@ __all__ = [
     "parse_parent_irc",
     "parse_promote_queued_message_result",
     "parse_prompt_ack",
+    "parse_prompt_cache_entry",
     "parse_prompt_error",
     "parse_prompt_result_event",
     "parse_python_execution_message",
