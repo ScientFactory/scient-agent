@@ -265,6 +265,10 @@ export interface RpcPromptError {
 	/** Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say. */
 	resetAt?: number;
 	// scient(SA-USAGE-RESET): end
+	// scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
+	/** The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none. */
+	kinds?: string[];
+	// scient(SA-FAILURE-KIND): end
 }
 
 /**

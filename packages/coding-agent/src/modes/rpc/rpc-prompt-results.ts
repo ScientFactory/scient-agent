@@ -21,6 +21,9 @@ import type { RpcPromptError, RpcPromptResultFrame, RpcPromptStatus } from "./rp
 // scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
 import { usageResetAt } from "../../scient/usage-reset";
 // scient(SA-USAGE-RESET): end
+// scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
+import { failureKinds } from "../../scient/failure-kind";
+// scient(SA-FAILURE-KIND): end
 
 /** A prompt accepted by RPC mode whose `prompt_result` is still owed; see {@link RpcPromptResults.begin}. */
 export interface RpcPromptTicket {
@@ -231,6 +234,10 @@ function promptError(message: AssistantMessage): RpcPromptError {
 	const resetAt = usageResetAt(message);
 	if (resetAt !== undefined) error.resetAt = resetAt;
 	// scient(SA-USAGE-RESET): end
+	// scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
+	const kinds = failureKinds(errorId);
+	if (kinds !== undefined) error.kinds = kinds;
+	// scient(SA-FAILURE-KIND): end
 	return error;
 }
 
