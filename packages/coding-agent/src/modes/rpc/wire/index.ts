@@ -78,6 +78,9 @@ const notificationDefs = {
 			// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
 			"LiveDelegationEvent",
 			// scient(SA-LIVE-HOST-DELEGATION): end
+			// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+			"PlanProposedEvent",
+			// scient(SA-PLAN-MODE): end
 			"DictationStateEvent",
 			"DictationTranscriptEvent",
 			"DictationEndEvent",

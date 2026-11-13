@@ -90,6 +90,9 @@ import { RpcNextMessagePredictor } from "../../scient/next-message";
 // scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation before its prompt cache expires.
 import { withPromptCache } from "../../scient/prompt-cache";
 // scient(SA-PROMPT-CACHE): end
+// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+import { RpcPlanController } from "../../scient/rpc-plan";
+// scient(SA-PLAN-MODE): end
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcBtwController } from "./rpc-btw";
 import { RpcGoalController } from "./rpc-goal";
@@ -1754,6 +1757,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 	// A single shared instance routes all responses received on stdin to the
 	// correct waiting promise regardless of which code path created the request.
 	const rpcUiContext = new RpcExtensionUIContext(pendingExtensionRequests, output);
+	// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+	const planController = new RpcPlanController(session, rpcUiContext, output);
+	// scient(SA-PLAN-MODE): end
 	setToolUIContext?.(rpcUiContext, true);
 	const setAskDialog = (command: RpcCommand & { type: "set_ask_dialog" }): RpcResponse => {
 		rpcUiContext.askDialogEnabled = command.enabled === true;
@@ -2976,6 +2982,15 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			case "predict_next_message":
 				return success(id, "predict_next_message", { text: await nextMessagePredictor.predict() });
 			// scient(SA-NEXT-MESSAGE): end
+			// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+
+			case "plan":
+				try {
+					return success(id, "plan", await planController.handle(command));
+				} catch (planError) {
+					return error(id, "plan", planError instanceof Error ? planError.message : String(planError));
+				}
+			// scient(SA-PLAN-MODE): end
 
 			default: {
 				const unknownCommand = command as { type: string };

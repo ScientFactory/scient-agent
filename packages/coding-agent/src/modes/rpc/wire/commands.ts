@@ -452,4 +452,12 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 		timeoutMs: 30_000,
 	},
 	// scient(SA-NEXT-MESSAGE): end
+	// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+	{
+		name: "plan",
+		doc: "Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request).",
+		params: { op: "PlanOp" },
+		result: "PlanResult",
+	},
+	// scient(SA-PLAN-MODE): end
 ];
