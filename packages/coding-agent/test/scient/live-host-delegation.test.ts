@@ -20,6 +20,8 @@ const delegationCreated = (id: string, text: string): LiveServerEvent => ({
 /** A controller on a stand-in transport, returning the transport's event callback. */
 async function startController(options: Partial<LiveSessionControllerOptions>) {
 	let onEvent: ((event: LiveServerEvent) => void) | undefined;
+	let onSessionEvent: ((event: unknown) => void) | undefined;
+	const sentToModel: unknown[] = [];
 	const transportSpy = vi.spyOn(liveTransport, "CodexLiveTransport") as unknown as {
 		mockImplementation(implementation: (options: LiveTransportOptions) => object): void;
 	};
@@ -28,7 +30,9 @@ async function startController(options: Partial<LiveSessionControllerOptions>) {
 		return {
 			connect: async () => {},
 			setMuted: async () => {},
-			send: async () => {},
+			send: async (message: unknown) => {
+				sentToModel.push(message);
+			},
 			close: async () => {},
 			sdpAnswer: "v=0 answer",
 		};
@@ -37,20 +41,30 @@ async function startController(options: Partial<LiveSessionControllerOptions>) {
 	const session = {
 		modelRegistry: { authStorage: {} },
 		sessionId: "s1",
-		subscribe: () => () => {},
+		subscribe: (listener: (event: unknown) => void) => {
+			onSessionEvent = listener;
+			return () => {};
+		},
 		sendCustomMessage: async (message: { content: string }) => {
 			sentToSession.push(message.content);
 		},
 	} as unknown as LiveSessionControllerOptions["session"];
 	const controller = new LiveSessionController({
 		session,
-		extractAssistantText: () => "",
+		extractAssistantText: (message: { content: Array<{ type: string; text?: string }> }) =>
+			message.content.map(part => part.text ?? "").join(""),
 		sdpOffer: "v=0 offer",
 		callbacks: { onPhase: () => {}, onLevels: () => {}, onTranscript: () => {}, onTerminal: () => {} },
 		...options,
 	});
 	await controller.start();
-	return { controller, emit: (event: LiveServerEvent) => onEvent!(event), sentToSession };
+	return {
+		controller,
+		emit: (event: LiveServerEvent) => onEvent!(event),
+		emitSession: (event: unknown) => onSessionEvent!(event),
+		sentToModel,
+		sentToSession,
+	};
 }
 
 describe("live host delegation", () => {
@@ -63,6 +77,21 @@ describe("live host delegation", () => {
 		expect(delegated).toEqual(["list the files"]);
 		expect(sentToSession).toEqual([]);
 		expect(controller.phase).toBe("working");
+		await controller.stop();
+	});
+
+	it("speaks only the answer of the turn that carries a queued request", async () => {
+		const { controller, emit, emitSession, sentToModel } = await startController({ delegate: () => {} });
+		const answer = (text: string) => ({ role: "assistant", content: [{ type: "text", text }] });
+		emit(delegationCreated("d1", "list the files"));
+		// A turn that was already running ends first: its answer is not this request's.
+		emitSession({ type: "agent_end", messages: [answer("earlier answer")] });
+		emitSession({ type: "message_start", message: { role: "user", content: "list the files" } });
+		emitSession({ type: "agent_end", messages: [answer("a.txt and b.txt")] });
+		await Bun.sleep(0);
+		const spoken = JSON.stringify(sentToModel);
+		expect(spoken).not.toContain("earlier answer");
+		expect(spoken).toContain("a.txt and b.txt");
 		await controller.stop();
 	});
 
