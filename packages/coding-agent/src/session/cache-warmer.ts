@@ -389,6 +389,10 @@ export class CacheWarmer {
 	onRefreshStart?: (refresh: CacheWarmingRefreshStart) => void;
 	/** Called exactly once after each onRefreshStart, unless the host cleared it (dispose) while the refresh was in flight. */
 	onRefreshEnd?: (refresh: CacheWarmingRefreshEnd) => void;
+	// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+	/** Called once each time an active warming run stops, whatever stopped it. */
+	onStop?: (reason: string) => void;
+	// scient(SA-PROMPT-CACHE): end
 
 	constructor(deps: CacheWarmerDeps) {
 		this.#deps = deps;
@@ -618,9 +622,15 @@ export class CacheWarmer {
 	}
 
 	#stop(reason: string, stopped?: Pick<CacheWarmingStatus, "decision" | "extensionOverride">): void {
+		// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+		const warming = this.#run !== undefined;
+		// scient(SA-PROMPT-CACHE): end
 		if (this.#run) this.#run.warmingStopReason = reason;
 		this.#clearRun();
 		this.#inactive = { state: "inactive", reason, ...stopped };
+		// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+		if (warming) this.onStop?.(reason);
+		// scient(SA-PROMPT-CACHE): end
 	}
 
 	#schedule(run: ActiveRun): void {
