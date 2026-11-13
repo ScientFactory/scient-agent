@@ -43,6 +43,12 @@ export const frameDefs = {
 				"Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.",
 			),
 			// scient(SA-USAGE-RESET): end
+			// scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
+			"kinds?": doc(
+				"string[]",
+				"The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none.",
+			),
+			// scient(SA-FAILURE-KIND): end
 		},
 		'Failure detail of a `prompt_result` with `status: "error"`.',
 	),
