@@ -47,7 +47,22 @@ export const eventDefs = {
 		assistantMessageEvent: "AssistantMessageEvent",
 		"messageId?": MESSAGE_ID,
 	},
-	MessageEndEvent: { type: "'message_end'", message: "AgentMessage", "messageId?": MESSAGE_ID },
+	// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation before its prompt cache expires.
+	MessageEndEvent: {
+		type: "'message_end'",
+		message: "AgentMessage",
+		"messageId?": MESSAGE_ID,
+		"promptCache?": doc(
+			"PromptCacheEntry",
+			"On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires.",
+		),
+	},
+	PromptCacheEntry: {
+		tier: doc("'short' | 'long'", "Retention tier the provider wrote the entry under: minutes or about an hour."),
+		touchedAt: doc("number.integer", "Epoch ms when a request last wrote or read the entry (its send time)."),
+		ttlMs: doc("number.integer", "How long the provider keeps the entry after `touchedAt`."),
+	},
+	// scient(SA-PROMPT-CACHE): end
 	ToolExecutionStartEvent: {
 		type: "'tool_execution_start'",
 		toolCallId: "string",

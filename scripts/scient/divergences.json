@@ -405,6 +405,16 @@
 			],
 			"upstream": ["packages/coding-agent/src/cli-commands.ts"],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/dictation.test.ts"]
+		},
+		"SA-PROMPT-CACHE": {
+			"status": "active",
+			"contract": "An assistant reply's message_end frame carries promptCache ({ tier, touchedAt, ttlMs }), the prompt-cache entry the reply's response confirmed, while the next request would still read it. It is absent for an inferred entry, a changed conversation, a model without a declared lifetime, and a cache that never expires. The agent's own idle compaction stays off over RPC, so a host that compacts before the entry expires never races it. Hosts that do not read it are unaffected.",
+			"owned": ["packages/coding-agent/src/scient/prompt-cache.ts", "packages/coding-agent/test/scient/prompt-cache.test.ts"],
+			"upstream": [
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/wire/events.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/prompt-cache.test.ts"]
 		}
 	}
 }
