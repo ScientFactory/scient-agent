@@ -3841,6 +3841,8 @@ type MessageEndEvent struct {
 	Message AgentMessage `json:"message"`
 	// Shared by the start, updates, and end of one message; unique per process.
 	MessageID *string `json:"messageId,omitempty"`
+	// On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires.
+	PromptCache *PromptCacheEntry `json:"promptCache,omitempty"`
 }
 
 func (v *MessageEndEvent) UnmarshalJSON(data []byte) error {
@@ -3853,6 +3855,7 @@ func (v *MessageEndEvent) decodeFrom(raw map[string]json.RawMessage) error {
 	d.constant("type", "message_end")
 	d.required("message", &out.Message)
 	d.optional("messageId", &out.MessageID)
+	d.optional("promptCache", &out.PromptCache)
 	if d.err != nil {
 		return d.err
 	}
@@ -3863,6 +3866,52 @@ func (v *MessageEndEvent) decodeFrom(raw map[string]json.RawMessage) error {
 func (v MessageEndEvent) MarshalJSON() ([]byte, error) {
 	type plain MessageEndEvent
 	return encodeObject(plain(v), `"type":"message_end"`, nil)
+}
+
+type PromptCacheEntry struct {
+	// Retention tier the provider wrote the entry under: minutes or about an hour.
+	Tier PromptCacheEntryTier `json:"tier"`
+	// Epoch ms when a request last wrote or read the entry (its send time).
+	TouchedAt int64 `json:"touchedAt"`
+	// How long the provider keeps the entry after `touchedAt`.
+	TtlMs int64 `json:"ttlMs"`
+}
+
+func (v *PromptCacheEntry) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PromptCacheEntry", v.decodeFrom)
+}
+
+func (v *PromptCacheEntry) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PromptCacheEntry
+	d := fieldDecoder{raw: raw, owner: "PromptCacheEntry"}
+	d.required("tier", &out.Tier)
+	d.required("touchedAt", &out.TouchedAt)
+	d.required("ttlMs", &out.TtlMs)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+type PromptCacheEntryTier string
+
+const (
+	PromptCacheEntryTierShort PromptCacheEntryTier = "short"
+	PromptCacheEntryTierLong  PromptCacheEntryTier = "long"
+)
+
+func (v *PromptCacheEntryTier) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "PromptCacheEntryTier")
+	if err != nil {
+		return err
+	}
+	switch value := PromptCacheEntryTier(s); value {
+	case PromptCacheEntryTierShort, PromptCacheEntryTierLong:
+		*v = value
+		return nil
+	}
+	return unknownValue("PromptCacheEntryTier", s)
 }
 
 type ToolExecutionStartEvent struct {

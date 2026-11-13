@@ -3905,11 +3905,41 @@
 				"messageId": {
 					"type": "string",
 					"description": "Shared by the start, updates, and end of one message; unique per process."
+				},
+				"promptCache": {
+					"$ref": "#/$defs/PromptCacheEntry",
+					"description": "On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires."
 				}
 			},
 			"required": [
 				"type",
 				"message"
+			]
+		},
+		"PromptCacheEntry": {
+			"type": "object",
+			"properties": {
+				"tier": {
+					"enum": [
+						"short",
+						"long"
+					],
+					"type": "string",
+					"description": "Retention tier the provider wrote the entry under: minutes or about an hour."
+				},
+				"touchedAt": {
+					"type": "integer",
+					"description": "Epoch ms when a request last wrote or read the entry (its send time)."
+				},
+				"ttlMs": {
+					"type": "integer",
+					"description": "How long the provider keeps the entry after `touchedAt`."
+				}
+			},
+			"required": [
+				"tier",
+				"touchedAt",
+				"ttlMs"
 			]
 		},
 		"ToolExecutionStartEvent": {

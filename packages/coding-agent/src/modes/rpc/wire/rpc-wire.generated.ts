@@ -870,6 +870,17 @@ export interface MessageEndEvent {
 	message: AgentMessage;
 	/** Shared by the start, updates, and end of one message; unique per process. */
 	messageId?: string;
+	/** On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires. */
+	promptCache?: PromptCacheEntry;
+}
+
+export interface PromptCacheEntry {
+	/** Retention tier the provider wrote the entry under: minutes or about an hour. */
+	tier: "short" | "long";
+	/** Epoch ms when a request last wrote or read the entry (its send time). */
+	touchedAt: number;
+	/** How long the provider keeps the entry after `touchedAt`. */
+	ttlMs: number;
 }
 
 export interface ToolExecutionStartEvent {
