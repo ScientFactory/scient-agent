@@ -1,6 +1,6 @@
 {
 	"name": "scient-agent",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"upstream": {
 		"name": "oh-my-pi",
 		"version": "18.18.6",
