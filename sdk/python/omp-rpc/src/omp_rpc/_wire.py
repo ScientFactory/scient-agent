@@ -1417,6 +1417,13 @@ class LiveEndEvent:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class LiveDelegationEvent:
+    """A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."""
+    type: Literal["live_delegation"] = "live_delegation"
+    text: str
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class DictationStateEvent:
     """State of one draft-only microphone capture."""
     type: Literal["dictation_state"] = "dictation_state"
@@ -1735,7 +1742,7 @@ RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | Tu
 """A session event, discriminated by `type`; `set_event_filter` selects which are sent."""
 
 
-RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
+RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
 """Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`."""
 
 
@@ -2902,6 +2909,14 @@ def parse_live_end_event(value: object, path: str = "LiveEndEvent") -> LiveEndEv
     )
 
 
+def parse_live_delegation_event(value: object, path: str = "LiveDelegationEvent") -> LiveDelegationEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["live_delegation"]]', literal(frozenset({"live_delegation"}))), path)
+    return LiveDelegationEvent(
+        text=required(payload, "text", decode_str, path),
+    )
+
+
 def parse_dictation_state_event(value: object, path: str = "DictationStateEvent") -> DictationStateEvent:
     payload = expect_object(value, path)
     required(payload, "type", cast('Decoder[Literal["dictation_state"]]', literal(frozenset({"dictation_state"}))), path)
@@ -3319,6 +3334,7 @@ _RPC_NOTIFICATION_CASES: Final[dict[str, Decoder[RpcNotification]]] = {
         "live_levels": parse_live_levels_event,
         "live_transcript": parse_live_transcript_event,
         "live_end": parse_live_end_event,
+        "live_delegation": parse_live_delegation_event,
         "dictation_state": parse_dictation_state_event,
         "dictation_transcript": parse_dictation_transcript_event,
         "dictation_end": parse_dictation_end_event,
@@ -3537,7 +3553,7 @@ class WireClient:
             params["instructions"] = instructions
         return required(expect_object(self._command("live_start", params), "live_start"), "voice", decode_str, "live_start")
 
-    def live_connect(self, sdp_offer: str, *, voice: str | None = None, instructions: str | None = None) -> LiveConnectResult:
+    def live_connect(self, sdp_offer: str, *, voice: str | None = None, instructions: str | None = None, host_delegation: bool | None = None) -> LiveConnectResult:
         """Start a live voice session whose audio runs on a caller-owned WebRTC peer: send its SDP offer, apply the returned answer."""
         params: dict[str, object] = {}
         params["sdpOffer"] = sdp_offer
@@ -3545,6 +3561,8 @@ class WireClient:
             params["voice"] = voice
         if instructions is not None:
             params["instructions"] = instructions
+        if host_delegation is not None:
+            params["hostDelegation"] = host_delegation
         return parse_live_connect_result(self._command("live_connect", params), "live_connect")
 
     def live_stop(self) -> None:
@@ -3881,6 +3899,10 @@ class WireClient:
         """Subscribe to `live_end`: Sent exactly once when a live session ends; `error` carries the failure cause."""
         return self._listen("live_end", listener)
 
+    def on_live_delegation(self, listener: Callable[[LiveDelegationEvent], None]) -> Callable[[], None]:
+        """Subscribe to `live_delegation`: A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."""
+        return self._listen("live_delegation", listener)
+
     def on_dictation_state(self, listener: Callable[[DictationStateEvent], None]) -> Callable[[], None]:
         """Subscribe to `dictation_state`: State of one draft-only microphone capture."""
         return self._listen("dictation_state", listener)
@@ -4145,6 +4167,7 @@ __all__ = [
     "IrcMessageEvent",
     "LineRange",
     "LiveConnectResult",
+    "LiveDelegationEvent",
     "LiveEndEvent",
     "LiveLevelsEvent",
     "LivePhase",
@@ -4334,6 +4357,7 @@ __all__ = [
     "parse_irc_message_event",
     "parse_line_range",
     "parse_live_connect_result",
+    "parse_live_delegation_event",
     "parse_live_end_event",
     "parse_live_levels_event",
     "parse_live_phase_event",

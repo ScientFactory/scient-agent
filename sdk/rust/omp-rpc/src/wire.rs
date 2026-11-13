@@ -4389,6 +4389,12 @@ pub struct LiveEndEvent {
 	pub error: Option<String>,
 }
 
+/// A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LiveDelegationEvent {
+	pub text: String,
+}
+
 /// State of one draft-only microphone capture.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DictationStateEvent {
@@ -5114,6 +5120,8 @@ pub enum RpcNotification {
 	LiveTranscript(LiveTranscriptEvent),
 	/// Sent exactly once when a live session ends; `error` carries the failure cause.
 	LiveEnd(LiveEndEvent),
+	/// A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.
+	LiveDelegation(LiveDelegationEvent),
 	/// State of one draft-only microphone capture.
 	DictationState(DictationStateEvent),
 	/// Full accumulated draft preview; replaces the previous preview for this capture.
@@ -5155,6 +5163,7 @@ impl RpcNotification {
 			Some("live_levels") => |value| serde_json::from_value(value).map(Self::LiveLevels),
 			Some("live_transcript") => |value| serde_json::from_value(value).map(Self::LiveTranscript),
 			Some("live_end") => |value| serde_json::from_value(value).map(Self::LiveEnd),
+			Some("live_delegation") => |value| serde_json::from_value(value).map(Self::LiveDelegation),
 			Some("dictation_state") => |value| serde_json::from_value(value).map(Self::DictationState),
 			Some("dictation_transcript") => |value| serde_json::from_value(value).map(Self::DictationTranscript),
 			Some("dictation_end") => |value| serde_json::from_value(value).map(Self::DictationEnd),
@@ -5187,6 +5196,7 @@ impl Serialize for RpcNotification {
 			Self::LiveLevels(member) => serialize_tagged(member, &[("type", "live_levels")], serializer),
 			Self::LiveTranscript(member) => serialize_tagged(member, &[("type", "live_transcript")], serializer),
 			Self::LiveEnd(member) => serialize_tagged(member, &[("type", "live_end")], serializer),
+			Self::LiveDelegation(member) => serialize_tagged(member, &[("type", "live_delegation")], serializer),
 			Self::DictationState(member) => serialize_tagged(member, &[("type", "dictation_state")], serializer),
 			Self::DictationTranscript(member) => serialize_tagged(member, &[("type", "dictation_transcript")], serializer),
 			Self::DictationEnd(member) => serialize_tagged(member, &[("type", "dictation_end")], serializer),
@@ -5227,7 +5237,7 @@ impl RpcServerFrame {
 		let decode: fn(Value) -> Result<Self, serde_json::Error> = match value.get("type").and_then(Value::as_str) {
 			Some("response") => |value| serde_json::from_value(value).map(Self::Response),
 			Some("host_tool_call" | "host_tool_cancel" | "host_uri_request" | "host_uri_cancel") => |value| serde_json::from_value(value).map(Self::RpcHostRequest),
-			Some("ready" | "prompt_result" | "session_settled" | "extension_error" | "extension_ui_request" | "available_commands_update" | "subagent_lifecycle" | "subagent_progress" | "subagent_event" | "live_phase" | "live_levels" | "live_transcript" | "live_end" | "dictation_state" | "dictation_transcript" | "dictation_end" | "btw_delta" | "btw_record" | "command_output" | "session_info_update" | "config_update" | "rpc_frame_error" | "agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcNotification),
+			Some("ready" | "prompt_result" | "session_settled" | "extension_error" | "extension_ui_request" | "available_commands_update" | "subagent_lifecycle" | "subagent_progress" | "subagent_event" | "live_phase" | "live_levels" | "live_transcript" | "live_end" | "live_delegation" | "dictation_state" | "dictation_transcript" | "dictation_end" | "btw_delta" | "btw_record" | "command_output" | "session_info_update" | "config_update" | "rpc_frame_error" | "agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcNotification),
 			_ => |value| Ok(Self::Unknown(value)),
 		};
 		decode(value)
@@ -5491,6 +5501,8 @@ pub struct LiveConnectParams {
 	pub voice: Option<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub instructions: Option<String>,
+	#[serde(rename = "hostDelegation", default, skip_serializing_if = "Option::is_none")]
+	pub host_delegation: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -6771,6 +6783,8 @@ pub struct LiveConnectCommand {
 	pub voice: Option<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub instructions: Option<String>,
+	#[serde(rename = "hostDelegation", default, skip_serializing_if = "Option::is_none")]
+	pub host_delegation: Option<bool>,
 }
 
 impl Command for LiveConnectCommand {

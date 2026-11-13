@@ -5329,6 +5329,32 @@ func (v LiveEndEvent) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"live_end"`, nil)
 }
 
+// A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.
+type LiveDelegationEvent struct {
+	Text string `json:"text"`
+}
+
+func (v *LiveDelegationEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "LiveDelegationEvent", v.decodeFrom)
+}
+
+func (v *LiveDelegationEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out LiveDelegationEvent
+	d := fieldDecoder{raw: raw, owner: "LiveDelegationEvent"}
+	d.constant("type", "live_delegation")
+	d.required("text", &out.Text)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v LiveDelegationEvent) MarshalJSON() ([]byte, error) {
+	type plain LiveDelegationEvent
+	return encodeObject(plain(v), `"type":"live_delegation"`, nil)
+}
+
 // State of one draft-only microphone capture.
 type DictationStateEvent struct {
 	CaptureID string                   `json:"captureId"`
@@ -6904,6 +6930,7 @@ func (LivePhaseEvent) isRpcNotification()               {}
 func (LiveLevelsEvent) isRpcNotification()              {}
 func (LiveTranscriptEvent) isRpcNotification()          {}
 func (LiveEndEvent) isRpcNotification()                 {}
+func (LiveDelegationEvent) isRpcNotification()          {}
 func (DictationStateEvent) isRpcNotification()          {}
 func (DictationTranscriptEvent) isRpcNotification()     {}
 func (DictationEndEvent) isRpcNotification()            {}
@@ -6986,6 +7013,8 @@ func (v *RpcNotification) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveTranscriptEvent](raw)
 	case "live_end":
 		value, err = decodeVariant[LiveEndEvent](raw)
+	case "live_delegation":
+		value, err = decodeVariant[LiveDelegationEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":
@@ -7109,6 +7138,7 @@ func (LivePhaseEvent) isRpcServerFrame()               {}
 func (LiveLevelsEvent) isRpcServerFrame()              {}
 func (LiveTranscriptEvent) isRpcServerFrame()          {}
 func (LiveEndEvent) isRpcServerFrame()                 {}
+func (LiveDelegationEvent) isRpcServerFrame()          {}
 func (DictationStateEvent) isRpcServerFrame()          {}
 func (DictationTranscriptEvent) isRpcServerFrame()     {}
 func (DictationEndEvent) isRpcServerFrame()            {}
@@ -7201,6 +7231,8 @@ func (v *RpcServerFrame) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveTranscriptEvent](raw)
 	case "live_end":
 		value, err = decodeVariant[LiveEndEvent](raw)
+	case "live_delegation":
+		value, err = decodeVariant[LiveDelegationEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":
@@ -8272,9 +8304,10 @@ func (c Commands) LiveStart(ctx context.Context, p LiveStartCommand) (string, er
 
 // LiveConnectCommand holds the parameters of "live_connect".
 type LiveConnectCommand struct {
-	SdpOffer     string  `json:"sdpOffer"`
-	Voice        *string `json:"voice,omitempty"`
-	Instructions *string `json:"instructions,omitempty"`
+	SdpOffer       string  `json:"sdpOffer"`
+	Voice          *string `json:"voice,omitempty"`
+	Instructions   *string `json:"instructions,omitempty"`
+	HostDelegation *bool   `json:"hostDelegation,omitempty"`
 }
 
 // LiveConnect sends "live_connect": Start a live voice session whose audio runs on a caller-owned WebRTC peer: send its SDP offer, apply the returned answer.
