@@ -338,18 +338,24 @@
 		},
 		"SA-USAGE-RESET": {
 			"status": "active",
-			"contract": "A prompt_result for a usage-limited turn carries error.resetAt, the epoch ms at which the provider said the limit resets: its retry hint, the account's usage report, or an earlier provider-stated block, whichever is latest. It is absent when the provider gave no time; the heuristic wait for a hintless error is never reported. Hosts that do not read it are unaffected.",
+			"contract": "A prompt_result for a usage-limited turn carries error.resetAt, the epoch ms at which the provider said the limit resets: its retry hint, the account's usage report, or an earlier provider-stated block, whichever is latest. A stated time is read from \"resets at <time>\" as well as upstream's \"reset at <time>\", by recovery too. It is absent when the provider gave no time; the heuristic wait for a hintless error is never reported. A usage-limited failure that arrived without an HTTP status reports error.httpStatus 429, so a host that keys its usage-limit state on 429 shows it; a status the provider sent is never replaced. Hosts that do not read it are unaffected. The \"resets at\" reading is a candidate to propose to Oh My Pi.",
 			"owned": [
 				"packages/coding-agent/src/scient/usage-reset.ts",
-				"packages/coding-agent/test/scient/usage-reset.test.ts"
+				"packages/coding-agent/test/scient/usage-reset.test.ts",
+				"packages/utils/src/scient/retry-hint.ts",
+				"packages/utils/test/scient/retry-hint.test.ts"
 			],
 			"upstream": [
 				"packages/coding-agent/src/modes/rpc/rpc-prompt-results.ts",
 				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
 				"packages/coding-agent/src/modes/rpc/wire/frames.ts",
-				"packages/coding-agent/src/session/turn-recovery.ts"
+				"packages/coding-agent/src/session/turn-recovery.ts",
+				"packages/utils/src/fetch-retry.ts"
 			],
-			"verification": ["bun --cwd=packages/coding-agent test test/scient/usage-reset.test.ts"]
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/usage-reset.test.ts",
+				"bun --cwd=packages/utils test test/scient/retry-hint.test.ts"
+			]
 		},
 		"SA-FAILURE-KIND": {
 			"status": "active",
