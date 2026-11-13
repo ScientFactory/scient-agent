@@ -64,7 +64,9 @@ describe("browser open options CDP helpers", () => {
 			{ ignoreHttpsErrors: true, allowFileAccess: true },
 		);
 		expect(args).toContain("--hide-scrollbars");
-		expect(args).toContain("--enable-features=WebMCPTesting,DevToolsWebMCPSupport");
+		// scient(SA-WEBMCP-FEATURE): begin - Chrome 157 gives pages WebMCP only under the WebMCP feature.
+		expect(args).toContain("--enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport");
+		// scient(SA-WEBMCP-FEATURE): end
 		expect(args).toContain("--ignore-certificate-errors");
 		expect(args).toContain("--allow-file-access-from-files");
 	});

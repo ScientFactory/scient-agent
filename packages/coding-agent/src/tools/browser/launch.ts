@@ -637,7 +637,9 @@ export function buildHeadlessLaunchArgs(
 		"--disable-setuid-sandbox",
 		DISABLE_AUTOMATION_CONTROLLED_ARG,
 		"--hide-scrollbars",
-		"--enable-features=WebMCPTesting,DevToolsWebMCPSupport",
+		// scient(SA-WEBMCP-FEATURE): begin - Chrome 157 gives pages WebMCP only under the WebMCP feature.
+		"--enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport",
+		// scient(SA-WEBMCP-FEATURE): end
 		`--window-size=${viewport.width},${viewport.height}`,
 		...RENDERER_PRIORITY_ARGS,
 	];
