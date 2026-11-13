@@ -269,7 +269,9 @@ unsafe extern "C" {
 pub(super) fn is_trusted() -> bool {
 	// SAFETY: This non-prompting TCC query takes no arguments and only reads
 	// current trust state.
-	unsafe { AXIsProcessTrusted() }
+	// scient(SA-MAC-GRANT): begin - A grant counts without a restart.
+	super::scient_fresh_grant::accessibility(unsafe { AXIsProcessTrusted() })
+	// scient(SA-MAC-GRANT): end
 }
 
 #[derive(Default)]
