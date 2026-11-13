@@ -16,6 +16,10 @@ mod session;
 mod skylight;
 mod spaces;
 mod window_order;
+// scient(SA-MAC-GRANT): begin - A grant counts without a restart.
+#[path = "scient/fresh_grant.rs"]
+mod scient_fresh_grant;
+// scient(SA-MAC-GRANT): end
 
 #[cfg(test)]
 pub(super) use ax::application_handle;
