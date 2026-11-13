@@ -126,6 +126,12 @@ export const frameDefs = {
 		{ type: "'live_end'", "error?": "string" },
 		"Sent exactly once when a live session ends; `error` carries the failure cause.",
 	),
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	LiveDelegationEvent: doc(
+		{ type: "'live_delegation'", text: "string" },
+		"A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.",
+	),
+	// scient(SA-LIVE-HOST-DELEGATION): end
 	DictationStateEvent: doc(
 		{ type: "'dictation_state'", captureId: "string", state: "'starting' | 'recording' | 'transcribing'" },
 		"State of one draft-only microphone capture.",

@@ -19,6 +19,9 @@ import { OUTPUT_ACTIVE_LEVEL, OutputActivity } from "./output-activity";
 import { CodexLiveTransport } from "./transport";
 import type { LivePhase } from "@oh-my-pi/pi-tui/apps/live-visualizer";
 import { DEFAULT_LIVE_VOICE } from "./voices";
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+import type { LiveDelegate } from "../scient/live-host-delegation";
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 const MIN_BARGE_IN_LEVEL = 0.04;
 const OUTPUT_ECHO_RATIO = 0.65;
@@ -68,6 +71,10 @@ export interface LiveSessionControllerOptions {
 	 * phase is `muted`. Levels are not reported in this mode.
 	 */
 	sdpOffer?: string;
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	/** Hands each spoken request to the host instead of starting a turn in `session`. */
+	delegate?: LiveDelegate;
+	// scient(SA-LIVE-HOST-DELEGATION): end
 }
 
 function clampLevel(level: number): number {
@@ -105,6 +112,9 @@ export class LiveSessionController {
 	readonly #voice: string;
 	readonly #instructionsTemplate: string;
 	readonly #sdpOffer: string | undefined;
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	readonly #delegate: LiveDelegate | undefined;
+	// scient(SA-LIVE-HOST-DELEGATION): end
 
 	#transport: CodexLiveTransport | undefined;
 	#recorder: AudioCapture | undefined;
@@ -143,6 +153,9 @@ export class LiveSessionController {
 		this.#voice = options.voice?.trim() || DEFAULT_LIVE_VOICE;
 		this.#instructionsTemplate = options.instructions ?? liveInstructionsTemplate;
 		this.#sdpOffer = options.sdpOffer;
+		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+		this.#delegate = options.delegate;
+		// scient(SA-LIVE-HOST-DELEGATION): end
 	}
 
 	/** Current realtime call phase. */
@@ -339,6 +352,12 @@ export class LiveSessionController {
 		if (!request) return;
 		this.#activeDelegationId = event.item.id;
 		this.#refreshAudioPhase();
+		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+		if (this.#delegate) {
+			this.#delegate(request);
+			return;
+		}
+		// scient(SA-LIVE-HOST-DELEGATION): end
 		void this.#session
 			.sendCustomMessage(
 				{

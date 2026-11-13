@@ -37,6 +37,9 @@ import type { BtwHistoryRecord } from "../../session/btw-history";
 // scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
 import type { RpcLoginProvider } from "../../scient/sign-in-providers";
 // scient(SA-AUTH): end
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+import type { RpcLiveDelegationFrame } from "../../scient/live-host-delegation";
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 // ============================================================================
 // RPC Commands (stdin)
@@ -94,7 +97,16 @@ export type RpcCommand =
 	| { id?: string; type: "steer_subagent"; subagentId: string; message: string }
 	// Live voice (GPT live bound to this session)
 	| { id?: string; type: "live_start"; voice?: string; instructions?: string }
-	| { id?: string; type: "live_connect"; sdpOffer: string; voice?: string; instructions?: string }
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	| {
+			id?: string;
+			type: "live_connect";
+			sdpOffer: string;
+			voice?: string;
+			instructions?: string;
+			hostDelegation?: boolean;
+	  }
+	// scient(SA-LIVE-HOST-DELEGATION): end
 	| { id?: string; type: "live_stop" }
 	| { id?: string; type: "live_mute"; muted?: boolean }
 
@@ -331,7 +343,14 @@ export interface RpcLiveEndFrame {
 	error?: string;
 }
 
-export type RpcLiveFrame = RpcLivePhaseFrame | RpcLiveLevelsFrame | RpcLiveTranscriptFrame | RpcLiveEndFrame;
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+export type RpcLiveFrame =
+	| RpcLivePhaseFrame
+	| RpcLiveLevelsFrame
+	| RpcLiveTranscriptFrame
+	| RpcLiveEndFrame
+	| RpcLiveDelegationFrame;
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 /** Draft-only dictation frames bypass the session event filter. */
 export interface RpcDictationStateFrame {
