@@ -392,6 +392,15 @@ export type MessageUpdates = "full" | "delta";
 
 export type TodoStatus = "pending" | "in_progress" | "completed" | "abandoned" | "blocked";
 
+export type PlanOp = "get" | "enter" | "exit";
+
+export interface PlanResult {
+	/** Plan mode is on: the agent plans and changes nothing until a plan is approved. */
+	enabled: boolean;
+	/** The plan file the agent drafts, while plan mode is on. */
+	planFilePath?: string;
+}
+
 export type GoalOp = "get" | "create" | "resume" | "pause" | "drop";
 
 export type GoalStatus = "active" | "paused" | "budget-limited" | "complete" | "dropped";
@@ -1223,6 +1232,14 @@ export interface LiveDelegationEvent {
 	text: string;
 }
 
+/** The plan the agent proposed in plan mode, sent just before the select request that asks to approve it. */
+export interface PlanProposedEvent {
+	type: "plan_proposed";
+	title: string;
+	planFilePath: string;
+	markdown: string;
+}
+
 /** State of one draft-only microphone capture. */
 export interface DictationStateEvent {
 	type: "dictation_state";
@@ -1580,7 +1597,7 @@ export interface HostUriSchemeDefinition {
 }
 
 /** Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`. */
-export type RpcNotification = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent;
+export type RpcNotification = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | PlanProposedEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent;
 
 /** Any frame the server writes to stdout (after reassembling `rpc_chunk` sequences), discriminated by `type`. */
 export type RpcServerFrame = RpcResponse | RpcHostRequest | RpcNotification;
@@ -1980,6 +1997,10 @@ export interface PredictNextMessageResult {
 	text: string | null;
 }
 
+export interface PlanParams {
+	op: PlanOp;
+}
+
 /** Every RPC command's parameters and successful response `data`. */
 export interface RpcWireCommands {
 	negotiate_protocol: { params: NegotiateProtocolParams; result: NegotiateProtocolResult };
@@ -2059,4 +2080,5 @@ export interface RpcWireCommands {
 	btw_cancel: { params: BtwCancelParams; result: BtwCancelResult };
 	get_btw_history: { params: undefined; result: GetBtwHistoryResult };
 	predict_next_message: { params: undefined; result: PredictNextMessageResult };
+	plan: { params: PlanParams; result: PlanResult };
 }
