@@ -50,7 +50,10 @@ jobs:
          fail-fast: false
          matrix:
             include:
-               - { id: darwin-arm64, runner: macos-15, x64: false }
+               # Xcode 27's macOS 27 SDK builds the Apple Foundation Models bridge, which
+               # macos-15 lacks; the addon still targets macOS 12 (.bazelrc), and the
+               # signed build is checked on macos-15.
+               - { id: darwin-arm64, runner: xcode-27, x64: false }
                - { id: darwin-x64, runner: macos-15-intel, x64: true }
                - { id: linux-x64, runner: ubuntu-22.04, x64: true }
                - { id: linux-arm64, runner: ubuntu-22.04-arm, x64: false }
