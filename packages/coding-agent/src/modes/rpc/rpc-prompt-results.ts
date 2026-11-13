@@ -18,6 +18,9 @@ import type { CostCapRefusal } from "../../session/cost-gate";
 import { isSessionSettled, type SessionSettleState } from "../../session/session-settle";
 import type { RpcScheduledTurnProbe } from "./rpc-session-settle";
 import type { RpcPromptError, RpcPromptResultFrame, RpcPromptStatus } from "./rpc-types";
+// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+import { usageResetAt } from "../../scient/usage-reset";
+// scient(SA-USAGE-RESET): end
 
 /** A prompt accepted by RPC mode whose `prompt_result` is still owed; see {@link RpcPromptResults.begin}. */
 export interface RpcPromptTicket {
@@ -224,6 +227,10 @@ function promptError(message: AssistantMessage): RpcPromptError {
 		retryable: AIError.is(errorId, AIError.Flag.Transient),
 	};
 	if (message.errorStatus !== undefined) error.httpStatus = message.errorStatus;
+	// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+	const resetAt = usageResetAt(message);
+	if (resetAt !== undefined) error.resetAt = resetAt;
+	// scient(SA-USAGE-RESET): end
 	return error;
 }
 
