@@ -20,7 +20,7 @@ import { CodexLiveTransport } from "./transport";
 import type { LivePhase } from "@oh-my-pi/pi-tui/apps/live-visualizer";
 import { DEFAULT_LIVE_VOICE } from "./voices";
 // scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
-import type { LiveDelegate } from "../scient/live-host-delegation";
+import { HostTurnGate, type LiveDelegate } from "../scient/live-host-delegation";
 // scient(SA-LIVE-HOST-DELEGATION): end
 
 const MIN_BARGE_IN_LEVEL = 0.04;
@@ -114,6 +114,7 @@ export class LiveSessionController {
 	readonly #sdpOffer: string | undefined;
 	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
 	readonly #delegate: LiveDelegate | undefined;
+	readonly #hostTurn = new HostTurnGate();
 	// scient(SA-LIVE-HOST-DELEGATION): end
 
 	#transport: CodexLiveTransport | undefined;
@@ -354,6 +355,7 @@ export class LiveSessionController {
 		this.#refreshAudioPhase();
 		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
 		if (this.#delegate) {
+			this.#hostTurn.expect(request);
 			this.#delegate(request);
 			return;
 		}
@@ -372,6 +374,9 @@ export class LiveSessionController {
 	}
 
 	#handleSessionEvent(event: AgentSessionEvent): void {
+		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+		if (this.#hostTurn.blocks(event)) return;
+		// scient(SA-LIVE-HOST-DELEGATION): end
 		if (event.type === "message_end" && event.message.role === "assistant") {
 			if (event.message.stopReason === "toolUse") this.#appendProgress(event.message);
 			return;
