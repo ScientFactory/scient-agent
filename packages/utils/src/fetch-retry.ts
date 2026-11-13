@@ -1,4 +1,7 @@
 import { scheduler } from "node:timers/promises";
+// scient(SA-USAGE-RESET): begin - "Your usage window resets at <time>" states a reset too.
+import { RESETS_AT_PATTERN } from "./scient/retry-hint";
+// scient(SA-USAGE-RESET): end
 
 // Google's structured metadata uses Go duration strings, including abbreviated durations like `30m`.
 const GOOGLE_RPC_RESET_DELAY_PATTERN =
@@ -34,6 +37,9 @@ const RESET_AT_PATTERNS: readonly RegExp[] = [
 	WILL_RESET_AT_PATTERN,
 	CN_RESET_AT_PATTERN,
 	GOOGLE_RPC_RESET_TIMESTAMP_PATTERN,
+	// scient(SA-USAGE-RESET): begin - "Your usage window resets at <time>" states a reset too.
+	RESETS_AT_PATTERN,
+	// scient(SA-USAGE-RESET): end
 ];
 // "retry-after-ms=98497000" / "retry-after-ms: 7200000" / "retry-after-ms = 7200000"
 const RETRY_AFTER_MS_BODY_PATTERN = /\bretry-after-ms\s*[:=]\s*([0-9]+)\b/i;

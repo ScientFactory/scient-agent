@@ -49,6 +49,9 @@ import {
 	resolveThinkingLevelForModel,
 } from "@oh-my-pi/pi-tui/thinking";
 import type { EditModeSetting } from "../edit/settings";
+// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+import { recordUsageReset } from "../scient/usage-reset";
+// scient(SA-USAGE-RESET): end
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { ResetRecoveryResult } from "./codex-auto-reset";
 import type {
@@ -886,6 +889,9 @@ export class TurnRecovery {
 				// bookkeeping and treat a timeout as "no usage report", so the
 				// retry policy falls back to the retry-after hint.
 				const bookkeepingTimeout = AbortSignal.timeout(USAGE_LIMIT_BOOKKEEPING_TIMEOUT_MS);
+				// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+				const hintedAt = Date.now();
+				// scient(SA-USAGE-RESET): end
 				try {
 					const outcome = await this.#host.modelRegistry.authStorage.limits.markReached(
 						activeModel.provider,
@@ -900,6 +906,9 @@ export class TurnRecovery {
 							signal: bookkeepingTimeout,
 						},
 					);
+					// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+					recordUsageReset(message, parsedRetryAfterMs, outcome, hintedAt);
+					// scient(SA-USAGE-RESET): end
 					return {
 						switchedCredential: outcome.switched,
 						retryAfterMs,
@@ -911,6 +920,9 @@ export class TurnRecovery {
 					};
 				} catch (error) {
 					if (!bookkeepingTimeout.aborted) throw error;
+					// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+					recordUsageReset(message, parsedRetryAfterMs, { switched: false }, hintedAt);
+					// scient(SA-USAGE-RESET): end
 					return {
 						switchedCredential: false,
 						retryAfterMs,
