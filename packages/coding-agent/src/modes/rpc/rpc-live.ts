@@ -9,6 +9,9 @@ import { LiveSessionController, type LiveSessionControllerOptions } from "../../
 import { resolveLiveVoice } from "../../live/settings";
 import type { AgentSession } from "../../session/agent-session";
 import type { RpcLiveFrame } from "./rpc-types";
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+import { hostLiveDelegate } from "../../scient/live-host-delegation";
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 /** Minimum spacing between `live_levels` frames. */
 export const RPC_LIVE_LEVELS_INTERVAL_MS = 100;
@@ -25,6 +28,10 @@ export interface RpcLiveStartOptions {
 	instructions?: string;
 	/** Caller-owned WebRTC offer (`live_connect`); the result then carries the SDP answer. */
 	sdpOffer?: string;
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	/** Send spoken requests to the host as `live_delegation` frames instead of starting turns. */
+	hostDelegation?: boolean;
+	// scient(SA-LIVE-HOST-DELEGATION): end
 }
 
 /** A started live session: the voice in use, plus the SDP answer for an `sdpOffer` session. */
@@ -84,6 +91,9 @@ export class RpcLiveBridge {
 			voice,
 			instructions: options.instructions,
 			sdpOffer: options.sdpOffer,
+			// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+			...(options.hostDelegation ? { delegate: hostLiveDelegate(this.#output) } : {}),
+			// scient(SA-LIVE-HOST-DELEGATION): end
 			callbacks: {
 				onPhase: phase => this.#output({ type: "live_phase", phase }),
 				onLevels: (input, output) => {

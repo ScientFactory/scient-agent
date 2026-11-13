@@ -330,6 +330,24 @@
 				"packages/coding-agent/test/tools/browser-open-options.test.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/tools/browser-open-options.test.ts test/tools/browser-webmcp.test.ts"]
+		},
+		"SA-LIVE-HOST-DELEGATION": {
+			"status": "active",
+			"contract": "live_connect accepts hostDelegation. When it is true, each request the realtime model delegates goes to the host as a live_delegation frame ({ text }) instead of starting a turn in the session; the host sends it as the user's message, and the live session reads that turn's progress and final answer as before. Without the flag, delegation is unchanged.",
+			"owned": [
+				"packages/coding-agent/src/scient/live-host-delegation.ts",
+				"packages/coding-agent/test/scient/live-host-delegation.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/live/controller.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-live.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				"packages/coding-agent/src/modes/rpc/wire/commands.ts",
+				"packages/coding-agent/src/modes/rpc/wire/frames.ts",
+				"packages/coding-agent/src/modes/rpc/wire/index.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/live-host-delegation.test.ts"]
 		}
 	}
 }

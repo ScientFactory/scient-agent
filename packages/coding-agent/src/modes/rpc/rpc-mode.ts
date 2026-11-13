@@ -2435,7 +2435,16 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 					return success(
 						id,
 						command.type,
-						await liveBridge.start({ voice: command.voice, instructions: command.instructions, sdpOffer }),
+						// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+						await liveBridge.start({
+							voice: command.voice,
+							instructions: command.instructions,
+							sdpOffer,
+							...(command.type === "live_connect" && command.hostDelegation === true
+								? { hostDelegation: true }
+								: {}),
+						}),
+						// scient(SA-LIVE-HOST-DELEGATION): end
 					);
 				} catch (err) {
 					return error(id, command.type, err instanceof Error ? err.message : String(err));
