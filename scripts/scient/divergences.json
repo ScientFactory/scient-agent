@@ -310,6 +310,15 @@
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/failure-kind.test.ts test/rpc-prompt-result.test.ts"
 			]
+		},
+		"SA-WEBMCP-FEATURE": {
+			"status": "active",
+			"contract": "Every Chromium the agent launches enables the WebMCP feature beside WebMCPTesting and DevToolsWebMCPSupport. Chrome 157 and newer expose document.modelContext to pages only under WebMCP; older Chromes ignore the unknown name and keep using WebMCPTesting. Drop this when Oh My Pi enables WebMCP itself.",
+			"upstream": [
+				"packages/coding-agent/src/tools/browser/launch.ts",
+				"packages/coding-agent/test/tools/browser-open-options.test.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/tools/browser-open-options.test.ts test/tools/browser-webmcp.test.ts"]
 		}
 	}
 }
