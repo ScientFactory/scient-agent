@@ -4990,6 +4990,22 @@
 			],
 			"description": "Sent exactly once when a live session ends; `error` carries the failure cause."
 		},
+		"LiveDelegationEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "live_delegation"
+				},
+				"text": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"text"
+			],
+			"description": "A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."
+		},
 		"DictationStateEvent": {
 			"type": "object",
 			"properties": {
@@ -6199,6 +6215,9 @@
 					"$ref": "#/$defs/LiveEndEvent"
 				},
 				{
+					"$ref": "#/$defs/LiveDelegationEvent"
+				},
+				{
 					"$ref": "#/$defs/DictationStateEvent"
 				},
 				{
@@ -6761,6 +6780,9 @@
 				},
 				"instructions": {
 					"type": "string"
+				},
+				"hostDelegation": {
+					"type": "boolean"
 				}
 			},
 			"required": [
