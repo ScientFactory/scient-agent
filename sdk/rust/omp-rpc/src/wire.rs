@@ -4189,6 +4189,9 @@ pub struct PromptError {
 	/// Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.
 	#[serde(rename = "resetAt", default, skip_serializing_if = "Option::is_none")]
 	pub reset_at: Option<i64>,
+	/// The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub kinds: Option<Vec<String>>,
 }
 
 /// Terminal outcome of one accepted `prompt` / `abort_and_prompt`, keyed by request `id`.
