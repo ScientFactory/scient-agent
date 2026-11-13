@@ -86,11 +86,18 @@ describe("live host delegation", () => {
 		emit(delegationCreated("d1", "list the files"));
 		// A turn that was already running ends first: its answer is not this request's.
 		emitSession({ type: "agent_end", messages: [answer("earlier answer")] });
-		emitSession({ type: "message_start", message: { role: "user", content: "list the files" } });
+		// A queued message that merely contains the request is another turn too.
+		emitSession({ type: "message_start", message: { role: "user", content: "list the files and their sizes" } });
+		emitSession({ type: "agent_end", messages: [answer("sizes answer")] });
+		emitSession({
+			type: "message_start",
+			message: { role: "user", content: "list the files\n\nAttached files:\n/tmp/a.txt" },
+		});
 		emitSession({ type: "agent_end", messages: [answer("a.txt and b.txt")] });
 		await Bun.sleep(0);
 		const spoken = JSON.stringify(sentToModel);
 		expect(spoken).not.toContain("earlier answer");
+		expect(spoken).not.toContain("sizes answer");
 		expect(spoken).toContain("a.txt and b.txt");
 		await controller.stop();
 	});
