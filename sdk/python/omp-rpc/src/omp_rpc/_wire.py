@@ -98,6 +98,11 @@ _TODO_STATUS_VALUES: Final[frozenset[str]] = frozenset({"pending", "in_progress"
 _decode_todo_status = cast("Decoder[TodoStatus]", literal(_TODO_STATUS_VALUES))
 
 
+PlanOp: TypeAlias = Literal["get", "enter", "exit"]
+_PLAN_OP_VALUES: Final[frozenset[str]] = frozenset({"get", "enter", "exit"})
+_decode_plan_op = cast("Decoder[PlanOp]", literal(_PLAN_OP_VALUES))
+
+
 GoalOp: TypeAlias = Literal["get", "create", "resume", "pause", "drop"]
 _GOAL_OP_VALUES: Final[frozenset[str]] = frozenset({"get", "create", "resume", "pause", "drop"})
 _decode_goal_op = cast("Decoder[GoalOp]", literal(_GOAL_OP_VALUES))
@@ -551,6 +556,14 @@ class ModelInfo:
     priority: int | None = None
     thinking: ThinkingConfig | None = None
     compat: JsonObject | None = None
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class PlanResult:
+    enabled: bool
+    """Plan mode is on: the agent plans and changes nothing until a plan is approved."""
+    plan_file_path: str | None = None
+    """The plan file the agent drafts, while plan mode is on."""
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1436,6 +1449,15 @@ class LiveDelegationEvent:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class PlanProposedEvent:
+    """The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."""
+    type: Literal["plan_proposed"] = "plan_proposed"
+    title: str
+    plan_file_path: str
+    markdown: str
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class DictationStateEvent:
     """State of one draft-only microphone capture."""
     type: Literal["dictation_state"] = "dictation_state"
@@ -1754,7 +1776,7 @@ RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | Tu
 """A session event, discriminated by `type`; `set_event_filter` selects which are sent."""
 
 
-RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
+RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | PlanProposedEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
 """Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`."""
 
 
@@ -1968,6 +1990,14 @@ def parse_model_info(value: object, path: str = "ModelInfo") -> ModelInfo:
         priority=optional(payload, "priority", decode_int, path),
         thinking=optional(payload, "thinking", parse_thinking_config, path),
         compat=optional(payload, "compat", decode_json_object, path),
+    )
+
+
+def parse_plan_result(value: object, path: str = "PlanResult") -> PlanResult:
+    payload = expect_object(value, path)
+    return PlanResult(
+        enabled=required(payload, "enabled", decode_bool, path),
+        plan_file_path=optional(payload, "planFilePath", decode_str, path),
     )
 
 
@@ -2939,6 +2969,16 @@ def parse_live_delegation_event(value: object, path: str = "LiveDelegationEvent"
     )
 
 
+def parse_plan_proposed_event(value: object, path: str = "PlanProposedEvent") -> PlanProposedEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["plan_proposed"]]', literal(frozenset({"plan_proposed"}))), path)
+    return PlanProposedEvent(
+        title=required(payload, "title", decode_str, path),
+        plan_file_path=required(payload, "planFilePath", decode_str, path),
+        markdown=required(payload, "markdown", decode_str, path),
+    )
+
+
 def parse_dictation_state_event(value: object, path: str = "DictationStateEvent") -> DictationStateEvent:
     payload = expect_object(value, path)
     required(payload, "type", cast('Decoder[Literal["dictation_state"]]', literal(frozenset({"dictation_state"}))), path)
@@ -3357,6 +3397,7 @@ _RPC_NOTIFICATION_CASES: Final[dict[str, Decoder[RpcNotification]]] = {
         "live_transcript": parse_live_transcript_event,
         "live_end": parse_live_end_event,
         "live_delegation": parse_live_delegation_event,
+        "plan_proposed": parse_plan_proposed_event,
         "dictation_state": parse_dictation_state_event,
         "dictation_transcript": parse_dictation_transcript_event,
         "dictation_end": parse_dictation_end_event,
@@ -3877,6 +3918,12 @@ class WireClient:
         params: dict[str, object] = {}
         return required(expect_object(self._command("predict_next_message", params, timeout=30), "predict_next_message"), "text", nullable(decode_str), "predict_next_message")
 
+    def plan(self, op: PlanOp) -> PlanResult:
+        """Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request)."""
+        params: dict[str, object] = {}
+        params["op"] = op
+        return parse_plan_result(self._command("plan", params), "plan")
+
     def on_ready(self, listener: Callable[[ReadyEvent], None]) -> Callable[[], None]:
         """Subscribe to `ready`: First frame after startup; transport fields are absent on servers without protocol v2."""
         return self._listen("ready", listener)
@@ -3932,6 +3979,10 @@ class WireClient:
     def on_live_delegation(self, listener: Callable[[LiveDelegationEvent], None]) -> Callable[[], None]:
         """Subscribe to `live_delegation`: A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."""
         return self._listen("live_delegation", listener)
+
+    def on_plan_proposed(self, listener: Callable[[PlanProposedEvent], None]) -> Callable[[], None]:
+        """Subscribe to `plan_proposed`: The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."""
+        return self._listen("plan_proposed", listener)
 
     def on_dictation_state(self, listener: Callable[[DictationStateEvent], None]) -> Callable[[], None]:
         """Subscribe to `dictation_state`: State of one draft-only microphone capture."""
@@ -4227,6 +4278,9 @@ __all__ = [
     "OpenSessionResult",
     "OpenUrlUiRequest",
     "ParentIrc",
+    "PlanOp",
+    "PlanProposedEvent",
+    "PlanResult",
     "PromoteQueuedMessageResult",
     "PromptAck",
     "PromptCacheEntry",
@@ -4414,6 +4468,8 @@ __all__ = [
     "parse_open_session_result",
     "parse_open_url_ui_request",
     "parse_parent_irc",
+    "parse_plan_proposed_event",
+    "parse_plan_result",
     "parse_promote_queued_message_result",
     "parse_prompt_ack",
     "parse_prompt_cache_entry",

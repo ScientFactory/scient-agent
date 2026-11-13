@@ -857,6 +857,17 @@
 				"timeoutMs": 30000,
 				"completion": null,
 				"clientOmit": []
+			},
+			{
+				"name": "plan",
+				"doc": "Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request).",
+				"params": "PlanParams",
+				"result": "PlanResult",
+				"nullable": false,
+				"unwrap": null,
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
 			}
 		]
 	},
@@ -2333,6 +2344,30 @@
 				"blocked"
 			],
 			"type": "string"
+		},
+		"PlanOp": {
+			"enum": [
+				"get",
+				"enter",
+				"exit"
+			],
+			"type": "string"
+		},
+		"PlanResult": {
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"description": "Plan mode is on: the agent plans and changes nothing until a plan is approved."
+				},
+				"planFilePath": {
+					"type": "string",
+					"description": "The plan file the agent drafts, while plan mode is on."
+				}
+			},
+			"required": [
+				"enabled"
+			]
 		},
 		"GoalOp": {
 			"enum": [
@@ -5047,6 +5082,30 @@
 			],
 			"description": "A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."
 		},
+		"PlanProposedEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "plan_proposed"
+				},
+				"title": {
+					"type": "string"
+				},
+				"planFilePath": {
+					"type": "string"
+				},
+				"markdown": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"title",
+				"planFilePath",
+				"markdown"
+			],
+			"description": "The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."
+		},
 		"DictationStateEvent": {
 			"type": "object",
 			"properties": {
@@ -6259,6 +6318,9 @@
 					"$ref": "#/$defs/LiveDelegationEvent"
 				},
 				{
+					"$ref": "#/$defs/PlanProposedEvent"
+				},
+				{
 					"$ref": "#/$defs/DictationStateEvent"
 				},
 				{
@@ -7468,6 +7530,17 @@
 			},
 			"required": [
 				"text"
+			]
+		},
+		"PlanParams": {
+			"type": "object",
+			"properties": {
+				"op": {
+					"$ref": "#/$defs/PlanOp"
+				}
+			},
+			"required": [
+				"op"
 			]
 		}
 	}

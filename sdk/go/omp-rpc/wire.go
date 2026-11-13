@@ -2031,6 +2031,50 @@ func (v *TodoStatus) UnmarshalJSON(data []byte) error {
 	return unknownValue("TodoStatus", s)
 }
 
+type PlanOp string
+
+const (
+	PlanOpGet   PlanOp = "get"
+	PlanOpEnter PlanOp = "enter"
+	PlanOpExit  PlanOp = "exit"
+)
+
+func (v *PlanOp) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "PlanOp")
+	if err != nil {
+		return err
+	}
+	switch value := PlanOp(s); value {
+	case PlanOpGet, PlanOpEnter, PlanOpExit:
+		*v = value
+		return nil
+	}
+	return unknownValue("PlanOp", s)
+}
+
+type PlanResult struct {
+	// Plan mode is on: the agent plans and changes nothing until a plan is approved.
+	Enabled bool `json:"enabled"`
+	// The plan file the agent drafts, while plan mode is on.
+	PlanFilePath *string `json:"planFilePath,omitempty"`
+}
+
+func (v *PlanResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PlanResult", v.decodeFrom)
+}
+
+func (v *PlanResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PlanResult
+	d := fieldDecoder{raw: raw, owner: "PlanResult"}
+	d.required("enabled", &out.Enabled)
+	d.optional("planFilePath", &out.PlanFilePath)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 type GoalOp string
 
 const (
@@ -5404,6 +5448,36 @@ func (v LiveDelegationEvent) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"live_delegation"`, nil)
 }
 
+// The plan the agent proposed in plan mode, sent just before the select request that asks to approve it.
+type PlanProposedEvent struct {
+	Title        string `json:"title"`
+	PlanFilePath string `json:"planFilePath"`
+	Markdown     string `json:"markdown"`
+}
+
+func (v *PlanProposedEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PlanProposedEvent", v.decodeFrom)
+}
+
+func (v *PlanProposedEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PlanProposedEvent
+	d := fieldDecoder{raw: raw, owner: "PlanProposedEvent"}
+	d.constant("type", "plan_proposed")
+	d.required("title", &out.Title)
+	d.required("planFilePath", &out.PlanFilePath)
+	d.required("markdown", &out.Markdown)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v PlanProposedEvent) MarshalJSON() ([]byte, error) {
+	type plain PlanProposedEvent
+	return encodeObject(plain(v), `"type":"plan_proposed"`, nil)
+}
+
 // State of one draft-only microphone capture.
 type DictationStateEvent struct {
 	CaptureID string                   `json:"captureId"`
@@ -6980,6 +7054,7 @@ func (LiveLevelsEvent) isRpcNotification()              {}
 func (LiveTranscriptEvent) isRpcNotification()          {}
 func (LiveEndEvent) isRpcNotification()                 {}
 func (LiveDelegationEvent) isRpcNotification()          {}
+func (PlanProposedEvent) isRpcNotification()            {}
 func (DictationStateEvent) isRpcNotification()          {}
 func (DictationTranscriptEvent) isRpcNotification()     {}
 func (DictationEndEvent) isRpcNotification()            {}
@@ -7064,6 +7139,8 @@ func (v *RpcNotification) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveEndEvent](raw)
 	case "live_delegation":
 		value, err = decodeVariant[LiveDelegationEvent](raw)
+	case "plan_proposed":
+		value, err = decodeVariant[PlanProposedEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":
@@ -7188,6 +7265,7 @@ func (LiveLevelsEvent) isRpcServerFrame()              {}
 func (LiveTranscriptEvent) isRpcServerFrame()          {}
 func (LiveEndEvent) isRpcServerFrame()                 {}
 func (LiveDelegationEvent) isRpcServerFrame()          {}
+func (PlanProposedEvent) isRpcServerFrame()            {}
 func (DictationStateEvent) isRpcServerFrame()          {}
 func (DictationTranscriptEvent) isRpcServerFrame()     {}
 func (DictationEndEvent) isRpcServerFrame()            {}
@@ -7282,6 +7360,8 @@ func (v *RpcServerFrame) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveEndEvent](raw)
 	case "live_delegation":
 		value, err = decodeVariant[LiveDelegationEvent](raw)
+	case "plan_proposed":
+		value, err = decodeVariant[PlanProposedEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":
@@ -8823,4 +8903,16 @@ func (c Commands) PredictNextMessage(ctx context.Context) (*string, error) {
 	var out PredictNextMessageResult
 	err := c.call(ctx, "predict_next_message", nil, 30*time.Second, &out)
 	return out.Text, err
+}
+
+// PlanCommand holds the parameters of "plan".
+type PlanCommand struct {
+	Op PlanOp `json:"op"`
+}
+
+// Plan sends "plan": Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request).
+func (c Commands) Plan(ctx context.Context, p PlanCommand) (PlanResult, error) {
+	var out PlanResult
+	err := c.call(ctx, "plan", p, 0, &out)
+	return out, err
 }
