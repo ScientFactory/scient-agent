@@ -296,6 +296,20 @@
 				"packages/coding-agent/src/session/turn-recovery.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/usage-reset.test.ts"]
+		},
+		"SA-FAILURE-KIND": {
+			"status": "active",
+			"contract": "A prompt_result for a failed turn carries error.kinds, the error classifier's labels for that failure (one label per AIError.Flag: auth-failed, context-overflow, transient, usage-limit, ...). It is absent when the classifier recognized no kind. The labels are the classifier's closed vocabulary and carry no provider text. Hosts that do not read it are unaffected.",
+			"owned": ["packages/coding-agent/src/scient/failure-kind.ts", "packages/coding-agent/test/scient/failure-kind.test.ts"],
+			"upstream": [
+				"packages/coding-agent/src/modes/rpc/rpc-prompt-results.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				"packages/coding-agent/src/modes/rpc/wire/frames.ts",
+				"packages/coding-agent/test/rpc-prompt-result.test.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/failure-kind.test.ts test/rpc-prompt-result.test.ts"
+			]
 		}
 	}
 }

@@ -188,6 +188,9 @@ describe("RpcPromptResults", () => {
 					model: "claude-sonnet-4-5",
 					httpStatus: 529,
 					retryable: true,
+					// scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
+					kinds: ["transient"],
+					// scient(SA-FAILURE-KIND): end
 				},
 			},
 		]);
