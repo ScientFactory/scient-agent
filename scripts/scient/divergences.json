@@ -285,6 +285,17 @@
 			],
 			"verification": ["bun run test:rs"]
 		},
+		"SA-AX-QUIET": {
+			"status": "active",
+			"contract": "On macOS the agent sends no Accessibility (AX) message while it is not trusted: making an application element, the AX hit-test behind window probes, and the AXHidden read before showing an application all check trust first, without a prompt. An AX message from an untrusted process makes macOS ask for Accessibility, so a computer call that refuses for lack of a permission raised that prompt. Only the host asks. Probes then answer nothing, as they do when an application doesn't answer. A general fix, to be offered upstream.",
+			"owned": [],
+			"upstream": [
+				"crates/pi-natives/src/desktop/macos/applications.rs",
+				"crates/pi-natives/src/desktop/macos/ax.rs",
+				"crates/pi-natives/src/desktop/macos/mod.rs"
+			],
+			"verification": ["bun run test:rs"]
+		},
 		"SA-USAGE-RESET": {
 			"status": "active",
 			"contract": "A prompt_result for a usage-limited turn carries error.resetAt, the epoch ms at which the provider said the limit resets: its retry hint, the account's usage report, or an earlier provider-stated block, whichever is latest. It is absent when the provider gave no time; the heuristic wait for a hintless error is never reported. Hosts that do not read it are unaffected.",

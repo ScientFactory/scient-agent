@@ -410,8 +410,14 @@ fn show_in_background(pid: u32, path: &str, relaunched: &mut dyn FnMut(Applicati
 	let app = unsafe { AXUIElement::new_application(pid) };
 	let hidden = CFString::from_static_str("AXHidden");
 	let mut value: *const CFType = ptr::null();
-	// SAFETY: `value` is writable and receives a +1 CF object on success.
-	let read = unsafe { app.copy_attribute_value(&hidden, NonNull::from(&mut value)) };
+	// scient(SA-AX-QUIET): begin - Untrusted, skip AXHidden and reopen.
+	let read = if super::super::macos::ax_trusted() {
+		// SAFETY: `value` is writable and receives a +1 CF object on success.
+		unsafe { app.copy_attribute_value(&hidden, NonNull::from(&mut value)) }
+	} else {
+		AXError::APIDisabled
+	};
+	// scient(SA-AX-QUIET): end
 	// SAFETY: A successful copy transfers one retained object to the caller.
 	let is_hidden = (read == AXError::Success)
 		.then(|| NonNull::new(value.cast_mut()).map(|value| unsafe { CFRetained::from_raw(value) }))
