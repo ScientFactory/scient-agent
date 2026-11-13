@@ -261,6 +261,10 @@ export interface RpcPromptError {
 	retryable: boolean;
 	/** `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request. */
 	code?: "cost_cap";
+	// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+	/** Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say. */
+	resetAt?: number;
+	// scient(SA-USAGE-RESET): end
 }
 
 /**

@@ -45,6 +45,9 @@ import {
 	resolveThinkingLevelForModel,
 } from "@oh-my-pi/pi-tui/thinking";
 import type { EditModeSetting } from "../edit/settings";
+// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+import { recordUsageReset } from "../scient/usage-reset";
+// scient(SA-USAGE-RESET): end
 import type { AgentSessionEvent } from "./agent-session-events";
 import type { ResetRecoveryResult } from "./codex-auto-reset";
 import type {
@@ -856,6 +859,9 @@ export class TurnRecovery {
 						modelId: activeModel.id,
 					},
 				);
+				// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+				recordUsageReset(message, parsedRetryAfterMs, outcome);
+				// scient(SA-USAGE-RESET): end
 				return {
 					switchedCredential: outcome.switched,
 					retryAfterMs,

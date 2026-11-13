@@ -37,6 +37,12 @@ export const frameDefs = {
 				"'cost_cap'",
 				"`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.",
 			),
+			// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
+			"resetAt?": doc(
+				"number.integer",
+				"Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.",
+			),
+			// scient(SA-USAGE-RESET): end
 		},
 		'Failure detail of a `prompt_result` with `status: "error"`.',
 	),
