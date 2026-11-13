@@ -4821,6 +4821,8 @@ type PromptError struct {
 	HTTPStatus *int64  `json:"httpStatus,omitempty"`
 	// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.
 	Code *PromptErrorCode `json:"code,omitempty"`
+	// Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.
+	ResetAt *int64 `json:"resetAt,omitempty"`
 }
 
 func (v *PromptError) UnmarshalJSON(data []byte) error {
@@ -4836,6 +4838,7 @@ func (v *PromptError) decodeFrom(raw map[string]json.RawMessage) error {
 	d.optional("model", &out.Model)
 	d.optional("httpStatus", &out.HTTPStatus)
 	d.optional("code", &out.Code)
+	d.optional("resetAt", &out.ResetAt)
 	if d.err != nil {
 		return d.err
 	}
