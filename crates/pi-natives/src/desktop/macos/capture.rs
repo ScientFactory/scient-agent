@@ -41,7 +41,9 @@ unsafe extern "C" {
 pub(super) fn capture_permission() -> bool {
 	// SAFETY: This non-prompting TCC preflight has no arguments and is available
 	// on supported macOS versions.
-	unsafe { CGPreflightScreenCaptureAccess() }
+	// scient(SA-MAC-GRANT): begin - A grant counts without a restart.
+	super::scient_fresh_grant::screen_recording(unsafe { CGPreflightScreenCaptureAccess() })
+	// scient(SA-MAC-GRANT): end
 }
 
 fn require_capture_permission() -> CoreResult<()> {

@@ -273,6 +273,17 @@
 				"packages/coding-agent/src/modes/rpc/wire/commands.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/next-message.test.ts"]
+		},
+		"SA-MAC-GRANT": {
+			"status": "active",
+			"contract": "On macOS a Screen Recording or Accessibility grant made while the agent runs counts at once, with no restart: macOS keeps each process's first answer, so when the agent's own answer is no, a short-lived child process asks again before computer control refuses. The child's checks never prompt; a refusal is reused for two seconds and a grant for the life of the process. A general fix, to be offered upstream.",
+			"owned": ["crates/pi-natives/src/desktop/macos/scient/fresh_grant.rs"],
+			"upstream": [
+				"crates/pi-natives/src/desktop/macos/ax.rs",
+				"crates/pi-natives/src/desktop/macos/capture.rs",
+				"crates/pi-natives/src/desktop/macos/mod.rs"
+			],
+			"verification": ["bun run test:rs"]
 		}
 	}
 }
