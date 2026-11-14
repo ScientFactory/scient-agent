@@ -5513,6 +5513,13 @@ pub struct LiveConnectResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LiveReportParams {
+	pub text: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub r#final: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LiveMuteParams {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub muted: Option<bool>,
@@ -6794,6 +6801,25 @@ impl Command for LiveConnectCommand {
 
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		serde_json::from_value::<LiveConnectResult>(data.unwrap_or_else(|| Value::Object(Map::new())))
+	}
+}
+
+/// Report the delegated request's progress, or with `final` its answer, to the live voice session.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LiveReportCommand {
+	pub text: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub r#final: Option<bool>,
+}
+
+impl Command for LiveReportCommand {
+	const NAME: &'static str = "live_report";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = ();
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		let _ = data;
+		Ok(())
 	}
 }
 

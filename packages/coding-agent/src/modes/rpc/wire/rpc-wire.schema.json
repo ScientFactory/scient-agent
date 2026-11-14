@@ -353,6 +353,17 @@
 				"clientOmit": []
 			},
 			{
+				"name": "live_report",
+				"doc": "Report the delegated request's progress, or with `final` its answer, to the live voice session.",
+				"params": "LiveReportParams",
+				"result": null,
+				"nullable": false,
+				"unwrap": null,
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
 				"name": "live_stop",
 				"doc": "Stop the live voice session, if any.",
 				"params": null,
@@ -6802,6 +6813,20 @@
 			"required": [
 				"voice",
 				"sdpAnswer"
+			]
+		},
+		"LiveReportParams": {
+			"type": "object",
+			"properties": {
+				"text": {
+					"type": "string"
+				},
+				"final": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"text"
 			]
 		},
 		"LiveMuteParams": {
