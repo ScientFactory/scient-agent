@@ -485,7 +485,9 @@ jobs:
               merge-multiple: true
 
          # A draft that was never published holds no tag and does not use its
-         # version up: this run's draft replaces it.
+         # version up: this run's draft replaces it. GitHub cannot delete only
+         # if still a draft, so each one is read again right before; SCIENT.md
+         # says not to publish a draft while a release run of its version runs.
          - name: Replace an unpublished draft of this version
            env:
               GH_TOKEN: ${{ github.token }}
@@ -494,6 +496,10 @@ jobs:
               drafts="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
                  --jq ".[] | select(.draft and .tag_name == \"$TAG\") | .id")"
               for id in $drafts; do
+                 if [ "$(gh api "repos/$GITHUB_REPOSITORY/releases/$id" --jq .draft)" != true ]; then
+                    echo "::error::$TAG's draft $id was published during this run; nothing was replaced."
+                    exit 1
+                 fi
                  echo "Deleting the unpublished draft $id of $TAG."
                  gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
               done
