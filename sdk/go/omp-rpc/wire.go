@@ -5478,6 +5478,34 @@ func (v PlanProposedEvent) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"plan_proposed"`, nil)
 }
 
+// Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation.
+type PlanUpdatedEvent struct {
+	Enabled      bool    `json:"enabled"`
+	PlanFilePath *string `json:"planFilePath,omitempty"`
+}
+
+func (v *PlanUpdatedEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PlanUpdatedEvent", v.decodeFrom)
+}
+
+func (v *PlanUpdatedEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PlanUpdatedEvent
+	d := fieldDecoder{raw: raw, owner: "PlanUpdatedEvent"}
+	d.constant("type", "plan_updated")
+	d.required("enabled", &out.Enabled)
+	d.optional("planFilePath", &out.PlanFilePath)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v PlanUpdatedEvent) MarshalJSON() ([]byte, error) {
+	type plain PlanUpdatedEvent
+	return encodeObject(plain(v), `"type":"plan_updated"`, nil)
+}
+
 // State of one draft-only microphone capture.
 type DictationStateEvent struct {
 	CaptureID string                   `json:"captureId"`
@@ -7055,6 +7083,7 @@ func (LiveTranscriptEvent) isRpcNotification()          {}
 func (LiveEndEvent) isRpcNotification()                 {}
 func (LiveDelegationEvent) isRpcNotification()          {}
 func (PlanProposedEvent) isRpcNotification()            {}
+func (PlanUpdatedEvent) isRpcNotification()             {}
 func (DictationStateEvent) isRpcNotification()          {}
 func (DictationTranscriptEvent) isRpcNotification()     {}
 func (DictationEndEvent) isRpcNotification()            {}
@@ -7141,6 +7170,8 @@ func (v *RpcNotification) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveDelegationEvent](raw)
 	case "plan_proposed":
 		value, err = decodeVariant[PlanProposedEvent](raw)
+	case "plan_updated":
+		value, err = decodeVariant[PlanUpdatedEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":
@@ -7266,6 +7297,7 @@ func (LiveTranscriptEvent) isRpcServerFrame()          {}
 func (LiveEndEvent) isRpcServerFrame()                 {}
 func (LiveDelegationEvent) isRpcServerFrame()          {}
 func (PlanProposedEvent) isRpcServerFrame()            {}
+func (PlanUpdatedEvent) isRpcServerFrame()             {}
 func (DictationStateEvent) isRpcServerFrame()          {}
 func (DictationTranscriptEvent) isRpcServerFrame()     {}
 func (DictationEndEvent) isRpcServerFrame()            {}
@@ -7362,6 +7394,8 @@ func (v *RpcServerFrame) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveDelegationEvent](raw)
 	case "plan_proposed":
 		value, err = decodeVariant[PlanProposedEvent](raw)
+	case "plan_updated":
+		value, err = decodeVariant[PlanUpdatedEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":

@@ -5106,6 +5106,25 @@
 			],
 			"description": "The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."
 		},
+		"PlanUpdatedEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "plan_updated"
+				},
+				"enabled": {
+					"type": "boolean"
+				},
+				"planFilePath": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"enabled"
+			],
+			"description": "Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation."
+		},
 		"DictationStateEvent": {
 			"type": "object",
 			"properties": {
@@ -6319,6 +6338,9 @@
 				},
 				{
 					"$ref": "#/$defs/PlanProposedEvent"
+				},
+				{
+					"$ref": "#/$defs/PlanUpdatedEvent"
 				},
 				{
 					"$ref": "#/$defs/DictationStateEvent"
