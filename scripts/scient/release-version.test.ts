@@ -19,7 +19,9 @@ describe("release version", () => {
 
 	it("reuses a version whose earlier run failed or was never published, but never a tagged one", () => {
 		expect(releaseRefusal("0.1.9", { latestPublished: "v0.1.8", tagExists: false })).toBeUndefined();
-		expect(releaseRefusal("0.1.9", { latestPublished: "v0.1.8", tagExists: true })).toContain("tagged already");
+		expect(releaseRefusal("0.1.8", { latestPublished: "v0.1.8", tagExists: true })).toContain("tagged already");
+		// A tag on the next version with no published release was pushed by hand; the run says to delete it.
+		expect(releaseRefusal("0.1.9", { latestPublished: "v0.1.8", tagExists: true })).toContain("delete that tag");
 	});
 
 	it("allows any version before the first published release, and refuses one that is not x.y.z", () => {

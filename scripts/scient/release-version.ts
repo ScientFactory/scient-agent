@@ -36,13 +36,17 @@ export interface ReleaseState {
 /** Why `version` may not be released in `state`, or undefined when it may. */
 export function releaseRefusal(version: string, state: ReleaseState): string | undefined {
 	if (!VERSION.test(version)) return `scient.json's version ${version} is not x.y.z.`;
+	const latest = state.latestPublished?.replace(/^v/, "") ?? null;
+	const next = latest === null ? null : nextVersions(latest);
 	if (state.tagExists) {
+		// Only publishing tags a version now, so a tag on the next version with no published
+		// release was made another way (a pushed tag, as releases were once made).
+		if (next?.includes(version)) {
+			return `v${version} is tagged, but no release of it is published. A release run never tags; delete that tag, then run the release again.`;
+		}
 		return `v${version} is tagged already, and a tagged version is never released again. Set scient.json to the version after the latest published release.`;
 	}
-	if (state.latestPublished === null) return undefined;
-	const latest = state.latestPublished.replace(/^v/, "");
-	const next = nextVersions(latest);
-	if (next.includes(version)) return undefined;
+	if (next === null || next.includes(version)) return undefined;
 	return `The latest published release is v${latest}, so the next release is ${next.join(", ")} (patch, minor or major), not ${version}.`;
 }
 
