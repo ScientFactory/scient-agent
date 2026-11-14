@@ -1826,6 +1826,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 						// close the prompts it was answering. Branch and navigation leave a live
 						// run streaming to its normal yield.
 						if (detachesRun) promptResults.abortOpen();
+						// scient(SA-PLAN-MODE): begin - A plan never carries into another conversation.
+						if (detachesRun) await planController.handle({ op: "exit" });
+						// scient(SA-PLAN-MODE): end
 						void settleWatcher.check();
 					}
 				}
@@ -2206,6 +2209,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 					inputGate.commitSessionChange(command);
 					// `branch` leaves a live run streaming to its normal yield; new/switch detach it.
 					if (command.type !== "branch" && command.type !== "fork") promptResults.abortOpen();
+					// scient(SA-PLAN-MODE): begin - A plan never carries into another conversation.
+					if (command.type !== "branch") await planController.handle({ op: "exit" });
+					// scient(SA-PLAN-MODE): end
 					// The detached run publishes no terminal agent_end to settle on.
 					void settleWatcher.check();
 					await emitAvailableCommandsUpdate();
