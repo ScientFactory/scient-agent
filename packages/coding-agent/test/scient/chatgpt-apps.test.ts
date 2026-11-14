@@ -212,3 +212,34 @@ describe("the host's choice of apps", () => {
 		expect(rpcResponse(body, true, 3)).toEqual({ jsonrpc: "2.0", id: 3, result: { ok: true } });
 	});
 });
+
+describe("one ChatGPT account per client", () => {
+	it("refuses a call once the sign-in resolves to another account", async () => {
+		const authStorage = await AuthStorage.create(":memory:");
+		try {
+			await authStorage.credentials.set("openai-codex", [
+				{ type: "oauth", access: "access-a", refresh: "r", expires: Date.now() + 600_000, accountId: "acct-a" },
+			]);
+			const client = new ChatGptAppsClient(authStorage);
+			const spy = spyOn(globalThis, "fetch").mockImplementation((async (_url: unknown, init?: RequestInit) => {
+				const body = JSON.parse(String(init?.body));
+				if (body.id === undefined) return new Response(null, { status: 202 });
+				return Response.json({ jsonrpc: "2.0", id: body.id, result: { tools: [], content: [] } });
+			}) as typeof fetch);
+			try {
+				await client.listApps();
+				await authStorage.credentials.set("openai-codex", [
+					{ type: "oauth", access: "access-b", refresh: "r", expires: Date.now() + 600_000, accountId: "acct-b" },
+				]);
+				const calls = spy.mock.calls.length;
+				const error = await client.callTool("gmail.send_email", {}).catch(e => e);
+				expect((error as ChatGptAppsError).kind).toBe("signed-out");
+				expect(spy.mock.calls.length).toBe(calls);
+			} finally {
+				spy.mockRestore();
+			}
+		} finally {
+			authStorage.close();
+		}
+	});
+});

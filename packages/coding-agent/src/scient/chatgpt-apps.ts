@@ -164,10 +164,17 @@ function failure(error: unknown): ChatGptAppsError {
 	return new ChatGptAppsError("unavailable", "Scient Agent could not reach ChatGPT's apps.");
 }
 
-/** One MCP session with ChatGPT's apps server, for whichever ChatGPT account the sign-in uses. */
+/**
+ * One MCP session with ChatGPT's apps server. The client keeps to the ChatGPT account its first
+ * request used: the apps it listed belong to that account, so no later call may run through
+ * another stored sign-in.
+ */
 export class ChatGptAppsClient {
 	#session: { account: string; id: string | undefined } | undefined;
 	#nextId = 0;
+	/** Keeps credential resolution on one stored sign-in. */
+	readonly #stickiness = crypto.randomUUID();
+	#account: string | undefined;
 
 	constructor(
 		private readonly storage: AuthStorage,
@@ -249,6 +256,12 @@ export class ChatGptAppsClient {
 						accountId: oauth.accountId ?? getCodexAccountId(oauth.accessToken),
 					};
 					const account = access.accountId ?? "";
+					if (this.#account !== undefined && this.#account !== account)
+						throw new ChatGptAppsError(
+							"signed-out",
+							"The ChatGPT sign-in changed. Start a new conversation to use its apps.",
+						);
+					this.#account = account;
 					const open = async () => {
 						// A session belongs to one ChatGPT account; a rotated sign-in starts its own.
 						this.#session = { account, id: undefined };
@@ -275,7 +288,11 @@ export class ChatGptAppsClient {
 						return (await this.#post(access, method, params, bounded)) ?? {};
 					}
 				},
-				{ signal: bounded, missingAccessMessage: "Sign in to ChatGPT to use its apps." },
+				{
+					signal: bounded,
+					sessionId: this.#stickiness,
+					missingAccessMessage: "Sign in to ChatGPT to use its apps.",
+				},
 			);
 		} catch (error) {
 			if (signal?.aborted) throw error;
