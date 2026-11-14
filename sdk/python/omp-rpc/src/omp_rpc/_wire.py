@@ -1458,6 +1458,14 @@ class PlanProposedEvent:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class PlanUpdatedEvent:
+    """Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation."""
+    type: Literal["plan_updated"] = "plan_updated"
+    enabled: bool
+    plan_file_path: str | None = None
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class DictationStateEvent:
     """State of one draft-only microphone capture."""
     type: Literal["dictation_state"] = "dictation_state"
@@ -1776,7 +1784,7 @@ RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | Tu
 """A session event, discriminated by `type`; `set_event_filter` selects which are sent."""
 
 
-RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | PlanProposedEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
+RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | PlanProposedEvent | PlanUpdatedEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
 """Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`."""
 
 
@@ -2979,6 +2987,15 @@ def parse_plan_proposed_event(value: object, path: str = "PlanProposedEvent") ->
     )
 
 
+def parse_plan_updated_event(value: object, path: str = "PlanUpdatedEvent") -> PlanUpdatedEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["plan_updated"]]', literal(frozenset({"plan_updated"}))), path)
+    return PlanUpdatedEvent(
+        enabled=required(payload, "enabled", decode_bool, path),
+        plan_file_path=optional(payload, "planFilePath", decode_str, path),
+    )
+
+
 def parse_dictation_state_event(value: object, path: str = "DictationStateEvent") -> DictationStateEvent:
     payload = expect_object(value, path)
     required(payload, "type", cast('Decoder[Literal["dictation_state"]]', literal(frozenset({"dictation_state"}))), path)
@@ -3398,6 +3415,7 @@ _RPC_NOTIFICATION_CASES: Final[dict[str, Decoder[RpcNotification]]] = {
         "live_end": parse_live_end_event,
         "live_delegation": parse_live_delegation_event,
         "plan_proposed": parse_plan_proposed_event,
+        "plan_updated": parse_plan_updated_event,
         "dictation_state": parse_dictation_state_event,
         "dictation_transcript": parse_dictation_transcript_event,
         "dictation_end": parse_dictation_end_event,
@@ -3984,6 +4002,10 @@ class WireClient:
         """Subscribe to `plan_proposed`: The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."""
         return self._listen("plan_proposed", listener)
 
+    def on_plan_updated(self, listener: Callable[[PlanUpdatedEvent], None]) -> Callable[[], None]:
+        """Subscribe to `plan_updated`: Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation."""
+        return self._listen("plan_updated", listener)
+
     def on_dictation_state(self, listener: Callable[[DictationStateEvent], None]) -> Callable[[], None]:
         """Subscribe to `dictation_state`: State of one draft-only microphone capture."""
         return self._listen("dictation_state", listener)
@@ -4281,6 +4303,7 @@ __all__ = [
     "PlanOp",
     "PlanProposedEvent",
     "PlanResult",
+    "PlanUpdatedEvent",
     "PromoteQueuedMessageResult",
     "PromptAck",
     "PromptCacheEntry",
@@ -4470,6 +4493,7 @@ __all__ = [
     "parse_parent_irc",
     "parse_plan_proposed_event",
     "parse_plan_result",
+    "parse_plan_updated_event",
     "parse_promote_queued_message_result",
     "parse_prompt_ack",
     "parse_prompt_cache_entry",
