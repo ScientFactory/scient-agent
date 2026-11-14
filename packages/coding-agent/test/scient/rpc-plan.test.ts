@@ -10,6 +10,7 @@ import {
 	PLAN_REFINE_OPTION,
 	RpcPlanController,
 	type RpcPlanProposedFrame,
+	type RpcPlanUpdatedFrame,
 	type RpcPlanSession,
 } from "@oh-my-pi/pi-coding-agent/scient/rpc-plan";
 import type { PlanProposalHandler } from "@oh-my-pi/pi-coding-agent/tools/resolve";
@@ -22,7 +23,7 @@ describe("RPC plan mode", () => {
 	let referencePath: string | undefined;
 	let modeChanges: Array<{ mode: string; data?: Record<string, unknown> }>;
 	let goalActive: boolean;
-	let frames: RpcPlanProposedFrame[];
+	let frames: Array<RpcPlanProposedFrame | RpcPlanUpdatedFrame>;
 	let answers: Array<PromiseWithResolvers<string | undefined>>;
 	let sessionId: string;
 
@@ -108,14 +109,20 @@ describe("RPC plan mode", () => {
 		const plans = await controller();
 		await draft(plans);
 		const { result } = await propose();
-		expect(frames).toMatchObject([{ type: "plan_proposed", markdown: "# Fit the model\n\n1. Load data\n" }]);
+		expect(frames).toMatchObject([
+			{ type: "plan_updated", enabled: true, planFilePath: "local://PLAN.md" },
+			{ type: "plan_proposed", markdown: "# Fit the model\n\n1. Load data\n" },
+		]);
+		const planFilePath = frames[1]!.planFilePath;
 		answers[0]!.resolve(PLAN_APPROVE_OPTION);
 
-		expect(resultText(await result)).toStartWith(`Plan approved at ${frames[0]!.planFilePath}.`);
+		expect(resultText(await result)).toStartWith(`Plan approved at ${planFilePath}.`);
+		// The host learns plan mode ended without asking.
+		expect(frames.at(-1)).toEqual({ type: "plan_updated", enabled: false });
 		expect(await plans.handle({ op: "get" })).toEqual({ enabled: false });
 		expect(handler).toBeUndefined();
-		expect(referencePath).toBe(frames[0]!.planFilePath);
-		expect(modeChanges).toEqual([{ mode: "none", data: { approvedPlanFilePath: frames[0]!.planFilePath } }]);
+		expect(referencePath).toBe(planFilePath);
+		expect(modeChanges).toEqual([{ mode: "none", data: { approvedPlanFilePath: planFilePath } }]);
 	});
 
 	it("keeps planning on Refine, a typed answer, or a cancelled question", async () => {
