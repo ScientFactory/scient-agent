@@ -3565,6 +3565,14 @@ class WireClient:
             params["hostDelegation"] = host_delegation
         return parse_live_connect_result(self._command("live_connect", params), "live_connect")
 
+    def live_report(self, text: str, *, final: bool | None = None) -> None:
+        """Report the delegated request's progress, or with `final` its answer, to the live voice session."""
+        params: dict[str, object] = {}
+        params["text"] = text
+        if final is not None:
+            params["final"] = final
+        self._command("live_report", params)
+
     def live_stop(self) -> None:
         """Stop the live voice session, if any."""
         params: dict[str, object] = {}

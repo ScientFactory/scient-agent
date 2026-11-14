@@ -1754,6 +1754,11 @@ export interface LiveConnectResult {
 	sdpAnswer: string;
 }
 
+export interface LiveReportParams {
+	text: string;
+	final?: boolean;
+}
+
 export interface LiveMuteParams {
 	muted?: boolean;
 }
@@ -1997,6 +2002,7 @@ export interface RpcWireCommands {
 	steer_subagent: { params: SteerSubagentParams; result: undefined };
 	live_start: { params: LiveStartParams; result: LiveStartResult };
 	live_connect: { params: LiveConnectParams; result: LiveConnectResult };
+	live_report: { params: LiveReportParams; result: undefined };
 	live_stop: { params: undefined; result: undefined };
 	live_mute: { params: LiveMuteParams; result: LiveMuteResult };
 	dictation_start: { params: DictationStartParams; result: undefined };

@@ -8317,6 +8317,17 @@ func (c Commands) LiveConnect(ctx context.Context, p LiveConnectCommand) (LiveCo
 	return out, err
 }
 
+// LiveReportCommand holds the parameters of "live_report".
+type LiveReportCommand struct {
+	Text  string `json:"text"`
+	Final *bool  `json:"final,omitempty"`
+}
+
+// LiveReport sends "live_report": Report the delegated request's progress, or with `final` its answer, to the live voice session.
+func (c Commands) LiveReport(ctx context.Context, p LiveReportCommand) error {
+	return c.call(ctx, "live_report", p, 0, nil)
+}
+
 // LiveStop sends "live_stop": Stop the live voice session, if any.
 func (c Commands) LiveStop(ctx context.Context) error {
 	return c.call(ctx, "live_stop", nil, 0, nil)
