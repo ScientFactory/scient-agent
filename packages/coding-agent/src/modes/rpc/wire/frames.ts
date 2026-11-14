@@ -137,6 +137,10 @@ export const frameDefs = {
 		{ type: "'plan_proposed'", title: "string", planFilePath: "string", markdown: "string" },
 		"The plan the agent proposed in plan mode, sent just before the select request that asks to approve it.",
 	),
+	PlanUpdatedEvent: doc(
+		{ type: "'plan_updated'", enabled: "boolean", "planFilePath?": "string" },
+		"Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation.",
+	),
 	// scient(SA-PLAN-MODE): end
 	DictationStateEvent: doc(
 		{ type: "'dictation_state'", captureId: "string", state: "'starting' | 'recording' | 'transcribing'" },

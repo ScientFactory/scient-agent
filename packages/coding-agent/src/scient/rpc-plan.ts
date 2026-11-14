@@ -11,6 +11,7 @@
  *   other answer, which is read as feedback) keeps planning. A cancelled or
  *   abandoned question never approves: only an explicit Approve does.
  * - `plan exit` leaves plan mode without a plan.
+ * - Every time plan mode turns on or off, for any reason, the host gets `plan_updated`.
  */
 import type { AgentToolResult } from "@oh-my-pi/pi-agent-core";
 import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
@@ -40,6 +41,11 @@ export interface RpcPlanResult {
 	planFilePath?: string;
 }
 
+/** Plan mode turned on or off: by the host, by an approval, or by a change of conversation. */
+export interface RpcPlanUpdatedFrame extends RpcPlanResult {
+	type: "plan_updated";
+}
+
 /** The plan the agent proposed, sent before the host is asked to approve it. */
 export interface RpcPlanProposedFrame {
 	type: "plan_proposed";
@@ -64,14 +70,14 @@ export type RpcPlanSession = Pick<
 export class RpcPlanController {
 	readonly #session: RpcPlanSession;
 	readonly #ui: Pick<ExtensionUIContext, "select">;
-	readonly #output: (frame: RpcPlanProposedFrame) => void;
+	readonly #output: (frame: RpcPlanProposedFrame | RpcPlanUpdatedFrame) => void;
 	/** Bumped when plan mode is left, so an approval answered afterwards changes nothing. */
 	#generation = 0;
 
 	constructor(
 		session: RpcPlanSession,
 		ui: Pick<ExtensionUIContext, "select">,
-		output: (frame: RpcPlanProposedFrame) => void,
+		output: (frame: RpcPlanProposedFrame | RpcPlanUpdatedFrame) => void,
 	) {
 		this.#session = session;
 		this.#ui = ui;
@@ -114,13 +120,16 @@ export class RpcPlanController {
 		});
 		const generation = this.#generation;
 		session.setPlanProposalHandler(title => this.#propose(title, generation));
+		this.#output({ type: "plan_updated", ...this.#state });
 		if (session.isStreaming) await session.sendPlanModeContext({ deliverAs: "steer" });
 	}
 
 	#exit(): void {
 		this.#generation++;
+		const wasEnabled = this.#session.getPlanModeState()?.enabled === true;
 		this.#session.setPlanProposalHandler(null);
 		this.#session.setPlanModeState(undefined);
+		if (wasEnabled) this.#output({ type: "plan_updated", enabled: false });
 	}
 
 	#localProtocolOptions(): LocalProtocolOptions {

@@ -80,6 +80,7 @@ const notificationDefs = {
 			// scient(SA-LIVE-HOST-DELEGATION): end
 			// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
 			"PlanProposedEvent",
+			"PlanUpdatedEvent",
 			// scient(SA-PLAN-MODE): end
 			"DictationStateEvent",
 			"DictationTranscriptEvent",

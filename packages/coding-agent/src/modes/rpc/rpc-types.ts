@@ -359,7 +359,7 @@ export type RpcLiveFrame =
 	| RpcLiveDelegationFrame;
 // scient(SA-LIVE-HOST-DELEGATION): end
 // scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
-export type { RpcPlanProposedFrame } from "../../scient/rpc-plan";
+export type { RpcPlanProposedFrame, RpcPlanUpdatedFrame } from "../../scient/rpc-plan";
 // scient(SA-PLAN-MODE): end
 
 /** Draft-only dictation frames bypass the session event filter. */
