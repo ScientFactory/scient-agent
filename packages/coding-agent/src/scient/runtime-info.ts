@@ -19,6 +19,11 @@ export interface RuntimeInfo {
 	rpcProtocolVersions: RpcReadyFrame["supportedProtocolVersions"];
 	/** Source revision of this build, or "source" when it was not built by Scient's workflow. */
 	buildId: string;
+	/**
+	 * Scient's own commands a host may run. An executable without one reads the word as a
+	 * prompt, so a host checks this list instead of guessing from the version.
+	 */
+	hostCommands: string[];
 }
 
 export function formatRuntimeInfo(): string {
@@ -28,6 +33,7 @@ export function formatRuntimeInfo(): string {
 		upstream: UPSTREAM,
 		rpcProtocolVersions: [1, 2],
 		buildId: BUILD_ID,
+		hostCommands: ["apps", "dictate"],
 	};
 	return `${JSON.stringify(info)}\n`;
 }
