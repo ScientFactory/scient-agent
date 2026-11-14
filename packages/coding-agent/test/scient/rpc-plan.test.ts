@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { resolvePlanFilePath } from "@oh-my-pi/pi-coding-agent/plan-mode/plan-files";
@@ -11,7 +13,7 @@ import {
 	type RpcPlanSession,
 } from "@oh-my-pi/pi-coding-agent/scient/rpc-plan";
 import type { PlanProposalHandler } from "@oh-my-pi/pi-coding-agent/tools/resolve";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { readLines, removeWithRetries, TempDir } from "@oh-my-pi/pi-utils";
 
 describe("RPC plan mode", () => {
 	let tempDir: TempDir;
@@ -150,4 +152,43 @@ describe("RPC plan mode", () => {
 		await expect(plans.handle({ op: "enter" })).rejects.toThrow("Drop or finish the goal before planning.");
 		expect(planState).toBeUndefined();
 	});
+});
+
+describe("RPC plan mode across sessions", () => {
+	it("leaves plan mode when the host starts another conversation, so an old approval cannot touch it", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "scient-rpc-plan-"));
+		const child = Bun.spawn([process.execPath, path.join(import.meta.dir, "..", "fixtures", "live-rpc-agent.ts")], {
+			cwd: dir,
+			env: { ...process.env, SCIENT_AGENT_DIR: dir, PI_NO_TITLE: "1" },
+			stdin: "pipe",
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const stderr = new Response(child.stderr).text();
+		const lines = readLines(child.stdout, AbortSignal.timeout(30_000));
+		const decoder = new TextDecoder();
+		const receive = async () => {
+			const line = await lines.next();
+			if (line.done) throw new Error(await stderr);
+			return JSON.parse(decoder.decode(line.value)) as Record<string, unknown>;
+		};
+		const command = async (id: string, frame: object) => {
+			child.stdin.write(`${JSON.stringify({ ...frame, id })}\n`);
+			await child.stdin.flush();
+			for (;;) {
+				const reply = await receive();
+				if (reply.type === "response" && reply.id === id) return reply;
+			}
+		};
+		try {
+			while ((await receive()).type !== "ready") {}
+			expect(await command("enter", { type: "plan", op: "enter" })).toMatchObject({ data: { enabled: true } });
+			expect(await command("new", { type: "new_session" })).toMatchObject({ success: true });
+			expect(await command("get", { type: "plan", op: "get" })).toMatchObject({ data: { enabled: false } });
+		} finally {
+			child.kill();
+			await child.exited;
+			await removeWithRetries(dir);
+		}
+	}, 60_000);
 });
