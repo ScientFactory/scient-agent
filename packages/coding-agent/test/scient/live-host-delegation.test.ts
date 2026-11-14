@@ -102,6 +102,24 @@ describe("live host delegation", () => {
 		await controller.stop();
 	});
 
+	it("speaks the host's report of a turn it ran elsewhere, and only during a delegation", async () => {
+		const { controller, emit, sentToModel } = await startController({ delegate: () => {} });
+		controller.reportHostWork("nothing is delegated yet", true);
+		expect(sentToModel).toEqual([]);
+		emit(delegationCreated("d1", "run the analysis"));
+		controller.reportHostWork("Loading the cohort", false);
+		controller.reportHostWork("The hazard ratio is 1.4", true);
+		controller.reportHostWork("a late report", false);
+		await Bun.sleep(0);
+		const spoken = JSON.stringify(sentToModel);
+		expect(spoken).toContain('"channel":"commentary"');
+		expect(spoken).toContain("Loading the cohort");
+		expect(spoken).toContain("The hazard ratio is 1.4");
+		expect(spoken).not.toContain("a late report");
+		expect(controller.phase).not.toBe("working");
+		await controller.stop();
+	});
+
 	it("starts the turn itself when no delegate is set", async () => {
 		const { controller, emit, sentToSession } = await startController({});
 		emit(delegationCreated("d1", "list the files"));

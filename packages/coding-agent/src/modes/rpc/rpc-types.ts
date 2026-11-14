@@ -106,6 +106,7 @@ export type RpcCommand =
 			instructions?: string;
 			hostDelegation?: boolean;
 	  }
+	| { id?: string; type: "live_report"; text: string; final?: boolean }
 	// scient(SA-LIVE-HOST-DELEGATION): end
 	| { id?: string; type: "live_stop" }
 	| { id?: string; type: "live_mute"; muted?: boolean }
@@ -670,6 +671,9 @@ export type RpcResponse =
 			success: true;
 			data: { voice: string; sdpAnswer: string };
 	  }
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+	| { id?: string; type: "response"; command: "live_report"; success: true }
+	// scient(SA-LIVE-HOST-DELEGATION): end
 	| { id?: string; type: "response"; command: "live_stop"; success: true }
 	| { id?: string; type: "response"; command: "live_mute"; success: true; data: { muted: boolean } }
 	// Draft-only speech-to-text
