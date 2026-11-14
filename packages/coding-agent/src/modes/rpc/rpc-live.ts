@@ -17,7 +17,10 @@ import { hostLiveDelegate } from "../../scient/live-host-delegation";
 export const RPC_LIVE_LEVELS_INTERVAL_MS = 100;
 
 /** The controller surface the RPC bridge drives. */
-export type RpcLiveSession = Pick<LiveSessionController, "start" | "stop" | "toggleMute" | "muted" | "sdpAnswer">;
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+export type RpcLiveSession = Pick<LiveSessionController, "start" | "stop" | "toggleMute" | "muted" | "sdpAnswer"> &
+	Partial<Pick<LiveSessionController, "reportHostWork">>;
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 /** Builds the controller for one live session; tests substitute a fake. */
 export type RpcLiveSessionFactory = (options: LiveSessionControllerOptions) => RpcLiveSession;
@@ -148,6 +151,15 @@ export class RpcLiveBridge {
 		if (muted === undefined || muted !== controller.muted) controller.toggleMute();
 		return { muted: controller.muted };
 	}
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+
+	/** Passes the host's report of the delegated turn to the active session. */
+	report(text: string, final: boolean): void {
+		const controller = this.#controller;
+		if (!controller || this.#closing) throw new Error("No live session is active");
+		controller.reportHostWork?.(text, final);
+	}
+	// scient(SA-LIVE-HOST-DELEGATION): end
 
 	/** Stops `controller` and releases the slot once it has fully stopped. Idempotent. */
 	#retire(controller: RpcLiveSession): Promise<void> {

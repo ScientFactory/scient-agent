@@ -333,7 +333,7 @@
 		},
 		"SA-LIVE-HOST-DELEGATION": {
 			"status": "active",
-			"contract": "live_connect accepts hostDelegation. When it is true, each request the realtime model delegates goes to the host as a live_delegation frame ({ text }) instead of starting a turn in the session; the host sends it as the user's message, and the live session reads that turn's progress and final answer as before. Without the flag, delegation is unchanged.",
+			"contract": "live_connect accepts hostDelegation. When it is true, each request the realtime model delegates goes to the host as a live_delegation frame ({ text }) instead of starting a turn in the session; the host sends it as the user's message, and the live session reads that turn's progress and final answer as before. A host that runs the turn somewhere else, such as another session, reports it with live_report ({ text, final? }): progress as commentary, and with final the answer, which ends the delegation; a report without an active delegation is dropped. Without the flag, delegation is unchanged.",
 			"owned": [
 				"packages/coding-agent/src/scient/live-host-delegation.ts",
 				"packages/coding-agent/test/scient/live-host-delegation.test.ts"

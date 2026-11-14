@@ -246,6 +246,25 @@ export class LiveSessionController {
 			throw error;
 		}
 	}
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+
+	/**
+	 * Gives the voice model the host's account of the delegated request's turn: its progress, or
+	 * with `final` its answer, which ends the delegation. Without an active delegation it is dropped.
+	 */
+	reportHostWork(text: string, final: boolean): void {
+		const delegationId = this.#activeDelegationId;
+		const report = text.trim();
+		if (!delegationId || !report) return;
+		const content = final ? prompt.render(agentFinalMessageTemplate, { message: report }) : report;
+		for (const chunk of chunkLiveContext(content)) {
+			this.#queueSend(buildDelegationContextAppend(delegationId, chunk, final ? undefined : "commentary"));
+		}
+		if (!final) return;
+		this.#activeDelegationId = undefined;
+		this.#refreshAudioPhase();
+	}
+	// scient(SA-LIVE-HOST-DELEGATION): end
 
 	/** Toggles microphone capture while leaving output and the session connected. */
 	toggleMute(): void {

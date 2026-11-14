@@ -2450,6 +2450,18 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 					return error(id, command.type, err instanceof Error ? err.message : String(err));
 				}
 			}
+			// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+
+			case "live_report": {
+				if (typeof command.text !== "string") return error(id, "live_report", "live_report requires text");
+				try {
+					liveBridge.report(command.text, command.final === true);
+					return success(id, "live_report");
+				} catch (err) {
+					return error(id, "live_report", err instanceof Error ? err.message : String(err));
+				}
+			}
+			// scient(SA-LIVE-HOST-DELEGATION): end
 
 			case "live_stop": {
 				await liveBridge.stop();
