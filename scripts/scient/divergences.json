@@ -348,6 +348,18 @@
 				"packages/coding-agent/src/modes/rpc/wire/index.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/live-host-delegation.test.ts"]
+		},
+		"SA-DICTATION": {
+			"status": "active",
+			"contract": "`scient-agent dictate <file> [--language xx] [--json]` transcribes a recording with ChatGPT's dictation service, the one the ChatGPT and Codex apps use, through the stored openai-codex sign-in, which the shared OAuth retry refreshes or rotates. With --json it prints {\"text\"} on success, or {\"error\":{\"kind\",\"message\"}} and exits 1, the kind being signed-out, invalid-audio, rate-limited or unavailable. Nothing else changes.",
+			"owned": [
+				"packages/coding-agent/src/scient/command-help.ts",
+				"packages/coding-agent/src/scient/dictate-command.ts",
+				"packages/coding-agent/src/scient/dictation.ts",
+				"packages/coding-agent/test/scient/dictation.test.ts"
+			],
+			"upstream": ["packages/coding-agent/src/cli-commands.ts"],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/dictation.test.ts"]
 		}
 	}
 }
