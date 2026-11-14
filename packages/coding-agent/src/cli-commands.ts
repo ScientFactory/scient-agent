@@ -18,6 +18,9 @@ import {
 	VALUELESS_FLAGS,
 } from "./cli/flag-tables";
 import type * as LaunchHelp from "./commands/launch-help";
+// scient(SA-DICTATION): begin - Scient's dictation command.
+import { dictateHelp } from "./scient/command-help";
+// scient(SA-DICTATION): end
 
 function loadLaunchHelp(): typeof LaunchHelp.launchHelp {
 	const module: typeof LaunchHelp = require("./commands/launch-help");
@@ -279,6 +282,13 @@ export const commands: CommandEntry[] = [
 		load: () => import("./commands/update").then(m => m.default),
 		help: commandHelp.updateHelp,
 	},
+	// scient(SA-DICTATION): begin - Scient's dictation command.
+	{
+		name: "dictate",
+		load: () => import("./scient/dictate-command").then(m => m.default),
+		help: dictateHelp,
+	},
+	// scient(SA-DICTATION): end
 	{
 		name: "usage",
 		load: () => import("./commands/usage").then(m => m.default),
