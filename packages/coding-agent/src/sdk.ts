@@ -52,6 +52,9 @@ import {
 import { AsyncJobManager, type AsyncJobManagerApi } from "./async";
 import { AutoLearnController, buildAutoLearnInstructions } from "./autolearn/controller";
 import { createAutoresearchExtension } from "./autoresearch";
+// scient(SA-CHATGPT-APPS): begin - the person's ChatGPT apps, when the host asks for them.
+import { createChatGptAppsExtension, requestedChatGptApps } from "./scient/chatgpt-apps-extension";
+// scient(SA-CHATGPT-APPS): end
 import { loadCapability, reset as resetCapabilities } from "./capability";
 import {
 	MAIN_AGENT_RULE_NAME,
@@ -2981,6 +2984,10 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 
 			inlineExtensions.push(...(options.extensions ?? []));
 			inlineExtensions.push(createAutoresearchExtension);
+			// scient(SA-CHATGPT-APPS): begin - the person's ChatGPT apps, when the host asks for them.
+			const chatGptApps = requestedChatGptApps();
+			if (chatGptApps) inlineExtensions.push(createChatGptAppsExtension(authStorage, chatGptApps));
+			// scient(SA-CHATGPT-APPS): end
 			if (customTools.length > 0) {
 				inlineExtensions.push(createCustomToolsExtension(customTools, customToolSourcePaths));
 			}
