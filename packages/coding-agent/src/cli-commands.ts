@@ -21,6 +21,9 @@ import type * as LaunchHelp from "./commands/launch-help";
 // scient(SA-DICTATION): begin - Scient's dictation command.
 import { dictateHelp } from "./scient/command-help";
 // scient(SA-DICTATION): end
+// scient(SA-CHATGPT-APPS): begin - Scient's ChatGPT apps command.
+import { appsHelp } from "./scient/command-help";
+// scient(SA-CHATGPT-APPS): end
 
 function loadLaunchHelp(): typeof LaunchHelp.launchHelp {
 	const module: typeof LaunchHelp = require("./commands/launch-help");
@@ -289,6 +292,13 @@ export const commands: CommandEntry[] = [
 		help: dictateHelp,
 	},
 	// scient(SA-DICTATION): end
+	// scient(SA-CHATGPT-APPS): begin - Scient's ChatGPT apps command.
+	{
+		name: "apps",
+		load: () => import("./scient/apps-command").then(m => m.default),
+		help: appsHelp,
+	},
+	// scient(SA-CHATGPT-APPS): end
 	{
 		name: "usage",
 		load: () => import("./commands/usage").then(m => m.default),
