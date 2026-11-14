@@ -103,10 +103,18 @@ function toolOutput(app: ChatGptApp, result: ChatGptToolResult) {
 	};
 }
 
-/** One listing per process and app set, shared by the session and its subagents. */
-const listings = new Map<string, Promise<{ client: ChatGptAppsClient; apps: ChatGptApp[] }>>();
+/**
+ * One listing per credential store and app set, shared by a session and its subagents. Another
+ * store (another host's sessions in the same process) gets its own client and account.
+ */
+const listingsByStore = new WeakMap<
+	AuthStorage,
+	Map<string, Promise<{ client: ChatGptAppsClient; apps: ChatGptApp[] }>>
+>();
 
 function listing(storage: AuthStorage, policy: ChatGptAppsPolicy) {
+	const listings = listingsByStore.get(storage) ?? new Map();
+	listingsByStore.set(storage, listings);
 	const key = JSON.stringify(policy);
 	let pending = listings.get(key);
 	if (!pending) {
