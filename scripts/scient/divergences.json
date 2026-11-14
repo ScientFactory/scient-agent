@@ -24,7 +24,7 @@
 		},
 		"SA-RELEASE": {
 			"status": "active",
-			"contract": "Only Scient's own workflow builds, signs and drafts releases; Oh My Pi's publishing and repository automation is removed, and so is its Nix packaging, which installs and configures a stock omp.",
+			"contract": "Only Scient's own workflow builds, signs and drafts releases, and only of the version right after the latest published release, whose tag publishing the draft creates; Oh My Pi's publishing and repository automation is removed, and so is its Nix packaging, which installs and configures a stock omp.",
 			"owned": [
 				"SCIENT.md",
 				".github/README.md",
@@ -37,6 +37,8 @@
 				"scripts/scient/lib/ledger.ts",
 				"scripts/scient/lib/markers.ts",
 				"scripts/scient/native-variant.ts",
+				"scripts/scient/release-version.ts",
+				"scripts/scient/release-version.test.ts",
 				"scripts/scient/upstream-tests.ts",
 				"scripts/scient/upstream-tests.test.ts"
 			],
@@ -54,7 +56,11 @@
 				"nix/nixos-module.nix",
 				"nix/package.nix"
 			],
-			"verification": ["bun scripts/scient/divergence-check.ts", "bun scripts/scient/isolation-check.ts <binary>"]
+			"verification": [
+				"bun scripts/scient/divergence-check.ts",
+				"bun scripts/scient/isolation-check.ts <binary>",
+				"bun test scripts/scient/release-version.test.ts"
+			]
 		},
 		"SA-PRODUCT": {
 			"status": "active",
