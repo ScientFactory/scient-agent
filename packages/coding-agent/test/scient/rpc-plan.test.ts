@@ -61,6 +61,11 @@ describe("RPC plan mode", () => {
 					answers.push(answer);
 					return answer.promise;
 				},
+				input: () => {
+					const answer = Promise.withResolvers<string | undefined>();
+					answers.push(answer);
+					return answer.promise;
+				},
 			},
 			frame => frames.push(frame),
 		);
@@ -129,7 +134,6 @@ describe("RPC plan mode", () => {
 		const plans = await controller();
 		await draft(plans);
 		for (const [answer, expected] of [
-			[PLAN_REFINE_OPTION, "Stop here and ask the user what to change"],
 			["Use a mixed model instead", "The user asked: Use a mixed model instead"],
 			[undefined, "Stop here and ask the user what to change"],
 		] as const) {
@@ -139,6 +143,23 @@ describe("RPC plan mode", () => {
 			expect((await plans.handle({ op: "get" })).enabled).toBe(true);
 		}
 		expect(referencePath).toBeUndefined();
+	});
+
+	it("asks what to change on Refine and gives the answer to the model", async () => {
+		const plans = await controller();
+		await draft(plans);
+		for (const [change, expected] of [
+			["Add a sensitivity analysis", "The user asked: Add a sensitivity analysis"],
+			[undefined, "Stop here and ask the user what to change"],
+		] as const) {
+			const { result } = await propose();
+			const asked = answers.length;
+			answers.at(-1)!.resolve(PLAN_REFINE_OPTION);
+			while (answers.length === asked) await Promise.race([result, Bun.sleep(1)]);
+			answers.at(-1)!.resolve(change);
+			expect(resultText(await result)).toContain(expected);
+			expect((await plans.handle({ op: "get" })).enabled).toBe(true);
+		}
 	});
 
 	it("never approves an answer that arrives after plan mode was left", async () => {

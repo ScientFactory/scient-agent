@@ -7,8 +7,9 @@
  *   `xd://propose`.
  * - The proposal sends the plan to the host (`plan_proposed`), then asks Approve
  *   or Refine on the host's select card while the tool call waits. Approve leaves
- *   plan mode and the same run goes on to carry out the plan; Refine (or any
- *   other answer, which is read as feedback) keeps planning. A cancelled or
+ *   plan mode and the same run goes on to carry out the plan; Refine asks the
+ *   host what to change and gives the answer to the model as feedback, and any
+ *   other answer is read as feedback too. Both keep planning. A cancelled or
  *   abandoned question never approves: only an explicit Approve does.
  * - `plan exit` leaves plan mode without a plan.
  * - Every time plan mode turns on or off, for any reason, the host gets `plan_updated`.
@@ -69,14 +70,14 @@ export type RpcPlanSession = Pick<
 
 export class RpcPlanController {
 	readonly #session: RpcPlanSession;
-	readonly #ui: Pick<ExtensionUIContext, "select">;
+	readonly #ui: Pick<ExtensionUIContext, "select" | "input">;
 	readonly #output: (frame: RpcPlanProposedFrame | RpcPlanUpdatedFrame) => void;
 	/** Bumped when plan mode is left, so an approval answered afterwards changes nothing. */
 	#generation = 0;
 
 	constructor(
 		session: RpcPlanSession,
-		ui: Pick<ExtensionUIContext, "select">,
+		ui: Pick<ExtensionUIContext, "select" | "input">,
 		output: (frame: RpcPlanProposedFrame | RpcPlanUpdatedFrame) => void,
 	) {
 		this.#session = session;
@@ -156,10 +157,15 @@ export class RpcPlanController {
 			planFilePath: plan.planFilePath,
 			markdown: plan.planContent,
 		});
-		const answer = (
+		let answer = (
 			await this.#ui.select(`Carry out the plan "${plan.title}"?`, [PLAN_APPROVE_OPTION, PLAN_REFINE_OPTION])
 		)?.trim();
 		if (generation !== this.#generation) throw new ToolError("Plan mode ended before the plan was approved.");
+		// Refine asks what to change, so the model revises in the same run instead of proposing again.
+		if (answer === PLAN_REFINE_OPTION) {
+			answer = (await this.#ui.input("What should change in the plan?", "Describe the change"))?.trim() || answer;
+			if (generation !== this.#generation) throw new ToolError("Plan mode ended before the plan was approved.");
+		}
 		if (answer !== PLAN_APPROVE_OPTION) {
 			// The next planning turn targets the plan just reviewed.
 			if (state.planFilePath !== plan.planFilePath)
