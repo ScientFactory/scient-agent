@@ -1,16 +1,23 @@
 #!/usr/bin/env bun
 /**
- * Checks that `scient.json`'s version may be released now. As in Scient
- * Desktop's release, a version is used up when its release is published, not
- * when a build of it is drafted or fails: the version must come right after the
- * latest published release, and no tag may carry it yet (publishing a draft
- * creates its tag). An unpublished draft holds no tag, so the next release run
- * of the same version replaces it.
+ * Picks the version a release run builds and checks that it may be released
+ * now. As in Scient Desktop's release, the version is the run's input, not a
+ * commit: a run given no version releases the next patch after the latest
+ * published release. A version is used up when its release is published, not
+ * when a build of it is drafted or fails: it must come right after the latest
+ * published release, and no tag may carry it yet (publishing a draft creates
+ * its tag). An unpublished draft holds no tag, so the next release run of the
+ * same version replaces it.
  *
- *   GITHUB_REPOSITORY=ScientFactory/scient-agent bun scripts/scient/release-version.ts
+ *   GITHUB_REPOSITORY=ScientFactory/scient-agent RELEASE_VERSION=0.2.0 bun scripts/scient/release-version.ts
  *
  * Prints the version and writes `version=<version>` to `$GITHUB_OUTPUT` when it
  * is set; exits 1 with the reason when the version may not be released.
+ *
+ *   bun scripts/scient/release-version.ts --stamp 0.2.0
+ *
+ * Writes the version into this checkout's `scient.json`, so the executable
+ * built next reports it. A release run stamps each build; nothing commits it.
  */
 import { appendFileSync } from "node:fs";
 import * as path from "node:path";
@@ -26,6 +33,16 @@ export function nextVersions(latest: string): string[] {
 	return [`${major}.${minor}.${patch + 1}`, `${major}.${minor + 1}.0`, `${major + 1}.0.0`];
 }
 
+/**
+ * The version a release run builds: the one it was given, or the next patch after
+ * `latestPublished` (a tag such as `v0.1.8`). Undefined when neither exists.
+ */
+export function releaseVersion(requested: string, latestPublished: string | null): string | undefined {
+	const version = requested.trim().replace(/^v/, "");
+	if (version) return version;
+	return latestPublished === null ? undefined : nextVersions(latestPublished.replace(/^v/, ""))[0];
+}
+
 export interface ReleaseState {
 	/** The latest published release's tag (`v0.1.8`), or null before the first one. */
 	latestPublished: string | null;
@@ -35,7 +52,7 @@ export interface ReleaseState {
 
 /** Why `version` may not be released in `state`, or undefined when it may. */
 export function releaseRefusal(version: string, state: ReleaseState): string | undefined {
-	if (!VERSION.test(version)) return `scient.json's version ${version} is not x.y.z.`;
+	if (!VERSION.test(version)) return `The version ${version} is not x.y.z.`;
 	const latest = state.latestPublished?.replace(/^v/, "") ?? null;
 	const next = latest === null ? null : nextVersions(latest);
 	if (state.tagExists) {
@@ -44,10 +61,17 @@ export function releaseRefusal(version: string, state: ReleaseState): string | u
 		if (next?.includes(version)) {
 			return `v${version} is tagged, but no release of it is published. A release run never tags; delete that tag, then run the release again.`;
 		}
-		return `v${version} is tagged already, and a tagged version is never released again. Set scient.json to the version after the latest published release.`;
+		return `v${version} is tagged already, and a tagged version is never released again. Release the version after the latest published release.`;
 	}
 	if (next === null || next.includes(version)) return undefined;
 	return `The latest published release is v${latest}, so the next release is ${next.join(", ")} (patch, minor or major), not ${version}.`;
+}
+
+/** `scient.json`'s text with `version` as the product version, its layout unchanged. */
+export function stampedManifest(manifest: string, version: string): string {
+	const scient = JSON.parse(manifest) as { version: string };
+	scient.version = version;
+	return `${JSON.stringify(scient, null, "\t")}\n`;
 }
 
 /** `gh` output, or null when GitHub answers 404; any other failure throws, so the check fails closed. */
@@ -59,23 +83,43 @@ async function ghOrNotFound(args: string[]): Promise<string | null> {
 	throw new Error(`gh ${args.join(" ")} failed: ${stderr.trim()}`);
 }
 
-if (import.meta.main) {
+async function stamp(version: string | undefined): Promise<void> {
+	if (!version || !VERSION.test(version)) {
+		console.error(`--stamp needs a version (x.y.z), not ${version ?? "nothing"}.`);
+		process.exit(2);
+	}
+	const file = path.resolve(import.meta.dir, "..", "..", "scient.json");
+	await Bun.write(file, stampedManifest(await Bun.file(file).text(), version));
+	console.log(`scient.json now reports ${version}.`);
+}
+
+async function check(): Promise<void> {
 	const repo = process.env.GITHUB_REPOSITORY;
 	if (!repo) {
 		console.error("GITHUB_REPOSITORY is not set.");
 		process.exit(2);
 	}
-	const repoRoot = path.resolve(import.meta.dir, "..", "..");
-	const { version } = (await Bun.file(path.join(repoRoot, "scient.json")).json()) as { version: string };
 	const latestPublished = await ghOrNotFound(["api", `repos/${repo}/releases/latest`, "--jq", ".tag_name"]);
+	const version = releaseVersion(process.env.RELEASE_VERSION ?? "", latestPublished);
+	if (version === undefined) {
+		console.log("::error::No release is published yet, so give the run the first version to release.");
+		process.exitCode = 1;
+		return;
+	}
 	const tagExists = (await ghOrNotFound(["api", `repos/${repo}/git/ref/tags/v${version}`, "--jq", ".ref"])) !== null;
 	const refusal = releaseRefusal(version, { latestPublished, tagExists });
 	if (refusal) {
 		console.log(`::error::${refusal}`);
 		process.exitCode = 1;
-	} else {
-		console.log(`Releasing ${version}; the latest published release is ${latestPublished ?? "none"}.`);
-		const output = process.env.GITHUB_OUTPUT;
-		if (output) appendFileSync(output, `version=${version}\n`);
+		return;
 	}
+	console.log(`Releasing ${version}; the latest published release is ${latestPublished ?? "none"}.`);
+	const output = process.env.GITHUB_OUTPUT;
+	if (output) appendFileSync(output, `version=${version}\n`);
+}
+
+if (import.meta.main) {
+	const [flag, value] = process.argv.slice(2);
+	if (flag === "--stamp") await stamp(value);
+	else await check();
 }

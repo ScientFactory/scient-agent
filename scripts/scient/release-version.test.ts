@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { nextVersions, releaseRefusal } from "./release-version";
+import { nextVersions, releaseRefusal, releaseVersion, stampedManifest } from "./release-version";
 
 describe("release version", () => {
 	it("follows the latest published release by one patch, minor or major step", () => {
@@ -27,5 +27,25 @@ describe("release version", () => {
 	it("allows any version before the first published release, and refuses one that is not x.y.z", () => {
 		expect(releaseRefusal("0.1.0", { latestPublished: null, tagExists: false })).toBeUndefined();
 		expect(releaseRefusal("0.1.9-beta", { latestPublished: "v0.1.8", tagExists: false })).toContain("not x.y.z");
+	});
+
+	it("releases the version it was given, or else the next patch", () => {
+		expect(releaseVersion("0.2.0", "v0.1.8")).toBe("0.2.0");
+		expect(releaseVersion(" v0.2.0 ", "v0.1.8")).toBe("0.2.0");
+		expect(releaseVersion("", "v0.1.8")).toBe("0.1.9");
+		expect(releaseVersion("0.1.0", null)).toBe("0.1.0");
+		// Before the first published release there is no next patch to take.
+		expect(releaseVersion("", null)).toBeUndefined();
+	});
+
+	it("stamps only the product version, keeping scient.json's layout", () => {
+		const manifest = `${JSON.stringify(
+			{ name: "scient-agent", version: "0.1.8", upstream: { name: "oh-my-pi", version: "18.18.6", commit: "c" } },
+			null,
+			"\t",
+		)}\n`;
+		const stamped = stampedManifest(manifest, "0.1.9");
+		expect(JSON.parse(stamped)).toEqual({ ...JSON.parse(manifest), version: "0.1.9" });
+		expect(stamped).toBe(manifest.replace('"version": "0.1.8"', '"version": "0.1.9"'));
 	});
 });

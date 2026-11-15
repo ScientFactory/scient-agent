@@ -2,7 +2,7 @@
 
 Scient Agent is the native research agent of [Scient](https://github.com/ScientFactory/scient-desktop). It is built from [Oh My Pi](https://github.com/can1357/oh-my-pi) (OMP): it inherits OMP's agent runtime whole and changes what makes it a separate product. A machine can run Scient Agent and a stock `omp` side by side without either reading, changing, or updating the other.
 
-`scient.json` records the product version and the exact upstream release this tree derives from.
+`scient.json` records the product version and the exact upstream release this tree derives from. A release run writes the version it releases into its own checkout and never commits it, so on `main` the version is only what a build outside a release reports.
 
 ## What Scient changes
 
@@ -93,7 +93,7 @@ The 18.8.4 alignment predates markers; its in-place changes were accepted with i
 
 ## Branches, releases and upstream updates
 
-- `main` holds Scient Agent. Changes reach it through pull requests that keep their commits (rebase merge; history stays linear). A release is a published GitHub release of `scient.json`'s version, tagged `v<version>` on the `main` commit it was built from: `v0.1.0`, `v0.1.1`, ... A version is used up only when its release is published, so published versions follow each other with no gaps (see Release).
+- `main` holds Scient Agent. Changes reach it through pull requests that keep their commits (rebase merge; history stays linear). A release is a published GitHub release of the version its run was given, tagged `v<version>` on the `main` commit it was built from: `v0.1.0`, `v0.1.1`, ... A version is used up only when its release is published, so published versions follow each other with no gaps (see Release).
 - Scient's commits come in three kinds: the scripts under `scripts/scient/`, generated commits (the output of one generator and nothing else, subject ending in `(generated)`, trailer `Scient-Generator: identity`, `wording` or `rpc`), and hand-written changes (trailer `Scient-Divergence: <ids>` in a replay). A pull request that changes what a script produces carries the output as its own generated commit.
 - `upstream` is a fetch-only remote for Oh My Pi. `scient/18.4.8` is the branch the work started on, kept as it was.
 
@@ -113,7 +113,7 @@ Build a candidate branch from the pinned upstream commit. Port the generator scr
 
 Since 18.10.4 a replay has one shape: the generators; the generated identity commit; one commit per active ledger entry, in ledger order, each with `Scient-Divergence: <id>`; the generated wording commit; the generated RPC commit. The next intake replays those contract commits. It does not replay the history that produced them, and a change made after an alignment is folded into its contract's commit. `rename-wording.ts` stops when a listed text disappears: inspect the new source and repair the mapping rather than dropping the check.
 
-Update `scient.json` with the exact upstream pin and the chosen Scient product version. Review inherited workflows as well as source: preserve Scient's release authority and do not activate upstream publication, updater, reporting or repository-management automation. Run the checks below and affected upstream tests; list intentional exclusions and failures rather than claiming the entire upstream suite passed.
+Update `scient.json` with the exact upstream pin; the product version is chosen by the release run, not by the alignment. Review inherited workflows as well as source: preserve Scient's release authority and do not activate upstream publication, updater, reporting or repository-management automation. Run the checks below and affected upstream tests; list intentional exclusions and failures rather than claiming the entire upstream suite passed.
 
 Only once the replay candidate is qualified, import its tree into a **clean, disposable integration worktree** based on the frozen Scient `main`:
 
@@ -932,13 +932,13 @@ The Intel macOS job restores Cargo dependency artifacts keyed by the compiler, R
 
 The macOS builds are signed by upstream's `scripts/ci-macos-sign.sh`, unchanged, on a Linux runner (it uses a pinned `rcodesign`): ad hoc on every run, so the signing path is exercised by every pull request. A separate job then runs the signed bytes on their own macOS runner: checksum, `codesign --verify --strict`, `--version` and the isolation check. An unsigned macOS build is uploaded under an `unsigned-` name and can never reach a release.
 
-A release follows Scient Desktop's order: the version is checked first, the tag comes last.
+A release follows Scient Desktop's order: the version is the run's input, it is checked first, and the tag comes last. No pull request bumps a version.
 
-1. A pull request sets `scient.json`'s version to the one right after the latest published release (next patch, minor or major), in a commit `release: Scient Agent <version>`.
-2. Once it is on `main`, run the workflow manually on `main` with `release` set. Its first job (`scripts/scient/release-version.ts`) refuses a version that does not come right after the latest published release, or that a tag carries already. The run signs the macOS builds with the Developer ID, notarizes them and refuses an ad-hoc signature. Only when every job passed does it check the version again and draft a GitHub release with every binary, its zstd copy (`<binary>.zst`) and the SHA-256 of each, targeting the commit it built.
+1. Run the workflow manually on `main` with `release` set: `gh workflow run scient.yml --repo ScientFactory/scient-agent --ref main -f release=true`. Leave `version` blank to release the next patch after the latest published release, or give the next minor or major (`-f version=0.2.0`).
+2. Its first job (`scripts/scient/release-version.ts`) refuses a version that does not come right after the latest published release, or that a tag carries already, before any build starts. Each build writes the version into its own checkout's `scient.json` (`--stamp`) and checks that the binary reports it. The run signs the macOS builds with the Developer ID, notarizes them and refuses an ad-hoc signature. Only when every job passed does it check the version again and draft a GitHub release with every binary, its zstd copy (`<binary>.zst`) and the SHA-256 of each, targeting the commit it built.
 3. A person publishes the draft. Publishing creates the `v<version>` tag on that commit; a draft has no tag.
 
-A version whose run failed, or whose draft was not published, is not used up. Fix `main` and run the release again with the same version: its draft replaces the unpublished one. Never move `scient.json` to a later version for a retry. A failed job can also be rerun in the same run. Do not publish a draft while a release run of the same version is running: that run deletes the old draft just before it drafts its own, and GitHub cannot limit a deletion to drafts. A `v<version>` tag pushed by hand on a version that was never published blocks it; the release run says so, and the tag is deleted before running again.
+A version whose run failed, or whose draft was not published, is not used up. Fix `main` and run the release again with the same version (blank picks it again): its draft replaces the unpublished one. Never skip to a later version for a retry. A failed job can also be rerun in the same run. Do not publish a draft while a release run of the same version is running: that run deletes the old draft just before it drafts its own, and GitHub cannot limit a deletion to drafts. A `v<version>` tag pushed by hand on a version that was never published blocks it; the release run says so, and the tag is deleted before running again.
 
 The release job copies the release files to `downloads.scientfactory.com/scient-agent/v<version>/` (Cloudflare R2; secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and variable `R2_DOWNLOADS_BUCKET`), overwriting the copy of a draft it replaces. Scient Desktop's catalog takes only published releases. Desktop downloads that copy first and falls back to the GitHub release, and its catalog publishes a version only after every copy matches the digest. Desktop prefers the zstd copy, about 40% of the binary's size, unpacks it and checks the binary's SHA-256; it falls back to the binary itself, and Desktops that predate the copies download only the binary. The `compress` job makes the copies on every run with `zstd -19 --long=27` and checks that each unpacks to its binary: Desktop allows a window of at most 2^27 bytes, and the check unpacks with the same limit. A manual run of the workflow with `developer-id` set signs and notarizes without drafting a release; use it to qualify the signing secrets before a release run. Not built yet: Linux with musl (Alpine). The Windows builds are not code-signed.
 

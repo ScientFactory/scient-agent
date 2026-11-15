@@ -5,11 +5,13 @@ name: Scient Agent
 # from a stock omp. The macOS builds are signed on Linux by upstream's
 # scripts/ci-macos-sign.sh, ad hoc on every run so the signing path is always
 # exercised, then checked on macOS. A manual run on main with `release` set
-# builds scient.json's version, signs the macOS builds with the Developer ID,
-# notarizes them and, once every job passed, drafts a GitHub release with every
-# binary and its checksum; a person publishes the draft, which creates the tag.
-# As in Scient Desktop's release, a version is used up only when it is
-# published: after a failed or superseded run, run again with the same version.
+# builds the version it is given (or the next patch after the latest published
+# release), signs the macOS builds with the Developer ID, notarizes them and,
+# once every job passed, drafts a GitHub release with every binary and its
+# checksum; a person publishes the draft, which creates the tag. As in Scient
+# Desktop's release, the version is the run's input and is never committed, and
+# a version is used up only when it is published: after a failed or superseded
+# run, run again with the same version.
 # A manual run can also sign and notarize without drafting a release, to
 # qualify the signing secrets. Oh My Pi's own test suite runs on Linux against
 # Scient's tree, as upstream's CI runs it.
@@ -22,9 +24,13 @@ on:
    workflow_dispatch:
       inputs:
          release:
-            description: Release scient.json's version from main (it must come right after the latest published release)
+            description: Release from main and draft the release
             type: boolean
             default: false
+         version:
+            description: "Release: x.y.z right after the latest published release. Blank releases the next patch"
+            type: string
+            default: ""
          developer-id:
             description: Sign the macOS builds with the Developer ID and notarize them (no release is drafted)
             type: boolean
@@ -50,19 +56,20 @@ defaults:
       shell: bash
 
 jobs:
-   # A release builds scient.json's version only if it comes right after the
-   # latest published release and is not tagged yet (scripts/scient/release-version.ts).
-   # The release job checks again before it drafts.
+   # A release builds the version it is given, or the next patch, only if it
+   # comes right after the latest published release and is not tagged yet
+   # (scripts/scient/release-version.ts). The release job checks again before it
+   # drafts. The job runs on every run, doing nothing outside a release, so the
+   # builds can need it: a skipped job would skip every job after them.
    release-version:
       name: Check the release version
-      # Job conditions cannot read workflow env, so this repeats RELEASE.
-      if: github.event_name == 'workflow_dispatch' && inputs.release
       runs-on: ubuntu-24.04
       timeout-minutes: 10
       outputs:
          version: ${{ steps.check.outputs.version }}
       steps:
          - name: Release from main only
+           if: env.RELEASE == 'true'
            run: |
               if [ "$GITHUB_REF" != refs/heads/main ]; then
                  echo "::error::A release is built from main, not $GITHUB_REF."
@@ -70,19 +77,24 @@ jobs:
               fi
 
          - uses: actions/checkout@v4
+           if: env.RELEASE == 'true'
 
          - uses: oven-sh/setup-bun@v2
+           if: env.RELEASE == 'true'
            with:
               bun-version: 1.4.4
 
          - id: check
            name: Check the version
+           if: env.RELEASE == 'true'
            env:
               GH_TOKEN: ${{ github.token }}
+              RELEASE_VERSION: ${{ inputs.version }}
            run: bun scripts/scient/release-version.ts
 
    build:
       name: Build and check (${{ matrix.id }})
+      needs: release-version
       runs-on: ${{ matrix.runner }}
       timeout-minutes: 150
       strategy:
@@ -108,6 +120,13 @@ jobs:
          # Before any step changes a tracked file, so a clean checkout is not reported dirty.
          - name: Stamp the build id
            run: bun scripts/scient/stamp-build-id.ts
+
+         # The release's version goes into this checkout only; main is never bumped.
+         - name: Stamp the release version
+           if: env.RELEASE == 'true'
+           env:
+              VERSION: ${{ needs.release-version.outputs.version }}
+           run: bun scripts/scient/release-version.ts --stamp "$VERSION"
 
          - name: Install build tools
            run: |
@@ -171,11 +190,13 @@ jobs:
               echo "BINARY=$binary" >> "$GITHUB_ENV"
               "$binary" --version < /dev/null
 
-         - name: Check the build reports scient.json's version
+         - name: Check the build reports the release version
            if: env.RELEASE == 'true'
+           env:
+              VERSION: ${{ needs.release-version.outputs.version }}
            run: |
               version="$("$BINARY" --version < /dev/null)"
-              test "$version" = "scient-agent/$(bun -e 'console.log((await Bun.file("scient.json").json()).version)')"
+              test "$version" = "scient-agent/$VERSION"
 
          - name: Check state isolation
            run: bun scripts/scient/isolation-check.ts "$BINARY"
@@ -367,7 +388,7 @@ jobs:
    # Runs the exact signed bytes the release publishes on their own platform.
    verify-macos:
       name: Check signed build (${{ matrix.id }})
-      needs: sign-macos
+      needs: [release-version, sign-macos]
       runs-on: ${{ matrix.runner }}
       timeout-minutes: 30
       strategy:
@@ -403,11 +424,13 @@ jobs:
               fi
               "$binary" --version < /dev/null
 
-         - name: Check the build reports scient.json's version
+         - name: Check the build reports the release version
            if: env.RELEASE == 'true'
+           env:
+              VERSION: ${{ needs.release-version.outputs.version }}
            run: |
               version="$("$BINARY" --version < /dev/null)"
-              test "$version" = "scient-agent/$(bun -e 'console.log((await Bun.file("scient.json").json()).version)')"
+              test "$version" = "scient-agent/$VERSION"
 
          - name: Check state isolation
            run: bun scripts/scient/isolation-check.ts "$BINARY"
@@ -476,6 +499,7 @@ jobs:
          - name: Check the version is still next
            env:
               GH_TOKEN: ${{ github.token }}
+              RELEASE_VERSION: ${{ needs.release-version.outputs.version }}
            run: bun scripts/scient/release-version.ts
 
          - uses: actions/download-artifact@v4

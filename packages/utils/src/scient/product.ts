@@ -1,5 +1,6 @@
 /**
- * Scient Agent's own release, as `scient.json` records it. `VERSION` in
+ * Scient Agent's own release, as `scient.json` records it (a release run writes
+ * its version there before building). `VERSION` in
  * `dirs.ts` stays the version of the inherited Oh My Pi packages: internal
  * compatibility checks, the native addon's stamp among them, compare against it.
  */
