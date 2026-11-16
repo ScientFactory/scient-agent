@@ -3,10 +3,10 @@
 //!
 //! SQLite's unix VFS takes POSIX record locks, which belong to the process and
 //! the inode: closing *any* descriptor of the file releases every one of them.
-//! A builtin `cat agent.db-shm`, a grep walk over `~/.omp`, or a `Bun.file`
-//! read of `agent.db` used to release a live connection's locks; a peer omp
-//! then saw no other connection, checkpointed and unlinked the WAL under it,
-//! and the two later wrote diverging pages into the shared file.
+//! A builtin `cat agent.db-shm`, a grep walk over `~/.scient-agent`, or a
+//! `Bun.file` read of `agent.db` used to release a live connection's locks; a
+//! peer omp then saw no other connection, checkpointed and unlinked the WAL
+//! under it, and the two later wrote diverging pages into the shared file.
 //!
 //! [`install_sqlite_lock_shim`] moves Bun's SQLite onto open-file-description
 //! locks, which no other close releases ([`ofd_locks`]). [`held_file_kind`]

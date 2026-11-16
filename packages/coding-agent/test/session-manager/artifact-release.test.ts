@@ -37,7 +37,7 @@ describe("SessionManager artifact terminal release", () => {
 				cwd: path.join(import.meta.dir, "../../../.."),
 				env: {
 					...process.env,
-					PI_CODING_AGENT_DIR: tempDir.path(),
+					SCIENT_AGENT_DIR: tempDir.path(),
 					BUN_JSC_useConcurrentJIT: "0",
 				},
 				stdout: "pipe",

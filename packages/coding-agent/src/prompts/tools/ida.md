@@ -10,7 +10,7 @@ IDA Pro (idalib) databases: lifecycle, structured edits, and Python `exec` insid
 - `db` accepts a binary or `.i64`/`.idb` path (`<bin>:@<arch>` for a universal Mach-O slice), an open db id, or its daemon name.
 - `db` MAY be omitted when exactly one DB is open.
 - `read <binary>` opens or creates the DB and shows the overview; `open` does the same without a view.
-- Executables get a store IDB under `~/.omp/agent/idbs/<sha16>-<name>/` (the binary itself is never modified); `.i64`/`.idb` files open in place.
+- Executables get a store IDB under `~/.scient-agent/agent/idbs/<sha16>-<name>/` (the binary itself is never modified); `.i64`/`.idb` files open in place.
 - Look with `read` views: `<bin>:<func|0xaddr>` pseudocode, `:<func>:asm`, `:imports`, `:exports`, `:strings`, `:xrefs:<func|0xaddr>`.
 - Change with `ida` (`rename`, `comment`, `set_type`, `make_function`) or `exec`.
 - `target` is a symbol name or `0x` address; `_`-prefixed Mach-O names resolve without the underscore.

@@ -31,9 +31,9 @@ import {
 	setProjectDir,
 } from "@oh-my-pi/pi-utils";
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-const originalPiProfile = process.env.PI_PROFILE;
-const originalOmpProfile = process.env.OMP_PROFILE;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
+const originalPiProfile = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
+const originalOmpProfile = process.env.SCIENT_AGENT_PROFILE;
 let agentDirRoot: string | undefined;
 
 function restoreEnv(key: string, value: string | undefined): void {
@@ -52,9 +52,9 @@ beforeEach(async () => {
 afterEach(async () => {
 	// `runRootCommand` registers the CLI's extension roots (`--no-extensions` → explicit-only) process-wide.
 	clearOmpExtensionCliRoots();
-	restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
-	restoreEnv("PI_PROFILE", originalPiProfile);
-	restoreEnv("OMP_PROFILE", originalOmpProfile);
+	restoreEnv("SCIENT_AGENT_DIR", originalAgentDir);
+	restoreEnv("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
+	restoreEnv("SCIENT_AGENT_PROFILE", originalOmpProfile);
 	__resetDirsFromEnvForTests();
 	if (agentDirRoot) {
 		await fsp.rm(agentDirRoot, { recursive: true, force: true });

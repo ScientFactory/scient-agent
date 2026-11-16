@@ -17,7 +17,7 @@ describe("RPC bash context exclusion", () => {
 		client = new RpcClient({
 			command,
 			cwd: directory,
-			env: { PI_CODING_AGENT_DIR: directory, PI_NO_TITLE: "1" },
+			env: { SCIENT_AGENT_DIR: directory, PI_NO_TITLE: "1" },
 		});
 	});
 

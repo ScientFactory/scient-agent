@@ -18,7 +18,7 @@ import { __resetDirsFromEnvForTests, removeSyncWithRetries, setAgentDir } from "
 import { createInteractiveModeContext } from "./helpers/interactive-mode-context";
 import { restoreEnvValue } from "./helpers/settings-test-state";
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 let root: string;
 
 beforeAll(async () => {
@@ -35,7 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	closeSessionIndex();
-	restoreEnvValue("PI_CODING_AGENT_DIR", originalAgentDir);
+	restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDir);
 	__resetDirsFromEnvForTests();
 	removeSyncWithRetries(root);
 });

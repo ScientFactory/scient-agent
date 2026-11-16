@@ -10,7 +10,7 @@
  * strands a half-run package manager; the next launch simply starts the new
  * build.
  *
- * One status file (`~/.omp/update/auto-update.json`) connects them. Only the
+ * One status file (`~/.scient-agent/update/auto-update.json`) connects them. Only the
  * worker holding its lock writes it, and the OS drops that lock when the worker
  * exits, so "lock held" is how any launch knows a worker is running: it follows
  * that worker instead of starting another, and reads the outcome once the lock
@@ -21,7 +21,7 @@
  * Running sessions keep their files: a binary install renames the running
  * `omp.exe` aside (Windows permits that for a mapped image, not an overwrite)
  * and leaves the backup to a later sweep, and the natives loader runs each
- * release's `.node` from a per-version copy under `~/.omp/natives/`, so bun and
+ * release's `.node` from a per-version copy under `~/.scient-agent/natives/`, so bun and
  * npm can replace the `node_modules` copy an old session would otherwise lock.
  */
 import * as fs from "node:fs/promises";

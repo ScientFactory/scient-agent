@@ -165,12 +165,12 @@ export interface PurgeDeletedSessionRowsOptions {
  *
  * Under the test runner the stores resolve to the real user files, so the
  * default paths are skipped there unless the test isolated the agent dir
- * (`PI_CODING_AGENT_DIR`) or passed explicit `historyDbPath`/`statsDbPath` —
+ * (`SCIENT_AGENT_DIR`) or passed explicit `historyDbPath`/`statsDbPath` —
  * exactly like the session-index writer guard.
  */
 export function purgeDeletedSessionRows(sessionPath: string, options?: PurgeDeletedSessionRowsOptions): void {
 	const testDefaultPaths =
-		isBunTestRuntime() && !process.env.PI_CODING_AGENT_DIR && !options?.historyDbPath && !options?.statsDbPath;
+		isBunTestRuntime() && !process.env.SCIENT_AGENT_DIR && !options?.historyDbPath && !options?.statsDbPath;
 	if (testDefaultPaths) return;
 	const sessionId = options?.sessionId ?? (options?.content ? sessionIdFromContent(options.content) : undefined);
 	const resolvedId = sessionId ?? readSessionHeaderIdSync(sessionPath);

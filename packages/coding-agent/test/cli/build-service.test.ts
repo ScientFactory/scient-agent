@@ -11,7 +11,7 @@ import {
 } from "@oh-my-pi/pi-coding-agent/cli/build-service";
 import { TempDir, VERSION } from "@oh-my-pi/pi-utils";
 
-const fileName = "omp-darwin-arm64";
+const fileName = "scient-agent-darwin-arm64";
 const host: BuildHost = { target: "macos-arm64", asset: "darwin-arm64", windows: false };
 const sha = (text: string) => Bun.SHA256.hash(text, "hex");
 
@@ -57,7 +57,9 @@ describe("build service answers", () => {
 		expect(() => parse(answer(file({ sha256: sha("new").toUpperCase() })))).toThrow("invalid sha256");
 		expect(() => parse(answer(file({ sha256: "abc" })))).toThrow("invalid sha256");
 		expect(() => parse(answer(file({ size: 0 })))).toThrow("invalid size");
-		expect(() => parse(answer(file({ name: "omp-darwin-x64" })))).toThrow("omp-darwin-x64 is not omp-darwin-arm64");
+		expect(() => parse(answer(file({ name: "omp-darwin-x64" })))).toThrow(
+			"omp-darwin-x64 is not scient-agent-darwin-arm64",
+		);
 		expect(() => parse(answer({ download: "http://r2.test/omp" }))).toThrow("no HTTPS download");
 		expect(() => parse(answer({ build: { version: "latest" } }))).toThrow("no valid version");
 	});
@@ -79,10 +81,19 @@ describe("build service targets", () => {
 			const resolved = resolveBuildHost(platform, arch, musl);
 			return { target: resolved.target, fileName: OMP_BUILD.fileName(resolved, "18.8.9") };
 		};
-		expect(resolve("darwin", "arm64", false)).toEqual({ target: "macos-arm64", fileName: "omp-darwin-arm64" });
-		expect(resolve("linux", "x64", true)).toEqual({ target: "linux-musl-x86_64", fileName: "omp-linux-musl-x64" });
-		expect(resolve("linux", "arm64", false)).toEqual({ target: "linux-arm64", fileName: "omp-linux-arm64" });
-		expect(resolve("win32", "x64", false)).toEqual({ target: "windows-x86_64", fileName: "omp-windows-x64.exe" });
+		expect(resolve("darwin", "arm64", false)).toEqual({
+			target: "macos-arm64",
+			fileName: "scient-agent-darwin-arm64",
+		});
+		expect(resolve("linux", "x64", true)).toEqual({
+			target: "linux-musl-x86_64",
+			fileName: "scient-agent-linux-musl-x64",
+		});
+		expect(resolve("linux", "arm64", false)).toEqual({ target: "linux-arm64", fileName: "scient-agent-linux-arm64" });
+		expect(resolve("win32", "x64", false)).toEqual({
+			target: "windows-x86_64",
+			fileName: "scient-agent-windows-x64.exe",
+		});
 	});
 
 	it("does not mistake an installed musl loader for a glibc host", () => {
@@ -138,7 +149,7 @@ describe("fetchBuild", () => {
 		expect(requests[0].url).toBe(
 			"https://build.test/api/products/omp/latest/macos-arm64?channel=canary&from_version=18.8.8",
 		);
-		expect(requests[0].userAgent).toBe(`omp/${VERSION}`);
+		expect(requests[0].userAgent).toBe(`scient-agent/${VERSION}`);
 		expect(requests[0].signal).toBeInstanceOf(AbortSignal);
 		expect(build.patch?.fromVersion).toBe("18.8.8");
 	});

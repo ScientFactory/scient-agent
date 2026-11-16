@@ -17,7 +17,7 @@ const TAB = "shared-busy";
 
 function sessionOf(owner: string): ToolSession {
 	return {
-		cwd: "/tmp/omp-busy-tab",
+		cwd: "/tmp/scient-agent-busy-tab",
 		hasUI: false,
 		settings: Settings.isolated(),
 		getSessionFile: () => null,

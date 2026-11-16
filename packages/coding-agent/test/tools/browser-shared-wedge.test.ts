@@ -164,7 +164,7 @@ function makeWedgeTab(scope: SharedTargetScope, options: WedgeOptions = {}): Wor
 /** Minimal tool session for the `runInTab` entry point. */
 function makeSession(): ToolSession {
 	return {
-		cwd: "/tmp/omp-wedge-session",
+		cwd: "/tmp/scient-agent-wedge-session",
 		hasUI: false,
 		settings: Settings.isolated(),
 		getSessionFile: () => null,
@@ -198,7 +198,7 @@ function makeBroker(
 	stops: string[],
 ): DaemonBrokerClient {
 	return {
-		projectDir: "/tmp/omp-wedge-broker",
+		projectDir: "/tmp/scient-agent-wedge-broker",
 		close: () => undefined,
 		onCompletion: () => () => undefined,
 		request: async (operation: DaemonOperation) => {
@@ -531,7 +531,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-a", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/scient-agent-wedge-a", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async wsEndpoint => {
@@ -555,7 +555,7 @@ describe("shared browser reachability check", () => {
 		let describeCount = 0;
 		let current = makeSnapshot(READY_MATCH);
 		const broker = {
-			projectDir: "/tmp/omp-wedge-replaced",
+			projectDir: "/tmp/scient-agent-wedge-replaced",
 			close: () => undefined,
 			onCompletion: () => () => undefined,
 			request: async (operation: DaemonOperation) => {
@@ -572,7 +572,7 @@ describe("shared browser reachability check", () => {
 		} as unknown as DaemonBrokerClient;
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-replaced", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/scient-agent-wedge-replaced", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async wsEndpoint => {
@@ -635,7 +635,7 @@ describe("shared browser reachability check", () => {
 			const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH), ...opts }, stops);
 
 			const stopped = await stopSharedBrowserIfUnreachable(
-				{ projectDir: "/tmp/omp-wedge-unconfirmed", daemonName: DAEMON_NAME },
+				{ projectDir: "/tmp/scient-agent-wedge-unconfirmed", daemonName: DAEMON_NAME },
 				{ client: broker, probe: async () => false },
 			);
 
@@ -650,7 +650,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-single", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/scient-agent-wedge-single", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async () => ++probes > 1,
@@ -689,7 +689,7 @@ describe("shared browser reachability check", () => {
 		);
 		try {
 			const stopped = await stopSharedBrowserIfUnreachable(
-				{ projectDir: "/tmp/omp-wedge-slow", daemonName: DAEMON_NAME },
+				{ projectDir: "/tmp/scient-agent-wedge-slow", daemonName: DAEMON_NAME },
 				{ client: broker },
 			);
 
@@ -707,7 +707,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(READY_MATCH) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-b", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/scient-agent-wedge-b", daemonName: DAEMON_NAME },
 			{
 				client: broker,
 				probe: async () => {
@@ -727,7 +727,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ snapshot: makeSnapshot(undefined) }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-c", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/scient-agent-wedge-c", daemonName: DAEMON_NAME },
 			{ client: broker, probe: async () => false },
 		);
 
@@ -740,7 +740,7 @@ describe("shared browser reachability check", () => {
 		const broker = makeBroker({ fail: true }, stops);
 
 		const stopped = await stopSharedBrowserIfUnreachable(
-			{ projectDir: "/tmp/omp-wedge-d", daemonName: DAEMON_NAME },
+			{ projectDir: "/tmp/scient-agent-wedge-d", daemonName: DAEMON_NAME },
 			{ client: broker, probe: async () => false },
 		);
 
@@ -754,7 +754,7 @@ describe("shared browser reachability check", () => {
 
 		await expect(
 			stopSharedBrowserIfUnreachable(
-				{ projectDir: "/tmp/omp-wedge-e", daemonName: DAEMON_NAME },
+				{ projectDir: "/tmp/scient-agent-wedge-e", daemonName: DAEMON_NAME },
 				{
 					client: broker,
 					probe: async () => {

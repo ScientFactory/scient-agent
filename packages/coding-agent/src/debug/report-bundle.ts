@@ -238,7 +238,7 @@ async function collectSessionIds(sessionFile: string | undefined): Promise<Set<s
 
 /**
  * Concatenate the tail of every same-day process log so a report generated
- * after a crash still captures the fatal PID's `omp.<date>.<pid>.log`. Files
+ * after a crash still captures the fatal PID's `scient-agent.<date>.<pid>.log`. Files
  * are ordered oldest-first by mtime and separated by a filename header.
  * `sessionLines` holds every record of those files whose `sessionId` is in
  * `sessionIds`, in the same file order, capped at the last {@link MAX_LOG_LINES}.

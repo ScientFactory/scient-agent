@@ -23,8 +23,8 @@ export default class Agents extends Command {
 		force: Flags.boolean({ char: "f", description: "Overwrite existing agent files" }),
 		json: Flags.boolean({ description: "Output JSON" }),
 		dir: Flags.string({ description: "Output directory (overrides --user/--project)" }),
-		user: Flags.boolean({ description: "Write to ~/.omp/agent/agents (default)" }),
-		project: Flags.boolean({ description: "Write to ./.omp/agents" }),
+		user: Flags.boolean({ description: "Write to ~/.scient-agent/agent/agents (default)" }),
+		project: Flags.boolean({ description: "Write to ./.scient-agent/agents" }),
 	};
 
 	static examples = [
@@ -37,7 +37,7 @@ export default class Agents extends Command {
 	async run(): Promise<void> {
 		const { args, flags } = await this.parse(Agents);
 		if (!args.action) {
-			renderCommandHelp("omp", "agents", Agents);
+			renderCommandHelp("scient-agent", "agents", Agents);
 			return;
 		}
 
