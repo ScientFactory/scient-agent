@@ -140,12 +140,37 @@ jobs:
          - name: Install dependencies
            run: bun install --frozen-lockfile
 
-         - name: Cache Intel macOS Rust compilation
-           if: matrix.id == 'darwin-x64'
+         # The native addon is a pure function of the Rust inputs hashed below
+         # and the toolchain, and most changes never touch them (24 of the last
+         # 30 merged PRs). An exact cache hit reuses the `.node` files a
+         # previous run built from the same inputs instead of recompiling
+         # pi-natives, which takes 12-48 minutes per leg: cargo's own cache
+         # cannot do this, because a fresh checkout's mtimes always mark the
+         # workspace crates dirty. No restore keys: anything but an exact hit
+         # rebuilds. The release version stamp already ran and
+         # packages/natives/package.json is in the hash, so an addon stamped
+         # with one version is never reused for another. The generated
+         # bindings a build installs are committed, and a Rust change misses
+         # this cache and regenerates them.
+         - name: Name the native build environment
+           id: native-env
+           run: echo "name=${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}-$(rustc --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+         - name: Reuse the native addon for unchanged Rust inputs
+           id: native-cache
+           uses: actions/cache@v4
+           with:
+              path: packages/natives/native/*.node
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
+
+         # On a miss, cargo still reuses the dependency compilation a previous
+         # run cached; only the workspace crates rebuild.
+         - name: Cache Rust compilation
+           if: steps.native-cache.outputs.cache-hit != 'true'
            uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
            with:
               prefix-key: scient-native-v1
-              key: ${{ matrix.id }}-both-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
+              key: ${{ matrix.id }}-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
               env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
               cache-bin: false
               cache-on-failure: true
@@ -160,15 +185,15 @@ jobs:
          # On x86-64 the binary carries two addons and picks one at startup:
          # `modern` (AVX2) and `baseline`, for processors without AVX2.
          - name: Build the baseline native addon
-           if: matrix.x64
+           if: matrix.x64 && steps.native-cache.outputs.cache-hit != 'true'
            run: PI_NATIVE_X64_VARIANT=baseline bun run build:native
 
          - name: Build the modern native addon
-           if: matrix.x64
+           if: matrix.x64 && steps.native-cache.outputs.cache-hit != 'true'
            run: PI_NATIVE_X64_VARIANT=modern bun run build:native
 
          - name: Build the native addon
-           if: ${{ !matrix.x64 }}
+           if: ${{ !matrix.x64 && steps.native-cache.outputs.cache-hit != 'true' }}
            run: bun run build:native
 
          # Scient's own tests, and the packages whose state layout differs by
@@ -233,10 +258,36 @@ jobs:
            with:
               bun-version: 1.4.4
 
+         - name: Install the Rust toolchain
+           run: rustup show active-toolchain || rustup toolchain install
+
+         # The same reuse as the build job, under the linux-x64 key: this job
+         # and that leg build the same two addons on the same runner image.
+         - name: Name the native build environment
+           id: native-env
+           run: echo "name=${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}-$(rustc --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+         - name: Reuse the native addon for unchanged Rust inputs
+           id: native-cache
+           uses: actions/cache@v4
+           with:
+              path: packages/natives/native/*.node
+              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
+
+         - name: Cache Rust compilation
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+           with:
+              prefix-key: scient-native-v1
+              key: linux-x64-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
+              env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
+              cache-bin: false
+              cache-on-failure: true
+
          - name: Build the native addon
+           if: steps.native-cache.outputs.cache-hit != 'true'
            run: |
               sudo apt-get update && sudo apt-get install -y ninja-build
-              rustup show active-toolchain || rustup toolchain install
               bun install --frozen-lockfile
               PI_NATIVE_X64_VARIANT=baseline bun run build:native
               PI_NATIVE_X64_VARIANT=modern bun run build:native
@@ -262,7 +313,11 @@ jobs:
                - { mode: coding-agent-singleton, concurrency: 1 }
                - { mode: coding-agent-ui, concurrency: 2 }
                - { mode: coding-agent-runtime, concurrency: 4 }
-               - { mode: coding-agent-native, concurrency: 4 }
+               # The browser tests in this bucket each drive a real Chromium;
+               # four at once on a 4-core runner starve them into 30 s test
+               # timeouts (a different single test each failed run on
+               # 2026-11-16). Two keeps the bucket off the critical path.
+               - { mode: coding-agent-native, concurrency: 2 }
       steps:
          - uses: actions/checkout@v4
 
