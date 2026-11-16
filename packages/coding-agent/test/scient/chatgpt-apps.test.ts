@@ -4,6 +4,7 @@ import {
 	chatGptToolName,
 	chosenByPolicy,
 	createChatGptAppsExtension,
+	registeredExtensionToolNames,
 	requestedChatGptApps,
 } from "../../src/scient/chatgpt-apps-extension";
 import { AuthStorage } from "../../src/session/auth-storage";
@@ -176,6 +177,25 @@ describe("ChatGPT apps through the ChatGPT sign-in", () => {
 			const error = await registered[0]!.execute("call-1", {}, undefined).catch((e: Error) => e);
 			expect(String(error.message)).toContain(`connected again in ChatGPT`);
 			expect(String(error.message)).toContain(`https://chatgpt.com/apps/gmail/${GMAIL}`);
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it("keeps an existing connector's name and calls the ChatGPT fallback with its original remote name", async () => {
+		await signIn();
+		const { spy, requests } = fakeServer();
+		const registered: Array<{ name: string; execute: Function }> = [];
+		try {
+			const preferred = registeredExtensionToolNames([{ tools: new Map([["gmail__search_emails", {}]]) }]);
+			await createChatGptAppsExtension(
+				authStorage,
+				requestedChatGptApps({ SCIENT_AGENT_CHATGPT_APPS: GMAIL })!,
+				() => preferred,
+			)({ registerTool: (definition: never) => registered.push(definition) } as never);
+			expect(registered.map(entry => entry.name)).toEqual(["chatgpt__gmail__search_emails", "gmail__send_email"]);
+			await registered[0]!.execute("fallback", { query: "lab" }, undefined);
+			expect(requests.at(-1)?.params).toEqual({ name: "gmail.search_emails", arguments: { query: "lab" } });
 		} finally {
 			spy.mockRestore();
 		}

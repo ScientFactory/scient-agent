@@ -4,6 +4,9 @@ import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-pi/pi-tui/tools/report-tool-iss
 import { isResolutionDeviceName } from "@oh-my-pi/pi-tui/tools/resolve";
 import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
 import { parseXdTopicUrl, parseXdUrl } from "@oh-my-pi/pi-tui/tools/xd-url";
+// scient(SA-CONTEXT): begin - Read-only service catalogs share the xd transport.
+import { xdevServiceDocs } from "../scient/xdev-catalog";
+// scient(SA-CONTEXT): end
 import type { ToolSession } from "../tools";
 import { resolveToolTier } from "../tools/approval";
 import { dispatchReportIssueDevice, reportIssueDeviceUsage } from "../tools/report-tool-issue";
@@ -129,6 +132,9 @@ export class XdProtocolHandler implements ProtocolHandler {
 
 	/** `read xd://<tool>/<topic>`: one named doc topic of a tool. */
 	#topic(session: ToolSession, name: string, topic: string): string {
+		// scient(SA-CONTEXT): begin - Service URLs list exact tool paths, never execute.
+		if (name === "services" && session.xdev) return xdevServiceDocs(session.xdev, topic);
+		// scient(SA-CONTEXT): end
 		const topics = session.getToolByName?.(name)?.docTopics?.();
 		if (!topics) throw new ToolError(`Tool '${name}' has no doc topics.`);
 		const doc = topics[topic];
