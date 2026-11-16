@@ -114,3 +114,88 @@ describe("message_end carries the confirmed prompt-cache entry", () => {
 		);
 	});
 });
+
+describe("cache_warming_stopped carries the entry warming left", () => {
+	let tempDir: TempDir;
+	let authStorage: AuthStorage | undefined;
+	let session: AgentSession;
+	let warmer: CacheWarmer;
+	let mode: "off" | "idle";
+	let stopped: AgentSessionEvent[];
+	const model = { ...getBundledModel("anthropic", "claude-sonnet-4-5"), promptCache: { long: 3600 } } as Model;
+
+	beforeEach(async () => {
+		vi.useFakeTimers();
+		tempDir = TempDir.createSync("@scient-prompt-cache-stop-");
+		const agentDir = tempDir.path();
+		authStorage = await AuthStorage.create(path.join(agentDir, "auth.db"));
+		const settings = await Settings.loadIsolated({ agentDir, cwd: agentDir });
+		mode = "idle";
+		warmer = new CacheWarmer({
+			getMode: () => mode,
+			getPromptTokens: () => 250_000,
+			stream: async () => {
+				throw new Error("no refresh expected");
+			},
+		});
+		session = new AgentSession({
+			agent: new Agent({ initialState: { model, systemPrompt: ["Test"], tools: [], messages: [] } }),
+			sessionManager: SessionManager.create(agentDir, agentDir),
+			settings,
+			cacheWarmer: warmer,
+			modelRegistry: new ModelRegistry(authStorage),
+			obfuscator: new SecretObfuscator([]),
+		});
+		stopped = [];
+		session.subscribe(event => {
+			if (event.type === "cache_warming_stopped") stopped.push(event);
+		});
+		// One main-loop request whose response wrote the prompt cache; warming is now active.
+		session.startCacheWarming(model, { messages: [] }, { cacheRetention: "long" });
+		warmer.onResponse(reply(model));
+	});
+
+	afterEach(async () => {
+		warmer.cancel();
+		vi.useRealTimers();
+		authStorage?.close();
+		authStorage = undefined;
+		try {
+			await tempDir.remove();
+		} catch {}
+	});
+
+	/** Stops warming the way a setting change does, outside any refresh; returns the stop events sent. */
+	async function stopWarming(): Promise<AgentSessionEvent[]> {
+		mode = "off";
+		warmer.onModeChanged();
+		for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+		return stopped;
+	}
+
+	it("reports the still-warm entry once when warming stops outside a refresh", async () => {
+		const sentAt = Date.now();
+		const [stop, ...rest] = await stopWarming();
+		expect(rest).toEqual([]);
+		expect(stop && withPromptCache(stop, session)).toMatchObject({
+			type: "cache_warming_stopped",
+			promptCache: { tier: "long", touchedAt: sentAt, ttlMs: LONG_TTL_MS },
+		});
+		// No run is left to stop.
+		warmer.onModeChanged();
+		for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+		expect(stopped).toHaveLength(1);
+	});
+
+	it("reports no entry when the conversation changed before warming stopped", async () => {
+		session.agent.state.systemPrompt = ["Changed"];
+		const [stop] = await stopWarming();
+		expect(stop && withPromptCache(stop, session)).not.toHaveProperty("promptCache");
+	});
+
+	it("reports no entry once the entry has expired", async () => {
+		vi.advanceTimersByTime(LONG_TTL_MS);
+		const [stop] = await stopWarming();
+		expect(stop && withPromptCache(stop, session)).not.toHaveProperty("promptCache");
+	});
+});

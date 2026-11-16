@@ -155,6 +155,19 @@ export const eventDefs = {
 		},
 		"Outcome of the refresh announced by the matching `cache_warming_start`.",
 	),
+	// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+	CacheWarmingStoppedEvent: doc(
+		{
+			type: "'cache_warming_stopped'",
+			reason: doc("string", "Why warming stopped."),
+			"promptCache?": doc(
+				"PromptCacheEntry",
+				"The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.",
+			),
+		},
+		"Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm.",
+	),
+	// scient(SA-PROMPT-CACHE): end
 	RetryFallbackAppliedEvent: {
 		type: "'retry_fallback_applied'",
 		from: "string",
@@ -230,6 +243,9 @@ export const eventDefs = {
 			"AutoRetryEndEvent",
 			"CacheWarmingStartEvent",
 			"CacheWarmingEndEvent",
+			// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+			"CacheWarmingStoppedEvent",
+			// scient(SA-PROMPT-CACHE): end
 			"RetryFallbackAppliedEvent",
 			"RetryFallbackSucceededEvent",
 			"ModelChangedEvent",

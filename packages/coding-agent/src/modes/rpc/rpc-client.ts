@@ -174,6 +174,9 @@ const sessionEventTypes = new Set<AgentSessionEvent["type"]>([
 	"auto_retry_end",
 	"cache_warming_start",
 	"cache_warming_end",
+	// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
+	"cache_warming_stopped",
+	// scient(SA-PROMPT-CACHE): end
 	"retry_fallback_applied",
 	"retry_fallback_succeeded",
 	"ttsr_triggered",
