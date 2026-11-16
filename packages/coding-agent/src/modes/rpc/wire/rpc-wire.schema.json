@@ -4277,6 +4277,27 @@
 			],
 			"description": "Outcome of the refresh announced by the matching `cache_warming_start`."
 		},
+		"CacheWarmingStoppedEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "cache_warming_stopped"
+				},
+				"reason": {
+					"type": "string",
+					"description": "Why warming stopped."
+				},
+				"promptCache": {
+					"$ref": "#/$defs/PromptCacheEntry",
+					"description": "The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change."
+				}
+			},
+			"required": [
+				"type",
+				"reason"
+			],
+			"description": "Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm."
+		},
 		"RetryFallbackAppliedEvent": {
 			"type": "object",
 			"properties": {
@@ -4599,6 +4620,9 @@
 				},
 				{
 					"$ref": "#/$defs/CacheWarmingEndEvent"
+				},
+				{
+					"$ref": "#/$defs/CacheWarmingStoppedEvent"
 				},
 				{
 					"$ref": "#/$defs/RetryFallbackAppliedEvent"
