@@ -75,6 +75,9 @@ const notificationDefs = {
 			"LiveLevelsEvent",
 			"LiveTranscriptEvent",
 			"LiveEndEvent",
+			// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+			"LiveDelegationEvent",
+			// scient(SA-LIVE-HOST-DELEGATION): end
 			"DictationStateEvent",
 			"DictationTranscriptEvent",
 			"DictationEndEvent",
