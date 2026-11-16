@@ -1,0 +1,14 @@
+/** Help for Scient's own commands; a module without side effects, so the command table can import it. */
+import type { CommandMetadata } from "@oh-my-pi/pi-utils/cli";
+
+export const dictateHelp = {
+	description: "Transcribe a recording with ChatGPT's dictation, using the ChatGPT sign-in",
+} satisfies CommandMetadata;
+
+export const appsHelp = {
+	description: "List the ChatGPT apps (Gmail, Google Drive and others) the ChatGPT sign-in has connected",
+} satisfies CommandMetadata;
+
+export const mcpHelp = {
+	description: "List the MCP servers a conversation loads, with their status, or sign in to one (for a host)",
+} satisfies CommandMetadata;
