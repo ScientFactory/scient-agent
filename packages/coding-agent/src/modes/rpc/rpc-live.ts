@@ -9,12 +9,18 @@ import { LiveSessionController, type LiveSessionControllerOptions } from "../../
 import { resolveLiveVoice } from "../../live/settings";
 import type { AgentSession } from "../../session/agent-session";
 import type { RpcLiveFrame } from "./rpc-types";
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+import { hostLiveDelegate } from "../../scient/live-host-delegation";
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 /** Minimum spacing between `live_levels` frames. */
 export const RPC_LIVE_LEVELS_INTERVAL_MS = 100;
 
 /** The controller surface the RPC bridge drives. */
-export type RpcLiveSession = Pick<LiveSessionController, "start" | "stop" | "toggleMute" | "muted" | "sdpAnswer">;
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+export type RpcLiveSession = Pick<LiveSessionController, "start" | "stop" | "toggleMute" | "muted" | "sdpAnswer"> &
+	Partial<Pick<LiveSessionController, "reportHostWork">>;
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 /** Builds the controller for one live session; tests substitute a fake. */
 export type RpcLiveSessionFactory = (options: LiveSessionControllerOptions) => RpcLiveSession;
@@ -25,6 +31,10 @@ export interface RpcLiveStartOptions {
 	instructions?: string;
 	/** Caller-owned WebRTC offer (`live_connect`); the result then carries the SDP answer. */
 	sdpOffer?: string;
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	/** Send spoken requests to the host as `live_delegation` frames instead of starting turns. */
+	hostDelegation?: boolean;
+	// scient(SA-LIVE-HOST-DELEGATION): end
 }
 
 /** A started live session: the voice in use, plus the SDP answer for an `sdpOffer` session. */
@@ -84,6 +94,9 @@ export class RpcLiveBridge {
 			voice,
 			instructions: options.instructions,
 			sdpOffer: options.sdpOffer,
+			// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+			...(options.hostDelegation ? { delegate: hostLiveDelegate(this.#output) } : {}),
+			// scient(SA-LIVE-HOST-DELEGATION): end
 			callbacks: {
 				onPhase: phase => this.#output({ type: "live_phase", phase }),
 				onLevels: (input, output) => {
@@ -138,6 +151,15 @@ export class RpcLiveBridge {
 		if (muted === undefined || muted !== controller.muted) controller.toggleMute();
 		return { muted: controller.muted };
 	}
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+
+	/** Passes the host's report of the delegated turn to the active session. */
+	report(text: string, final: boolean): void {
+		const controller = this.#controller;
+		if (!controller || this.#closing) throw new Error("No live session is active");
+		controller.reportHostWork?.(text, final);
+	}
+	// scient(SA-LIVE-HOST-DELEGATION): end
 
 	/** Stops `controller` and releases the slot once it has fully stopped. Idempotent. */
 	#retire(controller: RpcLiveSession): Promise<void> {

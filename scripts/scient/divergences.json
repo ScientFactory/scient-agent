@@ -362,6 +362,24 @@
 			"status": "upstreamed",
 			"contract": "Every Chromium the agent launches enables the WebMCP feature beside WebMCPTesting and DevToolsWebMCPSupport. Chrome 157 and newer expose document.modelContext to pages only under WebMCP; older Chromes ignore the unknown name and keep using WebMCPTesting. Drop this when Oh My Pi enables WebMCP itself.",
 			"disposition": "Oh My Pi 18.20.3 enables WebMCP itself: launch.ts launches Chromium with --enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport, the exact flag this hook added. Retired with the 18.20.3 alignment; upstream's browser-open-options test covers it."
+		},
+		"SA-LIVE-HOST-DELEGATION": {
+			"status": "active",
+			"contract": "live_connect accepts hostDelegation. When it is true, each request the realtime model delegates goes to the host as a live_delegation frame ({ text }) instead of starting a turn in the session; the host sends it as the user's message, and the live session reads that turn's progress and final answer as before. A host that runs the turn somewhere else, such as another session, reports it with live_report ({ text, final? }): progress as commentary, and with final the answer, which ends the delegation; a report without an active delegation is dropped. Without the flag, delegation is unchanged.",
+			"owned": [
+				"packages/coding-agent/src/scient/live-host-delegation.ts",
+				"packages/coding-agent/test/scient/live-host-delegation.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/live/controller.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-live.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				"packages/coding-agent/src/modes/rpc/wire/commands.ts",
+				"packages/coding-agent/src/modes/rpc/wire/frames.ts",
+				"packages/coding-agent/src/modes/rpc/wire/index.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/live-host-delegation.test.ts"]
 		}
 	}
 }
