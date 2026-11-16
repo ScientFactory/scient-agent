@@ -33,12 +33,21 @@ export type PromptCacheMessageEnd = Extract<AgentSessionEvent, { type: "message_
 	promptCache: RpcPromptCacheEntry;
 };
 
-/** `event`, with the confirmed entry on an assistant reply's `message_end`. */
+export type PromptCacheWarmingStopped = Extract<AgentSessionEvent, { type: "cache_warming_stopped" }> & {
+	promptCache: RpcPromptCacheEntry;
+};
+
+/**
+ * `event`, with the confirmed entry on an assistant reply's `message_end` and on `cache_warming_stopped`:
+ * a host compacts an idle conversation at that stop, while nothing keeps the entry warm any longer.
+ */
 export function withPromptCache(
 	event: AgentSessionEvent,
 	session: PromptCacheSession,
-): AgentSessionEvent | PromptCacheMessageEnd {
-	if (event.type !== "message_end" || event.message.role !== "assistant") return event;
+): AgentSessionEvent | PromptCacheMessageEnd | PromptCacheWarmingStopped {
+	const carries =
+		(event.type === "message_end" && event.message.role === "assistant") || event.type === "cache_warming_stopped";
+	if (!carries) return event;
 	const promptCache = confirmedPromptCache(session);
 	return promptCache === undefined ? event : { ...event, promptCache };
 }
