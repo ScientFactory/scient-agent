@@ -414,7 +414,7 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 	"crates/pi-voice/src/device/linux.rs": [['c"omp"', `c"${COMMAND}"`]],
 	// Prompts, where things are the agent's rather than the product's.
 	"packages/coding-agent/src/prompts/internal-urls/cfg.md": [
-		[`\`cfg://\`: ${COMMAND} settings;`, "`cfg://`: agent settings;"],
+		[`cfg://: ${COMMAND} settings;`, "cfg://: agent settings;"],
 	],
 	"packages/coding-agent/src/prompts/tools/browser.md": [
 		["use an omp-owned profile", "use an agent-owned profile"],

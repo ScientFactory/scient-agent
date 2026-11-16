@@ -875,6 +875,65 @@ On macOS arm64 with Bun 1.4.4 and the repo-pinned November nightly:
 
 Not run locally: Rust tests. CI builds and checks the six platforms and runs the six buckets.
 
+### Tenth alignment intake — 2026-11-16
+
+Scient Agent is aligned with Oh My Pi 18.20.3.
+
+- Frozen owned `main`: `c5d005c9ab75e205a5f76bb00639f0e59974bc41`.
+- Accepted source baseline: OMP `18.18.6`, `9058ab9d229663e229e2867824ba6df6f21e9e59`, tag `omp-sync/v18.18.6`.
+- Target: OMP `18.20.3`, `90935366da0c368a437da4343ae748b03a2ffe97`, under `refs/upstream-tags/v18.20.3`: 1,875 commits across eight releases (18.18.7 to 18.20.3), changing 1,661 files.
+- Inventory: the 21 commits of the accepted replay, replacing all three generated commits, and the 39 commits on `main` after the `sync:` import:
+  - Ten new contracts, each one commit: `SA-NEXT-MESSAGE` (2 commits folded), `SA-MAC-GRANT`, `SA-AX-QUIET`, `SA-USAGE-RESET`, `SA-FAILURE-KIND`, `SA-LIVE-HOST-DELEGATION` (4), `SA-CHATGPT-APPS` (2), `SA-DICTATION`, `SA-PROMPT-CACHE` and `SA-PLAN-MODE` (4).
+  - Folded into `SA-RELEASE`: the Xcode 27 Apple silicon build, the release in Desktop's order (three commits) and the version as the release run's input. Folded into `SA-PRODUCT`: `hostCommands` in `--runtime-info`.
+  - `SA-WEBMCP-FEATURE` retired as upstreamed (below).
+  - Superseded: the six `release: Scient Agent 0.1.x` version bumps (a release run now stamps the version), and eight generated RPC commits, regenerated once.
+- Replay: `replay/omp-v18.20.3`: generators, identity, 28 contracts in ledger order (27 active, one upstreamed), wording and RPC clients.
+
+| Step | Result |
+|---|---|
+| Identity generator | Two rules removed: upstream deleted `scripts/ci-release-build-binaries.test.ts` and `scripts/musl-release.test.ts`. New rules: 18.20.x pools X11 input pairs machine-wide (at most two, a free one adoptable by any session), named `OMP MPX v2.` and held through the `_OMP_MPX_HOLDER` property, so Scient Agent and a stock omp would have shared and freed each other's pairs. They are now `SCIENT MPX v2.` and `_SCIENT_MPX_HOLDER`, and the input listener's device prefix follows. The prefix is short because the name also names the uinput devices, which upstream's test keeps under 80 bytes (77 at most). Two upstream tests got the renames their code already had: `app=omp` in `extension-ui-controller.test.ts`, and the build file name and its error in `build-service.test.ts` (see Known failures). 620 files renamed. |
+| Contract commits | `SA-RELEASE` conflicted as before on the CI and Nix files it deletes; the workspace job no longer runs `scripts/release.test.ts`, which upstream deleted. `SA-ROOT`'s hook in `config.ts` is gone: upstream now takes the agent's own user-config base from `getAgentDir()`, which follows a host root through `SA-ROOT`'s hooks in `dirs.ts`, so the hook and its registration were dropped and `user-config-root.test.ts` still passes. `SA-AX-QUIET` met upstream's split of `point_owner` into a hit-test and a window read; the trust guard stays at the top of `point_owner`. `SA-LIVE-HOST-DELEGATION` met upstream's offline-provider check in the live controller: the check runs before the host-turn gate, which would otherwise swallow a model change while a delegated request waits, and a new test holds that. `SA-PLAN-MODE` met upstream's removal of the `blocked` todo status. |
+| Wording generator | One text moved: upstream dropped the backticks in `cfg.md`, and the rule follows. 489 files rewritten. |
+| RPC generator | Regenerated the schema and TypeScript, Python, Rust and Go clients. |
+| Hooked files upstream changed | 29 of 70; reviewed against every ledger contract. |
+| Footprint | 193 marker blocks, 506 lines, in 70 files, from 126, 300 and 58 at the ninth intake: the ten contracts added since. |
+
+Decisions:
+
+| Change | Why |
+|---|---|
+| `SA-WEBMCP-FEATURE` upstreamed | 18.20.3 launches Chromium with `--enable-features=WebMCP,WebMCPTesting,DevToolsWebMCPSupport` itself, the flag the hook added for Chrome 157. |
+| WebKit engine left at `~/.o2/lib/abkit` | 18.19.0 opens browser tabs in Oh My Pi's WebKit engine, ABKit, which it downloads from `build.stencil.so` (SHA-256 checked) into `~/.o2/lib/abkit`. That folder holds the engine's binaries only, no agent state, and is shared with Tern by design; moving it would stop Tern and Scient Agent from finding each other's engine. `browser.webkitPath` and `PI_BROWSER_WEBKIT_PATH` still choose another one. |
+| Antigravity CLI | 18.20.2's managed `agy` binary and its state live under the config root (`getAntigravityCliDir()`), so they follow a host root with no change. Its sign-in is listed as an account sign-in. |
+| Secrets | 18.20.0's changelog describes a rewrite of secret redaction (Rust regex rules, word placeholders) that upstream reverted the same day (`53dd4c6a31`), before the release. What shipped is faster redaction and two fixes; `secrets.yml` and its placeholders are unchanged. |
+
+**RPC changes for Desktop.** Protocol versions stay 1 and 2. Upstream removed the `blocked` todo status and its `blocker` note, and select requests carry optional `initialIndex`, `selectionMarker`, `checkedIndices` and `markableCount`. Scient Desktop's decoders accept both: it still knows `blocked` and ignores fields it does not read. Showing an `ask` checkbox's checked state is a possible Desktop addition, not a requirement.
+
+**Known failures.** The 18.18.6 entries lapsed. A probe (branch `probe/pristine-18203`, run 43829607832) ran each bucket on untouched 18.20.3 and on Scient's replay, on Scient's runner type, concurrency and per-test ceiling: `coding-agent-native` 8 times each, the other five twice each. Its jobs report success whatever their tests do, so their logs were read test by test with `upstream-tests.ts`'s own judge.
+
+| Test | Untouched 18.20.3 | Scient's replay |
+|---|---|---|
+| 4 `extension-ui-controller` OSC 7501 run-status tests | 0 of 2 | 2 of 2 |
+| 6 `build-service` tests (the `coding-agent-singleton` bucket) | 0 of 2 | 2 of 2 |
+| 5 renderer-crash tests and the owned-page close test in `browser-tab-worker-startup` | 1 of 8 each | 1 of 8 each |
+| `never executes incomplete tool arguments…` (Responses WebSocket recovery) | 1 of 8 | 1 of 8 |
+| 4 tests: a git-watcher branch switch, a Tern off-viewport action, a Chromium PDF screenshot, a JSON lexer timing test (`workspace`, of 2) | 1 each | 0 each |
+| 4 tests: two Responses WebSocket recovery cases, the relay's default tab, a Tern not-editable action | 0 each | 1 of 8 each |
+
+The first two rows were Scient defects, not flakes: both tests expect upstream's name where the code reports Scient Agent's (`app=omp` in the OSC 7501 record, `omp-darwin-arm64` as the build file). The identity generator now renames those expectations with the code, and both buckets pass locally on the final replay. The eleven tests seen failing untouched are listed in `upstream-tests.ts` with their counts. The last row's four failed once each in browser and WebSocket code no Scient hook touches and are not listed; a recurrence takes a rerun or a second probe.
+
+#### Local checks
+
+On macOS arm64 with Bun 1.4.4 and the repo-pinned November nightly:
+- Identity and wording `--check`, the script tests (79) and `check:ts` pass. Scient's own tests pass: `coding-agent` 101, `natives` 205, `utils` 15, `ai` 1.
+- Oh My Pi's `coding-agent-ui`, `coding-agent-singleton`, `coding-agent-runtime` and `workspace` buckets pass, run as CI runs them. A shell inside Scient Desktop carries its `SCIENT_AGENT_*` variables (the host root, the config overlay that keeps goals running over RPC, extra discovery sources), and a few tests rightly follow them; run the tests with those variables cleared.
+- Replay-mode divergence verification passes: 32 commits, all three generated commits equal their generators.
+- Compiled macOS arm64 executable: `--runtime-info` reports Scient Agent 0.1.11, OMP 18.20.3 at the full pin above, RPC `[1,2]`, `hostCommands` `apps` and `dictate`. Compiled isolation passes, and the hosts contacted on startup are the same seven v0.1.11 contacts. `capability-check.ts` against v0.1.11 passes every case.
+
+Not run locally: Rust tests and the `native` and `coding-agent-native` buckets. CI builds and checks the six platforms and runs the six buckets.
+
+Review: a Claude review of the replay found the two defects fixed above (the shared X11 input pairs and the swallowed model change), and a second pass verified both fixes.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -910,7 +969,7 @@ It runs without a model, so it covers startup, the RPC handshake and the agent's
 
 `capability-check.ts` accepts absolute candidate and previous-binary paths. Run its controller with a disposable HOME as well. It uses isolated child roots and a loopback model stub, and retains synthetic fixture receipts for inspection. It exercises actual native Skill reads, JavaScript eval, shell artifacts, two concurrent children, old-session upgrade and pre-upgrade-snapshot rollback. It does not call a paid model or validate hosted-model judgment. For Desktop coexistence, use a **stock OMP** binary in `OMP_QUALIFY_BINARY` and the native candidate in `SCIENT_AGENT_QUALIFY_BINARY`; `OMP_QUALIFY_TARGET=scient` is for the separate common-suite run, not the coexistence suite.
 
-Oh My Pi's TypeScript tests run in CI on Linux against Scient's tree as upstream's CI ran them: its six test buckets, its release-script test and its CLI smoke test (`upstream-tests`). A release waits for them. A generator renames what an upstream test expects together with the code it checks, so a passing suite means Scient's names reached both.
+Oh My Pi's TypeScript tests run in CI on Linux against Scient's tree as upstream's CI ran them: its six test buckets and its CLI smoke test (`upstream-tests`). A release waits for them. A generator renames what an upstream test expects together with the code it checks, so a passing suite means Scient's names reached both.
 
 Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream's `scripts/ci-test-ts.ts` unchanged with `--full`. That flag changes what the runner prints, not what runs: each chunk's whole Bun output is shown, so Bun's own counts can be checked. The quiet report can leave out an error a test file threw while loading. A failed bucket passes only if every failure is listed in the script's `KNOWN_FAILURES`. Each entry names one test, the exact Oh My Pi commit it fails on untouched, and the evidence. Anything else fails the job:
 - a test the list does not name;
@@ -920,7 +979,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Twelve tests are listed for 18.18.6. Each was seen failing on untouched 18.18.6 on the same runner type; the counts are under "Ninth alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
+Eleven tests are listed for 18.20.3. Each was seen failing on untouched 18.20.3 on the same runner type; the counts are under "Tenth alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 

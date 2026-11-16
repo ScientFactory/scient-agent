@@ -285,12 +285,10 @@ jobs:
               OMP_TEST_TIMEOUT: "120"
            run: bun scripts/scient/upstream-tests.ts ${{ matrix.mode }}
 
-         # Upstream's workspace job also runs its release-script test and a CLI smoke test.
-         - name: Test the release script and the CLI
+         # Upstream's workspace job also runs a CLI smoke test.
+         - name: Test the CLI
            if: matrix.mode == 'workspace'
-           run: |
-              bun test scripts/release.test.ts
-              bun run ci:test:smoke
+           run: bun run ci:test:smoke
 
    divergence:
       name: Check Scient's divergences

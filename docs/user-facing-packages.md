@@ -75,11 +75,11 @@ Sources: [`packages/browser-relay/README.md`](../packages/browser-relay/README.m
 
 - Package: private `@oh-my-pi/browser-relay`; user command: `scient-agent browser-relay`.
 - Setup: run `scient-agent browser-relay install`, load the unpacked extension from
-  `~/.scient-agent/browser-relay/extension`, then opt in per call with `app.relay: true` — or set
+  `~/.scient-agent/browser-relay/extension`, then opt in per call with `app: "relay"` — or set
   `browser.relay`, which makes the relay the profile-wide default across projects (scope
   details in the package README).
 - Behavior: the relay auto-starts through the profile-independent global daemon broker; consumers
-  across projects hold leases, and the relay stops after the last lease is released. `app.target`
+  across projects hold leases, and the relay stops after the last lease is released. `target`
   borrows a tab by exact CDP target id or URL/title substring; otherwise Scient Agent opens its own background tab, which a URL
   navigates and close removes. `scient-agent browser-relay --no-group` disables automatic tab grouping.
 - Security/limits: it binds loopback; use `--token` when local processes are untrusted. Chrome

@@ -89,12 +89,6 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 	"scripts/ci-release-build-binaries.ts": [
 		["packages/coding-agent/binaries/omp-", `packages/coding-agent/binaries/${COMMAND}-`],
 	],
-	"scripts/ci-release-build-binaries.test.ts": [
-		["packages/coding-agent/binaries/omp-", `packages/coding-agent/binaries/${COMMAND}-`],
-	],
-	"scripts/musl-release.test.ts": [
-		["packages/coding-agent/binaries/omp-", `packages/coding-agent/binaries/${COMMAND}-`],
-	],
 	"packages/coding-agent/src/subprocess/worker-client.ts": [
 		['$which("omp", {', `$which("${COMMAND}", {`],
 		['finding "omp" on PATH', `finding "${COMMAND}" on PATH`],
@@ -122,6 +116,21 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		['"/xdg/state/omp/logs"', `"/xdg/state/${COMMAND}/logs"`],
 	],
 	"crates/pi-natives/src/desktop/linux/wayland/portal.rs": [['base.join("omp")', `base.join("${COMMAND}")`]],
+	// X11 input pairs are machine-wide: the master name and holder property decide which
+	// product may adopt or free a pair, and every product's pairs count toward one limit.
+	// The name also names the uinput devices, which must stay under 80 bytes, so the
+	// prefix is short.
+	"crates/pi-natives/src/desktop/linux/x11/mpx.rs": [
+		['const OWNER_PREFIX: &str = "OMP MPX v2.";', 'const OWNER_PREFIX: &str = "SCIENT MPX v2.";'],
+		['const HOLDER_PROPERTY: &str = "_OMP_MPX_HOLDER";', 'const HOLDER_PROPERTY: &str = "_SCIENT_MPX_HOLDER";'],
+	],
+	"crates/pi-natives/src/desktop/linux/x11/wm.rs": [
+		["/// `_OMP_MPX_HOLDER`, the master", "/// `_SCIENT_MPX_HOLDER`, the master"],
+		['"_OMP_MPX_HOLDER",', '"_SCIENT_MPX_HOLDER",'],
+	],
+	"crates/pi-natives/src/desktop/linux/x11/listener.rs": [
+		['const DEVICE_PREFIX: &str = "OMP MPX ";', 'const DEVICE_PREFIX: &str = "SCIENT MPX ";'],
+	],
 	"packages/natives/native/loader-state.js": [
 		['path.join(xdgDataHome, "omp")', `path.join(xdgDataHome, "${COMMAND}")`],
 		['path.join(xdgDataHome, "omp", "natives")', `path.join(xdgDataHome, "${COMMAND}", "natives")`],
@@ -321,8 +330,9 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 	],
 	"packages/coding-agent/test/cli/build-service.test.ts": [
 		['fileName: "omp-', `fileName: "${COMMAND}-`],
+		['const fileName = "omp-darwin-arm64";', `const fileName = "${COMMAND}-darwin-arm64";`],
+		['"omp-darwin-x64 is not omp-darwin-arm64"', `"omp-darwin-x64 is not ${COMMAND}-darwin-arm64"`],
 		[`toBe(\`omp/\${VERSION}\`)`, `toBe(\`${COMMAND}/\${VERSION}\`)`],
-		['"No omp stable build', `"No ${COMMAND} stable build`],
 	],
 	"packages/coding-agent/test/executable-fallback.test.ts": [
 		['if (cmd === "omp")', `if (cmd === "${COMMAND}")`],
@@ -332,6 +342,7 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		['"command omp __complete $kind"', `"command ${COMMAND} __complete $kind"`],
 	],
 	"packages/coding-agent/test/run-status.test.ts": [["app=omp", `app=${COMMAND}`]],
+	"packages/coding-agent/test/modes/controllers/extension-ui-controller.test.ts": [["app=omp", `app=${COMMAND}`]],
 	"packages/coding-agent/test/gc-cli.test.ts": [
 		["\\n.omp-sessions/work.jsonl", "\\n.scient-agent-sessions/work.jsonl"],
 	],
