@@ -1193,6 +1193,16 @@ class CacheWarmingEndEvent:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class CacheWarmingStoppedEvent:
+    """Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm."""
+    type: Literal["cache_warming_stopped"] = "cache_warming_stopped"
+    reason: str
+    """Why warming stopped."""
+    prompt_cache: PromptCacheEntry | None = None
+    """The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class RetryFallbackAppliedEvent:
     type: Literal["retry_fallback_applied"] = "retry_fallback_applied"
     from_model: str
@@ -1794,7 +1804,7 @@ UsageLimitState: TypeAlias = UsageLimitLowPriority | UsageLimitWrapUp
 """Provider-neutral state of an account past its usage limit, discriminated by `stage`."""
 
 
-RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | TurnEndEvent | MessageStartEvent | MessageUpdateEvent | MessageEndEvent | ToolExecutionStartEvent | ToolExecutionUpdateEvent | ToolStreamUpdateEvent | ToolExecutionEndEvent | AutoCompactionStartEvent | AutoCompactionEndEvent | ManualCompactionStartEvent | ManualCompactionEndEvent | AutoRetryStartEvent | AutoRetryEndEvent | CacheWarmingStartEvent | CacheWarmingEndEvent | RetryFallbackAppliedEvent | RetryFallbackSucceededEvent | ModelChangedEvent | ConfigWarningsChangedEvent | AdvisorCostChangedEvent | AdvisorYieldedEvent | TtsrTriggeredEvent | TodoReminderEvent | TodoAutoClearEvent | IrcMessageEvent | NoticeEvent | ThinkingLevelChangedEvent | GoalUpdatedEvent | QueueUpdateEvent
+RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | TurnEndEvent | MessageStartEvent | MessageUpdateEvent | MessageEndEvent | ToolExecutionStartEvent | ToolExecutionUpdateEvent | ToolStreamUpdateEvent | ToolExecutionEndEvent | AutoCompactionStartEvent | AutoCompactionEndEvent | ManualCompactionStartEvent | ManualCompactionEndEvent | AutoRetryStartEvent | AutoRetryEndEvent | CacheWarmingStartEvent | CacheWarmingEndEvent | CacheWarmingStoppedEvent | RetryFallbackAppliedEvent | RetryFallbackSucceededEvent | ModelChangedEvent | ConfigWarningsChangedEvent | AdvisorCostChangedEvent | AdvisorYieldedEvent | TtsrTriggeredEvent | TodoReminderEvent | TodoAutoClearEvent | IrcMessageEvent | NoticeEvent | ThinkingLevelChangedEvent | GoalUpdatedEvent | QueueUpdateEvent
 """A session event, discriminated by `type`; `set_event_filter` selects which are sent."""
 
 
@@ -2701,6 +2711,15 @@ def parse_cache_warming_end_event(value: object, path: str = "CacheWarmingEndEve
     )
 
 
+def parse_cache_warming_stopped_event(value: object, path: str = "CacheWarmingStoppedEvent") -> CacheWarmingStoppedEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["cache_warming_stopped"]]', literal(frozenset({"cache_warming_stopped"}))), path)
+    return CacheWarmingStoppedEvent(
+        reason=required(payload, "reason", decode_str, path),
+        prompt_cache=optional(payload, "promptCache", parse_prompt_cache_entry, path),
+    )
+
+
 def parse_retry_fallback_applied_event(value: object, path: str = "RetryFallbackAppliedEvent") -> RetryFallbackAppliedEvent:
     payload = expect_object(value, path)
     required(payload, "type", cast('Decoder[Literal["retry_fallback_applied"]]', literal(frozenset({"retry_fallback_applied"}))), path)
@@ -3403,6 +3422,7 @@ _RPC_AGENT_EVENT_CASES: Final[dict[str, Decoder[RpcAgentEvent]]] = {
         "auto_retry_end": parse_auto_retry_end_event,
         "cache_warming_start": parse_cache_warming_start_event,
         "cache_warming_end": parse_cache_warming_end_event,
+        "cache_warming_stopped": parse_cache_warming_stopped_event,
         "retry_fallback_applied": parse_retry_fallback_applied_event,
         "retry_fallback_succeeded": parse_retry_fallback_succeeded_event,
         "model_changed": parse_model_changed_event,
@@ -3465,6 +3485,7 @@ _RPC_NOTIFICATION_CASES: Final[dict[str, Decoder[RpcNotification]]] = {
         "auto_retry_end": parse_rpc_agent_event,
         "cache_warming_start": parse_rpc_agent_event,
         "cache_warming_end": parse_rpc_agent_event,
+        "cache_warming_stopped": parse_rpc_agent_event,
         "retry_fallback_applied": parse_rpc_agent_event,
         "retry_fallback_succeeded": parse_rpc_agent_event,
         "model_changed": parse_rpc_agent_event,
@@ -4139,6 +4160,10 @@ class WireClient:
         """Subscribe to `cache_warming_end`: Outcome of the refresh announced by the matching `cache_warming_start`."""
         return self._listen("cache_warming_end", listener)
 
+    def on_cache_warming_stopped(self, listener: Callable[[CacheWarmingStoppedEvent], None]) -> Callable[[], None]:
+        """Subscribe to `cache_warming_stopped`: Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm."""
+        return self._listen("cache_warming_stopped", listener)
+
     def on_retry_fallback_applied(self, listener: Callable[[RetryFallbackAppliedEvent], None]) -> Callable[[], None]:
         """Subscribe to `retry_fallback_applied` frames."""
         return self._listen("retry_fallback_applied", listener)
@@ -4249,6 +4274,7 @@ __all__ = [
     "CacheWarmingOutcome",
     "CacheWarmingPhase",
     "CacheWarmingStartEvent",
+    "CacheWarmingStoppedEvent",
     "CancelUiRequest",
     "CancellationResult",
     "CommandOutputEvent",
@@ -4450,6 +4476,7 @@ __all__ = [
     "parse_btw_record_event",
     "parse_cache_warming_end_event",
     "parse_cache_warming_start_event",
+    "parse_cache_warming_stopped_event",
     "parse_cancel_ui_request",
     "parse_cancellation_result",
     "parse_command_output_event",

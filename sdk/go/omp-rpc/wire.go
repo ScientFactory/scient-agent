@@ -4334,6 +4334,36 @@ func (v CacheWarmingEndEvent) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"cache_warming_end"`, nil)
 }
 
+// Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm.
+type CacheWarmingStoppedEvent struct {
+	// Why warming stopped.
+	Reason string `json:"reason"`
+	// The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.
+	PromptCache *PromptCacheEntry `json:"promptCache,omitempty"`
+}
+
+func (v *CacheWarmingStoppedEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "CacheWarmingStoppedEvent", v.decodeFrom)
+}
+
+func (v *CacheWarmingStoppedEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out CacheWarmingStoppedEvent
+	d := fieldDecoder{raw: raw, owner: "CacheWarmingStoppedEvent"}
+	d.constant("type", "cache_warming_stopped")
+	d.required("reason", &out.Reason)
+	d.optional("promptCache", &out.PromptCache)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v CacheWarmingStoppedEvent) MarshalJSON() ([]byte, error) {
+	type plain CacheWarmingStoppedEvent
+	return encodeObject(plain(v), `"type":"cache_warming_stopped"`, nil)
+}
+
 type RetryFallbackAppliedEvent struct {
 	From   string  `json:"from"`
 	To     string  `json:"to"`
@@ -4733,6 +4763,7 @@ func (AutoRetryStartEvent) isRpcAgentEvent()         {}
 func (AutoRetryEndEvent) isRpcAgentEvent()           {}
 func (CacheWarmingStartEvent) isRpcAgentEvent()      {}
 func (CacheWarmingEndEvent) isRpcAgentEvent()        {}
+func (CacheWarmingStoppedEvent) isRpcAgentEvent()    {}
 func (RetryFallbackAppliedEvent) isRpcAgentEvent()   {}
 func (RetryFallbackSucceededEvent) isRpcAgentEvent() {}
 func (ModelChangedEvent) isRpcAgentEvent()           {}
@@ -4806,6 +4837,8 @@ func (v *RpcAgentEvent) decodeFrom(raw map[string]json.RawMessage) error {
 		value, err = decodeVariant[CacheWarmingStartEvent](raw)
 	case "cache_warming_end":
 		value, err = decodeVariant[CacheWarmingEndEvent](raw)
+	case "cache_warming_stopped":
+		value, err = decodeVariant[CacheWarmingStoppedEvent](raw)
 	case "retry_fallback_applied":
 		value, err = decodeVariant[RetryFallbackAppliedEvent](raw)
 	case "retry_fallback_succeeded":
@@ -7140,6 +7173,7 @@ func (AutoRetryStartEvent) isRpcNotification()          {}
 func (AutoRetryEndEvent) isRpcNotification()            {}
 func (CacheWarmingStartEvent) isRpcNotification()       {}
 func (CacheWarmingEndEvent) isRpcNotification()         {}
+func (CacheWarmingStoppedEvent) isRpcNotification()     {}
 func (RetryFallbackAppliedEvent) isRpcNotification()    {}
 func (RetryFallbackSucceededEvent) isRpcNotification()  {}
 func (ModelChangedEvent) isRpcNotification()            {}
@@ -7256,6 +7290,8 @@ func (v *RpcNotification) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[CacheWarmingStartEvent](raw)
 	case "cache_warming_end":
 		value, err = decodeVariant[CacheWarmingEndEvent](raw)
+	case "cache_warming_stopped":
+		value, err = decodeVariant[CacheWarmingStoppedEvent](raw)
 	case "retry_fallback_applied":
 		value, err = decodeVariant[RetryFallbackAppliedEvent](raw)
 	case "retry_fallback_succeeded":
@@ -7354,6 +7390,7 @@ func (AutoRetryStartEvent) isRpcServerFrame()          {}
 func (AutoRetryEndEvent) isRpcServerFrame()            {}
 func (CacheWarmingStartEvent) isRpcServerFrame()       {}
 func (CacheWarmingEndEvent) isRpcServerFrame()         {}
+func (CacheWarmingStoppedEvent) isRpcServerFrame()     {}
 func (RetryFallbackAppliedEvent) isRpcServerFrame()    {}
 func (RetryFallbackSucceededEvent) isRpcServerFrame()  {}
 func (ModelChangedEvent) isRpcServerFrame()            {}
@@ -7480,6 +7517,8 @@ func (v *RpcServerFrame) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[CacheWarmingStartEvent](raw)
 	case "cache_warming_end":
 		value, err = decodeVariant[CacheWarmingEndEvent](raw)
+	case "cache_warming_stopped":
+		value, err = decodeVariant[CacheWarmingStoppedEvent](raw)
 	case "retry_fallback_applied":
 		value, err = decodeVariant[RetryFallbackAppliedEvent](raw)
 	case "retry_fallback_succeeded":
