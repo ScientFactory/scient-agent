@@ -58,6 +58,13 @@ import {
 import { AsyncJobManager, type AsyncJobManagerApi } from "./async";
 import { AutoLearnController, buildAutoLearnInstructions } from "./autolearn/controller";
 import { createAutoresearchExtension } from "./autoresearch";
+// scient(SA-CHATGPT-APPS): begin - the person's ChatGPT apps, when the host asks for them.
+import {
+	createChatGptAppsExtension,
+	registeredExtensionToolNames,
+	requestedChatGptApps,
+} from "./scient/chatgpt-apps-extension";
+// scient(SA-CHATGPT-APPS): end
 import { loadCapability, reset as resetCapabilities } from "./capability";
 import {
 	MAIN_AGENT_RULE_NAME,
@@ -3082,6 +3089,15 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			inlineExtensions.push(...(options.extensions ?? []));
 			inlineExtensions.push(...(options.topLevelExtensions ?? []));
 			inlineExtensions.push(createAutoresearchExtension);
+			// scient(SA-CHATGPT-APPS): begin - the person's ChatGPT apps, when the host asks for them.
+			const chatGptApps = requestedChatGptApps();
+			if (chatGptApps)
+				inlineExtensions.push(
+					createChatGptAppsExtension(authStorage, chatGptApps, () =>
+						registeredExtensionToolNames(extensionsResult.extensions),
+					),
+				);
+			// scient(SA-CHATGPT-APPS): end
 			// Discovered MCP tools register through their own extension; the file custom
 			// tools stay a separate per-cwd extension so a cwd change can swap them alone.
 			if (initialMcpManagerTools.length > 0) {

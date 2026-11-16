@@ -18,6 +18,9 @@ import {
 	VALUELESS_FLAGS,
 } from "./cli/flag-tables";
 import type * as LaunchHelp from "./commands/launch-help";
+// scient(SA-CHATGPT-APPS): begin - Scient's ChatGPT apps command.
+import { appsHelp } from "./scient/command-help";
+// scient(SA-CHATGPT-APPS): end
 
 function loadLaunchHelp(): typeof LaunchHelp.launchHelp {
 	const module: typeof LaunchHelp = require("./commands/launch-help");
@@ -279,6 +282,13 @@ export const commands: CommandEntry[] = [
 		load: () => import("./commands/update").then(m => m.default),
 		help: commandHelp.updateHelp,
 	},
+	// scient(SA-CHATGPT-APPS): begin - Scient's ChatGPT apps command.
+	{
+		name: "apps",
+		load: () => import("./scient/apps-command").then(m => m.default),
+		help: appsHelp,
+	},
+	// scient(SA-CHATGPT-APPS): end
 	{
 		name: "usage",
 		load: () => import("./commands/usage").then(m => m.default),
