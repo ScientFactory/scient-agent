@@ -129,6 +129,16 @@ export const frameDefs = {
 		"A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.",
 	),
 	// scient(SA-LIVE-HOST-DELEGATION): end
+	// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+	PlanProposedEvent: doc(
+		{ type: "'plan_proposed'", title: "string", planFilePath: "string", markdown: "string" },
+		"The plan the agent proposed in plan mode, sent just before the select request that asks to approve it.",
+	),
+	PlanUpdatedEvent: doc(
+		{ type: "'plan_updated'", enabled: "boolean", "planFilePath?": "string" },
+		"Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation.",
+	),
+	// scient(SA-PLAN-MODE): end
 	DictationStateEvent: doc(
 		{ type: "'dictation_state'", captureId: "string", state: "'starting' | 'recording' | 'transcribing'" },
 		"State of one draft-only microphone capture.",
