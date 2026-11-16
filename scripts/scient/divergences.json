@@ -371,6 +371,13 @@
 				"bun --cwd=packages/coding-agent test test/scient/failure-kind.test.ts test/rpc-prompt-result.test.ts"
 			]
 		},
+		"SA-ACCESS-POLICY": {
+			"status": "active",
+			"contract": "A provider's refusal to serve a model outside the apps it lists (OpenRouter's 403 \"... is only available on agentic harnesses ...\") classifies as AIError.Flag.AccountPolicy, as Anthropic's organization denials do, so recovery walks the fallback chain and a host reports account-policy instead of only a failed sign-in. Another 403 stays a failed sign-in. A candidate to propose to Oh My Pi.",
+			"owned": ["packages/ai/src/scient/access-policy.ts", "packages/ai/test/scient/access-policy.test.ts"],
+			"upstream": ["packages/ai/src/error/flags.ts"],
+			"verification": ["bun --cwd=packages/ai test test/scient/access-policy.test.ts"]
+		},
 		"SA-WEBMCP-FEATURE": {
 			"status": "active",
 			"contract": "Every Chromium the agent launches enables the WebMCP feature beside WebMCPTesting and DevToolsWebMCPSupport. Chrome 157 and newer expose document.modelContext to pages only under WebMCP; older Chromes ignore the unknown name and keep using WebMCPTesting. Drop this when Oh My Pi enables WebMCP itself.",
