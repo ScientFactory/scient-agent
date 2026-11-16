@@ -96,6 +96,9 @@ import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
 import { reloadSignIns } from "../../scient/reload-sign-ins";
 import { listSignInProviders, signOutOverRpc } from "../../scient/sign-in-providers";
 // scient(SA-AUTH): end
+// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
+import { RpcNextMessagePredictor } from "../../scient/next-message";
+// scient(SA-NEXT-MESSAGE): end
 import { pageRpcMessages, RPC_MESSAGES_PAGE_BUSY_ERROR, RpcMessagesPageError } from "./rpc-messages";
 import { RpcBtwController } from "./rpc-btw";
 import { RpcGoalController } from "./rpc-goal";
@@ -453,6 +456,9 @@ export function dispatchRpcControlFrame(parsed: unknown, deps: RpcInputFrameDeps
 const BACKGROUND_COMMANDS: ReadonlySet<string> = new Set<RpcCommand["type"]>([
 	"bash",
 	"predict_word",
+	// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
+	"predict_next_message",
+	// scient(SA-NEXT-MESSAGE): end
 	"live_start",
 	"live_connect",
 	"btw_cancel",
@@ -1654,6 +1660,9 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 	const extensionUserMessageTracker = new RpcExtensionUserMessageTracker();
 	const wordPredictor = new RpcWordPredictor();
 	const btw = new RpcBtwController(session, output);
+	// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
+	const nextMessagePredictor = new RpcNextMessagePredictor(session);
+	// scient(SA-NEXT-MESSAGE): end
 	// A continuation abandoned while waiting leaves nothing to end the activity stretch: re-check settlement.
 	const goalController = new RpcGoalController(session, () => void settleWatcher.check());
 	// A scheduled or held goal turn will start a turn: every settle report treats it as busy,
@@ -3154,6 +3163,11 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				}
 				return success(id, "predict_word_feedback");
 			}
+			// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
+
+			case "predict_next_message":
+				return success(id, "predict_next_message", { text: await nextMessagePredictor.predict() });
+			// scient(SA-NEXT-MESSAGE): end
 
 			default: {
 				const unknownCommand = command as { type: string };
