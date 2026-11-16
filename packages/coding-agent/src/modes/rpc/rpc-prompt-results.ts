@@ -237,7 +237,7 @@ function promptError(message: AssistantMessage): RpcPromptError {
 	if (usageStatus !== undefined) error.httpStatus = usageStatus;
 	// scient(SA-USAGE-RESET): end
 	// scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
-	const kinds = failureKinds(errorId);
+	const kinds = failureKinds(errorId, message);
 	if (kinds !== undefined) error.kinds = kinds;
 	// scient(SA-FAILURE-KIND): end
 	return error;

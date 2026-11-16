@@ -96,6 +96,23 @@ describe("prompt_result failure kinds", () => {
 		expect(frame.error?.kinds).toEqual(["transient", "usage-limit"]);
 	});
 
+	it("tells a provider it could not reach from a provider that failed", async () => {
+		// The texts of real failures: a DNS lookup that found no address and a refused connection.
+		for (const failure of [
+			"Couldn't reach chatgpt.com (getaddrinfo ENOTFOUND). Check the URL, your network, or proxy.",
+			"Couldn't connect to chatgpt.com (connection refused). Check that the server is running and reachable.",
+		]) {
+			const frame = await promptResultFor(failure);
+			expect(frame.error?.kinds).toEqual(["transient", "network"]);
+			await session?.dispose();
+			session = undefined;
+		}
+
+		const outage = await promptResultFor("503 Service Unavailable: upstream connect error");
+		expect(outage.error?.kinds).toContain("transient");
+		expect(outage.error?.kinds).not.toContain("network");
+	});
+
 	it("leaves kinds out when the classifier recognized none", async () => {
 		const frame = await promptResultFor("418 I'm a teapot");
 
@@ -112,6 +129,33 @@ describe("failure kind labels", () => {
 			"oauth-expiry",
 		]);
 		expect(failureKinds(AIError.create(AIError.Flag.CacheControlUnsupported))).toEqual(["cache-control-unsupported"]);
+	});
+
+	it("names every connection failure Oh My Pi describes a network failure", () => {
+		const failures = [
+			{ code: "EAI_AGAIN", message: "getaddrinfo EAI_AGAIN chatgpt.com" },
+			{ code: "ENOTFOUND", message: "getaddrinfo ENOTFOUND chatgpt.com" },
+			{ code: "ECONNREFUSED", message: "connect ECONNREFUSED 127.0.0.1:443" },
+			{ code: "SELF_SIGNED_CERT_IN_CHAIN", message: "self signed certificate in certificate chain" },
+		];
+		for (const cause of failures) {
+			const sentence = AIError.networkFailureMessage(Object.assign(new Error(cause.message), { code: cause.code }));
+			if (sentence === undefined) throw new Error(`Expected a network failure sentence for ${cause.code}`);
+			expect(failureKinds(AIError.create(AIError.Flag.Transient), { errorMessage: sentence })).toContain("network");
+		}
+	});
+
+	it("names no network failure for a response the provider sent", () => {
+		expect(
+			failureKinds(AIError.create(AIError.Flag.AuthFailed), {
+				errorMessage: "Unable to verify your API key",
+				errorStatus: 401,
+			}),
+		).toEqual(["auth-failed"]);
+		// Without a status, "unable to verify" is about a certificate only when it says so.
+		expect(
+			failureKinds(AIError.create(AIError.Flag.AuthFailed), { errorMessage: "Unable to verify your API key" }),
+		).toEqual(["auth-failed"]);
 	});
 
 	it("names no kind for a raw HTTP status or a class with no flag", () => {
