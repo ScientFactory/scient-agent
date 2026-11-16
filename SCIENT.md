@@ -996,6 +996,8 @@ Eleven tests are listed for 18.20.3. Each was seen failing on untouched 18.20.3 
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 
+The macOS native test process preloads `scripts/scient/macos-spelling-ready.ts`. AppKit can return no spans when its first XPC request times out during spelling-service startup; the preflight requires the service to identify a known misspelling within three probes before running the unchanged tests. Persistent unavailability fails qualification. This provisions the CI fixture; it does not retry failed tests, change runtime results, or qualify cold-service startup behavior.
+
 ## Release
 
 `.github/workflows/scient.yml` builds and checks every platform on every push to `main` and on every pull request into it: macOS (Apple silicon and Intel), Linux (x86-64 and ARM64, glibc) and Windows (x86-64 and ARM64), each on its own GitHub-hosted runner, each with the isolation check. The first step stamps the commit into `packages/coding-agent/src/scient/build-id.ts` (`scripts/scient/stamp-build-id.ts`), which `--runtime-info` reports; a build made elsewhere reports `source`. On x86-64 the binary carries the `modern` (AVX2) and `baseline` native addons (`PI_NATIVE_X64_VARIANT` builds each).
