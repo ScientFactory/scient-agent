@@ -343,6 +343,13 @@
 			"upstream": ["packages/ai/src/error/flags.ts"],
 			"verification": ["bun --cwd=packages/ai test test/scient/access-policy.test.ts"]
 		},
+		"SA-CCA-STRING-ENUMS": {
+			"status": "active",
+			"contract": "A tool schema sent to Cloud Code Assist in the legacy parameters field (Claude models on Google Antigravity) keeps an enum only when every value is a string, as the Gemini parametersJsonSchema path already does: Google's function declarations take string enums only and reject the whole request for any other (400 \"Invalid value at ...enum[0] (TYPE_STRING), -1\"). The node keeps its type, given or inferred. A candidate to propose to Oh My Pi.",
+			"owned": ["packages/ai/test/scient/cca-string-enums.test.ts"],
+			"upstream": ["packages/ai/src/utils/schema/normalize.ts"],
+			"verification": ["bun --cwd=packages/ai test test/scient/cca-string-enums.test.ts test/google-tool-schema.test.ts"]
+		},
 		"SA-WEBMCP-FEATURE": {
 			"status": "upstreamed",
 			"contract": "Every Chromium the agent launches enables the WebMCP feature beside WebMCPTesting and DevToolsWebMCPSupport. Chrome 157 and newer expose document.modelContext to pages only under WebMCP; older Chromes ignore the unknown name and keep using WebMCPTesting. Drop this when Oh My Pi enables WebMCP itself.",
