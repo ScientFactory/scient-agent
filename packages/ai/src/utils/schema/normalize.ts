@@ -1336,6 +1336,9 @@ export function normalizeSchemaForCCA(value: unknown): unknown {
 		extractNullableFromUnions: true,
 		inferTypeForBareEnum: true,
 		dropNonScalarEnum: false,
+		// scient(SA-CCA-STRING-ENUMS): begin - Cloud Code Assist's `parameters` take only string enums, as Gemini's do.
+		stringEnumsOnly: true,
+		// scient(SA-CCA-STRING-ENUMS): end
 		foldOneOfIntoAnyOf: false,
 		rejectResidualIncompatibilities: ["type-array", "type-null", "nullable", "combiners", "not"],
 		validateAndFallback: { fallback: CLOUD_CODE_ASSIST_CLAUDE_FALLBACK_SCHEMA },
