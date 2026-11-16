@@ -2029,6 +2029,9 @@ export class TernTab implements InProcessRunTab {
 			if (elapsed >= timeoutMs) break;
 			if (last.reason === "missing" && explicitTimeout === undefined && elapsed >= ZERO_MATCH_FAIL_FAST_MS) break;
 			await untilAborted(this.#signal, () => Bun.sleep(delay));
+			// scient(SA-BROWSER-DEADLINE): begin - A retry sleep can outlive the action budget.
+			if (Date.now() - started >= timeoutMs) break;
+			// scient(SA-BROWSER-DEADLINE): end
 			delay = Math.min(250, Math.round(delay * 1.5));
 		}
 		throw targetTimeout(label, Date.now() - started, last);
