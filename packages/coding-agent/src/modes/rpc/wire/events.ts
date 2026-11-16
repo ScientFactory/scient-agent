@@ -160,6 +160,10 @@ export const eventDefs = {
 		{
 			type: "'cache_warming_stopped'",
 			reason: doc("string", "Why warming stopped."),
+			stoppedAt: doc(
+				"number.integer",
+				"Epoch ms when warming stopped, which may be well before a host reads the frame.",
+			),
 			"promptCache?": doc(
 				"PromptCacheEntry",
 				"The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.",
