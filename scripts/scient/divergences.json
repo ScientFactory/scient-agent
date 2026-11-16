@@ -193,8 +193,14 @@
 		"SA-WORKER": {
 			"status": "active",
 			"contract": "Shared workers (tiny model, embedding server) carry the product version, so a new Scient Agent release never reuses an earlier release's worker.",
-			"owned": ["packages/coding-agent/src/scient/worker-tag.ts", "packages/coding-agent/test/scient/worker-tag.test.ts"],
-			"upstream": ["packages/coding-agent/src/mnemopi/embed-client.ts", "packages/coding-agent/src/tiny/title-client.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/worker-tag.ts",
+				"packages/coding-agent/test/scient/worker-tag.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/mnemopi/embed-client.ts",
+				"packages/coding-agent/src/tiny/title-client.ts"
+			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/worker-tag.test.ts"]
 		},
 		"SA-BRAND": {
@@ -222,20 +228,33 @@
 		"SA-BUILD": {
 			"status": "active",
 			"contract": "Scient builds the native addon with cargo on the pinned toolchain: stable expressions where Oh My Pi's Bazel build allows unstable ones.",
-			"upstream": ["crates/pi-vfs/src/canonicalize.rs", "crates/pi-vfs/src/native/windows.rs", "crates/pi-vfs/src/path.rs"]
+			"upstream": [
+				"crates/pi-vfs/src/canonicalize.rs",
+				"crates/pi-vfs/src/native/windows.rs",
+				"crates/pi-vfs/src/path.rs"
+			]
 		},
 		"SA-RPC-SPOOL": {
 			"status": "active",
 			"contract": "The RPC output spool, where frames wait while a host is not reading, stops the agent once it passes 2 GiB (PI_RPC_SPOOL_MAX_BYTES) instead of filling the disk, and its folder names the owning process, so an agent that starts removes the spools of agents that were killed. Proposed to Oh My Pi as can1357/oh-my-pi#16139.",
-			"owned": ["packages/coding-agent/src/scient/rpc-spool.ts", "packages/coding-agent/test/scient/rpc-spool.test.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/rpc-spool.ts",
+				"packages/coding-agent/test/scient/rpc-spool.test.ts"
+			],
 			"upstream": ["packages/coding-agent/src/modes/rpc/rpc-output.ts"],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-spool.test.ts"]
 		},
 		"SA-EXPORT": {
 			"status": "active",
 			"contract": "An HTML export from a compiled Scient Agent carries Scient's viewer inside the page: the viewer Oh My Pi hosts is Oh My Pi's, and Scient's differs by its wording, so its checksum would not match. The wording generator refreshes the pin in viewer.generated.json.",
-			"owned": ["packages/coding-agent/src/scient/export-viewer.ts", "packages/coding-agent/test/scient/export-viewer.test.ts"],
-			"upstream": ["packages/coding-agent/src/export/html/index.ts", "packages/coding-agent/scripts/compile-binary.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/export-viewer.ts",
+				"packages/coding-agent/test/scient/export-viewer.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/export/html/index.ts",
+				"packages/coding-agent/scripts/compile-binary.ts"
+			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/export-viewer.test.ts"]
 		},
 		"SA-HOST-PAGES": {
@@ -258,7 +277,10 @@
 		"SA-ASK-FORM": {
 			"status": "active",
 			"contract": "The ask tool's HTML form reaches an RPC host whole when it sends set_form_dialog (a form request, answered with the form's data), and on its one ask card when it only sends set_ask_dialog: choices as options, text fields as free-text questions, the form's other content in the question text, and a failing answer asked again on the card. A host with neither is asked one field at a time, as upstream does.",
-			"owned": ["packages/coding-agent/src/scient/rpc-form.ts", "packages/coding-agent/test/scient/rpc-form.test.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/rpc-form.ts",
+				"packages/coding-agent/test/scient/rpc-form.test.ts"
+			],
 			"upstream": [
 				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
 				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
@@ -271,7 +293,10 @@
 		"SA-NEXT-MESSAGE": {
 			"status": "active",
 			"contract": "A host asks for Oh My Pi's composer prediction of the user's next message with predict_next_message, which runs outside the command queue, so a prediction never delays the next prompt, and a turn or compaction that starts cancels it. It is Oh My Pi's prompt and reply parsing on the session's model and context; the session's history is not changed and the request is recorded in its usage. The host's own switch decides whether to ask.",
-			"owned": ["packages/coding-agent/src/scient/next-message.ts", "packages/coding-agent/test/scient/next-message.test.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/next-message.ts",
+				"packages/coding-agent/test/scient/next-message.test.ts"
+			],
 			"upstream": [
 				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
 				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
@@ -401,7 +426,10 @@
 		"SA-PROMPT-CACHE": {
 			"status": "active",
 			"contract": "An assistant reply's message_end frame carries promptCache ({ tier, touchedAt, ttlMs }), the prompt-cache entry the reply's response confirmed, while the next request would still read it. It is absent for an inferred entry, a changed conversation, a model without a declared lifetime, and a cache that never expires. Each time an active warming run stops, by any cause, a cache_warming_stopped frame names the reason, stamps stoppedAt (epoch ms at the agent, independent of delivery time), and carries the same confirmed entry as warming left it (touchedAt is the last refresh that hit), absent on the same terms, so a host compacts an idle conversation on a five-minute cache while it is still warm. The agent's own idle compaction stays off over RPC, so a host that compacts before the entry expires never races it. Hosts that do not read these are unaffected.",
-			"owned": ["packages/coding-agent/src/scient/prompt-cache.ts", "packages/coding-agent/test/scient/prompt-cache.test.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/prompt-cache.ts",
+				"packages/coding-agent/test/scient/prompt-cache.test.ts"
+			],
 			"upstream": [
 				"packages/coding-agent/src/modes/controllers/event-controller.ts",
 				"packages/coding-agent/src/modes/rpc/rpc-client.ts",
@@ -413,10 +441,22 @@
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/prompt-cache.test.ts"]
 		},
+		"SA-BROWSER-DEADLINE": {
+			"status": "active",
+			"contract": "A native Tern action whose retry sleep exhausts its deadline stops with the last actionability failure instead of sending another DOM request or late input. This inherited deadline bug needs an upstream fix; upstream tests remain unchanged.",
+			"owned": ["packages/coding-agent/test/scient/browser-action-deadline.test.ts"],
+			"upstream": ["packages/coding-agent/src/tools/browser/tern/tern-tab.ts"],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/browser-action-deadline.test.ts test/tools/browser-tern-dom.test.ts"
+			]
+		},
 		"SA-PLAN-MODE": {
 			"status": "active",
 			"contract": "An RPC host can plan with the agent: the plan command (op get, enter or exit) turns plan mode on or off. In plan mode the agent changes nothing but its plan file until it proposes the plan through xd://propose. The proposal sends a plan_proposed frame (title, planFilePath, markdown), then asks the host to approve it with a select request while the tool call waits. Only an explicit approve leaves plan mode, and the same run goes on to carry out the plan; Refine asks the host what to change (an input request), and that answer, like any typed answer, reaches the model as feedback; planning goes on. An answer that arrives after plan mode was left never approves, and a new, switched or forked conversation leaves plan mode. Each time plan mode turns on or off, a plan_updated frame ({ enabled, planFilePath? }) tells the host. Planning is refused while a goal is set. Hosts that do not send plan are unaffected.",
-			"owned": ["packages/coding-agent/src/scient/rpc-plan.ts", "packages/coding-agent/test/scient/rpc-plan.test.ts"],
+			"owned": [
+				"packages/coding-agent/src/scient/rpc-plan.ts",
+				"packages/coding-agent/test/scient/rpc-plan.test.ts"
+			],
 			"upstream": [
 				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
 				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
