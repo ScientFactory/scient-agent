@@ -80,7 +80,7 @@ export type AgentSessionEvent =
 	| ({ type: "cache_warming_start" } & CacheWarmingRefreshStart)
 	| ({ type: "cache_warming_end" } & CacheWarmingRefreshEnd)
 	// scient(SA-PROMPT-CACHE): begin - A host compacts an idle conversation when warming stops on a warm cache.
-	| { type: "cache_warming_stopped"; reason: string }
+	| { type: "cache_warming_stopped"; reason: string; stoppedAt: number }
 	// scient(SA-PROMPT-CACHE): end
 	| { type: "retry_fallback_applied"; from: string; to: string; role: string; reason?: string }
 	| { type: "retry_fallback_succeeded"; model: string; role: string }

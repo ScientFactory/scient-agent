@@ -173,12 +173,15 @@ describe("cache_warming_stopped carries the entry warming left", () => {
 		return stopped;
 	}
 
-	it("reports the still-warm entry once when warming stops outside a refresh", async () => {
+	it("reports the still-warm entry once, and when warming stopped, when it stops outside a refresh", async () => {
 		const sentAt = Date.now();
+		vi.advanceTimersByTime(10 * 60_000);
 		const [stop, ...rest] = await stopWarming();
 		expect(rest).toEqual([]);
 		expect(stop && withPromptCache(stop, session)).toMatchObject({
 			type: "cache_warming_stopped",
+			// The stop's own time: a host may read the frame much later.
+			stoppedAt: sentAt + 10 * 60_000,
 			promptCache: { tier: "long", touchedAt: sentAt, ttlMs: LONG_TTL_MS },
 		});
 		// No run is left to stop.
