@@ -17,6 +17,9 @@ import {
 	parseJsonBody,
 	parseRateLimitReason,
 } from "./rate-limit";
+// scient(SA-ACCESS-POLICY): begin - A model a provider serves only to its listed apps is an access policy, not a bad key.
+import { isAppRestrictedModelText } from "../scient/access-policy";
+// scient(SA-ACCESS-POLICY): end
 
 export const Flag = {
 	Class: 0x1000,
@@ -682,6 +685,9 @@ function classifyText(
 		if (isAnthropicAccountPolicyText(errorMessage, provider, statusClean)) {
 			kinds |= Flag.AccountPolicy;
 		}
+		// scient(SA-ACCESS-POLICY): begin - A model a provider serves only to its listed apps is an access policy, not a bad key.
+		if (isAppRestrictedModelText(errorMessage)) kinds |= Flag.AccountPolicy;
+		// scient(SA-ACCESS-POLICY): end
 		if (isAuthFailureText(errorMessage)) kinds |= Flag.AuthFailed;
 		const cleanMessage = errorMessage;
 		const isOpaque = isOpaqueStatusBody(cleanMessage);
