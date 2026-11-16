@@ -140,28 +140,45 @@ jobs:
          - name: Install dependencies
            run: bun install --frozen-lockfile
 
-         # The native addon is a pure function of the Rust inputs hashed below
-         # and the toolchain, and most changes never touch them (24 of the last
-         # 30 merged PRs). An exact cache hit reuses the `.node` files a
-         # previous run built from the same inputs instead of recompiling
-         # pi-natives, which takes 12-48 minutes per leg: cargo's own cache
-         # cannot do this, because a fresh checkout's mtimes always mark the
-         # workspace crates dirty. No restore keys: anything but an exact hit
-         # rebuilds. The release version stamp already ran and
-         # packages/natives/package.json is in the hash, so an addon stamped
-         # with one version is never reused for another. The generated
-         # bindings a build installs are committed, and a Rust change misses
-         # this cache and regenerates them.
+         # The native addon is a pure function of the inputs hashed below and
+         # the build environment named after them, and most changes never
+         # touch them (24 of the last 30 merged PRs). An exact cache hit
+         # reuses the `.node` files a previous run built from the same inputs
+         # instead of recompiling pi-natives, which takes 12-48 minutes per
+         # leg: cargo's own cache cannot do this, because a fresh checkout's
+         # mtimes always mark the workspace crates dirty. No restore keys:
+         # anything but an exact hit rebuilds. The generated declarations a
+         # build installs are cached with the addon, and on a hit the runtime
+         # exports are regenerated from them, so a hit produces exactly what
+         # a miss produces even if the committed bindings are stale.
          - name: Name the native build environment
            id: native-env
-           run: echo "name=${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}-$(rustc --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+           run: |
+              {
+                 echo "image=${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}"
+                 rustc -vV
+                 echo "bun=$(bun --version)"
+                 echo "RUSTFLAGS=${RUSTFLAGS:-} profile=${OMP_NATIVE_CARGO_PROFILE:-} features=${OMP_NATIVE_FEATURES:-}"
+                 echo "SDKROOT=${SDKROOT:-} DEVELOPER_DIR=${DEVELOPER_DIR:-} MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-}"
+                 xcodebuild -version 2>/dev/null || true
+                 cc --version 2>/dev/null | head -1 || true
+              } > "$RUNNER_TEMP/native-env.txt"
+              cat "$RUNNER_TEMP/native-env.txt"
+              digest="$(sha256sum < "$RUNNER_TEMP/native-env.txt" 2>/dev/null || shasum -a 256 < "$RUNNER_TEMP/native-env.txt")"
+              echo "name=$(printf %s "$digest" | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
          - name: Reuse the native addon for unchanged Rust inputs
            id: native-cache
            uses: actions/cache/restore@v4
            with:
-              path: packages/natives/native/*.node
-              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
+              path: |
+                 packages/natives/native/*.node
+                 packages/natives/native/index.d.ts
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
+
+         - name: Regenerate the addon's runtime exports
+           if: steps.native-cache.outputs.cache-hit == 'true'
+           run: bun packages/natives/scripts/gen-enums.ts
 
          # On a miss, cargo still reuses the dependency compilation a previous
          # run cached; only the workspace crates rebuild.
@@ -170,7 +187,7 @@ jobs:
            uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
            with:
               prefix-key: scient-native-v1
-              key: ${{ matrix.id }}-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
+              key: ${{ matrix.id }}-both-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
               env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
               cache-bin: false
               cache-on-failure: true
@@ -205,8 +222,10 @@ jobs:
            if: steps.native-cache.outputs.cache-hit != 'true'
            uses: actions/cache/save@v4
            with:
-              path: packages/natives/native/*.node
-              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
+              path: |
+                 packages/natives/native/*.node
+                 packages/natives/native/index.d.ts
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
 
          # Scient's own tests, and the packages whose state layout differs by
          # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).
@@ -277,21 +296,35 @@ jobs:
          # and that leg build the same two addons on the same runner image.
          - name: Name the native build environment
            id: native-env
-           run: echo "name=${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}-$(rustc --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+           run: |
+              {
+                 echo "image=${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}"
+                 rustc -vV
+                 echo "bun=$(bun --version)"
+                 echo "RUSTFLAGS=${RUSTFLAGS:-} profile=${OMP_NATIVE_CARGO_PROFILE:-} features=${OMP_NATIVE_FEATURES:-}"
+                 echo "SDKROOT=${SDKROOT:-} DEVELOPER_DIR=${DEVELOPER_DIR:-} MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-}"
+                 xcodebuild -version 2>/dev/null || true
+                 cc --version 2>/dev/null | head -1 || true
+              } > "$RUNNER_TEMP/native-env.txt"
+              cat "$RUNNER_TEMP/native-env.txt"
+              digest="$(sha256sum < "$RUNNER_TEMP/native-env.txt" 2>/dev/null || shasum -a 256 < "$RUNNER_TEMP/native-env.txt")"
+              echo "name=$(printf %s "$digest" | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
          - name: Reuse the native addon for unchanged Rust inputs
            id: native-cache
            uses: actions/cache/restore@v4
            with:
-              path: packages/natives/native/*.node
-              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
+              path: |
+                 packages/natives/native/*.node
+                 packages/natives/native/index.d.ts
+              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
 
          - name: Cache Rust compilation
            if: steps.native-cache.outputs.cache-hit != 'true'
            uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
            with:
               prefix-key: scient-native-v1
-              key: linux-x64-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
+              key: linux-x64-both-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
               env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
               cache-bin: false
               cache-on-failure: true
@@ -309,8 +342,10 @@ jobs:
            if: steps.native-cache.outputs.cache-hit != 'true'
            uses: actions/cache/save@v4
            with:
-              path: packages/natives/native/*.node
-              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
+              path: |
+                 packages/natives/native/*.node
+                 packages/natives/native/index.d.ts
+              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
 
          - uses: actions/upload-artifact@v4
            with:
@@ -333,10 +368,12 @@ jobs:
                - { mode: coding-agent-singleton, concurrency: 1 }
                - { mode: coding-agent-ui, concurrency: 2 }
                - { mode: coding-agent-runtime, concurrency: 4 }
-               # The browser tests in this bucket each drive a real Chromium;
-               # four at once on a 4-core runner starve them into 30 s test
-               # timeouts (a different single test each failed run on
-               # 2026-11-16). Two keeps the bucket off the critical path.
+               # Three runs on 2026-11-16 each failed a different single test
+               # in this bucket, all timing-sensitive (a 30 s browser-test
+               # timeout; sub-second action-budget assertions). The bucket's
+               # browser tests each drive a real Chromium, and four chunks at
+               # once contend for a 4-core runner. Two-wide is the mitigation
+               # to measure; it keeps the bucket off the critical path.
                - { mode: coding-agent-native, concurrency: 2 }
       steps:
          - uses: actions/checkout@v4
