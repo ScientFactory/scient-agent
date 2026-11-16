@@ -5,17 +5,28 @@ import type { LoadContext } from "@oh-my-pi/pi-coding-agent/capability/types";
 import { getConfigDirs } from "@oh-my-pi/pi-coding-agent/config";
 import { resolveClaudePaths } from "@oh-my-pi/pi-coding-agent/config/claude-paths";
 import { getUserPath } from "@oh-my-pi/pi-coding-agent/discovery/helpers";
-import { getAgentDir } from "@oh-my-pi/pi-utils";
+import { __resetDirsFromEnvForTests, getAgentDir } from "@oh-my-pi/pi-utils";
+import { restoreEnvValue } from "../helpers/settings-test-state";
 
 describe("SCIENT_AGENT_CONFIG_DIR", () => {
-	const original = process.env.SCIENT_AGENT_CONFIG_DIR;
+	const original = new Map<string, string | undefined>(
+		["SCIENT_AGENT_CONFIG_DIR", "SCIENT_AGENT_DIR", "SCIENT_AGENT_PROFILE", "SCIENT_AGENT_PROFILE_FALLBACK"].map(
+			key => [key, process.env[key]],
+		),
+	);
 	afterEach(() => {
-		if (original === undefined) {
-			delete process.env.SCIENT_AGENT_CONFIG_DIR;
-		} else {
-			process.env.SCIENT_AGENT_CONFIG_DIR = original;
-		}
+		for (const [key, value] of original) restoreEnvValue(key, value);
+		__resetDirsFromEnvForTests();
 	});
+
+	/** Applies directory env the way process startup does: set env, then rebuild the resolver. */
+	function startWith(env: { SCIENT_AGENT_CONFIG_DIR?: string; SCIENT_AGENT_DIR?: string }): void {
+		restoreEnvValue("SCIENT_AGENT_CONFIG_DIR", env.SCIENT_AGENT_CONFIG_DIR);
+		restoreEnvValue("SCIENT_AGENT_DIR", env.SCIENT_AGENT_DIR);
+		restoreEnvValue("SCIENT_AGENT_PROFILE", undefined);
+		restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", undefined);
+		__resetDirsFromEnvForTests();
+	}
 
 	test("getUserPath resolves the native user scope via getAgentDir (profile-aware)", () => {
 		const ctx: LoadContext = {
@@ -32,10 +43,19 @@ describe("SCIENT_AGENT_CONFIG_DIR", () => {
 	});
 
 	test("getConfigDirs respects SCIENT_AGENT_CONFIG_DIR for user base", () => {
-		process.env.SCIENT_AGENT_CONFIG_DIR = ".config/omp";
+		startWith({ SCIENT_AGENT_CONFIG_DIR: ".config/omp" });
 		const result = getConfigDirs("commands", { project: false });
 		const expected = path.resolve(path.join(os.homedir(), ".config/omp", "agent", "commands"));
 		expect(result[0]).toEqual({ path: expected, source: ".scient-agent", level: "user" });
+	});
+
+	// #18684: `omp agents unpack` writes to $SCIENT_AGENT_DIR/agents; user agent
+	// discovery and the agents hub must read and save under the same dir.
+	test("getConfigDirs places the native user base at SCIENT_AGENT_DIR", () => {
+		const agentDir = path.resolve(os.tmpdir(), "omp-custom-agent-dir");
+		startWith({ SCIENT_AGENT_DIR: agentDir });
+		const result = getConfigDirs("agents", { project: false });
+		expect(result[0]).toEqual({ path: path.join(agentDir, "agents"), source: ".scient-agent", level: "user" });
 	});
 });
 

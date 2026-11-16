@@ -328,7 +328,7 @@ export class CommandController {
 				this.ctx.showError(
 					`Failed to roll back move: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)} (failed to re-align workspace to ${actual})`,
 				);
-				await this.ctx.shutdown();
+				await this.ctx.shutdown({ cancellable: false });
 				return;
 			}
 			this.ctx.showError(
@@ -350,7 +350,7 @@ export class CommandController {
 		} catch {}
 		if (!realigned) {
 			this.ctx.showError(`Failed to restore source workspace after rollback: workspace remains at ${actual}`);
-			await this.ctx.shutdown();
+			await this.ctx.shutdown({ cancellable: false });
 			return;
 		}
 		this.ctx.showError(`Failed to restore source workspace after rollback: workspace remains at ${actual}`);
@@ -1446,10 +1446,7 @@ export class CommandController {
 
 		// An in-place fork moves this process onto the new file; a running turn
 		// would finish there and leave the original transcript cut mid-turn.
-		if (this.ctx.session.isStreaming) {
-			this.ctx.showWarning("Wait for the current response to finish or abort it before forking.");
-			return;
-		}
+		if (this.ctx.session.isStreaming) await this.ctx.session.abort();
 		if (this.ctx.loadingAnimation) {
 			this.ctx.loadingAnimation.stop();
 			this.ctx.loadingAnimation = undefined;

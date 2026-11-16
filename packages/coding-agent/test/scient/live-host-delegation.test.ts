@@ -40,6 +40,7 @@ async function startController(options: Partial<LiveSessionControllerOptions>) {
 	const sentToSession: string[] = [];
 	const session = {
 		modelRegistry: { authStorage: {} },
+		settings: Settings.isolated({}),
 		sessionId: "s1",
 		subscribe: (listener: (event: unknown) => void) => {
 			onSessionEvent = listener;
@@ -64,6 +65,7 @@ async function startController(options: Partial<LiveSessionControllerOptions>) {
 		emitSession: (event: unknown) => onSessionEvent!(event),
 		sentToModel,
 		sentToSession,
+		session: session as unknown as { settings: Settings; model?: { provider: string } },
 	};
 }
 
@@ -77,6 +79,22 @@ describe("live host delegation", () => {
 		expect(delegated).toEqual(["list the files"]);
 		expect(sentToSession).toEqual([]);
 		expect(controller.phase).toBe("working");
+		await controller.stop();
+	});
+
+	it("still refuses a disallowed provider while it waits for the host's turn", async () => {
+		const ended: Array<Error | undefined> = [];
+		const { controller, emit, emitSession, session } = await startController({
+			delegate: () => {},
+			callbacks: { onPhase: () => {}, onLevels: () => {}, onTranscript: () => {}, onTerminal: e => ended.push(e) },
+		});
+		emit(delegationCreated("d1", "list the files"));
+		// Offline, live audio may only use openai-codex; switching away while the request waits must not slip by.
+		session.settings = Settings.isolated({ "models.offline": true });
+		session.model = { provider: "anthropic" };
+		emitSession({ type: "model_changed" });
+		expect(ended).toHaveLength(1);
+		expect(ended[0]?.message).toContain("openai-codex");
 		await controller.stop();
 	});
 

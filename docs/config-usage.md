@@ -59,7 +59,7 @@ Key integration points:
 
 User-level bases:
 
-- Scient Agent native: `~/<SCIENT_AGENT_CONFIG_DIR>/agent` (normally `~/.scient-agent/agent`; a named profile changes this as described below)
+- Scient Agent native: the active agent directory, `getAgentDir()` (normally `~/.scient-agent/agent`; `SCIENT_AGENT_CONFIG_DIR`, a named profile, or the default-profile `SCIENT_AGENT_DIR` changes it as described below)
 - Claude's active config directory (`~/.claude` by default; `CLAUDE_CONFIG_DIR` overrides it)
 - `~/.codex`
 - `~/.gemini`
@@ -71,7 +71,7 @@ Project-level bases:
 - `<cwd>/.codex`
 - `<cwd>/.gemini`
 
-`CONFIG_DIR_NAME` is `.scient-agent` (`packages/utils/src/dirs.ts`). `SCIENT_AGENT_CONFIG_DIR` changes the Scient Agent user root used by the generic helpers. `SCIENT_AGENT_DIR` is different: for the default profile it changes `getAgentDir()` consumers such as native discovery, settings, and runtime state, but it does **not** change the generic `getConfigDirs()` / `findConfigFile()` Scient Agent base. Named profiles ignore `SCIENT_AGENT_DIR`.
+`CONFIG_DIR_NAME` is `.scient-agent` (`packages/utils/src/dirs.ts`). `SCIENT_AGENT_CONFIG_DIR` changes the Scient Agent user root used by the generic helpers. In the default profile, `SCIENT_AGENT_DIR` replaces the whole agent directory, so it relocates the generic `getConfigDirs()` / `findConfigFile()` Scient Agent user base along with native discovery, settings, and runtime state. Project bases stay `<cwd>/.scient-agent`. Named profiles ignore `SCIENT_AGENT_DIR`.
 
 ## Profiles
 
@@ -231,6 +231,7 @@ Providers are sorted by numeric priority (higher first). Full set:
 - VS Code: `20`
 - agents-md (`AGENTS.md` files) / claude-md (standalone `CLAUDE.md` files): `10`
 - mcp-json / ssh-json / managed-skills (auto-learn): `5`
+- ssh-config (`~/.ssh/config` host aliases): `3`
 - Built-in default rules (`builtin-defaults`): `1`
 
 ```text
@@ -251,6 +252,7 @@ vscode                  priority  20
 agents-md / claude-md   priority  10
 mcp-json / ssh-json /
   managed-skills        priority   5
+ssh-config              priority   3
 builtin-defaults        priority   1
 ```
 

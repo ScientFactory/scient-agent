@@ -65,6 +65,8 @@ describe("sign-in providers", () => {
 		"mistral-vibe-sign-in",
 		"devin-cli",
 		"devin-windsurf",
+		// A Google browser sign-in through the managed Antigravity CLI.
+		"antigravity-cli",
 	];
 	/** Hooks named differently from the entry that uses them. */
 	const HOOK_ENTRY: Record<string, string> = { "mistral-vibe-sign-in": "mistral" };
