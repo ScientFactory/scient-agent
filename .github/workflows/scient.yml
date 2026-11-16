@@ -233,7 +233,7 @@ jobs:
            if: matrix.id == 'darwin-arm64'
            run: |
               bun --cwd=packages/utils test
-              bun --cwd=packages/natives test
+              bun --cwd=packages/natives test --parallel --preload "$GITHUB_WORKSPACE/scripts/scient/macos-spelling-ready.ts"
               bun --cwd=packages/coding-agent test test/scient
               bun --cwd=packages/ai test test/scient
               bun test scripts/scient
