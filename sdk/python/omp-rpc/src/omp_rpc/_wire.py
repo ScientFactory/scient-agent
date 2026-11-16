@@ -1198,6 +1198,8 @@ class CacheWarmingStoppedEvent:
     type: Literal["cache_warming_stopped"] = "cache_warming_stopped"
     reason: str
     """Why warming stopped."""
+    stopped_at: int
+    """Epoch ms when warming stopped, which may be well before a host reads the frame."""
     prompt_cache: PromptCacheEntry | None = None
     """The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change."""
 
@@ -2716,6 +2718,7 @@ def parse_cache_warming_stopped_event(value: object, path: str = "CacheWarmingSt
     required(payload, "type", cast('Decoder[Literal["cache_warming_stopped"]]', literal(frozenset({"cache_warming_stopped"}))), path)
     return CacheWarmingStoppedEvent(
         reason=required(payload, "reason", decode_str, path),
+        stopped_at=required(payload, "stoppedAt", decode_int, path),
         prompt_cache=optional(payload, "promptCache", parse_prompt_cache_entry, path),
     )
 
