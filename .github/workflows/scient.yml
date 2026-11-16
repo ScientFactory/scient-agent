@@ -158,7 +158,7 @@ jobs:
 
          - name: Reuse the native addon for unchanged Rust inputs
            id: native-cache
-           uses: actions/cache@v4
+           uses: actions/cache/restore@v4
            with:
               path: packages/natives/native/*.node
               key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
@@ -174,6 +174,9 @@ jobs:
               env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
               cache-bin: false
               cache-on-failure: true
+              # Saves only from main: per-PR copies of ~900 MB each once ate
+              # most of the 10 GB cache quota. PRs restore main's entry.
+              save-if: ${{ github.ref == 'refs/heads/main' }}
 
          - name: Check the generated commits and types
            if: matrix.id == 'darwin-arm64'
@@ -195,6 +198,15 @@ jobs:
          - name: Build the native addon
            if: ${{ !matrix.x64 && steps.native-cache.outputs.cache-hit != 'true' }}
            run: bun run build:native
+
+         # Saved as its own step, not post-job, so a failed second variant can
+         # never leave a half-built set under the key the next run would hit.
+         - name: Save the native addon for the next run
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           uses: actions/cache/save@v4
+           with:
+              path: packages/natives/native/*.node
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
 
          # Scient's own tests, and the packages whose state layout differs by
          # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).
@@ -269,7 +281,7 @@ jobs:
 
          - name: Reuse the native addon for unchanged Rust inputs
            id: native-cache
-           uses: actions/cache@v4
+           uses: actions/cache/restore@v4
            with:
               path: packages/natives/native/*.node
               key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
@@ -283,6 +295,7 @@ jobs:
               env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
               cache-bin: false
               cache-on-failure: true
+              save-if: ${{ github.ref == 'refs/heads/main' }}
 
          - name: Build the native addon
            if: steps.native-cache.outputs.cache-hit != 'true'
@@ -291,6 +304,13 @@ jobs:
               bun install --frozen-lockfile
               PI_NATIVE_X64_VARIANT=baseline bun run build:native
               PI_NATIVE_X64_VARIANT=modern bun run build:native
+
+         - name: Save the native addon for the next run
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           uses: actions/cache/save@v4
+           with:
+              path: packages/natives/native/*.node
+              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'packages/natives/package.json', 'packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock') }}
 
          - uses: actions/upload-artifact@v4
            with:
