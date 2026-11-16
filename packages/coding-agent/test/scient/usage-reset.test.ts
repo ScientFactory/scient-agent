@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Agent } from "@oh-my-pi/pi-agent-core";
 import { unregisterCustomApis } from "@oh-my-pi/pi-ai/api-registry";
 import * as envApiKey from "@oh-my-pi/pi-ai/env-api-key";
+import * as AIError from "@oh-my-pi/pi-ai/error";
 import { createMockModel } from "@oh-my-pi/pi-ai/providers/mock";
 import { getBundledModel } from "@oh-my-pi/pi-catalog/models";
 import { TempDir } from "@oh-my-pi/pi-utils";
@@ -13,6 +14,7 @@ import type { RpcPromptResultFrame } from "../../src/modes/rpc/rpc-types";
 import { AgentSession } from "../../src/session/agent-session";
 import { AuthStorage } from "../../src/session/auth-storage";
 import { SessionManager } from "../../src/session/session-manager";
+import { usageLimitStatus } from "../../src/scient/usage-reset";
 
 const MOCK_API_SOURCE = "scient-usage-reset-test";
 
@@ -91,11 +93,36 @@ describe("prompt_result reset time of a usage limit", () => {
 		expect(frame.error?.resetAt).toBeLessThanOrEqual(after + 3_600_000);
 	});
 
+	it("reports a long-wait usage limit that came without an HTTP status as a 429 with its reset", async () => {
+		// The text of a real failure: the wait exceeds retry.maxDelayMs, so recovery gives up at once
+		// ("Provider requested 119172000ms wait, exceeds retry.maxDelayMs"). The mock transport, like
+		// some real ones, attaches no HTTP status to the failed message.
+		const before = Date.now();
+		const frame = await promptResultFor(
+			'429 {"type":"error","error":{"type":"rate_limit_error","message":"This request would exceed your account\'s rate limit. Please try again later."}} retry-after-ms=119172000',
+		);
+		const after = Date.now();
+
+		expect(frame.status).toBe("error");
+		expect(frame.error?.httpStatus).toBe(429);
+		expect(frame.error?.kinds).toContain("usage-limit");
+		expect(frame.error?.resetAt).toBeGreaterThanOrEqual(before + 119_172_000);
+		expect(frame.error?.resetAt).toBeLessThanOrEqual(after + 119_172_000);
+	});
+
 	it("leaves the reset out when the provider gave no time", async () => {
 		const frame = await promptResultFor("429 quota exceeded for this account");
 
 		expect(frame.status).toBe("error");
 		expect(frame.error).toBeDefined();
 		expect(frame.error).not.toHaveProperty("resetAt");
+	});
+});
+
+describe("prompt_result status of a usage limit", () => {
+	it("never replaces a status the provider sent", () => {
+		const usageLimit = AIError.create(AIError.Flag.UsageLimit);
+		expect(usageLimitStatus(usageLimit, 402)).toBeUndefined();
+		expect(usageLimitStatus(AIError.create(AIError.Flag.Transient), undefined)).toBeUndefined();
 	});
 });
