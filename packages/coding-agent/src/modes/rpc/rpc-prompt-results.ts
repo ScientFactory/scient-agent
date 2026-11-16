@@ -19,7 +19,7 @@ import { isSessionSettled, type SessionSettleState } from "../../session/session
 import type { RpcScheduledTurnProbe } from "./rpc-session-settle";
 import type { RpcPromptError, RpcPromptResultFrame, RpcPromptStatus } from "./rpc-types";
 // scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
-import { usageResetAt } from "../../scient/usage-reset";
+import { usageLimitStatus, usageResetAt } from "../../scient/usage-reset";
 // scient(SA-USAGE-RESET): end
 // scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
 import { failureKinds } from "../../scient/failure-kind";
@@ -233,6 +233,8 @@ function promptError(message: AssistantMessage): RpcPromptError {
 	// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
 	const resetAt = usageResetAt(message);
 	if (resetAt !== undefined) error.resetAt = resetAt;
+	const usageStatus = usageLimitStatus(errorId, message.errorStatus);
+	if (usageStatus !== undefined) error.httpStatus = usageStatus;
 	// scient(SA-USAGE-RESET): end
 	// scient(SA-FAILURE-KIND): begin - A host reports why a turn failed, in the classifier's words.
 	const kinds = failureKinds(errorId);

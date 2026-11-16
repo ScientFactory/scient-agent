@@ -8,6 +8,7 @@
  * is never reported: a host shows no time rather than a wrong one.
  */
 import type { AssistantMessage, UsageLimitMarkResult } from "@oh-my-pi/pi-ai";
+import * as AIError from "@oh-my-pi/pi-ai/error";
 
 /** Recent resets; a `prompt_result` reads its message's right after recovery records it. */
 const MAX_KEPT = 64;
@@ -46,4 +47,16 @@ export function recordUsageReset(
 /** Epoch ms at which the provider said `message`'s usage limit resets. */
 export function usageResetAt(message: AssistantMessage): number | undefined {
 	return resets.get(messageKey(message));
+}
+
+/**
+ * The HTTP status to report for a usage-limited failure whose provider sent none: 429.
+ *
+ * A host shows its usage-limit state (blocked until the reset) for a 429. Some failures the classifier
+ * reads as a usage limit carry no status: one a transport delivered without its response, or one
+ * that arrived as a stream event after the request was accepted. Reported as 429 they reach the
+ * same state instead of a generic failure. A status the provider sent is never replaced.
+ */
+export function usageLimitStatus(errorId: number, errorStatus: number | undefined): number | undefined {
+	return errorStatus === undefined && AIError.is(errorId, AIError.Flag.UsageLimit) ? 429 : undefined;
 }
