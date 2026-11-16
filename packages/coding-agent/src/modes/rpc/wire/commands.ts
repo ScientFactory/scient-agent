@@ -203,9 +203,23 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	{
 		name: "live_connect",
 		doc: "Start a live voice session whose audio runs on a caller-owned WebRTC peer: send its SDP offer, apply the returned answer.",
-		params: { sdpOffer: "string", "voice?": "string", "instructions?": "string" },
+		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+		params: {
+			sdpOffer: "string",
+			"voice?": "string",
+			"instructions?": "string",
+			"hostDelegation?": "boolean",
+		},
+		// scient(SA-LIVE-HOST-DELEGATION): end
 		result: { voice: "string", sdpAnswer: "string" },
 	},
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+	{
+		name: "live_report",
+		doc: "Report the delegated request's progress, or with `final` its answer, to the live voice session.",
+		params: { text: "string", "final?": "boolean" },
+	},
+	// scient(SA-LIVE-HOST-DELEGATION): end
 	{ name: "live_stop", doc: "Stop the live voice session, if any." },
 	{
 		name: "live_mute",

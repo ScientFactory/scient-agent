@@ -20,6 +20,9 @@ import { OUTPUT_ACTIVE_LEVEL, OutputActivity } from "./output-activity";
 import { type LiveEndpoint, LiveTransport, resolveLiveEndpoint } from "./transport";
 import type { LivePhase } from "@oh-my-pi/pi-tui/apps/live-visualizer";
 import { DEFAULT_LIVE_VOICE } from "./voices";
+// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+import { HostTurnGate, type LiveDelegate } from "../scient/live-host-delegation";
+// scient(SA-LIVE-HOST-DELEGATION): end
 
 const MIN_BARGE_IN_LEVEL = 0.04;
 const OUTPUT_ECHO_RATIO = 0.65;
@@ -69,6 +72,10 @@ export interface LiveSessionControllerOptions {
 	 * phase is `muted`. Levels are not reported in this mode.
 	 */
 	sdpOffer?: string;
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	/** Hands each spoken request to the host instead of starting a turn in `session`. */
+	delegate?: LiveDelegate;
+	// scient(SA-LIVE-HOST-DELEGATION): end
 }
 
 function clampLevel(level: number): number {
@@ -106,6 +113,10 @@ export class LiveSessionController {
 	readonly #voice: string;
 	readonly #instructionsTemplate: string;
 	readonly #sdpOffer: string | undefined;
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+	readonly #delegate: LiveDelegate | undefined;
+	readonly #hostTurn = new HostTurnGate();
+	// scient(SA-LIVE-HOST-DELEGATION): end
 
 	#transport: LiveTransport | undefined;
 	/** The custom server set by `live.endpoint`, resolved at start; unset uses Codex. */
@@ -147,6 +158,9 @@ export class LiveSessionController {
 		this.#voice = options.voice?.trim() || DEFAULT_LIVE_VOICE;
 		this.#instructionsTemplate = options.instructions ?? liveInstructionsTemplate;
 		this.#sdpOffer = options.sdpOffer;
+		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+		this.#delegate = options.delegate;
+		// scient(SA-LIVE-HOST-DELEGATION): end
 	}
 
 	/** Current realtime call phase. */
@@ -244,6 +258,25 @@ export class LiveSessionController {
 			throw error;
 		}
 	}
+	// scient(SA-LIVE-HOST-DELEGATION): begin - A host that runs the delegated turn reports its progress and answer.
+
+	/**
+	 * Gives the voice model the host's account of the delegated request's turn: its progress, or
+	 * with `final` its answer, which ends the delegation. Without an active delegation it is dropped.
+	 */
+	reportHostWork(text: string, final: boolean): void {
+		const delegationId = this.#activeDelegationId;
+		const report = text.trim();
+		if (!delegationId || !report) return;
+		const content = final ? prompt.render(agentFinalMessageTemplate, { message: report }) : report;
+		for (const chunk of chunkLiveContext(content)) {
+			this.#queueSend(buildDelegationContextAppend(delegationId, chunk, final ? undefined : "commentary"));
+		}
+		if (!final) return;
+		this.#activeDelegationId = undefined;
+		this.#refreshAudioPhase();
+	}
+	// scient(SA-LIVE-HOST-DELEGATION): end
 
 	/** Toggles microphone capture while leaving output and the session connected. */
 	toggleMute(): void {
@@ -363,6 +396,13 @@ export class LiveSessionController {
 		if (!request) return;
 		this.#activeDelegationId = event.item.id;
 		this.#refreshAudioPhase();
+		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+		if (this.#delegate) {
+			this.#hostTurn.expect(request);
+			this.#delegate(request);
+			return;
+		}
+		// scient(SA-LIVE-HOST-DELEGATION): end
 		void this.#session
 			.sendCustomMessage(
 				{
@@ -386,6 +426,9 @@ export class LiveSessionController {
 
 	#handleSessionEvent(event: AgentSessionEvent): void {
 		if (event.type === "model_changed") this.#assertProviderAllowed();
+		// scient(SA-LIVE-HOST-DELEGATION): begin - A host that owns its turns sends spoken requests itself.
+		if (this.#hostTurn.blocks(event)) return;
+		// scient(SA-LIVE-HOST-DELEGATION): end
 		if (event.type === "message_end" && event.message.role === "assistant") {
 			if (event.message.stopReason === "toolUse") this.#appendProgress(event.message);
 			return;
