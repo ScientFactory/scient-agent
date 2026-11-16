@@ -21,6 +21,15 @@ import * as path from "node:path";
 import { isRecord, logger, Snowflake, untilAborted } from "@oh-my-pi/pi-utils";
 import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
 import { JsRuntime } from "../../../eval/js/shared/runtime";
+// scient(SA-BROWSER-DEADLINE): begin - Native target resolution shares one deadline across every await.
+import {
+	assertNativeTargetDeadline,
+	isQuickReadDeadline,
+	nativeTargetRequestTimeout,
+	setNativeTargetTimeout,
+	withNativeTargetDeadline,
+} from "../../../scient/browser-action-deadline";
+// scient(SA-BROWSER-DEADLINE): end
 import { resizeImage } from "../../../utils/image-resize";
 import { resolveToCwd } from "../../path-utils";
 import { ToolAbortError, throwIfAborted } from "../../tool-errors";
@@ -845,8 +854,17 @@ export class TernTab implements InProcessRunTab {
 		if (this.#rendererFailure) throw this.#rendererFailure;
 		if (this.#gone) throw this.#gone.error;
 		try {
-			return await this.#blockOp(op, fields, timeoutMs);
+			// scient(SA-BROWSER-DEADLINE): begin - A late reply cannot authorize another read or input.
+			const result = await this.#blockOp(op, fields, timeoutMs);
+			assertNativeTargetDeadline(this.#readScope.getStore());
+			return result;
+			// scient(SA-BROWSER-DEADLINE): end
 		} catch (error) {
+			// scient(SA-BROWSER-DEADLINE): begin - An expired action is not a new transport timeout.
+			if (error instanceof TernError && error.kind === "timeout") {
+				assertNativeTargetDeadline(this.#readScope.getStore());
+			}
+			// scient(SA-BROWSER-DEADLINE): end
 			throw await this.#blockFailure(await this.#unresponsiveFailure(error));
 		}
 	}
@@ -921,7 +939,13 @@ export class TernTab implements InProcessRunTab {
 		const scope = this.#readScope.getStore();
 		const remaining = scope ? Math.max(1, scope.deadline - Date.now()) : Infinity;
 		const options = {
-			timeoutMs: Math.min(timeoutMs ?? Infinity, resolveOpTimeouts(this.#cellMs).budgetBound, remaining),
+			// scient(SA-BROWSER-DEADLINE): begin - The native target signal, not a second 1 ms timer, owns expiry.
+			timeoutMs: nativeTargetRequestTimeout(
+				scope,
+				timeoutMs,
+				Math.min(timeoutMs ?? Infinity, resolveOpTimeouts(this.#cellMs).budgetBound, remaining),
+			),
+			// scient(SA-BROWSER-DEADLINE): end
 			signal,
 		};
 		// A quick read fails fast on a page whose web process stopped answering, where the host can tell.
@@ -929,7 +953,9 @@ export class TernTab implements InProcessRunTab {
 			op,
 			block: this.block,
 			...fields,
-			...(scope && this.#client.supports("responsive") ? { failUnresponsive: true } : {}),
+			// scient(SA-BROWSER-DEADLINE): begin - Native action scoping must not opt into quick-read-only backend flags.
+			...(isQuickReadDeadline(scope) && this.#client.supports("responsive") ? { failUnresponsive: true } : {}),
+			// scient(SA-BROWSER-DEADLINE): end
 		};
 		const dialogMode = PAGE_OP_DIALOG[op];
 		if (!dialogMode) return await this.#client.request(request, options);
@@ -1943,13 +1969,7 @@ export class TernTab implements InProcessRunTab {
 		return ref === undefined ? null : { ref, count: total };
 	}
 
-	/**
-	 * {@link #target} on native reads: find the element, then `resolve` it
-	 * until it is actionable. An element out of view is brought in with the
-	 * wheel the engine names (a bounded number of times), a covered one gets
-	 * the one re-centring wheel the engine offers. `enabled` also refuses a
-	 * disabled element for an action the engine does not check it for.
-	 */
+	// scient(SA-BROWSER-DEADLINE): begin - Bound the whole native resolution, not individual polling sleeps.
 	async #resolveTarget(
 		label: string,
 		spec: TernSelector,
@@ -1962,12 +1982,43 @@ export class TernTab implements InProcessRunTab {
 			explicitTimeout === undefined
 				? resolveOpTimeouts(this.#cellMs).actionOpMs
 				: resolveWaitTimeout(this.#cellMs, explicitTimeout);
+		return await withNativeTargetDeadline(this.#readScope, label, timeoutMs, this.#signal, () =>
+			this.#resolveTargetWithinDeadline(label, spec, action, frame, timeoutMs, explicitTimeout, enabled),
+		);
+	}
+
+	// scient(SA-BROWSER-DEADLINE): end
+	/**
+	 * {@link #target} on native reads: find the element, then `resolve` it
+	 * until it is actionable. An element out of view is brought in with the
+	 * wheel the engine names (a bounded number of times), a covered one gets
+	 * the one re-centring wheel the engine offers. `enabled` also refuses a
+	 * disabled element for an action the engine does not check it for.
+	 */
+	// scient(SA-BROWSER-DEADLINE): begin - The scoped entry point supplies the budget once.
+	async #resolveTargetWithinDeadline(
+		label: string,
+		spec: TernSelector,
+		action: TernTargetAction,
+		frame: FramePath,
+		timeoutMs: number,
+		explicitTimeout?: number,
+		enabled = false,
+	): Promise<ResolvedTarget> {
+		// scient(SA-BROWSER-DEADLINE): end
 		const resolveAction = RESOLVE_ACTIONS[action];
+		// scient(SA-BROWSER-DEADLINE): begin - The enclosing scope computes the action budget once.
+		// scient(SA-BROWSER-DEADLINE): end
 		const started = Date.now();
 		let delay = 30;
 		let wheels = 0;
 		let recentred = false;
 		let last: TargetFailure;
+		// scient(SA-BROWSER-DEADLINE): begin - Preserve the last recorded reason when a pending read reaches the deadline.
+		setNativeTargetTimeout(this.#readScope.getStore(), elapsed =>
+			typeof last === "undefined" ? undefined : targetTimeout(label, elapsed, last),
+		);
+		// scient(SA-BROWSER-DEADLINE): end
 		for (;;) {
 			const found = await this.#locate(spec, frame);
 			if (!found) {
@@ -2029,9 +2080,6 @@ export class TernTab implements InProcessRunTab {
 			if (elapsed >= timeoutMs) break;
 			if (last.reason === "missing" && explicitTimeout === undefined && elapsed >= ZERO_MATCH_FAIL_FAST_MS) break;
 			await untilAborted(this.#signal, () => Bun.sleep(delay));
-			// scient(SA-BROWSER-DEADLINE): begin - A retry sleep can outlive the action budget.
-			if (Date.now() - started >= timeoutMs) break;
-			// scient(SA-BROWSER-DEADLINE): end
 			delay = Math.min(250, Math.round(delay * 1.5));
 		}
 		throw targetTimeout(label, Date.now() - started, last);
