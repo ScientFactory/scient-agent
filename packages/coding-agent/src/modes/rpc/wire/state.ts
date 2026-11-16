@@ -20,6 +20,13 @@ export const stateDefs = {
 		"`set_event_filter` projection: `delta` replaces the accumulated snapshots with the block a start/end event touches.",
 	),
 	TodoStatus: "'pending' | 'in_progress' | 'completed' | 'abandoned'",
+	// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+	PlanOp: "'get' | 'enter' | 'exit'",
+	PlanResult: {
+		enabled: doc("boolean", "Plan mode is on: the agent plans and changes nothing until a plan is approved."),
+		"planFilePath?": doc("string", "The plan file the agent drafts, while plan mode is on."),
+	},
+	// scient(SA-PLAN-MODE): end
 	GoalOp: "'get' | 'create' | 'resume' | 'pause' | 'drop'",
 	GoalStatus: "'active' | 'paused' | 'budget-limited' | 'complete' | 'dropped'",
 	SlashCommandSource: "'builtin' | 'skill' | 'extension' | 'custom' | 'mcp_prompt' | 'file'",

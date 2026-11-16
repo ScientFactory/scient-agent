@@ -36,6 +36,9 @@ import type { LivePhase } from "@oh-my-pi/pi-tui/apps/live-visualizer";
 import type { RpcMessagesPage } from "./rpc-messages";
 import type { GoalModeState } from "../../goals/state";
 import type { RpcGoalOp, RpcGoalResult } from "./rpc-goal";
+// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+import type { RpcPlanOp, RpcPlanResult } from "../../scient/rpc-plan";
+// scient(SA-PLAN-MODE): end
 import type { BtwHistoryRecord } from "../../session/btw-history";
 // scient(SA-AUTH): begin - A host sees and signs out stored sign-ins.
 import type { RpcLoginProvider } from "../../scient/sign-in-providers";
@@ -186,6 +189,9 @@ export type RpcCommand =
 	// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
 	| { id?: string; type: "predict_next_message" }
 	// scient(SA-NEXT-MESSAGE): end
+	// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+	| { id?: string; type: "plan"; op: RpcPlanOp }
+	// scient(SA-PLAN-MODE): end
 	| {
 			id?: string;
 			type: "predict_word_feedback";
@@ -365,6 +371,9 @@ export type RpcLiveFrame =
 	| RpcLiveEndFrame
 	| RpcLiveDelegationFrame;
 // scient(SA-LIVE-HOST-DELEGATION): end
+// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+export type { RpcPlanProposedFrame, RpcPlanUpdatedFrame } from "../../scient/rpc-plan";
+// scient(SA-PLAN-MODE): end
 
 /** Draft-only dictation frames bypass the session event filter. */
 export interface RpcDictationStateFrame {
@@ -738,6 +747,9 @@ export type RpcResponse =
 	// scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
 	| { id?: string; type: "response"; command: "predict_next_message"; success: true; data: { text: string | null } }
 	// scient(SA-NEXT-MESSAGE): end
+	// scient(SA-PLAN-MODE): begin - A host plans with the agent before it acts, and approves the plan.
+	| { id?: string; type: "response"; command: "plan"; success: true; data: RpcPlanResult }
+	// scient(SA-PLAN-MODE): end
 
 	// Side questions (/btw)
 	| { id?: string; type: "response"; command: "btw"; success: true; data: { record: RpcBtwHistoryRecord } }

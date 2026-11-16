@@ -458,6 +458,23 @@
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/browser-action-deadline.test.ts test/tools/browser-tern-dom.test.ts"
 			]
+		},
+		"SA-PLAN-MODE": {
+			"status": "active",
+			"contract": "An RPC host can plan with the agent: the plan command (op get, enter or exit) turns plan mode on or off. In plan mode the agent changes nothing but its plan file until it proposes the plan through xd://propose. The proposal sends a plan_proposed frame (title, planFilePath, markdown), then asks the host to approve it with a select request while the tool call waits. Only an explicit approve leaves plan mode, and the same run goes on to carry out the plan; Refine asks the host what to change (an input request), and that answer, like any typed answer, reaches the model as feedback; planning goes on. An answer that arrives after plan mode was left never approves, and a new, switched or forked conversation leaves plan mode. Each time plan mode turns on or off, a plan_updated frame ({ enabled, planFilePath? }) tells the host. Planning is refused while a goal is set. Hosts that do not send plan are unaffected.",
+			"owned": [
+				"packages/coding-agent/src/scient/rpc-plan.ts",
+				"packages/coding-agent/test/scient/rpc-plan.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/modes/rpc/rpc-mode.ts",
+				"packages/coding-agent/src/modes/rpc/rpc-types.ts",
+				"packages/coding-agent/src/modes/rpc/wire/commands.ts",
+				"packages/coding-agent/src/modes/rpc/wire/frames.ts",
+				"packages/coding-agent/src/modes/rpc/wire/index.ts",
+				"packages/coding-agent/src/modes/rpc/wire/state.ts"
+			],
+			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-plan.test.ts"]
 		}
 	}
 }
