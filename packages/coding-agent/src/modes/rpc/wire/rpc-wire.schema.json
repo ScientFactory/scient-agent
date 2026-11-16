@@ -4287,6 +4287,10 @@
 					"type": "string",
 					"description": "Why warming stopped."
 				},
+				"stoppedAt": {
+					"type": "integer",
+					"description": "Epoch ms when warming stopped, which may be well before a host reads the frame."
+				},
 				"promptCache": {
 					"$ref": "#/$defs/PromptCacheEntry",
 					"description": "The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change."
@@ -4294,7 +4298,8 @@
 			},
 			"required": [
 				"type",
-				"reason"
+				"reason",
+				"stoppedAt"
 			],
 			"description": "Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm."
 		},

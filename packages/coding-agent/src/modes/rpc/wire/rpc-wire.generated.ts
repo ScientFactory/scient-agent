@@ -1001,6 +1001,8 @@ export interface CacheWarmingStoppedEvent {
 	type: "cache_warming_stopped";
 	/** Why warming stopped. */
 	reason: string;
+	/** Epoch ms when warming stopped, which may be well before a host reads the frame. */
+	stoppedAt: number;
 	/** The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change. */
 	promptCache?: PromptCacheEntry;
 }

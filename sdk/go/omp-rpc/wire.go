@@ -4338,6 +4338,8 @@ func (v CacheWarmingEndEvent) MarshalJSON() ([]byte, error) {
 type CacheWarmingStoppedEvent struct {
 	// Why warming stopped.
 	Reason string `json:"reason"`
+	// Epoch ms when warming stopped, which may be well before a host reads the frame.
+	StoppedAt int64 `json:"stoppedAt"`
 	// The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.
 	PromptCache *PromptCacheEntry `json:"promptCache,omitempty"`
 }
@@ -4351,6 +4353,7 @@ func (v *CacheWarmingStoppedEvent) decodeFrom(raw map[string]json.RawMessage) er
 	d := fieldDecoder{raw: raw, owner: "CacheWarmingStoppedEvent"}
 	d.constant("type", "cache_warming_stopped")
 	d.required("reason", &out.Reason)
+	d.required("stoppedAt", &out.StoppedAt)
 	d.optional("promptCache", &out.PromptCache)
 	if d.err != nil {
 		return d.err

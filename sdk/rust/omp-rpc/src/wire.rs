@@ -3951,6 +3951,9 @@ pub struct CacheWarmingEndEvent {
 pub struct CacheWarmingStoppedEvent {
 	/// Why warming stopped.
 	pub reason: String,
+	/// Epoch ms when warming stopped, which may be well before a host reads the frame.
+	#[serde(rename = "stoppedAt")]
+	pub stopped_at: i64,
 	/// The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.
 	#[serde(rename = "promptCache", default, skip_serializing_if = "Option::is_none")]
 	pub prompt_cache: Option<PromptCacheEntry>,
