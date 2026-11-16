@@ -154,7 +154,7 @@ describe("Muse Code provider", () => {
 						isError: false,
 						timestamp: 3,
 					},
-					{ role: "user", content: "search for omp", timestamp: 4 },
+					{ role: "user", content: "search for Scient Agent", timestamp: 4 },
 				],
 			};
 			const searchName = provider === "muse-code" ? "_web_search" : "web_search";

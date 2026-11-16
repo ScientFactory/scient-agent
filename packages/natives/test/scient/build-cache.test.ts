@@ -65,7 +65,11 @@ describe("cleanupStaleNativeBuilds", () => {
 });
 
 describe("withBuildCache", () => {
-	const ADDONS = ["pi_natives.linux-x64-modern.node", "pi_natives.linux-x64-baseline.node", "pi_natives.linux-x64.node"];
+	const ADDONS = [
+		"pi_natives.linux-x64-modern.node",
+		"pi_natives.linux-x64-baseline.node",
+		"pi_natives.linux-x64.node",
+	];
 	const context = (overrides: { isCompiledBinary?: boolean } = {}) => ({
 		isCompiledBinary: true,
 		platformTag: "linux-x64",

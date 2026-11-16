@@ -79,7 +79,7 @@ async function versionFolder(engineDir: string, version: string): Promise<string
 }
 
 // ABKit ships a `.zip` on Windows, which this tar fixture does not stand in for.
-describe.skipIf(process.platform === "win32")("omp's WebKit engine install", () => {
+describe.skipIf(process.platform === "win32")("Scient Agent's WebKit engine install", () => {
 	it("replaces a partial engine directory with the archive's abkit/ and downloads nothing once installed", async () => {
 		const bytes = await archive({ "abkit/ABHost": "#!/bin/sh\n", "abkit/lib/libengine.so": "engine" });
 		const requests: string[] = [];
@@ -153,7 +153,7 @@ describe.skipIf(process.platform === "win32")("omp's WebKit engine install", () 
 		}
 	});
 
-	it("runs an installed engine at once while another omp holds the install lock or the build service is down", async () => {
+	it("runs an installed engine at once while another Scient Agent holds the install lock or the build service is down", async () => {
 		const requests: string[] = [];
 		const fetchImpl = await buildService(await archive({ "abkit/ABHost": "#!/bin/sh\n" }), requests);
 		const busyDir = path.join(temp.path(), "busy", "abkit");

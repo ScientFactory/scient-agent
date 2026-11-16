@@ -102,12 +102,12 @@ function stubChromium() {
 	return preflight;
 }
 
-describe("browser.open on omp's WebKit host", () => {
+describe("browser.open on Scient Agent's WebKit host", () => {
 	it("opens each tab as one block of a single host and seeds its identity once, per session", async () => {
 		const host = await useFakeHost();
 		const sessionA = makeSession("session-a");
 		const text = await open(sessionA, "wk-a1");
-		expect(text).toStartWith('Opened tab "wk-a1" on omp\'s headless WebKit browser');
+		expect(text).toStartWith('Opened tab "wk-a1" on Scient Agent\'s headless WebKit browser');
 		// The host reports its views as not shown; that is not the Tern "not on screen" situation.
 		expect(text).not.toContain("Not on screen");
 		await open(sessionA, "wk-a2");
@@ -201,15 +201,15 @@ describe("browser.open on omp's WebKit host", () => {
 		}
 	});
 
-	it("opens omp's WebKit browser when Tern, chosen automatically, cannot show one", async () => {
+	it("opens Scient Agent's WebKit browser when Tern, chosen automatically, cannot show one", async () => {
 		const host = await useFakeHost();
 		// A Tern pane whose daemon is gone.
 		process.env.TERN_PANE_SOCKET = `${host.dir}/no-tern.sock`;
 		process.env.TERN_PANE = "3";
 		const text = await open(makeSession("session-tern"), "wk-after-tern");
-		expect(text).toStartWith('Opened tab "wk-after-tern" on omp\'s headless WebKit browser');
+		expect(text).toStartWith('Opened tab "wk-after-tern" on Scient Agent\'s headless WebKit browser');
 		expect(text).toContain("Tern cannot show a browser here");
-		expect(text).toContain("opened omp's WebKit browser instead");
+		expect(text).toContain("opened Scient Agent's WebKit browser instead");
 	});
 
 	it("goes on to Chromium when neither Tern nor the WebKit host can open the tab", async () => {
@@ -221,7 +221,9 @@ describe("browser.open on omp's WebKit host", () => {
 		expect(text).toStartWith('Opened tab "wk-chain" on headless browser (hidden)');
 		// Both notes say where the tab ended up, not where the first fallback meant to go.
 		expect(text).toMatch(/Tern cannot show a browser here \(.*\); opened Chromium instead/);
-		expect(text).toMatch(/omp's WebKit browser could not start \(.*exited with code 3.*\); opened Chromium instead/);
+		expect(text).toMatch(
+			/Scient Agent's WebKit browser could not start \(.*exited with code 3.*\); opened Chromium instead/,
+		);
 	});
 
 	it("reports a failed navigation as the page's failure instead of switching browsers", async () => {

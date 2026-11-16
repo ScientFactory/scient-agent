@@ -777,7 +777,7 @@ describe("native transcript", () => {
 			}
 		});
 
-		it("strips control sequences from omp's own summary on a plain compact row", () => {
+		it("strips control sequences from Scient Agent's own summary on a plain compact row", () => {
 			// Regression guard: a bash command's escape sequence reaching the terminal through the compact head.
 			setTranscriptPresenters([block => (block.type === "toolCall" ? "compact" : undefined)]);
 			const tool = new ToolExecutionComponent("bash", { command: "echo \x1b[?1049hboom\tx" }, {}, undefined, ui);

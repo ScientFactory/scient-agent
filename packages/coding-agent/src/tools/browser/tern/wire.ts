@@ -283,7 +283,7 @@ class TernSocketTransport implements TernTransport {
 	readonly product = "Tern";
 	readonly waitsForEvents = false;
 	readonly peer: string;
-	readonly greetingHint = "a Tern without omp's JSON protocol cannot read its hello (update Tern)";
+	readonly greetingHint = "a Tern without Scient Agent's JSON protocol cannot read its hello (update Tern)";
 	readonly #socketPath: string;
 	#socket: net.Socket | undefined;
 

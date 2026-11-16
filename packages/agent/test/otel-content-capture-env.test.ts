@@ -64,7 +64,7 @@ async function probeContentCapture(agentEnv: string, shellEnv: Record<string, st
 	return JSON.parse(stdout) as { contentCapture: string; processEnv: string | null };
 }
 
-describe("content capture from OMP's own .env", () => {
+describe("content capture from Scient Agent's own .env", () => {
 	it.skipIf(process.platform === "win32")(
 		"applies an agent .env value without placing it in process.env",
 		async () => {

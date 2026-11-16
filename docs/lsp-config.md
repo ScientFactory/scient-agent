@@ -1,6 +1,6 @@
-# LSP configuration in OMP
+# LSP configuration in Scient Agent
 
-This guide explains how to configure language servers for the OMP coding agent.
+This guide explains how to configure language servers for the Scient Agent coding agent.
 
 Source of truth in code:
 
@@ -10,7 +10,7 @@ Source of truth in code:
 
 ## Auto-detection
 
-OMP starts from the built-in server definitions, applies config overrides, then keeps enabled servers that meet both conditions:
+Scient Agent starts from the built-in server definitions, applies config overrides, then keeps enabled servers that meet both conditions:
 
 1. The current working directory contains at least one of the server's `rootMarkers`.
 2. The server binary is available — checked in supported project-local bin directories first (for example `node_modules/.bin/`, Python virtual environments, Ruby binstubs, and project `bin/` for Go), then `$PATH`.
@@ -19,7 +19,7 @@ Root-marker detection at startup is cwd-only; it does not search parent director
 
 ## Config file locations
 
-OMP merges LSP config from multiple sources, lowest to highest precedence:
+Scient Agent merges LSP config from multiple sources, lowest to highest precedence:
 
 | Precedence | Location                                                                                                     |
 | ---------: | ------------------------------------------------------------------------------------------------------------ |
@@ -87,7 +87,7 @@ Do not mix wrapped and flat server entries: when `servers` is an object, sibling
 | `disabled`              | `boolean`  |                        no | Set `true` to disable this server                                                                                                                        |
 | `warmupTimeoutMs`       | `number`   |                        no | Warmup initialize timeout in milliseconds (default 5000; built-in marksman uses 2000)                                                                    |
 | `isLinter`              | `boolean`  |                        no | Dedicated linter/formatter: fallback for single-server actions; `rename_file` queries all matching LSP servers; preferred for `formatOnWrite`            |
-| `watchFiles`            | `boolean`  |                        no | Advertise `workspace/didChangeWatchedFiles` dynamic registration: omp watches the files the server registers and the server runs no watcher of its own. On by default; set `false` to keep a server's own watcher. A shared (mux) server keeps the setting of the session that started it; sessions that later reuse it get its watching either way |
+| `watchFiles`            | `boolean`  |                        no | Advertise `workspace/didChangeWatchedFiles` dynamic registration: Scient Agent watches the files the server registers and the server runs no watcher of its own. On by default; set `false` to keep a server's own watcher. A shared (mux) server keeps the setting of the session that started it; sessions that later reuse it get its watching either way |
 | `capabilities`          | `object`   |                        no | Opt-in server-specific features; see [Capabilities](#capabilities)                                                                                       |
 | `workspaceReadyTimings` | `object`   |                        no | Advanced rust-analyzer workspace-readiness timing overrides; see below                                                                                   |
 
@@ -97,7 +97,7 @@ For plugin-compatible definitions, `initializationOptions` is accepted when `ini
 
 ### Capabilities
 
-The `capabilities` object enables optional server-specific features that OMP supports on a per-server basis:
+The `capabilities` object enables optional server-specific features that Scient Agent supports on a per-server basis:
 
 ```json
 {

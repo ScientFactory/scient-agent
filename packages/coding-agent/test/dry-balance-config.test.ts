@@ -5,7 +5,7 @@ import { TempDir } from "@oh-my-pi/pi-utils";
 
 const cliEntry = path.join(import.meta.dir, "..", "src", "cli.ts");
 
-test("omp dry-balance routes by account policies from a --config overlay", async () => {
+test("scient-agent dry-balance routes by account policies from a --config overlay", async () => {
 	const agentDir = TempDir.createSync("@omp-dry-balance-config-");
 	try {
 		await Bun.write(

@@ -38,7 +38,7 @@ function session(settings: Record<string, unknown> = {}): ToolSession {
 	};
 }
 
-describe("resolveBrowserKind with omp's WebKit host", () => {
+describe("resolveBrowserKind with Scient Agent's WebKit host", () => {
 	it("defaults to the WebKit host found through the env override or the path setting", () => {
 		const webkit: WebKitKind = { kind: "webkit", path: executable };
 		expect(resolveBrowserKind({ action: "open" }, session(), { PI_BROWSER_WEBKIT_PATH: engineDir })).toEqual(webkit);
@@ -136,10 +136,10 @@ describe("resolveBrowserKind with omp's WebKit host", () => {
 
 		// Required and unavailable is an error, never a quiet Chromium.
 		expect(() => resolveBrowserKind(required, session(), { PI_BROWSER_WEBKIT_PATH: emptyDir })).toThrow(
-			/app: "webkit" requires omp's WebKit engine/,
+			/app: "webkit" requires Scient Agent's WebKit engine/,
 		);
 		expect(() => resolveBrowserKind(required, session(), { ...env, PI_BROWSER_WEBKIT: "0" })).toThrow(
-			/app: "webkit" requires omp's WebKit engine/,
+			/app: "webkit" requires Scient Agent's WebKit engine/,
 		);
 		// Nothing an open asks for sends a required open elsewhere: a window it cannot show fails when it is shown.
 		expect(resolveBrowserKind({ ...required, headed: true }, session(), env).kind).toBe("webkit");

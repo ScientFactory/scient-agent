@@ -45,7 +45,7 @@ async function omp(...argv: string[]): Promise<string> {
 	try {
 		await new Plugin(argv, CLI_CONFIG).run();
 	} catch (err) {
-		throw new Error(`omp plugin ${argv.join(" ")} failed: ${err}\n${stderr.join("\n")}`);
+		throw new Error(`scient-agent plugin ${argv.join(" ")} failed: ${err}\n${stderr.join("\n")}`);
 	}
 	return stdout.join("\n");
 }

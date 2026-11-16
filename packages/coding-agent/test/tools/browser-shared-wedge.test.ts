@@ -292,7 +292,7 @@ describe("browser cleanup — timed-out target close in a shared browser", () =>
 
 		await expect(
 			runInTab("logos-b2b", { code: "await wait(60_000);", timeoutMs: 20, session: makeSession() }),
-		).rejects.toThrow('hung past its 20ms budget, so omp released tab "logos-b2b"');
+		).rejects.toThrow('hung past its 20ms budget, so Scient Agent released tab "logos-b2b"');
 
 		expect(getTabsMapForTest().has("logos-b2b")).toBe(false);
 		// The next call names the kill once, without the advice the failed call already gave.

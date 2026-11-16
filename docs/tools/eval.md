@@ -55,7 +55,7 @@ Later cells reuse its definitions. Calling `%load` again executes the current fi
 
 Python dependencies install with `%pip install pillow`: the runner's pip magic runs `python -m pip` for the kernel's own interpreter (in an interpreter without pip, such as a `uv venv` env, it first installs pip with `ensurepip`, or with `uv` when that fails and `uv` is on `PATH`), pauses the cell watchdog while it runs, and keeps kernel variables. A missing-module error reminds that distribution names can differ from import names (`PIL` belongs to `pillow`).
 
-JavaScript dependencies install with `%bun add csv-parse` into an OMP-managed package environment shared by sessions in the same project; each worker keeps its own variables. Installation does not restart the worker; already imported modules stay cached until an explicit reset. Lifecycle scripts are disabled; packages needing native builds/postinstall must be prepared explicitly. `%environment project` selects the repository itself for package/lockfile changes; `%environment managed` returns to OMP-managed dependencies. The selection persists for later calls through that eval tool.
+JavaScript dependencies install with `%bun add csv-parse` into a Scient Agent-managed package environment shared by sessions in the same project; each worker keeps its own variables. Installation does not restart the worker; already imported modules stay cached until an explicit reset. Lifecycle scripts are disabled; packages needing native builds/postinstall must be prepared explicitly. `%environment project` selects the repository itself for package/lockfile changes; `%environment managed` returns to Scient Agent-managed dependencies. The selection persists for later calls through that eval tool.
 
 Percent commands are standalone cells, not extra tool arguments; quote requirements containing spaces.
 
@@ -138,7 +138,7 @@ With `eval.autoBackground.enabled` (default `false`), a cell that outlives `eval
 
 - Retained kernels are keyed by `python:${sessionId}`, normalized cwd, and interpreter. `python.kernelMode="per-call"` instead creates and shuts down a fresh kernel for each invocation.
 - The runner uses one persistent asyncio event loop, so top-level `await` works; `asyncio.run(...)` is invalid there.
-- The runner replaces `builtins.print` for stdout: printed images (omp image dicts, matplotlib figures, PIL images, `_repr_png_`/`_repr_jpeg_` objects) attach as images, and DataFrames/Series, Markdown objects, and large dicts/lists/tuples add views. A non-`None` trailing expression prints its `repr` the same way.
+- The runner replaces `builtins.print` for stdout: printed images (Scient Agent image dicts, matplotlib figures, PIL images, `_repr_png_`/`_repr_jpeg_` objects) attach as images, and DataFrames/Series, Markdown objects, and large dicts/lists/tuples add views. A non-`None` trailing expression prints its `repr` the same way.
 - Interactive stdin is rejected with `Kernel requested stdin; interactive input is not supported.`
 - Synchronous blocks use the default executor with copied ContextVars; Python bytecode still contends on the GIL.
 
@@ -187,7 +187,7 @@ console.log(page.next_cursor);
 ```
 
 Python callers use `result["details"].get("structuredContent")`. The property is
-absent when the server supplies no structured result; OMP does not infer it from
+absent when the server supplies no structured result; Scient Agent does not infer it from
 JSON-looking text. Error results can also carry structured data, so check
 `hasError` before treating a payload as a successful result.
 
@@ -266,7 +266,7 @@ With `eval.tools.enabled` (default on), a cell can turn a function into a tool o
 - Eval subagent spawning obeys `task.maxRecursionDepth` (default `2`; negative values allow unlimited depth). Each `workpool()` caps its own live workers at `task.maxConcurrency` (default 32, `0` unbounded). `agent()` takes no `task.maxConcurrency` slot: every handle is a running background job counted against the session-wide `async.maxJobs` cap (default and maximum 100), which it shares with every other background job in the session, including async `bash`, async `task` spawns, `workpool()` pools and nested subagents' jobs. `agent()` fails with `Background job limit reached` once that cap is full. Completion/judgment requests have their own fixed 32-request cap.
 - Malformed params are schema errors; unavailable/disabled backends and missing session are `ToolError`s.
 - Runtime exceptions become backend output with nonzero exit. Interactive stdin is an error. Output truncation does not fail the call.
-- An uncaught JavaScript error prints its message and the frames of the cell, of functions it sent to a page or worker, and of modules it imported; frames in omp's install tree outside the cell's working directory, installed `@oh-my-pi` packages and engine internals are replaced by one line counting them. Project dependencies under the cell's working directory stay visible even with a project-local omp install, including dependencies also used by omp: a shared dependency path does not identify who imported it. The error's `stack` keeps every frame, so `catch (e) { print(e.stack) }` shows them.
+- An uncaught JavaScript error prints its message and the frames of the cell, of functions it sent to a page or worker, and of modules it imported; frames in Scient Agent's install tree outside the cell's working directory, installed `@oh-my-pi` packages and engine internals are replaced by one line counting them. Project dependencies under the cell's working directory stay visible even with a project-local scient-agent install, including dependencies also used by omp: a shared dependency path does not identify who imported it. The error's `stack` keeps every frame, so `catch (e) { print(e.stack) }` shows them.
 - Unhandled JavaScript promise rejections fail the cell while it is running. A rejection attributed to a finished cell keeps the kernel state and appears once at the start of the next cell's output, with its originating cell and error stack; bridge-call errors include the tool name or prelude action (for example, `browser.call`). The next cell shows at most ten late errors and counts any additional rejections.
 - A dead retained managed kernel may be replaced and the invocation retried once by its executor.
 

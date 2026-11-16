@@ -1,7 +1,7 @@
 IDA Pro (idalib) databases: lifecycle, structured edits, and Python `exec` inside the database.
 
 <instruction>
-- Each open DB runs as an `omp.ida.<id>` daemon in the project's `omp ps`, shared by every agent, subagent, and omp process in the project.
+- Each open DB runs as an `omp.ida.<id>` daemon in the project's `scient-agent ps`, shared by every agent, subagent, and agent process in the project.
 - DBs survive compaction. `list` shows them.
 - At most `ida.maxOpen` (default 4) stay open:
   - opening another saves and closes the least recently used idle DB
@@ -37,5 +37,5 @@ ida(action: "exec", code: "[(hex(ea), n) for ea, n in functions('crypt|aes')]")
 
 <critical>
 - Dirty DBs autosave ~10 s after the worker goes idle; `save` forces it.
-- A killed worker (timeout that ignores SIGINT, crash, `omp ps kill`) loses only changes made since the last save.
+- A killed worker (timeout that ignores SIGINT, crash, `scient-agent ps kill`) loses only changes made since the last save.
 </critical>
