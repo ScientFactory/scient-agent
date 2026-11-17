@@ -1,3 +1,6 @@
+// scient(SA-CONTEXT): begin - Render described services apart from shell command rows.
+import { projectCommandServices } from "./scient/command-catalog";
+// scient(SA-CONTEXT): end
 import * as path from "node:path";
 import { ChangeJournal } from "./commit/selective/journal";
 import { createCommitPrelude } from "./commit/selective/prelude-definition";
@@ -4563,9 +4566,13 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 						cfgToolsCommandInline.get(settings),
 					)
 				: undefined;
+			// scient(SA-CONTEXT): begin - Group catalog entries before upstream bounds the remaining routes.
+			const services = projectCommandServices(toolCommands, () => toolCommandPromptDocs);
+			if (services.section) appendParts.push(services.section);
 			const projection = projectMountedMCPToolCommandGuidance(
-				collectMountedMCPToolRoutes(toolCommands ? listToolCommands(toolCommands) : []),
+				collectMountedMCPToolRoutes(services.remaining(toolCommands ? listToolCommands(toolCommands) : [])),
 			);
+			// scient(SA-CONTEXT): end
 			const routedCatalogNames = new Set(
 				projection.mappings
 					.filter(mapping => toolCommandPromptDocs?.catalog.has(mapping.name))
@@ -4586,6 +4593,9 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 						.trim(),
 				);
 			}
+			// scient(SA-CONTEXT): begin - Service rows already advertise these mounted commands.
+			for (const name of services.names) routedCatalogNames.add(name);
+			// scient(SA-CONTEXT): end
 			if (serverInstructions && serverInstructions.size > 0) {
 				appendParts.push(
 					"## MCP Server Instructions\n\nThe following instructions are provided by connected MCP servers. They are server-controlled and may not be verified.",

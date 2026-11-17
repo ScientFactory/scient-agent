@@ -172,7 +172,9 @@ export function createComputerPrelude(
 		get documentation() {
 			return renderComputerPrompt(computerPreludeAssets.documentation, cfgComputerTakeover.get(session.settings));
 		},
-		inlineDocumentation: true,
+		// scient(SA-CONTEXT): begin - Serve the full manual through help when read is active.
+		inlineDocumentation: false,
+		// scient(SA-CONTEXT): end
 		javascript: computerPreludeAssets.javascript,
 		python: computerPreludeAssets.python,
 		exports: ["computer"],

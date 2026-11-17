@@ -1,3 +1,6 @@
+// scient(SA-CONTEXT): begin - Use the same service projection for notices, eval and rebuilds.
+import { evalPromptToolNames, projectCommandServices } from "../scient/command-catalog";
+// scient(SA-CONTEXT): end
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Agent, AgentMessage, AgentTool, AgentToolContext } from "@oh-my-pi/pi-agent-core";
 import type { Model } from "@oh-my-pi/pi-ai";
@@ -859,7 +862,13 @@ export class SessionTools {
 			evalPreludes: this.#host.evalPreludes(),
 			sessionAgents: this.#host.sessionAgents(),
 			// Eval-bound tools stay callable by name; their namespaces advertise them.
-			evalToolNames: this.getEvalBridgeToolNames().filter(name => !this.#evalBoundNames.has(name)),
+			// scient(SA-CONTEXT): begin - Service rows advertise their grouped commands and cover their wire aliases.
+			evalToolNames: evalPromptToolNames(
+				this.getEvalBridgeToolNames().filter(name => !this.#evalBoundNames.has(name)),
+				this.#toolCommands,
+				() => this.#commandPromptDocs(),
+			),
+			// scient(SA-CONTEXT): end
 			perCallModelAdvertisement: getPerCallModelAdvertisement(
 				this.#host.settings,
 				this.#host.model(),
@@ -1705,17 +1714,29 @@ export class SessionTools {
 	/** Mounted MCP commands the live route projection lists with their catalog summary. */
 	#routedSummaryToolCommandNames(): ReadonlySet<string> {
 		if (!this.#toolCommands) return new Set();
-		const docsPlan = planToolCommandPromptDocs(
+		// scient(SA-CONTEXT): begin - Delivered service rows cover their actual mounted command names.
+		const docsPlan = this.#commandPromptDocs();
+		const services = projectCommandServices(this.#toolCommands, () => docsPlan);
+		const remaining = services.remaining(listToolCommands(this.#toolCommands));
+		return new Set([
+			...services.names,
+			...projectMountedMCPToolCommandGuidance(collectMountedMCPToolRoutes(remaining))
+				.mappings.filter(mapping => docsPlan?.catalog.has(mapping.name))
+				.map(mapping => mapping.name),
+		]);
+		// scient(SA-CONTEXT): end
+	}
+
+	// scient(SA-CONTEXT): begin - Notices and rebuilds consult the same inline and catalog placement.
+	#commandPromptDocs() {
+		if (!this.#toolCommands) return undefined;
+		return planToolCommandPromptDocs(
 			this.#toolCommands,
 			cfgToolsCommandDocs.get(this.#host.settings),
 			cfgToolsCommandInline.get(this.#host.settings),
 		);
-		return new Set(
-			projectMountedMCPToolCommandGuidance(collectMountedMCPToolRoutes(listToolCommands(this.#toolCommands)))
-				.mappings.filter(mapping => docsPlan.catalog.has(mapping.name))
-				.map(mapping => mapping.name),
-		);
 	}
+	// scient(SA-CONTEXT): end
 
 	#latestReply(): AgentMessage | undefined {
 		return this.#host.agent.state.messages.findLast(message => message.role === "assistant");
@@ -2814,11 +2835,16 @@ export class SessionTools {
 		const describeTool = (tool: AgentTool): string =>
 			`${tool.name}=${tool.label ?? ""}|${tool.description ?? ""}|${tool.customWireName ?? ""}|${toolReadsSkillUris(tool)}`;
 		const descriptionSegment = tools.map(describeTool).join("\u0002");
-		const mountedMCPProjection = projectMountedMCPToolCommandGuidance(
-			collectMountedMCPToolRoutes(this.#toolCommands ? listToolCommands(this.#toolCommands) : []),
-		);
+		// scient(SA-CONTEXT): begin - Track the rendered service catalog and the routes it leaves visible.
+		const services = projectCommandServices(this.#toolCommands, () => this.#commandPromptDocs());
+		const remaining = services.remaining(this.#toolCommands ? listToolCommands(this.#toolCommands) : []);
+		const mountedMCPProjection = projectMountedMCPToolCommandGuidance(collectMountedMCPToolRoutes(remaining));
+		// scient(SA-CONTEXT): end
 		const mountedMCPRouteSegment =
 			JSON.stringify({
+				// scient(SA-CONTEXT): begin - Refresh when a service row changes.
+				services: services.section,
+				// scient(SA-CONTEXT): end
 				mappings: mountedMCPProjection.mappings.map(mapping => [mapping.label, mapping.path] as const),
 				hasOmittedMappings: mountedMCPProjection.hasOmittedMappings,
 			}) ?? "{}";

@@ -1,3 +1,6 @@
+// scient(SA-CONTEXT): begin - Resolve service details from the current command roster.
+import { serviceCommandDocs } from "../scient/command-catalog";
+// scient(SA-CONTEXT): end
 import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
 import { getEnabledEvalPreludes } from "../eval/preludes";
 import helpReferenceDoc from "../prompts/internal-urls/help-reference.md" with { type: "text" };
@@ -30,7 +33,9 @@ export class HelpProtocolHandler implements ProtocolHandler {
 	async resolve(url: InternalUrl, context?: ResolveContext): Promise<InternalResource> {
 		const session = context?.session;
 		if (!session) throw new ToolError("help:// requires a tool session.");
-		const target = parseHelpUrl(url.href);
+		// scient(SA-CONTEXT): begin - Preserve service keys that URL would normalize as dot segments.
+		const target = parseHelpUrl(url.rawHost === "services" ? (url.rawHref ?? url.href) : url.href);
+		// scient(SA-CONTEXT): end
 		if (!target) throw new ToolError(`Invalid help:// URL: ${url.href}. Use help://<tool>/<topic>.`);
 		const { tool, topic } = target;
 		if (!tool) throw new ToolError("help:// needs a tool and topic: use help://<tool>/<topic>.");
@@ -48,6 +53,9 @@ export class HelpProtocolHandler implements ProtocolHandler {
 
 	/** `help://<tool>/<topic>`: one named doc topic. */
 	#topic(session: ToolSession, name: string, topic: string): string {
+		// scient(SA-CONTEXT): begin - Service help lists the mounted commands without executing them.
+		if (name === "services") return serviceCommandDocs(session.toolCommands, topic);
+		// scient(SA-CONTEXT): end
 		const topics = this.#topics(session, name);
 		const doc = topics[topic];
 		if (doc === undefined) {

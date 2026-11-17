@@ -480,6 +480,28 @@
 			"status": "upstreamed",
 			"contract": "Overlapping connection attempts share one discovery relay connection. A delayed hello from a previous link cannot replace the current tab list and strand a tab while its debugger is attaching.",
 			"disposition": "Oh My Pi 19.1.1 replaced the extension's direct WebSocket with a native messaging port. connectRelay() records the port synchronously, so another call reuses it. Writing the instance id no longer reconnects. Each linked notification creates a new epoch, and the worker checks that epoch after building the hello. Side-panel hellos are also bound to their own port. Retired with the 19.1.1 alignment."
+		},
+		"SA-CONTEXT": {
+			"status": "active",
+			"contract": "When read is active, the command catalog groups described services, with at most 4,000 UTF-8 bytes of command names per row and 8,000 overall. Larger rows show a count. Read-only help://services/<key> pages list live remote names, exact commands and summaries. Bash provides schema-derived --help and execution. Explicitly inlined help, undescribed services and sessions without read retain upstream command discovery. Grouped command names and their wire aliases remain callable through eval without repeating in its advertised list. The computer manual loads at help://eval/computer or inline without read. Computer policy stays in the system prompt.",
+			"owned": [
+				"packages/coding-agent/src/scient/command-catalog.ts",
+				"packages/coding-agent/src/scient/command-catalog.md",
+				"packages/coding-agent/src/scient/command-service-row.md",
+				"packages/coding-agent/test/scient/command-catalog.test.ts",
+				"packages/coding-agent/test/scient/context-session.test.ts",
+				"packages/coding-agent/test/scient/eval-docs.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/CHANGELOG.md",
+				"packages/coding-agent/src/sdk.ts",
+				"packages/coding-agent/src/session/session-tools.ts",
+				"packages/coding-agent/src/internal-urls/help-protocol.ts",
+				"packages/coding-agent/src/tools/computer.ts"
+			],
+			"verification": [
+				"bun test packages/coding-agent/test/scient/command-catalog.test.ts packages/coding-agent/test/scient/context-session.test.ts packages/coding-agent/test/scient/eval-docs.test.ts"
+			]
 		}
 	}
 }
