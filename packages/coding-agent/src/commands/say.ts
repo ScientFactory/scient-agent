@@ -39,9 +39,9 @@ export default class Say extends Command {
 	};
 
 	static examples = [
-		'omp say "hello world"',
-		"omp say --file notes.md --voice edwin --speed 1.2",
-		'omp say "hello world" --out /tmp/hello.wav',
+		'scient-agent say "hello world"',
+		"scient-agent say --file notes.md --voice edwin --speed 1.2",
+		'scient-agent say "hello world" --out /tmp/hello.wav',
 	];
 
 	async run(): Promise<void> {
@@ -159,7 +159,7 @@ export default class Say extends Command {
 	#synthesisFailed(model: string): void {
 		process.stderr.write(
 			chalk.red(
-				`error: could not synthesize with local TTS model "${model}". Run \`omp setup speech\` to install it.\n`,
+				`error: could not synthesize with local TTS model "${model}". Run \`scient-agent setup speech\` to install it.\n`,
 			),
 		);
 	}

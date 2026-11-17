@@ -26,7 +26,7 @@ describe("CustomEditor upstream-pi constructor compatibility (#4766)", () => {
 		expect(editor.tui).toBe(tui);
 	});
 
-	it("still accepts omp's own (theme) constructor", async () => {
+	it("still accepts Scient Agent's own (theme) constructor", async () => {
 		await initTheme();
 		const editor = new CustomEditor(getEditorTheme());
 		editor.setText("hello");

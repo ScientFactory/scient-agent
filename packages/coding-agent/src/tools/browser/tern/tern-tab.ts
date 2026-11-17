@@ -918,15 +918,17 @@ export class TernTab implements InProcessRunTab {
 		const block = `its ${this.product} browser block ${this.block}${this.adopted ? " (the user's)" : ""}`;
 		const reason =
 			this.product === "Tern"
-				? `${block} is no longer in this Tern window (the user closed it, or its tab or window closed; omp did not close it)`
-				: `${block} is no longer in omp's WebKit host`;
+				? `${block} is no longer in this Tern window (the user closed it, or its tab or window closed; Scient Agent did not close it)`
+				: `${block} is no longer in Scient Agent's WebKit host`;
 		const reopen =
 			this.product === "Tern"
 				? `Reopen it with browser.open({ name: ${quoted}, app: "tern", url }); browser.targets({ app: "tern" }) lists the live blocks, and passing one's id as target adopts it.`
 				: `Reopen it with browser.open({ name: ${quoted}, app: "own", url }).`;
 		this.#gone = {
 			reason,
-			error: new ToolError(`Tab ${quoted} is gone: ${reason}. omp closed the tab. ${reopen}\n(${error.message})`),
+			error: new ToolError(
+				`Tab ${quoted} is gone: ${reason}. Scient Agent closed the tab. ${reopen}\n(${error.message})`,
+			),
 		};
 		return this.#gone.error;
 	}
@@ -1140,7 +1142,7 @@ export class TernTab implements InProcessRunTab {
 		}
 		if (this.#events.length > EVENT_LOG_LIMIT) this.#events.splice(0, this.#events.length - EVENT_LOG_LIMIT);
 		if (typeof answer.dropped === "number" && answer.dropped > 0) {
-			logger.debug("Tern dropped browser events before omp read them", { dropped: answer.dropped });
+			logger.debug("Tern dropped browser events before Scient Agent read them", { dropped: answer.dropped });
 			this.#network.forgetInflight();
 		}
 	}
@@ -1796,7 +1798,7 @@ export class TernTab implements InProcessRunTab {
 		const now = `${Math.round(this.#viewport.width)}x${Math.round(this.#viewport.height)}`;
 		const how = this.adopted
 			? "It is the user's block, docked in their layout"
-			: "omp opened it as a picture-in-picture; it was docked since (by the user, or by Tern when the pane it floated over closed, was parked or moved)";
+			: "Scient Agent opened it as a picture-in-picture; it was docked since (by the user, or by Tern when the pane it floated over closed, was parked or moved)";
 		return new ToolError(
 			`${this.product} browser block ${this.block} of tab ${JSON.stringify(this.#name)} is docked, so its page takes the block's size (${now} now) and cannot be set to ${width}x${height}. ${how}. ` +
 				`For a fixed viewport, open a tab with browser.open({ name, app: "own", url, viewport: { width: ${width}, height: ${height} } }), or ask the user to pop the block out as a picture-in-picture, then call emulate({ viewport }) again.`,

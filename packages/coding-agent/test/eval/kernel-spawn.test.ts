@@ -70,7 +70,7 @@ describe("consoleAttached", () => {
 		).toBe(true);
 	});
 
-	it("treats `omp -p '...' > out.txt` (stdout-only redirect) as console-attached", () => {
+	it("treats `scient-agent -p '...' > out.txt` (stdout-only redirect) as console-attached", () => {
 		expect(consoleAttached({ stdinIsTTY: true, stdoutIsTTY: false, stderrIsTTY: true })).toBe(true);
 	});
 

@@ -39,7 +39,7 @@ const gateway = await checkAuthGatewayE2EAvailable();
 // stable across runs of this test.
 const SYSTEM_PARAGRAPH = `
 You are a precise assistant participating in an automated end-to-end test of
-the omp auth-gateway's Anthropic prompt-caching pipeline. The same system
+the Scient Agent auth-gateway's Anthropic prompt-caching pipeline. The same system
 prompt will be reused across two turns; the gateway must place a cache
 breakpoint on the final system block so that the second request hits the
 ephemeral cache instead of being re-tokenized from scratch. Always respond

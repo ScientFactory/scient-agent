@@ -29,10 +29,13 @@ export const frameDefs = {
 			"provider?": "string",
 			"model?": "string",
 			"httpStatus?": "number.integer",
-			retryable: doc("boolean", "Transient: resubmitting later may succeed (omp's own retries are exhausted)."),
+			retryable: doc(
+				"boolean",
+				"Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).",
+			),
 			"code?": doc(
 				"'cost_cap'",
-				"`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request.",
+				"`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.",
 			),
 			// scient(SA-USAGE-RESET): begin - A host resumes a usage-limited turn when the provider said the limit resets.
 			"resetAt?": doc(

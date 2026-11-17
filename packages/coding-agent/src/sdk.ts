@@ -5888,7 +5888,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 						if (needsRestart.length > 0) {
 							session.emitNotice(
 								"warning",
-								`Loaded extensions that register shortcuts or renderers; restart omp to enable those parts: ${needsRestart.join(", ")}`,
+								`Loaded extensions that register shortcuts or renderers; restart Scient Agent to enable those parts: ${needsRestart.join(", ")}`,
 								"extensions",
 							);
 						}

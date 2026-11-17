@@ -181,7 +181,7 @@ export async function restartSharedBrowser(
 ): Promise<DaemonSnapshot> {
 	const userDataDir = sharedBrowserProfileDir(client.projectDir, name);
 	const claim = await claimProfile(userDataDir, signal);
-	if (!claim) throw new Error(`${name} is being started by another omp process; try again shortly`);
+	if (!claim) throw new Error(`${name} is being started by another Scient Agent process; try again shortly`);
 	try {
 		const stopped = await client.request({ op: "stop", name, timeoutMs: RESTART_STOP_TIMEOUT_MS }, signal);
 		if (stopped.op !== "stop") throw new Error(`Unexpected broker response ${stopped.op}`);

@@ -1442,10 +1442,10 @@ describe("formatUsageBreakdown", () => {
 	it.each([
 		{
 			mode: "yes",
-			verdict: "→ an open interactive omp session spends it by its last 5 min if eligible then",
+			verdict: "→ an open interactive scient-agent session spends it by its last 5 min if eligible then",
 			lost: false,
 		},
-		{ mode: "unset", verdict: "→ an open interactive omp session asks before spending it", lost: false },
+		{ mode: "unset", verdict: "→ an open interactive scient-agent session asks before spending it", lost: false },
 		{ mode: "no", verdict: "→ not spent automatically", lost: true },
 	])(
 		"says what codexResets.autoRedeemWeekly=$mode does with a weekly-governed expiring reset",
@@ -1539,7 +1539,7 @@ describe("formatUsageBreakdown", () => {
 		expect(text).toContain(header);
 		expect(text).toContain(title);
 		expect(text).toContain(
-			`→ an open interactive omp session spends it by its last 5 min if eligible then  (claudeResets.autoRedeemWeekly: yes)${eligibleNow ? "" : " · not eligible now"}\n`,
+			`→ an open interactive scient-agent session spends it by its last 5 min if eligible then  (claudeResets.autoRedeemWeekly: yes)${eligibleNow ? "" : " · not eligible now"}\n`,
 		);
 		// Only a reset the provider lets omp spend now gets a command that spends it.
 		expect(text.includes("/usage reset")).toBe(eligibleNow);
@@ -1586,7 +1586,7 @@ describe("formatUsageBreakdown", () => {
 		});
 		const text = stripVTControlCharacters(formatUsageBreakdown([report], [], now, undefined, [], undefined, options));
 		const verdict = text.match(
-			/→ an open interactive omp session spends it by its last 5 min if eligible then {2}\(claudeResets\.autoRedeem\w+: yes\)(.*)\n/,
+			/→ an open interactive scient-agent session spends it by its last 5 min if eligible then {2}\(claudeResets\.autoRedeem\w+: yes\)(.*)\n/,
 		);
 		expect(verdict?.[1]).toBe(eligibleNow ? "" : " · not eligible now");
 		expect(text).not.toContain("will be lost");
@@ -1748,7 +1748,7 @@ describe("usage command configuration", () => {
 	});
 });
 
-describe("omp usage accounts", () => {
+describe("scient-agent usage accounts", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
@@ -1811,7 +1811,7 @@ describe("omp usage accounts", () => {
 	});
 });
 
-describe("omp usage --json account policy", () => {
+describe("scient-agent usage --json account policy", () => {
 	let tempDir: TempDir;
 
 	beforeEach(() => {
@@ -1906,7 +1906,7 @@ describe("omp usage --json account policy", () => {
 	});
 });
 
-describe("omp usage reset", () => {
+describe("scient-agent usage reset", () => {
 	interface ResetRequest {
 		method: string;
 		path: string;
@@ -2082,7 +2082,7 @@ describe("omp usage reset", () => {
 		expect(text).toContain(`[Codex · openai-codex/${team}]: 2 saved, 2 usable now, expires ${soon}`);
 		expect(text).toContain(`spare@example.test [Codex · openai-codex/${spare}]: 0 saved, 0 usable now`);
 		expect(text).toContain(`dev@example.test · Acme Corp [Claude · anthropic/${claude}]: 1 saved, 1 usable now`);
-		expect(text).toContain("omp usage reset <provider>/<credential id>");
+		expect(text).toContain("scient-agent usage reset <provider>/<credential id>");
 		expect(consumes()).toEqual([]);
 		expect(process.exitCode).toBe(0);
 	});
@@ -2286,7 +2286,9 @@ describe("omp usage reset", () => {
 		await run;
 
 		expect(consumes()).toEqual([]);
-		expect(stripVTControlCharacters(stderr)).toContain("another omp process spent a saved reset on this account");
+		expect(stripVTControlCharacters(stderr)).toContain(
+			"another Scient Agent process spent a saved reset on this account",
+		);
 		expect(process.exitCode).toBe(1);
 	});
 
@@ -2316,7 +2318,7 @@ describe("omp usage reset", () => {
 		["codex/active", "no account is active"],
 		["gemini/1", 'Unknown reset provider "gemini"'],
 		["codex/999", 'No stored account matches "codex/999"'],
-		["codex", "Choose an account with `omp usage reset <provider>/<credential id>`"],
+		["codex", "Choose an account with `scient-agent usage reset <provider>/<credential id>`"],
 	])("refuses %s without spending", async (target, message) => {
 		await runUsageCommand({ action: "reset", target, noExtensions: true });
 
@@ -2431,7 +2433,7 @@ describe("omp usage reset", () => {
 	});
 });
 
-describe("omp usage saved-reset expiry banner", () => {
+describe("scient-agent usage saved-reset expiry banner", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});

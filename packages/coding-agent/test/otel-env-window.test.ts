@@ -109,7 +109,7 @@ function requestsTo(requests: ReceivedRequest[], signalPath: string): ReceivedRe
 	return requests.filter(request => request.path === `/agent-file/v1/${signalPath}`);
 }
 
-describe("OMP-owned OTEL_* and the OpenTelemetry SDK", () => {
+describe("Scient Agent-owned OTEL_* and the OpenTelemetry SDK", () => {
 	it("stays disabled when no OTLP endpoint is configured anywhere", async () => {
 		// Runs in a clean HOME/agent dir: the in-process private map is seeded from the developer's real .env files.
 		const { result } = await runProbe("gate");

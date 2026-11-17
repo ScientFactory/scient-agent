@@ -89,7 +89,7 @@ export function refuseFolders(sources: UploadSource[]): void {
 	const folder = sources.find(source => source.directory);
 	if (!folder) return;
 	throw new ToolError(
-		`${folder.path} is a folder, and this browser cannot read omp's files (a relay without file-URL access, or a browser on another machine), so it takes files only; upload the files inside it instead`,
+		`${folder.path} is a folder, and this browser cannot read Scient Agent's files (a relay without file-URL access, or a browser on another machine), so it takes files only; upload the files inside it instead`,
 	);
 }
 

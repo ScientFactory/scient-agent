@@ -58,7 +58,7 @@ All tokens below are required in `colors` except `thinkingMax` (falls back to `t
 
 `mdHeading`, `mdLink`, `mdLinkUrl`, `mdCode`, `mdCodeBlock`, `mdCodeBlockBorder`, `mdQuote`, `mdQuoteBorder`, `mdHr`, `mdListBullet`, optional `mdExtensionLink`
 
-`mdExtensionLink` colors the label of a link whose scheme an extension registered (for example a link that expands text in place). Such a link opens nothing in the browser, so its color sets it apart from `mdLink`, which colors links that open a URL. When it is omitted, omp blends `mdLink` with `text` (45% link, 55% text). A `""` in either token blends as the theme's `terminal.foreground` and a palette index 0–15 as its `terminal.ansi` slot. A theme that declares neither gets approximations: a stock palette for indices 0–15 and a guessed default foreground for `""`. Set the token explicitly when the guess looks wrong. `tui.colorfulMarkdown` does not change either link color.
+`mdExtensionLink` colors the label of a link whose scheme an extension registered (for example a link that expands text in place). Such a link opens nothing in the browser, so its color sets it apart from `mdLink`, which colors links that open a URL. When it is omitted, Scient Agent blends `mdLink` with `text` (45% link, 55% text). A `""` in either token blends as the theme's `terminal.foreground` and a palette index 0–15 as its `terminal.ansi` slot. A theme that declares neither gets approximations: a stock palette for indices 0–15 and a guessed default foreground for `""`. Set the token explicitly when the guess looks wrong. `tui.colorfulMarkdown` does not change either link color.
 
 With the `tui.colorfulMarkdown` setting on (the default), headings, `**strong**`, `*emphasis*`, inline code and table headers take their colors from the theme's `terminal.ansi` palette instead of `mdHeading`/`mdCode` and plain bold/italic: H1 magenta, H2 yellow, H3–H6 blue, strong/emphasis magenta, inline code green, table headers yellow. All hues come from one palette so they stay distinct. Turning the setting off restores `mdHeading` for every level, `mdCode`, and uncolored bold/italic.
 
@@ -89,7 +89,7 @@ If omitted, export code derives defaults from resolved theme colors.
 
 ### `terminal` section (optional)
 
-Describes the terminal the theme was made for, for hosts that paint the terminal themselves (Tern); omp never sets the terminal's colors. `terminal.ansi` (exactly 16 entries, ANSI 0–15) is also the palette colorful Markdown paints from; a theme without it falls back to the terminal's own ANSI colors.
+Describes the terminal the theme was made for, for hosts that paint the terminal themselves (Tern); Scient Agent never sets the terminal's colors. `terminal.ansi` (exactly 16 entries, ANSI 0–15) is also the palette colorful Markdown paints from; a theme without it falls back to the terminal's own ANSI colors.
 
 ### `symbols` section (optional)
 

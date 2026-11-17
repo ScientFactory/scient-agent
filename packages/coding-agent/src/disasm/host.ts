@@ -120,7 +120,7 @@ class DisasmHost {
 		if (loc.kind === "store") await fs.promises.mkdir(loc.dir, { recursive: true });
 		const lock = await acquireFileLock(loc.lockTarget, { retries: 1 }).catch(() => {
 			throw new ToolError(
-				`${DISASM_BACKENDS[backend].label} database ${loc.id} is in use by another omp process outside this project`,
+				`${DISASM_BACKENDS[backend].label} database ${loc.id} is in use by another Scient Agent process outside this project`,
 			);
 		});
 		try {
@@ -311,7 +311,7 @@ export async function startDisasmHostFromEnvironment(): Promise<void> {
 	if (!raw) throw new Error("Disassembler host environment is incomplete");
 	delete process.env[DISASM_HOST_CONFIG_ENV];
 	const config = parseHostConfig(raw);
-	setProcessName(`omp ${config.backend} ${config.loc.id}`);
+	setProcessName(`scient-agent ${config.backend} ${config.loc.id}`);
 	const host = new DisasmHost(config);
 	const cancelCleanup = postmortem.register("disasm-host", () => host.shutdown());
 	let code: number;

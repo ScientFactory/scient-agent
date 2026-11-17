@@ -41,7 +41,7 @@ selectors: CSS, or Puppeteer aria/… text/… xpath/… pierce/… label/… pl
   - `console({level?, since?, limit?, clear?})` and `errors({since?, limit?, clear?})` return `{entries, nextSeq, dropped}`, not a list: read its `entries` field (`r.entries` in JavaScript, `r["entries"]` in Python), and pass `nextSeq` as `since` to read only later entries.
 
 - `targets` resolves the browser like `open` (pass the same `app`, e.g. `"relay"`) and lists pages `target` can adopt:
-  - a Tern window's browser blocks (`tab`: the omp tab holding one), or
+  - a Tern window's browser blocks (`tab`: the Scient Agent tab holding one), or
   - the relay's Chrome pages (`shown`: the active tab).
   - Pass an entry's `target`; never guess.
 - `viewportOnly`: on-screen elements only (ignored on cmux). `includeAll`: non-interactive nodes too. `text()` and `html()` without a selector read `<body>`.
@@ -85,21 +85,21 @@ Browser choice:
   2. `browser.cdpUrl`
   3. Tern inside a Tern pane
   4. cmux
-  5. omp's own browser: headless WebKit when installed, downloaded first when no browser is (off with the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),
+  5. Scient Agent's own browser: headless WebKit when installed, downloaded first when no browser is (off with the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),
      else managed Chromium (installs on first use)
 - The open result names the browser and any fallback it took.
 - `app` is one string:
   - `"relay"` (the user's Chrome), `"tern"`, `"webkit"`, `"chromium"` (managed)
-  - `"own"` (omp's own browser: WebKit when installed, else Chromium; skips the relay, `browser.cdpUrl`, Tern and cmux)
+  - `"own"` (Scient Agent's own browser: WebKit when installed, else Chromium; skips the relay, `browser.cdpUrl`, Tern and cmux)
   - `"auto"` (the choice above without the relay)
   - a CDP endpoint URL (`http://127.0.0.1:9222`) to attach to
-  - or an executable path to launch (Chromium-family browsers use an omp-owned profile unless `argv` supplies `--user-data-dir`)
+  - or an executable path to launch (Chromium-family browsers use an agent-owned profile unless `argv` supplies `--user-data-dir`)
 - `headed`: visible or hidden tab per open.
   - A WebKit tab gets its own window where the engine ships a viewer (macOS), and an open of a live WebKit tab shows or hides it at once.
   - Elsewhere a visible browser is Chromium.
 - `file:` pages can always read other local files. `insecure` applies per tab.
 
-WebKit (open result: `omp's headless WebKit browser`, or `omp's WebKit browser (in a window)` when shown):
+WebKit (open result: `scient-agent's headless WebKit browser`, or `scient-agent's WebKit browser (in a window)` when shown):
 
 - Off screen unless shown (there the user can click and type too); the page always sees a visible, focused window and no automation flag.
 - `target` names nothing there. Engine cannot start → Chromium.
@@ -117,9 +117,9 @@ WebKit (open result: `omp's headless WebKit browser`, or `omp's WebKit browser (
   - a recording's cursor overlay
   - whatever `evaluate` code leaves behind
 
-Relay (`app: "relay"`: the user's Chrome through the omp relay):
+Relay (`app: "relay"`: the user's Chrome through the browser relay):
 
-- No `target`: a new name opens omp's own background tab, leaving the user's tab alone (an outdated relay extension selects it instead).
+- No `target`: a new name opens Scient Agent's own background tab, leaving the user's tab alone (an outdated relay extension selects it instead).
   - `url` navigates that tab.
 - `target` borrows an existing tab by URL/title substring. Reopening an open name keeps its tab.
 - `app: "auto"` skips the relay however it is enabled; the next default applies.
@@ -149,7 +149,7 @@ Tern:
 - `app: "own"` skips Tern, the user's Chrome, `browser.cdpUrl` and cmux (e.g. parallel scraping by subagents, where PiPs would pile up over one pane).
 - `app: "auto"` skips only the relay.
 - `app: "tern"` requires Tern; `headed` never chooses between Tern and Chromium.
-- No Tern window can host a PiP → omp's own browser.
+- No Tern window can host a PiP → Scient Agent's own browser.
 
 Tern and WebKit tab limits:
 
@@ -171,13 +171,13 @@ Tern and WebKit tab limits:
 
 Lifetime:
 
-- Closing releases the managed tab and closes tabs omp opened in the relay, never borrowed relay tabs, CDP-attached pages, or adopted Tern blocks.
+- Closing releases the managed tab and closes tabs Scient Agent opened in the relay, never borrowed relay tabs, CDP-attached pages, or adopted Tern blocks.
 - `browser.close({ all: true })` releases the tabs you opened, not other agents'.
 - `kill: true` terminates only applications spawned by this process, never reused browser processes.
 - Idle tabs auto-freeze at turn settle, unfreeze on next use, and close past the idle-close timeout.
   - `persist: true` on `open` keeps one live across turns (e.g. multi-step login).
 - Relay tabs are never frozen or idle-closed.
-  - Those omp opened close when the session ends, unless `persist: true`,
+  - Those Scient Agent opened close when the session ends, unless `persist: true`,
     which leaves the tab in the user's Chrome: pass it there only for a page you leave for the user.
 </instruction>
 

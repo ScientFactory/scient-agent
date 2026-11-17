@@ -27,7 +27,7 @@ afterAll(async () => {
 	server.stop(true);
 });
 
-describe.skipIf(!ENGINE_INSTALLED)("omp's WebKit browser and a held confirm", () => {
+describe.skipIf(!ENGINE_INSTALLED)("Scient Agent's WebKit browser and a held confirm", () => {
 	test("returns from a click that opens a confirm, and fails page calls at once until it is answered", async () => {
 		const session: ToolSession = {
 			cwd: process.cwd(),

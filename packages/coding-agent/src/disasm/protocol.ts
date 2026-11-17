@@ -28,12 +28,12 @@ const DAEMON_NAME_MAX = 48;
 
 /** Broker readiness regex matched against the banner the host prints once it listens. */
 export function hostReadyPattern(backend: DisasmBackendId): string {
-	return String.raw`omp ${backend} host listening on \S+`;
+	return String.raw`Scient Agent ${backend} host listening on \S+`;
 }
 
 /** Banner printed on stdout once the host socket accepts connections. */
 export function hostReadyBanner(backend: DisasmBackendId, endpoint: string): string {
-	return `omp ${backend} host listening on ${endpoint}`;
+	return `Scient Agent ${backend} host listening on ${endpoint}`;
 }
 
 /** Message text of any thrown value, for logs and wire errors. */
