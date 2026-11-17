@@ -12,6 +12,21 @@
 
 <!-- How was this tested? -->
 
+<!-- scient(SA-POLICY): begin - Scient's definition of done (SCIENT.md). -->
+## Platforms
+
+<!-- macOS, Linux and Windows: what ran on each and what is still unproven. -->
+
+## Review
+
+<!-- Keep one, with the result: None — docs or copy | Light Codex review |
+     Codex high review and a live test — data, migrations, security, release or alignment -->
+
+Review:
+
+- [ ] Every link or URL this PR adds was fetched and works
+
+<!-- scient(SA-POLICY): end -->
 ---
 
 - [ ] `bun check` passes
