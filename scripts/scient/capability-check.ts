@@ -116,7 +116,7 @@ const server = Bun.serve({
 });
 fs.writeFileSync(
 	path.join(state, "agent", "models.yml"),
-	`providers:\n  alignment-proof:\n    api: openai-completions\n    baseUrl: http://127.0.0.1:${server.port}/v1\n    auth: none\n    models:\n      - id: proof\n        name: Proof\n        contextWindow: 16384\n        maxTokens: 2048\n        input: [text]\n`,
+	`providers:\n  alignment-proof:\n    api: openai-completions\n    baseUrl: http://127.0.0.1:${server.port}/v1\n    auth: none\n    models:\n      - id: proof\n        name: Proof\n        contextWindow: 16384\n        maxTokens: 2048\n        input: [text]\n        reasoning: false\n`,
 );
 fs.writeFileSync(path.join(state, "agent", "config.yml"), "retry:\n  enabled: false\ndisabledProviders:\n  - ollama\n");
 const env = {

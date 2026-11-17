@@ -52,7 +52,7 @@ const RENAMES: ReadonlyArray<readonly [RegExp, string]> = [
 	// Overrides for where a database, runtime directory, socket, or native library
 	// lives, and the configuration the agent hands its own worker processes.
 	[
-		/\bOMP_(GITHUB_CACHE_DB|COMMIT_CACHE_DB|JUDGMENT_CACHE_DB|AUTORESEARCH_DB_DIR|DAEMON_RUNTIME_DIR|DAEMON_PROJECT_DIR|LSP_MUX_SOCKET|LSP_MUX_PROJECT_DIR|TINY_WORKER_SOCKET|MNEMOPI_EMBED_SOCKET|MNEMOPI_EMBED_TAG|TEXT_PREDICT_SOCKET|TEXT_PREDICT_AGENT_DIR|BLOB_BROKER_SOCKET|BLOB_BROKER_CONFIG|IDA_HOST_CONFIG|TUI_DEBUG|NATIVE_LIBRARY_PATH)\b/g,
+		/\bOMP_(GITHUB_CACHE_DB|COMMIT_CACHE_DB|JUDGMENT_CACHE_DB|AUTORESEARCH_DB_DIR|DAEMON_RUNTIME_DIR|DAEMON_PROJECT_DIR|LSP_MUX_SOCKET|LSP_MUX_PROJECT_DIR|TINY_WORKER_SOCKET|MNEMOPI_EMBED_SOCKET|MNEMOPI_EMBED_TAG|TEXT_PREDICT_SOCKET|TEXT_PREDICT_AGENT_DIR|BLOB_BROKER_SOCKET|BLOB_BROKER_CONFIG|DISASM_HOST_CONFIG|TUI_DEBUG|NATIVE_LIBRARY_PATH)\b/g,
 		"SCIENT_AGENT_$1",
 	],
 	// Windows named pipes are machine-wide, so the name is all that separates two products.
@@ -63,8 +63,10 @@ const RENAMES: ReadonlyArray<readonly [RegExp, string]> = [
 	[/(?<=\/tmp\/)omp-/g, `${COMMAND}-`],
 	// Log files, `omp.<day>.<pid>.log`, in the code that writes and prunes them and the
 	// tests and docs that name them: as a literal, a template, a regular expression, a
-	// glob, or a `<day>` placeholder.
-	[/(?<=[`"'/^])omp(?=\\?\.(?:\$\{|\(\\d|\[\\d|\\d|\d{4}|<\w+>\.<\w+>\.log|\*\.log))/g, COMMAND],
+	// glob, or a `<day>` placeholder. The disassembler's `omp.${backend}.` names its hosts
+	// in the agent's own broker, not a log file, and its open-database limit counts them by
+	// that prefix.
+	[/(?<=[`"'/^])omp(?=\\?\.(?:\$\{(?!backend\})|\(\\d|\[\\d|\\d|\d{4}|<\w+>\.<\w+>\.log|\*\.log))/g, COMMAND],
 	[/\bfilenamePrefix: "omp"/g, `filenamePrefix: "${COMMAND}"`],
 	// The browser relay's port: two relays on one port would adopt each other's browser.
 	[/(?<=DEFAULT_PORT = |127\.0\.0\.1:)9224\b/g, "9324"],

@@ -277,6 +277,7 @@
 			"upstream": [
 				"packages/coding-agent/src/modes/settings.ts",
 				"packages/coding-agent/test/bash-failure-result.test.ts",
+				"packages/coding-agent/test/bash-session-state.test.ts",
 				"packages/coding-agent/test/usage-row-placement.test.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/shell-trace.test.ts"]
@@ -450,7 +451,7 @@
 		},
 		"SA-BROWSER-DEADLINE": {
 			"status": "active",
-			"contract": "Native Tern target resolution uses one absolute deadline across selector lookup, actionability reads, scrolling and retry waits. Expiry cancels pending reads and rejects late replies before they authorize input, retaining the last recorded actionability failure. Earlier backend errors, parent cancellation and quick-read-only backend flags retain their existing semantics. This inherited deadline bug needs an upstream fix; upstream tests remain unchanged.",
+			"contract": "Native Tern target resolution uses one absolute deadline across selector lookup, actionability reads, scrolling and retry waits. Expiry cancels pending reads and rejects late replies before they authorize input, retaining the last recorded actionability failure. Earlier backend errors, parent cancellation and quick-read-only backend flags retain their existing semantics. Oh My Pi 18.22.0 stops before a retry round its remaining time cannot cover; a late reply that authorizes input and a pending read that outlives the action still need an upstream fix. Upstream tests remain unchanged.",
 			"owned": [
 				"packages/coding-agent/src/scient/browser-action-deadline.ts",
 				"packages/coding-agent/test/scient/browser-action-deadline.test.ts"
