@@ -1,4 +1,8 @@
 # {{service}} tools
+{{#if description}}
+
+{{description}}
+{{/if}}
 
 Choose a tool, then read its exact xd:// path for the full docs and JSON schema before first use.
 Execute it by writing the JSON arguments to that same path. This service catalog is read-only.

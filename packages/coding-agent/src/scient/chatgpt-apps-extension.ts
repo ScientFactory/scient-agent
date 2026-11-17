@@ -163,6 +163,8 @@ export function createChatGptAppsExtension(
 		const preferred = preferredToolNames();
 		const taken = new Set<string>();
 		for (const app of apps) {
+			// The catalog row's description; tool proxies carry this extra field through.
+			const service = app.description ? { mcpServerDescription: app.description } : {};
 			for (const tool of app.tools) {
 				const canonical = chatGptToolName(app, tool.name);
 				const name = preferred.has(canonical) ? alternateToolName(app, tool.name) : canonical;
@@ -176,6 +178,7 @@ export function createChatGptAppsExtension(
 					// Like an MCP tool: changes stay conservative, the read-only hint only informs.
 					approval: "write",
 					mcpServerName: app.name,
+					...service,
 					mcpToolName: tool.name,
 					mcpReadOnlyHint: tool.readOnly,
 					strict: false,

@@ -5,7 +5,7 @@
 <!-- scient(SA-CONTEXT): begin - Smaller initial tool context. -->
 ### Changed
 
-- Tool catalogs show one row per service, and the computer manual loads when needed, keeping more context available for your work.
+- Tool catalogs show one row per service, with its description and, when they fit, its tool names. The computer manual loads when needed. This keeps more context available for your work.
 
 <!-- scient(SA-CONTEXT): end -->
 ## [18.20.3] - 2026-11-16

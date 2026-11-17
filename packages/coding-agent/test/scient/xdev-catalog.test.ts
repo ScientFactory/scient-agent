@@ -75,10 +75,30 @@ it("preserves explicit inline docs and encodes service names without changing ex
 	state.mountedNames.clear();
 	state.mountedNames.add(tool.name);
 	const catalog = renderXdevPromptDocs(planXdevPromptDocs(state, "catalog"));
-	expect(catalog).toContain("xd://services/drive%20%2F%20research");
+	expect(catalog).toContain("- services/drive%20%2F%20research — Drive / Research: 1 tool: github__tool_0.");
 	const listing = await handler.resolve(parseInternalUrl("xd://services/drive%20%2F%20research"), { session });
 	expect(listing.content).toContain("xd://github__tool_0");
 	const inline = renderXdevPromptDocs(planXdevPromptDocs(state, "inline"));
 	expect(inline).toContain("query: string");
 	expect(inline).not.toContain("services/");
+});
+
+it("lists a service's tool names while they fit and describes every service", () => {
+	const { state } = fixture();
+	for (let index = 0; index < 3; index++) {
+		const name = `scient_tool_${index}`;
+		state.tools.set(name, {
+			...state.tools.get("github__tool_0")!,
+			name,
+			mcpServerName: "Scient",
+			mcpServerDescription: "Scient workspace tools.",
+			mcpToolName: name,
+		} as Tool);
+		state.mountedNames.add(name);
+	}
+	const docs = renderXdevPromptDocs(planXdevPromptDocs(state, "catalog"));
+	expect(docs).toContain(
+		"- services/scient — Scient — Scient workspace tools: 3 tools: scient_tool_0, scient_tool_1, scient_tool_2.",
+	);
+	expect(docs).toContain("GitHub: 703 tools; read xd://services/github to choose one.");
 });
