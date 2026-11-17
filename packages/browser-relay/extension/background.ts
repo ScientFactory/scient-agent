@@ -338,7 +338,11 @@ async function connect(): Promise<void> {
 	socket.onopen = () => {
 		reconnectDelay = RECONNECT_MIN_MS;
 		void setBadge(true);
-		void buildHello().then(hello => post(hello));
+		// scient(SA-RELAY-CONNECT): begin - A hello goes out on the socket it describes, and only while that socket is current.
+		void buildHello().then(hello => {
+			if (ws === socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(hello));
+		});
+		// scient(SA-RELAY-CONNECT): end
 		clearInterval(pingTimer ?? undefined);
 		pingTimer = setInterval(() => post({ t: "ping" }), PING_INTERVAL_MS);
 	};

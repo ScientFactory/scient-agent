@@ -479,14 +479,17 @@
 		},
 		"SA-RELAY-CONNECT": {
 			"status": "active",
-			"contract": "The browser relay extension keeps one socket to the relay: connect() calls that overlap open only the latest one, with the newest settings, and only a port or token change re-dials. Oh My Pi's extension opened two or three sockets on a first start (its own connect(), onInstalled, and the storage event its first instance-id write raised), and each sent a hello on the newest socket. A hello whose tab list predated a new tab dropped that tab while it was being attached, which left Chrome's debugger attached with no owner and the tab refused (\"Another debugger is already attached\"). This inherited bug needs an upstream fix; upstream tests remain unchanged.",
-			"owned": ["packages/coding-agent/test/scient/relay-extension-connect.test.ts"],
+			"contract": "The browser relay extension keeps one socket to the relay: connect() calls that overlap open only the latest one, with the newest settings, only a port or token change re-dials, and a hello goes out only on the socket it was built for while that socket is current. Oh My Pi's extension opened two or three sockets on a first start (its own connect(), onInstalled, and the storage event its first instance-id write raised), and each sent a hello on whichever socket was newest when its tab list was ready. A hello whose tab list predated a new tab dropped that tab while it was being attached, which left Chrome's debugger attached with no owner and the tab refused (\"Another debugger is already attached\"). This inherited bug needs an upstream fix; upstream tests remain unchanged.",
+			"owned": [
+				"packages/coding-agent/test/scient/relay-extension-connect.test.ts",
+				"packages/coding-agent/test/scient/relay-extension-hello.test.ts"
+			],
 			"upstream": ["packages/browser-relay/extension/background.ts"],
 			"unmarked": {
 				"packages/coding-agent/src/tools/browser/relay/extension-assets/background.js.txt": "The bundle packages/browser-relay/scripts/build-extension.ts makes from background.ts. Bundling drops comments, so it cannot keep the markers; regenerate it whenever background.ts changes."
 			},
 			"verification": [
-				"bun --cwd=packages/coding-agent test test/scient/relay-extension-connect.test.ts test/tools/browser-relay-tab-isolation.test.ts"
+				"bun --cwd=packages/coding-agent test test/scient/relay-extension-hello.test.ts test/scient/relay-extension-connect.test.ts test/tools/browser-relay-tab-isolation.test.ts"
 			]
 		}
 	}

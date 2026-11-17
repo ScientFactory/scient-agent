@@ -390,7 +390,10 @@ async function connect() {
   socket.onopen = () => {
     reconnectDelay = RECONNECT_MIN_MS;
     setBadge(true);
-    buildHello().then((hello) => post(hello));
+    buildHello().then((hello) => {
+      if (ws === socket && socket.readyState === WebSocket.OPEN)
+        socket.send(JSON.stringify(hello));
+    });
     clearInterval(pingTimer ?? undefined);
     pingTimer = setInterval(() => post({ t: "ping" }), PING_INTERVAL_MS);
   };
