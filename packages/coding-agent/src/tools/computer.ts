@@ -147,7 +147,9 @@ export function createComputerPrelude(
 	return {
 		name: "computer",
 		documentation: computerPreludeAssets.documentation,
-		inlineDocumentation: true,
+		// scient(SA-CONTEXT): begin - Read the manual before first use; policy stays upfront.
+		inlineDocumentation: false,
+		// scient(SA-CONTEXT): end
 		javascript: computerPreludeAssets.javascript,
 		python: computerPreludeAssets.python,
 		exports: ["computer"],

@@ -1,3 +1,6 @@
+// scient(SA-CONTEXT): begin - Keep mounted tool names in their service catalog.
+import { evalPromptToolNames } from "../scient/xdev-catalog";
+// scient(SA-CONTEXT): end
 import { type } from "@oh-my-pi/omptype";
 import type {
 	AgentTool,
@@ -406,7 +409,9 @@ export class EvalTool implements AgentTool<typeof evalSchema> {
 			autoProvision: cfgEvalAutoProvision.get(session.settings),
 			perCallModel,
 			perCallModelAdvertisement,
-			toolNames: session.getAdvertisedEvalToolNames?.(),
+			// scient(SA-CONTEXT): begin - The catalog remains the discovery surface.
+			toolNames: evalPromptToolNames(session),
+			// scient(SA-CONTEXT): end
 		};
 	}
 
