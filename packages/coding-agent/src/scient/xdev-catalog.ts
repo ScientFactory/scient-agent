@@ -9,7 +9,7 @@ interface ServiceTool {
 	readonly name: string;
 	readonly description?: string;
 	readonly mcpServerName?: unknown;
-	/** One line about the service, set by the registering extension; tool proxies carry it through. */
+	/** One line about the service, set by the registering extension; tool proxies carry it through. Opts the service into one catalog row. */
 	readonly mcpServerDescription?: unknown;
 	readonly mcpToolName?: unknown;
 }
@@ -18,9 +18,14 @@ interface ServiceTool {
 const SERVICE_NAMES_ROW_BYTES = 4_000;
 const SERVICE_NAMES_TOTAL_BYTES = 8_000;
 
-/** Stable service identity; display names and exact execution paths remain intact. */
+/**
+ * Stable service identity; display names and exact execution paths remain intact. Only a service
+ * whose extension describes it is grouped: MCP servers configured in the agent itself keep
+ * upstream's per-tool catalog lines and route block.
+ */
 function serviceKey(tool: ServiceTool): string | undefined {
 	if (typeof tool.mcpServerName !== "string" || !tool.mcpServerName.trim()) return undefined;
+	if (typeof tool.mcpServerDescription !== "string" || !tool.mcpServerDescription.trim()) return undefined;
 	return tool.mcpServerName.trim().toLowerCase();
 }
 
@@ -28,13 +33,8 @@ function oneLine(text: string): string {
 	return truncateHeadBytes(text.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").trim(), 200).text;
 }
 
-function serviceDescription(tools: readonly (ServiceTool | undefined)[]): string | undefined {
-	for (const tool of tools) {
-		if (typeof tool?.mcpServerDescription === "string" && tool.mcpServerDescription.trim()) {
-			return oneLine(tool.mcpServerDescription).replace(/[.\s]+$/, "");
-		}
-	}
-	return undefined;
+function serviceDescription(tools: readonly ServiceTool[]): string {
+	return oneLine(String(tools[0]!.mcpServerDescription)).replace(/[.\s]+$/, "");
 }
 
 function toolCount(count: number): string {

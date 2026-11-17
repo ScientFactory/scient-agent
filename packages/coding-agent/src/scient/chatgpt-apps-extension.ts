@@ -163,8 +163,10 @@ export function createChatGptAppsExtension(
 		const preferred = preferredToolNames();
 		const taken = new Set<string>();
 		for (const app of apps) {
-			// The catalog row's description; tool proxies carry this extra field through.
-			const service = app.description ? { mcpServerDescription: app.description } : {};
+			// The app's catalog row; tool proxies carry this extra field through.
+			const service = {
+				mcpServerDescription: app.description ?? `${app.name}, through the person's ChatGPT account`,
+			};
 			for (const tool of app.tools) {
 				const canonical = chatGptToolName(app, tool.name);
 				const name = preferred.has(canonical) ? alternateToolName(app, tool.name) : canonical;

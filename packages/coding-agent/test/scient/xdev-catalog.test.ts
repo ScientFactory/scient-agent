@@ -8,11 +8,12 @@ import { planXdevPromptDocs, renderXdevPromptDocs, xdevListing, type XdevState }
 
 function fixture() {
 	const calls: string[] = [];
-	const tools: Array<Tool & { mcpServerName: string; mcpToolName: string }> = Array.from(
+	const tools: Array<Tool & { mcpServerName: string; mcpServerDescription: string; mcpToolName: string }> = Array.from(
 		{ length: 703 },
 		(_, index) => ({
 			name: `github__tool_${index}`,
 			mcpServerName: "GitHub",
+			mcpServerDescription: "Repositories, issues and pull requests.",
 			mcpToolName: `github.tool_${index}`,
 			label: "GitHub",
 			description: "Search repository records.",
@@ -75,7 +76,9 @@ it("preserves explicit inline docs and encodes service names without changing ex
 	state.mountedNames.clear();
 	state.mountedNames.add(tool.name);
 	const catalog = renderXdevPromptDocs(planXdevPromptDocs(state, "catalog"));
-	expect(catalog).toContain("- services/drive%20%2F%20research — Drive / Research: 1 tool: github__tool_0.");
+	expect(catalog).toContain(
+		"- services/drive%20%2F%20research — Drive / Research — Repositories, issues and pull requests: 1 tool: github__tool_0.",
+	);
 	const listing = await handler.resolve(parseInternalUrl("xd://services/drive%20%2F%20research"), { session });
 	expect(listing.content).toContain("xd://github__tool_0");
 	const inline = renderXdevPromptDocs(planXdevPromptDocs(state, "inline"));
@@ -100,5 +103,15 @@ it("lists a service's tool names while they fit and describes every service", ()
 	expect(docs).toContain(
 		"- services/scient — Scient — Scient workspace tools: 3 tools: scient_tool_0, scient_tool_1, scient_tool_2.",
 	);
-	expect(docs).toContain("GitHub: 703 tools; read xd://services/github to choose one.");
+	expect(docs).toContain(
+		"GitHub — Repositories, issues and pull requests: 703 tools; read xd://services/github to choose one.",
+	);
+});
+
+it("leaves a server that does not describe itself to upstream's per-tool lines", () => {
+	const { state } = fixture();
+	for (const tool of state.tools.values()) delete (tool as { mcpServerDescription?: string }).mcpServerDescription;
+	const docs = renderXdevPromptDocs(planXdevPromptDocs(state, "catalog"));
+	expect(docs).not.toContain("services/");
+	expect(docs).toContain("- github__tool_0 — Search repository records.");
 });

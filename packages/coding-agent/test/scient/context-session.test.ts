@@ -38,6 +38,8 @@ it("keeps external tool names out of the initial SDK prompt and eval description
 						description: "Find a record in the connected service.",
 						parameters,
 						mcpServerName: "service",
+						// Read through the tool proxy, like the ChatGPT apps and Scient's bridge set it.
+						...{ mcpServerDescription: "Synthetic records." },
 						mcpToolName: `record_${index}`,
 						async execute(_id, args) {
 							calls.push(args.query);
