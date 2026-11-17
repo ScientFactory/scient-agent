@@ -24,10 +24,11 @@
 		},
 		"SA-RELEASE": {
 			"status": "active",
-			"contract": "Only Scient's own workflow builds, signs and drafts releases, and only of the version right after the latest published release, whose tag publishing the draft creates; Oh My Pi's publishing and repository automation is removed, and so is its Nix packaging, which installs and configures a stock omp.",
+			"contract": "Only Scient's own workflow builds, signs and drafts releases, and only of the version right after the latest published release, whose tag publishing the draft creates; Oh My Pi's publishing and repository automation is removed, and so is its Nix packaging, which installs and configures a stock omp. A pull request merges into main only when Scient's workflow passed on it. Dependabot updates only the actions Scient's workflow uses; Oh My Pi's dependencies change through an alignment.",
 			"owned": [
 				"SCIENT.md",
 				".github/README.md",
+				".github/dependabot.yml",
 				".github/workflows/scient.yml",
 				"scripts/scient/isolation-check.ts",
 				"scripts/scient/capability-check.ts",
