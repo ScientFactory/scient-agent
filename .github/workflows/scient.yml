@@ -76,7 +76,7 @@ jobs:
                  exit 1
               fi
 
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
            if: env.RELEASE == 'true'
 
          - uses: oven-sh/setup-bun@v2
@@ -111,7 +111,7 @@ jobs:
                - { id: windows-x64, runner: windows-2022, x64: true }
                - { id: windows-arm64, runner: windows-11-arm, x64: false }
       steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
 
          - uses: oven-sh/setup-bun@v2
            with:
@@ -169,7 +169,7 @@ jobs:
 
          - name: Reuse the native addon for unchanged Rust inputs
            id: native-cache
-           uses: actions/cache/restore@v4
+           uses: actions/cache/restore@v6
            with:
               path: |
                  packages/natives/native/*.node
@@ -227,7 +227,7 @@ jobs:
          # never leave a half-built set under the key the next run would hit.
          - name: Save the native addon for the next run
            if: steps.native-cache.outputs.cache-hit != 'true'
-           uses: actions/cache/save@v4
+           uses: actions/cache/save@v6
            with:
               path: |
                  packages/natives/native/*.node
@@ -275,7 +275,7 @@ jobs:
               bun -e 'const [file] = process.argv.slice(1); const hash = new Bun.CryptoHasher("sha256"); hash.update(await Bun.file(file).arrayBuffer()); console.log(`${hash.digest("hex")}  ${file.split("/").pop()}`);' "release/$name" > "release/$name.sha256"
               cat "release/$name.sha256"
 
-         - uses: actions/upload-artifact@v4
+         - uses: actions/upload-artifact@v7
            with:
               # The release collects `scient-agent-*` artifacts only, so an
               # unsigned macOS build can never be published.
@@ -290,7 +290,7 @@ jobs:
       runs-on: ubuntu-22.04
       timeout-minutes: 60
       steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
 
          - uses: oven-sh/setup-bun@v2
            with:
@@ -319,7 +319,7 @@ jobs:
 
          - name: Reuse the native addon for unchanged Rust inputs
            id: native-cache
-           uses: actions/cache/restore@v4
+           uses: actions/cache/restore@v6
            with:
               path: |
                  packages/natives/native/*.node
@@ -347,14 +347,14 @@ jobs:
 
          - name: Save the native addon for the next run
            if: steps.native-cache.outputs.cache-hit != 'true'
-           uses: actions/cache/save@v4
+           uses: actions/cache/save@v6
            with:
               path: |
                  packages/natives/native/*.node
                  packages/natives/native/index.d.ts
               key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
 
-         - uses: actions/upload-artifact@v4
+         - uses: actions/upload-artifact@v7
            with:
               name: natives-linux-x64
               path: packages/natives/native/*.node
@@ -383,7 +383,7 @@ jobs:
                # to measure; it keeps the bucket off the critical path.
                - { mode: coding-agent-native, concurrency: 2 }
       steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
 
          - uses: oven-sh/setup-bun@v2
            with:
@@ -392,7 +392,7 @@ jobs:
          - name: Install dependencies
            run: bun install --frozen-lockfile
 
-         - uses: actions/download-artifact@v4
+         - uses: actions/download-artifact@v8
            with:
               name: natives-linux-x64
               path: packages/natives/native
@@ -416,7 +416,7 @@ jobs:
       steps:
          # The pull request's own head, not GitHub's merge commit: the check walks
          # Scient's linear history from the accepted alignment.
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
            with:
               ref: ${{ github.event.pull_request.head.sha || github.sha }}
               fetch-depth: 0
@@ -458,9 +458,9 @@ jobs:
          matrix:
             id: [darwin-arm64, darwin-x64]
       steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
 
-         - uses: actions/download-artifact@v4
+         - uses: actions/download-artifact@v8
            with:
               name: unsigned-scient-agent-${{ matrix.id }}
               path: release
@@ -496,7 +496,7 @@ jobs:
            working-directory: release
            run: sha256sum "scient-agent-${{ matrix.id }}" | tee "scient-agent-${{ matrix.id }}.sha256"
 
-         - uses: actions/upload-artifact@v4
+         - uses: actions/upload-artifact@v7
            with:
               name: scient-agent-${{ matrix.id }}
               path: release/
@@ -515,13 +515,13 @@ jobs:
                - { id: darwin-arm64, runner: macos-15 }
                - { id: darwin-x64, runner: macos-15-intel }
       steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
 
          - uses: oven-sh/setup-bun@v2
            with:
               bun-version: 1.4.4
 
-         - uses: actions/download-artifact@v4
+         - uses: actions/download-artifact@v8
            with:
               name: scient-agent-${{ matrix.id }}
               path: release
@@ -561,7 +561,7 @@ jobs:
       runs-on: ubuntu-24.04
       timeout-minutes: 45
       steps:
-         - uses: actions/download-artifact@v4
+         - uses: actions/download-artifact@v8
            with:
               pattern: scient-agent-*
               path: release
@@ -587,7 +587,7 @@ jobs:
               done
               ls -l . ../compressed
 
-         - uses: actions/upload-artifact@v4
+         - uses: actions/upload-artifact@v7
            with:
               # `scient-agent-*`, so the release collects it.
               name: scient-agent-compressed
@@ -606,7 +606,7 @@ jobs:
          VERSION: ${{ needs.release-version.outputs.version }}
          TAG: v${{ needs.release-version.outputs.version }}
       steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v7
 
          - uses: oven-sh/setup-bun@v2
            with:
@@ -619,7 +619,7 @@ jobs:
               RELEASE_VERSION: ${{ needs.release-version.outputs.version }}
            run: bun scripts/scient/release-version.ts
 
-         - uses: actions/download-artifact@v4
+         - uses: actions/download-artifact@v8
            with:
               pattern: scient-agent-*
               path: release
