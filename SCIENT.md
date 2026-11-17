@@ -1062,10 +1062,10 @@ The macOS native test process preloads `scripts/scient/macos-spelling-ready.ts`.
 
 ## Definition of done
 
-Report work as done only when all of these hold on the final head:
+Report work as done only when all of these hold on the final head. Without a pull request, the handback carries what the pull request would.
 
 - `bun check` and the focused tests of the changed area pass, and so do the checks above that the change touches: `divergence-check.ts` for any change to an Oh My Pi file, and the generators' `--check` for names and wording.
-- A change to a page or screen the agent shows (sign-in pages, the stats dashboard, the terminal) has before/after screenshots in the pull request, light and dark where the screen has both, checked against Scient Desktop's [UI checklist](https://github.com/ScientFactory/scient-desktop/blob/main/docs/internals/web-ui.md#ui-checklist).
+- A change to a page or screen the agent shows (sign-in pages, the stats dashboard, the terminal) has before/after screenshots in the pull request, light and dark where the screen has both, checked against Scient Desktop's [UI checklist](https://github.com/ScientFactory/scient-desktop/blob/main/docs/internals/web-ui.md#ui-checklist) and attached as its "Screenshots in a PR" describes.
 - Every link a reader can follow that the change adds (docs, messages, pull request text) was fetched once and works.
 - The pull request says, for macOS, Linux and Windows, what ran there and what is still unproven. The six-platform CI proves the build and the isolation check on each system, not behavior that differs between them.
 - The pull request names its review and result in the template's Review section.

@@ -19,7 +19,7 @@
 
 ## Review
 
-<!-- None (docs or copy) | Light Codex | Codex high and a live test (data, migrations, security, release, alignment), then the result -->
+<!-- None (docs, or UI appearance or copy with no logic change) | Light Codex | Codex high and a live test: the changed behavior run in the built binary with synthetic state (data, migrations, security, release, alignment). Then the result. -->
 
 <!-- scient(SA-POLICY): end -->
 ---
