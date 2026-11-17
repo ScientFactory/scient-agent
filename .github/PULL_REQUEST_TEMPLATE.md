@@ -19,12 +19,7 @@
 
 ## Review
 
-<!-- Keep one, with the result: None — docs or copy | Light Codex review |
-     Codex high review and a live test — data, migrations, security, release or alignment -->
-
-Review:
-
-- [ ] Every link or URL this PR adds was fetched and works
+<!-- None (docs or copy) | Light Codex | Codex high and a live test (data, migrations, security, release, alignment), then the result -->
 
 <!-- scient(SA-POLICY): end -->
 ---
