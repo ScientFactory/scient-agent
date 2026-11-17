@@ -420,9 +420,6 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 		["use an omp-owned profile", "use an agent-owned profile"],
 		[`through the ${PRODUCT} relay`, "through the browser relay"],
 	],
-	"packages/coding-agent/src/prompts/tools/ida.md": [
-		[`and ${PRODUCT} process in the project`, "and agent process in the project"],
-	],
 	// The Python client's README, which names the command the client starts.
 	"sdk/python/omp-rpc/README.md": [["omp --mode rpc", `${COMMAND} --mode rpc`]],
 };

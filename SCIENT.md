@@ -23,7 +23,7 @@ Everything else is upstream's code and behavior.
 | Shell traces | The bash tool records no execution trace unless the user turns `display.shellVisualization` on. Scient Agent's host draws no shell visualization, and every live frame of a running command would carry the whole trace, up to megabytes. |
 | Browser relay | The relay listens on port 9324 (OMP uses 9224), so each product runs its own. |
 | Relay extension connection | The browser extension keeps one connection to the relay. Oh My Pi's opened two or three on a browser's first start with it, each announcing the browser's tabs, and a late announcement could drop a tab while the agent was attaching to it, leaving that tab refused ("Another debugger is already attached"). Only a port or token change reconnects it, and an announcement goes out only on the connection it was made for. |
-| Browser action deadline | Native Tern target resolution shares one absolute deadline across selector lookup, actionability reads, scrolling and retry waits. Expiry cancels pending reads and rejects late replies before they can authorize input, preserving the last recorded actionability failure; earlier backend errors and parent cancellation are not relabelled. This guards an inherited upstream deadline bug; upstream tests are unchanged. |
+| Browser action deadline | Native Tern target resolution shares one absolute deadline across selector lookup, actionability reads, scrolling and retry waits. Expiry cancels pending reads and rejects late replies before they can authorize input, preserving the last recorded actionability failure; earlier backend errors and parent cancellation are not relabelled. Since 18.22.0 Oh My Pi itself stops before a retry round its remaining time cannot cover, but a reply that arrives at the deadline can still authorize input there. Upstream tests are unchanged. |
 | Next message | `predict_next_message` gives an RPC host the prediction of the user's next message that OMP's terminal composer shows after a turn: OMP's prompt and parsing, on the session's model and context, without changing its history. It runs outside the command queue; a newer request replaces one in flight, and a turn or compaction that starts cancels it. |
 | Usage-limit reset | A `prompt_result` for a turn stopped by a usage limit carries `error.resetAt`, the time the provider said the limit resets (epoch ms): from its retry hint, the account's usage report, or an earlier stated block, whichever is latest. A time the error states is read from "resets at" as well as Oh My Pi's "reset at", by the agent's own retry too. It is left out when the provider gave no time; the 30-minute guess for a hintless error is never reported. A host can resume the turn at that time. A usage-limited turn whose failure came without an HTTP status reports `error.httpStatus` 429, so a host that shows a usage-limit state for a 429 shows it; a status the provider sent is kept. |
 | Prompt cache | An assistant reply's `message_end` carries `promptCache` (`tier`, `touchedAt`, `ttlMs`): the prompt-cache entry its response confirmed, while the next request would still read it. It is left out for a cache that never expires and for an entry the agent only inferred. A host can compact an idle conversation just before a one-hour entry expires, so the summary reads a warm cache. Each time warming stops, whatever stopped it, a `cache_warming_stopped` frame names the reason, stamps `stoppedAt` (epoch ms at the agent, independent of delivery time), and carries the same entry as warming left it, with `touchedAt` the last refresh that hit; it is left out on the same terms, including after the conversation changed. A host compacts an idle conversation on a five-minute cache at that frame, while nothing keeps the cache warm any longer. The agent's own idle compaction stays a terminal feature and never runs over RPC. |
@@ -951,6 +951,64 @@ Not run locally: Rust tests and the `native` and `coding-agent-native` buckets. 
 
 Review: a Claude review of the replay found the two defects fixed above (the shared X11 input pairs and the swallowed model change), and a second pass verified both fixes.
 
+### Eleventh alignment intake — 2026-11-17
+
+Scient Agent is aligned with Oh My Pi 18.22.0.
+
+- Frozen owned `main`: `53f46ae44295221dabc4db4f1e8fe2a6e62d0717`.
+- Accepted source baseline: OMP `18.20.3`, `90935366da0c368a437da4343ae748b03a2ffe97`, tag `omp-sync/v18.20.3`.
+- Target: OMP `18.22.0`, `3e8cff3b7ce19a805c11a26a6dd1703066435851`, under `refs/upstream-tags/v18.22.0`: 118 commits across two releases (18.21.0 and 18.22.0), changing 455 files.
+- Inventory: the 32 commits of the accepted replay, replacing all three generated commits, and the 18 commits on `main` after the `sync:` import:
+  - Six new contracts, each one commit: `SA-SECURITY`, `SA-ACCESS-POLICY`, `SA-CCA-STRING-ENUMS`, `SA-BROWSER-DEADLINE` (2 commits folded), `SA-RELAY-CONNECT` and `SA-CONTEXT`.
+  - Folded into `SA-USAGE-RESET`: a usage limit without a status reports 429. Into `SA-FAILURE-KIND`: the `network` kind. Into `SA-CHATGPT-APPS`: an app's catalog description and an existing connector's tool names, the `SA-CHATGPT-APPS` part of the commit that added `SA-CONTEXT`. Into `SA-PROMPT-CACHE`: `cache_warming_stopped` and its `stoppedAt` (2 commits). Into `SA-RELEASE`: the reused native addon (3 commits), the macOS spelling readiness probe, and the required `CI passed` check with Dependabot for Scient's actions.
+  - Superseded: two generated RPC commits, regenerated once.
+  - Folding was checked first on the 18.20.3 base: that replay's tree equals frozen `main` but for the generated RPC clients.
+- Replay: `replay/omp-v18.22.0`: generators, identity, 34 contracts in ledger order (33 active, one upstreamed), wording and RPC clients.
+
+| Step | Result |
+|---|---|
+| Identity generator | Two rules changed, both for 18.22.0's backend-neutral disassembler (`disasm/`, which replaced `ida/`). Its host configuration `OMP_DISASM_HOST_CONFIG`, the successor of `OMP_IDA_HOST_CONFIG`, is now `SCIENT_AGENT_DISASM_HOST_CONFIG`. The log-file rule had also matched the daemon prefix `omp.${backend}.`, while the open-database limit counts hosts by the literal `omp.ida.` and `omp.ghidra.`: Scient Agent's hosts would never have counted, so `disassembler.maxOpen` would never have closed one. The rule now leaves that prefix, which names hosts in the agent's own broker, as it left `omp.ida.` before. 624 files renamed. New state follows the config root with no rule: Ghidra, its JDK and PyGhidra (`getGhidraDir`, a `rootSubdir`) and the Phonon speech models (under the tiny-models cache); the new `.omp-ready` and `.omp-mlx-lm` markers are renamed by existing rules. |
+| Contract commits | Two conflicts. `SA-CHATGPT-APPS`: upstream now registers discovered MCP tools through their own extension and loads file custom tools per working directory; the apps extension is pushed beside upstream's inline factories, before the MCP one, as before. `SA-PLAN-MODE`: upstream reworded the comment beside the hook that leaves plan mode on `new` and `switch`. |
+| Wording generator | One rule removed: upstream replaced `prompts/tools/ida.md` with the backend-neutral `dsm.md`, which the generic rules cover. 490 files rewritten. |
+| RPC generator | Regenerated the schema and TypeScript, Python, Rust and Go clients. |
+| Hooked files upstream changed | 22 of 86; reviewed against every ledger contract. |
+| Footprint | 234 marker blocks, 643 lines, in 86 files, from 193, 506 and 70 at the tenth intake: the six contracts added since and the folded changes, and one line of `SA-SHELL-TRACE` in an upstream test 18.21.0 added (see Known failures). |
+
+Decisions:
+
+| Change | Why |
+|---|---|
+| `SA-BROWSER-DEADLINE` kept | 18.22.0 ends the retry loop before a round its remaining time cannot cover (`elapsed + delay >= timeoutMs`), which fixes the failure that made Scient add the contract. On 18.22.0's code five of the contract's eight cases still fail: a reply that arrives at the deadline can still authorize input, and a pending read can outlive the action. |
+| Run lifecycle | 18.21.0 splits a run's loop ends into `agent_pause` and one final `agent_end` inside the agent. The RPC wire keeps its contract (`loop-end-wire.ts`): every stopped loop is an `agent_end` with `isTerminal` and `yielded`, plus `awaitingAsyncWork` when only outside work can resume the run. `prompt_result` still follows the yield. Scient's prompt-cache and prompt-result hooks read neither event. |
+| Capability check | 18.21.0 probes an unknown model's reasoning support with requests of its own. The check's stub model now declares `reasoning: false`, so the probes do not count as subagent starts. |
+
+**RPC changes for Desktop.** Protocol versions stay 1 and 2. Additions only: `agent_end.awaitingAsyncWork`, a broader `hasPendingAsyncWork` (child agents and queued peer messages also wake a session) and a shell `fork` outcome. Scient Desktop reads `yielded` before `isTerminal` and ignores fields it does not read. One change in behavior needs a Desktop change: a run paused on outside work (`isTerminal: false`) that ends without being woken, when a job is cancelled or a child agent finishes without writing, now sends a final `agent_end` with no `agent_start` before it. Desktop counted that frame toward whatever turn was open, so if it arrived after a new turn began and before that turn's own run started, the new turn showed the previous reply and could settle early. Desktop now holds the paused run's id and treats its final `agent_end` as the previous turn's ([Scient Desktop #984](https://github.com/ScientFactory/scient-desktop/pull/984)).
+
+**Known failures.** A probe (branch `probe/pristine-18220`, run 43990378571) ran each bucket on untouched 18.22.0 and on Scient's replay, on Scient's runner type, concurrency and per-test ceiling: `coding-agent-native` 8 times each, the other five twice each. Its logs were read test by test with `upstream-tests.ts`'s own judge. The 18.20.3 entries lapsed.
+
+| Test | Untouched 18.22.0 | Scient's replay |
+|---|---|---|
+| `bash-session-state` keeps an overlapping call's background jobs alive | 0 of 8 | 8 of 8 |
+| Utils `scient/product` reports its own release (`workspace`, of 2) | 0 | 2 |
+| 4 tests: a timed-out tool activation, background app-CDP input, a cancelled run's page listeners, a Chromium PDF screenshot | 1 of 8 each | 1 of 8 for the first, 0 for the others |
+| `browser-relay-tab-isolation` default tab in the browser used last | 0 of 8 | 3 of 8 |
+| 2 Responses WebSocket recovery cases, plus an error between tests from the same file in 2 runs | 0 of 8 | 1 to 2 of 8 |
+| 8 more: the 6 `browser-tab-worker-startup` renderer-crash and owned-page tests (one run), a cancelled job's TERM cleanup, a stalled extension's queue | 0 of 8 | 1 of 8 each |
+
+The first row was a Scient defect: since 18.21.0 an overlapping call runs in a fork of the busy shell, and with no trace (`SA-SHELL-TRACE`) a run whose background job keeps the output pipe open drains it for 250 ms after exit (`POST_EXIT_IDLE` in `pi-shell`), past the test's 100 ms auto-background threshold; untouched 18.22.0 shows the same 275 ms with the trace off. The test now turns the trace on, as the contract's two other upstream tests do. The second row ran before the replay pinned 18.22.0 in `scient.json`; the test passes on the final replay. The four tests seen failing untouched are listed in `upstream-tests.ts`. The rest failed only on the replay, in browser, WebSocket and shell code no Scient hook touches, and pass locally on the replay (the relay and WebSocket files three times each); they are not listed, and a recurrence takes a rerun or a second probe. The relay default tab also failed once on the tenth intake's replay. Its cause is the extension's extra sockets on a browser's first start, an inherited bug that failed only on the replay in these probes; `SA-RELAY-CONNECT`, merged on `main` during this intake, fixes it.
+
+#### Local checks
+
+On macOS arm64 with Bun 1.4.4 and the repo-pinned November nightly:
+- Identity and wording `--check`, the script tests (79) and `check:ts` pass. Scient's own tests pass: `coding-agent` 117, `ai` 4; the `natives` (205) and `utils` (981) suites pass whole.
+- 225 Oh My Pi test files around the hooks upstream changed (RPC, agent sessions, cache warming, Tern, live voice, the SDK): 2,526 pass, one fails under load and passes alone (`sdk-autolearn-capture-provider-context`, no Scient hook).
+- Replay-mode divergence verification passes: 36 commits, all three generated commits equal their generators.
+- Compiled macOS arm64 executable: `--runtime-info` reports Scient Agent 0.1.11, OMP 18.22.0 at the full pin above, RPC `[1,2]`, `hostCommands` `apps` and `dictate`. Compiled isolation passes, and the hosts contacted on startup are v0.1.12's seven. `capability-check.ts` against v0.1.12 passes every case.
+
+Not run locally: Rust tests and Oh My Pi's six buckets in full. CI builds and checks the six platforms and runs the six buckets.
+
+Review: a Codex review of the replay found the two disassembler defects fixed above (the shared host-configuration variable and the uncounted database hosts). It also flagged the Ghidra runner staged under the shared `omp-ghidra-worker` temporary folder; that is how Oh My Pi stages every runner (Python, MLX, and IDA before it), by content hash in an owner-private folder, so identical bytes share a file and it was left as it was at earlier alignments. It agreed `SA-BROWSER-DEADLINE` stays and found no breaking RPC change.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -996,7 +1054,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Eleven tests are listed for 18.20.3. Each was seen failing on untouched 18.20.3 on the same runner type; the counts are under "Tenth alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
+Four tests are listed for 18.22.0. Each was seen failing on untouched 18.22.0 on the same runner type; the counts are under "Eleventh alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 

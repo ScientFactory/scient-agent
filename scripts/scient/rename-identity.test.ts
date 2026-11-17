@@ -31,7 +31,7 @@ describe("log file names", () => {
 	});
 
 	it("leaves names that only look like log files", () => {
-		for (const source of ['"omp.hud.todo"', "`omp.<role>`", "`omp.<message>.json`"]) {
+		for (const source of ['"omp.hud.todo"', "`omp.<role>`", "`omp.<message>.json`", "`omp.${backend}.`"]) {
 			expect(applyRenames(source)).toBe(source);
 		}
 	});

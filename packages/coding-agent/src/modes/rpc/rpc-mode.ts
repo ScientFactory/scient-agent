@@ -2216,7 +2216,7 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 					// scient(SA-PLAN-MODE): begin - A plan never carries into another conversation.
 					if (command.type !== "branch") await planController.handle({ op: "exit" });
 					// scient(SA-PLAN-MODE): end
-					// The detached run publishes no terminal agent_end to settle on.
+					// The detached run publishes no agent_end to settle on.
 					void settleWatcher.check();
 					await emitAvailableCommandsUpdate();
 				}
@@ -2333,7 +2333,7 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 					sessionName: session.sessionName,
 					autoCompactionEnabled: session.autoCompactionEnabled,
 					queuedMessageCount: session.queuedMessageCount,
-					hasPendingAsyncWork: session.hasPendingAsyncWork(),
+					hasPendingAsyncWork: session.wakeSources !== undefined,
 					// A scheduled goal continuation will start a turn: not settled.
 					isSettled: isSessionSettled(session, goalTurnScheduled),
 					queuedMessages: {
