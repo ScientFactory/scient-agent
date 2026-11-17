@@ -18,7 +18,7 @@ describe("omp read MCP resources", () => {
 		root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-read-mcp-"));
 		projectDir = path.join(root, "project");
 		agentDir = path.join(root, "agent");
-		const localSkillDir = path.join(projectDir, ".omp", "skills", "local-skill");
+		const localSkillDir = path.join(projectDir, ".scient-agent", "skills", "local-skill");
 		await Promise.all([fs.mkdir(localSkillDir, { recursive: true }), fs.mkdir(agentDir)]);
 		await Bun.write(
 			path.join(localSkillDir, "SKILL.md"),
@@ -67,7 +67,7 @@ describe("omp read MCP resources", () => {
 				...process.env,
 				HOME: root,
 				NO_COLOR: "1",
-				PI_CODING_AGENT_DIR: agentDir,
+				SCIENT_AGENT_DIR: agentDir,
 			},
 		});
 		const stdout = new Response(proc.stdout).text();

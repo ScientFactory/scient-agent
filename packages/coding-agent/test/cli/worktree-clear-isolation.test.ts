@@ -23,16 +23,16 @@ describe("worktree clear task-isolation ownership", () => {
 
 	beforeEach(async () => {
 		base = await fs.mkdtemp(path.join(os.tmpdir(), "omp-wt-clear-"));
-		savedEnv = process.env.OMP_WORKTREE_DIR;
-		delete process.env.OMP_WORKTREE_DIR;
+		savedEnv = process.env.SCIENT_AGENT_WORKTREE_DIR;
+		delete process.env.SCIENT_AGENT_WORKTREE_DIR;
 		setWorktreesDir(base);
 		vi.spyOn(console, "log").mockImplementation(() => {});
 	});
 
 	afterEach(async () => {
 		setWorktreesDir(undefined);
-		if (savedEnv === undefined) delete process.env.OMP_WORKTREE_DIR;
-		else process.env.OMP_WORKTREE_DIR = savedEnv;
+		if (savedEnv === undefined) delete process.env.SCIENT_AGENT_WORKTREE_DIR;
+		else process.env.SCIENT_AGENT_WORKTREE_DIR = savedEnv;
 		vi.restoreAllMocks();
 		await fs.rm(base, { recursive: true, force: true });
 	});

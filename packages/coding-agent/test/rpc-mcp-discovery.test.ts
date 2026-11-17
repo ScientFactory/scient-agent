@@ -55,7 +55,7 @@ describe("CLI RPC MCP discovery", () => {
 		test(`${mode}: mounted MCP survives session switches; user denylist prevents spawn until restart restores it`, async () => {
 			const root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-rpc-mcp-"));
 			const home = path.join(root, "home");
-			const agentDir = path.join(home, ".omp/agent");
+			const agentDir = path.join(home, ".scient-agent/agent");
 			const project = path.join(root, "project");
 			await fs.mkdir(agentDir, { recursive: true });
 			await fs.mkdir(project);
@@ -65,8 +65,8 @@ describe("CLI RPC MCP discovery", () => {
 				HOME: home,
 				USERPROFILE: home,
 				XDG_CONFIG_HOME: path.join(home, ".config"),
-				PI_CONFIG_DIR: ".omp",
-				PI_CODING_AGENT_DIR: agentDir,
+				SCIENT_AGENT_CONFIG_DIR: ".scient-agent",
+				SCIENT_AGENT_DIR: agentDir,
 				PI_NO_TITLE: "1",
 			};
 			using model = ptree.spawn([process.execPath, fakeModel, agentDir], {

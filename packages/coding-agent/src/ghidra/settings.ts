@@ -10,7 +10,7 @@ export const cfgGhidraInstallDir = register({
 		group: "Ghidra",
 		label: "Ghidra Install Dir",
 		description:
-			"Ghidra 12+ install directory (contains Ghidra/application.properties); empty uses $GHIDRA_INSTALL_DIR, Homebrew, else a managed download under ~/.omp/ghidra",
+			"Ghidra 12+ install directory (contains Ghidra/application.properties); empty uses $GHIDRA_INSTALL_DIR, Homebrew, else a managed download under ~/.scient-agent/ghidra",
 	},
 });
 

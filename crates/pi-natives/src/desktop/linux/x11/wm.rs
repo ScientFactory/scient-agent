@@ -45,7 +45,8 @@ pub(super) struct Atoms {
 	pub time_probe:          Atom,
 	/// `_NET_WM_WINDOW_TYPE`s of override-redirect windows that hold no grab.
 	pub passive_popup_types: [Atom; 3],
-	/// `_OMP_MPX_HOLDER`, the master pointer property naming the pair's holder.
+	/// `_SCIENT_MPX_HOLDER`, the master pointer property naming the pair's
+	/// holder.
 	pub mpx_holder:          Atom,
 }
 
@@ -62,7 +63,7 @@ impl Atoms {
 			"_NET_WM_WINDOW_TYPE_TOOLTIP",
 			"_NET_WM_WINDOW_TYPE_NOTIFICATION",
 			"_NET_WM_WINDOW_TYPE_DND",
-			"_OMP_MPX_HOLDER",
+			"_SCIENT_MPX_HOLDER",
 		];
 		let cookies = NAMES
 			.iter()

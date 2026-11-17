@@ -12,9 +12,9 @@ function makeTempDir(prefix: string): string {
 	return dir.path();
 }
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
-const originalPiProfile = process.env.PI_PROFILE;
-const originalOmpProfile = process.env.OMP_PROFILE;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
+const originalPiProfile = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
+const originalOmpProfile = process.env.SCIENT_AGENT_PROFILE;
 
 function restoreEnv(key: string, value: string | undefined): void {
 	if (value === undefined) {
@@ -29,9 +29,9 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-	restoreEnv("PI_CODING_AGENT_DIR", originalAgentDir);
-	restoreEnv("PI_PROFILE", originalPiProfile);
-	restoreEnv("OMP_PROFILE", originalOmpProfile);
+	restoreEnv("SCIENT_AGENT_DIR", originalAgentDir);
+	restoreEnv("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfile);
+	restoreEnv("SCIENT_AGENT_PROFILE", originalOmpProfile);
 	__resetDirsFromEnvForTests();
 	await Promise.all(tempDirs.splice(0).map(dir => dir.remove()));
 });
@@ -143,7 +143,7 @@ describe("SessionManager cwd adoption on resume", () => {
 		const launch = makeTempDir("@pi-cwd-launch-");
 		const store = makeTempDir("@pi-cwd-store-");
 		const goneProject = makeTempDir("@pi-cwd-gone-");
-		// The session file survives in `store` (like ~/.omp), but its header cwd
+		// The session file survives in `store` (like ~/.scient-agent), but its header cwd
 		// points at a project directory that we then delete.
 		const file = await writeSession(goneProject, store);
 		await removeWithRetries(goneProject);

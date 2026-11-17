@@ -61,7 +61,7 @@
 
 - Filesystem:
    - Local backend writes `<agent-dir>/memories/<encoded-cwd>/learned.md`.
-   - Managed skills write `<agent-dir>/managed-skills/<sanitized-name>/SKILL.md`; the default agent directory is `~/.omp/agent`.
+   - Managed skills write `<agent-dir>/managed-skills/<sanitized-name>/SKILL.md`; the default agent directory is `~/.scient-agent/agent`.
    - Mnemopi writes its scoped SQLite database.
    - Hindsight writes a private event file under `<agent-dir>/hindsight-outbox/` until the server accepts it.
 - Network: Hindsight queue flushes to the configured server later. Mnemopi can schedule configured embedding/fact-extraction provider work after the synchronous row write; local file-backed storage itself is offline.

@@ -76,8 +76,8 @@ beforeEach(async () => {
 	const repository = vcs.requireGit(cwd);
 	await repository.remoteAdd("origin", "git@github.com:owner/example.git");
 	await repository.remoteAdd("fork", "https://github.com/contributor/example.git");
-	originalDb = process.env.OMP_GITHUB_CACHE_DB;
-	process.env.OMP_GITHUB_CACHE_DB = path.join(cwd, "cache.db");
+	originalDb = process.env.SCIENT_AGENT_GITHUB_CACHE_DB;
+	process.env.SCIENT_AGENT_GITHUB_CACHE_DB = path.join(cwd, "cache.db");
 	resetForTests();
 	manager = new AsyncJobManager({});
 	seed(REPO);
@@ -88,8 +88,8 @@ afterEach(async () => {
 	await manager.dispose();
 	vi.restoreAllMocks();
 	resetForTests();
-	if (originalDb === undefined) delete process.env.OMP_GITHUB_CACHE_DB;
-	else process.env.OMP_GITHUB_CACHE_DB = originalDb;
+	if (originalDb === undefined) delete process.env.SCIENT_AGENT_GITHUB_CACHE_DB;
+	else process.env.SCIENT_AGENT_GITHUB_CACHE_DB = originalDb;
 	await fs.rm(cwd, { recursive: true, force: true });
 });
 

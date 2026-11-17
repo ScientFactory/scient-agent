@@ -904,7 +904,7 @@ describe("ExtensionUiController tool approval", () => {
 describe("ExtensionUiController OSC 7501 run status", () => {
 	const report = (body: string) => `\x1b]7501;${body}\x1b\\`;
 	const blocked = (kind: "permission" | "question", msg: string) =>
-		report(`state=blocked:kind=${kind}:app=omp:msg=${Buffer.from(msg).toString("base64")}`);
+		report(`state=blocked:kind=${kind}:app=scient-agent:msg=${Buffer.from(msg).toString("base64")}`);
 	let writes: string[] = [];
 	let prevHeadless = false;
 	let ttyDescriptor: PropertyDescriptor | undefined;
@@ -946,7 +946,7 @@ describe("ExtensionUiController OSC 7501 run status", () => {
 
 		harness.handleInput("\r");
 		expect(await answer).toBe(true);
-		expect(writes.slice(1)).toEqual([report("state=done:app=omp")]);
+		expect(writes.slice(1)).toEqual([report("state=done:app=scient-agent")]);
 	});
 
 	it("hands the record to the next queued dialog without reporting completion between prompts", async () => {
@@ -965,7 +965,7 @@ describe("ExtensionUiController OSC 7501 run status", () => {
 
 		harness.handleInput("\x1b");
 		expect(await second).toBeUndefined();
-		expect(writes.at(-1)).toBe(report("state=done:app=omp"));
+		expect(writes.at(-1)).toBe(report("state=done:app=scient-agent"));
 	});
 
 	it("reports a tool approval as blocked on permission and releases it when the call aborts", async () => {
@@ -981,7 +981,7 @@ describe("ExtensionUiController OSC 7501 run status", () => {
 
 		abort.abort();
 		expect(await answer).toBe("deny");
-		expect(writes.slice(1)).toEqual([report("state=working:app=omp")]);
+		expect(writes.slice(1)).toEqual([report("state=working:app=scient-agent")]);
 	});
 
 	it("reports a selector that asks for a permission (a cfg:// change) as blocked on permission", async () => {

@@ -47,7 +47,7 @@ describe("omp session unpack against a local copy", () => {
 	let cloudAgent: string;
 	let laptopCwd: string;
 	let cloudCwd: string;
-	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 
 	beforeEach(async () => {
 		root = await fsp.mkdtemp(path.join(os.tmpdir(), "omp-session-transfer-copy-"));
@@ -66,7 +66,7 @@ describe("omp session unpack against a local copy", () => {
 			setAgentDir(originalAgentDir);
 		} else {
 			setAgentDir(path.join(getConfigRootDir(), "agent"));
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		}
 		await fsp.rm(root, { recursive: true, force: true });
 	});

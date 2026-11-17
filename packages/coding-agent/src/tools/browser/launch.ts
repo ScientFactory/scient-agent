@@ -344,7 +344,7 @@ async function loadBrowsers(): Promise<typeof BrowsersNs> {
  * system Chrome is used on macOS only when Chrome for Testing cannot be
  * obtained. Other platforms keep the download-avoiding system Chrome
  * preference and fall back to Chrome for Testing. The managed browser is
- * cached under ~/.omp/puppeteer (getPuppeteerDir). Returns undefined when
+ * cached under ~/.scient-agent/puppeteer (getPuppeteerDir). Returns undefined when
  * platform detection fails (puppeteer default resolution takes over).
  * Exported so real-browser tests can probe launchability and skip on hosts
  * missing Chrome's system libraries.
@@ -412,7 +412,7 @@ export async function ensureSignInChromiumExecutable(): Promise<string | undefin
  * Whether launching managed Chromium would first download Chrome for Testing,
  * as {@link ensureChromiumExecutable} decides: no `PUPPETEER_EXECUTABLE_PATH`,
  * no usable system Chrome where one is preferred (every platform but macOS),
- * and no Chrome for Testing under ~/.omp/puppeteer yet.
+ * and no Chrome for Testing under ~/.scient-agent/puppeteer yet.
  */
 export async function chromiumNeedsDownload(): Promise<boolean> {
 	if (process.env.PUPPETEER_EXECUTABLE_PATH) return false;
@@ -421,7 +421,7 @@ export async function chromiumNeedsDownload(): Promise<boolean> {
 	return managed !== undefined && !fs.existsSync(managed.executablePath);
 }
 
-/** Where this host's Chrome for Testing build lives under ~/.omp/puppeteer; undefined when platform detection fails. */
+/** Where this host's Chrome for Testing build lives under ~/.scient-agent/puppeteer; undefined when platform detection fails. */
 async function managedChromiumLocation() {
 	const browsers = await loadBrowsers();
 	const platform = browsers.detectBrowserPlatform();
@@ -434,7 +434,7 @@ async function managedChromiumLocation() {
 }
 
 let managedChromiumPromise: Promise<string | undefined> | undefined;
-/** Chrome for Testing under ~/.omp/puppeteer, downloaded on first use; undefined when platform detection fails. */
+/** Chrome for Testing under ~/.scient-agent/puppeteer, downloaded on first use; undefined when platform detection fails. */
 function ensureManagedChromium(): Promise<string | undefined> {
 	managedChromiumPromise ??= (async () => {
 		const managed = await managedChromiumLocation();

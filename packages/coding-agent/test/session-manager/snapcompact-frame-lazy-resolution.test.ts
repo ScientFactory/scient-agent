@@ -84,9 +84,9 @@ describe("lazy snapcompact frame resolution", () => {
 	const tempDirs: string[] = [];
 	const originalAgentDir = getAgentDir();
 	const originalEnv = {
-		PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
-		OMP_PROFILE: process.env.OMP_PROFILE,
-		PI_PROFILE: process.env.PI_PROFILE,
+		SCIENT_AGENT_DIR: process.env.SCIENT_AGENT_DIR,
+		SCIENT_AGENT_PROFILE: process.env.SCIENT_AGENT_PROFILE,
+		SCIENT_AGENT_PROFILE_FALLBACK: process.env.SCIENT_AGENT_PROFILE_FALLBACK,
 	};
 
 	async function makeTempDir(): Promise<string> {

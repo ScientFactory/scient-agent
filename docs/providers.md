@@ -14,7 +14,7 @@ This page covers how providers become available, how credentials are resolved, t
 2. Complete agy's Google sign-in and paste the authorization code or callback URL.
 3. Select, for example, `antigravity-cli/gemini-4-carbon` or `antigravity-cli/claude-sonnet-5-5`.
 
-omp downloads agy from Google's release manifests, checks SHA-512, and keeps versioned executables under its data directory (normally `~/.omp/antigravity-cli/bin`). It checks for updates at most daily without changing your shell profiles. `PI_AGY_PATH` selects an existing executable instead. The CLI's IDE-tool transport requires `nc` (netcat) on `PATH`.
+omp downloads agy from Google's release manifests, checks SHA-512, and keeps versioned executables under its data directory (normally `~/.scient-agent/antigravity-cli/bin`). It checks for updates at most daily without changing your shell profiles. `PI_AGY_PATH` selects an existing executable instead. The CLI's IDE-tool transport requires `nc` (netcat) on `PATH`.
 
 Login exports the resulting OAuth grant into omp's credential store so normal refresh and broker distribution can manage it. The ACP child uses a private, account-scoped native credential file rather than modifying your ordinary agy login. A child-only headless-auth environment selects agy's file storage. Do not copy access tokens into `--api-key`: the transport expects the structured OAuth credential produced by login.
 
@@ -53,7 +53,7 @@ Factory's native context limits hold even when extended context is disabled. Fac
 The model registry composes these sources:
 
 1. The bundled model catalog.
-2. Custom provider and model entries from the active agent directory's `models.yml` (default: `~/.omp/agent/models.yml`).
+2. Custom provider and model entries from the active agent directory's `models.yml` (default: `~/.scient-agent/agent/models.yml`).
 3. Cached and runtime-discovered models for local engines and discovery-enabled hosted providers.
 4. Providers and models registered by extensions, including extension-owned discovery.
 
@@ -82,7 +82,7 @@ When a provider needs an API key, `omp` resolves it in this order (first match w
 6. **Provider environment variable**: including values loaded from `.env` files (see [the env-var table](#environment-variables-and-env-files)).
 7. **Other stored API key**: for example, a broker-migrated key. This is a last resort so an explicit environment variable wins.
 
-Local credentials live in the active auth store (default: `~/.omp/agent/agent.db`); broker mode uses the configured shared auth broker. Named profiles and Linux XDG layouts can relocate the store. In the default profile, `PI_CODING_AGENT_DIR` overrides the agent directory. See [Settings](./settings.md) and [Secrets and credentials](./secrets.md) for path resolution.
+Local credentials live in the active auth store (default: `~/.scient-agent/agent/agent.db`); broker mode uses the configured shared auth broker. Named profiles and Linux XDG layouts can relocate the store. In the default profile, `SCIENT_AGENT_DIR` overrides the agent directory. See [Settings](./settings.md) and [Secrets and credentials](./secrets.md) for path resolution.
 
 ### OAuth vs API key, and provider-scoped logins
 
@@ -108,7 +108,7 @@ For Command Code, set `COMMAND_CODE_API_KEY` or run `/login commandcode`; login 
 A custom provider's `apiKey` is resolved as **environment-variable-name-or-literal**: if the value names an exact-case environment variable with a non-empty value, that value is used; otherwise the string itself is the key. Prefixing the value with `!` runs it as a shell command and uses the trimmed stdout (see [Model and Provider Configuration](./models.md) for the full value syntax).
 
 ```yaml
-# ~/.omp/agent/models.yml
+# ~/.scient-agent/agent/models.yml
 providers:
    my-gateway:
       baseUrl: https://gateway.example.com/v1
@@ -259,8 +259,8 @@ OAuth-backed providers such as `anthropic`, `openai-codex`, `github-copilot`, `c
 
 1. Non-empty values already in the process environment.
 2. `<project>/.env`
-3. The active agent directory's `.env` (default: `~/.omp/agent/.env`).
-4. The active config root's `.env` (default: `~/.omp/.env`).
+3. The active agent directory's `.env` (default: `~/.scient-agent/agent/.env`).
+4. The active config root's `.env` (default: `~/.scient-agent/.env`).
 5. `~/.env`
 
 Existing non-empty process values are not overwritten; empty values can be filled by a later file. A non-empty project value beats the agent, config-root, and home files. Named profiles use their own config root and agent directory. Bun may also preload project dotenv variants before this loader; values already present are treated as process values.
@@ -303,7 +303,7 @@ For installing and running these engines, see [Local models](./local-models.md).
 Use the `disabledProviders` setting to remove a provider's models from selection:
 
 ```yaml
-# ~/.omp/agent/config.yml or <project>/.omp/config.yml
+# ~/.scient-agent/agent/config.yml or <project>/.scient-agent/config.yml
 disabledProviders:
    - anthropic
    - openai
@@ -325,10 +325,10 @@ Disabling a provider does not delete its stored credentials — re-enable it by 
 
 ## Project-specific provider control
 
-Project settings live in `<project>/.omp/config.yml`. Use them when one repository must allow or hide a different provider set than your global default:
+Project settings live in `<project>/.scient-agent/config.yml`. Use them when one repository must allow or hide a different provider set than your global default:
 
 ```yaml
-# <project>/.omp/config.yml
+# <project>/.scient-agent/config.yml
 disabledProviders:
    - openai
    - openrouter
@@ -337,13 +337,13 @@ disabledProviders:
 Settings arrays are **replaced** wholesale by the higher-precedence layer, not merged or appended. If the global file disables three providers and the project file disables one, the project sees only the project list:
 
 ```yaml
-# ~/.omp/agent/config.yml
+# ~/.scient-agent/agent/config.yml
 disabledProviders:
    - anthropic
    - openai
    - google
 
-# <project>/.omp/config.yml
+# <project>/.scient-agent/config.yml
 disabledProviders:
    - groq
 ```
@@ -405,7 +405,7 @@ Watch the related names. The Google Gemini **API** models use the model provider
 
 ## Custom providers in `models.yml`
 
-Custom providers live in `~/.omp/agent/models.yml` under `providers:`. A provider ID defined there participates in the same selection, credential resolution, and `disabledProviders` rules as built-in providers.
+Custom providers live in `~/.scient-agent/agent/models.yml` under `providers:`. A provider ID defined there participates in the same selection, credential resolution, and `disabledProviders` rules as built-in providers.
 
 Minimal OpenAI-compatible provider:
 
@@ -485,7 +485,7 @@ disabledProviders:
 
 **The wrong key is being used (a stale key from `.env`).** Resolution favors runtime `--api-key`, then a `models.yml` config key, stored OAuth, a key saved by `/login`, extension config fallbacks, environment or `.env`, and other stored API keys. A non-empty process environment variable also beats every `.env` file, and a non-empty `<project>/.env` value beats `~/.env`. If an unexpected key wins, check for an exported shell variable and the four `.env` files in precedence order, and clear the one that should not apply.
 
-**A provider still appears even though I disabled it.** `disabledProviders` arrays are replaced, not merged: a project `<project>/.omp/config.yml` array fully overrides the global one. Verify the _effective_ list for the directory you are in (path-scoped entries only apply at or under their configured path), and confirm the ID is spelled exactly. Use `omp config get disabledProviders` to inspect the merged value (see [Settings](./settings.md)).
+**A provider still appears even though I disabled it.** `disabledProviders` arrays are replaced, not merged: a project `<project>/.scient-agent/config.yml` array fully overrides the global one. Verify the _effective_ list for the directory you are in (path-scoped entries only apply at or under their configured path), and confirm the ID is spelled exactly. Use `omp config get disabledProviders` to inspect the merged value (see [Settings](./settings.md)).
 
 **A discovery provider name had no effect on models (or vice-versa).** The ID namespace is shared. `gemini`, `codex`, `claude`, `native`, and `agents` are discovery-source IDs; the Google model backend is `google`. Make sure you are disabling the right kind of provider.
 

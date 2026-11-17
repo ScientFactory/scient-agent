@@ -28,7 +28,7 @@ export const GHIDRA_RELEASE = {
 	dirName: "ghidra_12.2_PUBLIC",
 } as const;
 
-const READY_MARKER = ".omp-ready";
+const READY_MARKER = ".scient-agent-ready";
 const INSTALL_LOCK_OPTIONS = { retries: 3600, retryDelayMs: 1000 };
 const ARCHIVE_OPTIONS = { limits: { maxMemberSize: 512 * 1024 * 1024 } };
 let status: string | undefined;

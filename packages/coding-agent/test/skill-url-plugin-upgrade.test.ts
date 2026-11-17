@@ -60,12 +60,12 @@ describe("a plugin upgrade that replaces the plugin's version directory under a 
 		clearFsCache();
 		tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-skill-upgrade-project-"));
 		originalHome = process.env.HOME;
-		originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
+		originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
 		tempHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-skill-upgrade-home-"));
 		process.env.HOME = tempHomeDir;
 		// Discovery reads `os.homedir()` and the agent dir; left alone they scan the real user's plugins and skills.
 		vi.spyOn(os, "homedir").mockReturnValue(tempHomeDir);
-		setAgentDir(path.join(tempHomeDir, ".omp", "agent"));
+		setAgentDir(path.join(tempHomeDir, ".scient-agent", "agent"));
 		installPluginVersion("1.0.0");
 	});
 
@@ -74,24 +74,31 @@ describe("a plugin upgrade that replaces the plugin's version directory under a 
 		discoveryHelpers.clearClaudePluginRootsCache();
 		clearFsCache();
 		vi.restoreAllMocks();
-		if (originalAgentDirEnv === undefined) delete process.env.PI_CODING_AGENT_DIR;
-		else process.env.PI_CODING_AGENT_DIR = originalAgentDirEnv;
+		if (originalAgentDirEnv === undefined) delete process.env.SCIENT_AGENT_DIR;
+		else process.env.SCIENT_AGENT_DIR = originalAgentDirEnv;
 		cleanupTempHome(() => ({ tempDir, tempHomeDir, originalHome }))();
 		for (const dir of extraDirs.splice(0)) removeSyncWithRetries(dir);
 		__resetDirsFromEnvForTests();
 	});
 
 	function pluginDir(version: string): string {
-		return path.join(tempHomeDir, ".omp", "plugins", "cache", "plugins", `market___upgrade-plugin___${version}`);
+		return path.join(
+			tempHomeDir,
+			".scient-agent",
+			"plugins",
+			"cache",
+			"plugins",
+			`market___upgrade-plugin___${version}`,
+		);
 	}
 
 	function userRegistryPath(): string {
-		return path.join(tempHomeDir, ".omp", "plugins", "installed_plugins.json");
+		return path.join(tempHomeDir, ".scient-agent", "plugins", "installed_plugins.json");
 	}
 
 	/** The project-scope registry of a session whose cwd is `tempDir`. */
 	function projectRegistryPath(): string {
-		return path.join(tempDir, ".omp", "plugins", "installed_plugins.json");
+		return path.join(tempDir, ".scient-agent", "plugins", "installed_plugins.json");
 	}
 
 	function writePluginVersion(version: string): void {
@@ -137,7 +144,7 @@ describe("a plugin upgrade that replaces the plugin's version directory under a 
 	}
 
 	function otherPluginDir(): string {
-		return path.join(tempHomeDir, ".omp", "plugins", "cache", "plugins", "market___other-plugin___1.0.0");
+		return path.join(tempHomeDir, ".scient-agent", "plugins", "cache", "plugins", "market___other-plugin___1.0.0");
 	}
 
 	/**
@@ -165,9 +172,9 @@ describe("a plugin upgrade that replaces the plugin's version directory under a 
 		fs.writeFileSync(userRegistryPath(), JSON.stringify({ version: 2, plugins }));
 	}
 
-	/** A project skill at `<cwd>/.omp/skills/<name>/SKILL.md`. */
+	/** A project skill at `<cwd>/.scient-agent/skills/<name>/SKILL.md`. */
 	function writeProjectSkill(cwd: string, name: string, body: string): void {
-		const skillDir = path.join(cwd, ".omp", "skills", name);
+		const skillDir = path.join(cwd, ".scient-agent", "skills", name);
 		fs.mkdirSync(skillDir, { recursive: true });
 		fs.writeFileSync(
 			path.join(skillDir, "SKILL.md"),

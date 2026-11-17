@@ -95,9 +95,9 @@ function countFacts(text: string): number {
 
 describe("switch after an OpenAI remote compaction", () => {
 	const originalEnv = {
-		PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
-		PI_PROFILE: process.env.PI_PROFILE,
-		OMP_PROFILE: process.env.OMP_PROFILE,
+		SCIENT_AGENT_DIR: process.env.SCIENT_AGENT_DIR,
+		SCIENT_AGENT_PROFILE_FALLBACK: process.env.SCIENT_AGENT_PROFILE_FALLBACK,
+		SCIENT_AGENT_PROFILE: process.env.SCIENT_AGENT_PROFILE,
 	};
 	let tempDir: string;
 	let authStorage: AuthStorage;

@@ -569,7 +569,7 @@ describe("settings registry", () => {
 				}),
 			);
 			await Bun.write(
-				path.join(projectDir, ".omp", "config.yml"),
+				path.join(projectDir, ".scient-agent", "config.yml"),
 				YAML.stringify({
 					bash: {
 						patterns: [
@@ -653,7 +653,7 @@ describe("settings registry", () => {
 				YAML.stringify({ bashInterceptor: { patterns: [{ path: projectDir, patterns: [scopedRule] }] } }),
 			);
 			await Bun.write(
-				path.join(projectDir, ".omp", "config.yml"),
+				path.join(projectDir, ".scient-agent", "config.yml"),
 				YAML.stringify({ bashInterceptor: { patterns: [projectRule] } }),
 			);
 

@@ -134,7 +134,7 @@ describe.skipIf(process.platform === "win32")("auth-gateway stdio process", () =
 		const script = `"${process.execPath}" "${cliEntry}" auth-gateway stdio < "${requestPath}" | (sleep 3; cat)`;
 		const proc = Bun.spawn(["bash", "-c", script], {
 			cwd: agentDir.path(),
-			env: { ...process.env, PI_CODING_AGENT_DIR: agentDir.path() },
+			env: { ...process.env, SCIENT_AGENT_DIR: agentDir.path() },
 			stdin: "ignore",
 			stdout: "pipe",
 			stderr: "ignore",

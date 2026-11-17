@@ -72,15 +72,15 @@ describe("sdk edit-store session reset", () => {
 		// own lazy field.
 		const toolSession: ToolSession = Reflect.get(session.getToolByName("read") ?? {}, "session");
 		const toolStore = getEditStore(toolSession);
-		const tag = toolStore.recordSnapshot("/tmp/omp-13370/a.rs", "alpha\nbeta\n", undefined);
+		const tag = toolStore.recordSnapshot("/tmp/scient-agent-13370/a.rs", "alpha\nbeta\n", undefined);
 		expect(tag).toBeDefined();
-		expect(toolStore.byHashText("/tmp/omp-13370/a.rs", tag)).toBe("alpha\nbeta\n");
+		expect(toolStore.byHashText("/tmp/scient-agent-13370/a.rs", tag)).toBe("alpha\nbeta\n");
 
 		await session.newSession();
 
 		// /new fired the session-change callbacks: the tool session starts a fresh
 		// conversation state, so the stale tag can't be presented as "issued in
 		// this session".
-		expect(getEditStore(toolSession).byHashText("/tmp/omp-13370/a.rs", tag)).toBeNull();
+		expect(getEditStore(toolSession).byHashText("/tmp/scient-agent-13370/a.rs", tag)).toBeNull();
 	});
 });

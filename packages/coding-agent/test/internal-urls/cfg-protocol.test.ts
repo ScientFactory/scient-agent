@@ -246,10 +246,13 @@ describe("CfgProtocolHandler", () => {
 			const projectDir = path.join(dir.path(), "project");
 			const resetDir = path.join(dir.path(), "reset");
 			await Bun.write(
-				path.join(projectDir, ".omp", "config.yml"),
+				path.join(projectDir, ".scient-agent", "config.yml"),
 				YAML.stringify({ bash: { patterns: [{ match: "make *", approval: "allow" }] } }),
 			);
-			await Bun.write(path.join(resetDir, ".omp", "config.yml"), YAML.stringify({ bash: { patterns: [] } }));
+			await Bun.write(
+				path.join(resetDir, ".scient-agent", "config.yml"),
+				YAML.stringify({ bash: { patterns: [] } }),
+			);
 			const asked: CfgChangeRequest[] = [];
 			const approveAll = (settings: Settings) =>
 				setCfgApprovalHost({

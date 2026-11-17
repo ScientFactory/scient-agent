@@ -13,7 +13,7 @@ import type { DisasmBackendId } from "./backend";
 export { DISASM_HOST_WORKER_ARG } from "../cli/worker-selectors";
 
 /** Environment key carrying the JSON {@link HostConfig} for the daemon. */
-export const DISASM_HOST_CONFIG_ENV = "OMP_DISASM_HOST_CONFIG";
+export const DISASM_HOST_CONFIG_ENV = "SCIENT_AGENT_DISASM_HOST_CONFIG";
 
 /** Prefix of a backend's broker-supervised database hosts. */
 export function daemonPrefix(backend: DisasmBackendId): string {

@@ -11,7 +11,7 @@ export * from "./config/config-file";
 /**
  * Config sources, highest priority first. `userBase` overrides the default
  * `~/<dir>` user-level location: omp's own user dir follows `getAgentDir()`
- * (profile, `PI_CONFIG_DIR`, and `PI_CODING_AGENT_DIR` aware), Claude's follows
+ * (profile, `SCIENT_AGENT_CONFIG_DIR`, and `SCIENT_AGENT_DIR` aware), Claude's follows
  * its active config directory.
  */
 const priorityList: Array<{ dir: string; userBase?: () => string }> = [
@@ -84,8 +84,8 @@ export function getChangelogPath(): string | undefined {
 // =============================================================================
 
 /**
- * User-level: the omp agent dir (~/.omp/agent), Claude's active config directory, ~/.codex, ~/.gemini
- * Project-level: .omp, .claude, .codex, .gemini
+ * User-level: the omp agent dir (~/.scient-agent/agent), Claude's active config directory, ~/.codex, ~/.gemini
+ * Project-level: .scient-agent, .claude, .codex, .gemini
  */
 const USER_CONFIG_BASES = priorityList.map(({ dir, userBase }) => ({
 	base: userBase ?? (() => path.join(os.homedir(), dir)),
@@ -99,14 +99,14 @@ const PROJECT_CONFIG_BASES = priorityList.map(({ dir }) => ({
 
 export interface ConfigDirEntry {
 	path: string;
-	source: string; // e.g., ".omp", ".claude"
+	source: string; // e.g., ".scient-agent", ".claude"
 	level: "user" | "project";
 }
 
 export interface GetConfigDirsOptions {
-	/** Include user-level directories (~/.omp/agent/...). Default: true */
+	/** Include user-level directories (~/.scient-agent/agent/...). Default: true */
 	user?: boolean;
-	/** Include project-level directories (.omp/...). Default: true */
+	/** Include project-level directories (.scient-agent/...). Default: true */
 	project?: boolean;
 	/** Current working directory for project paths. Default: getProjectDir() */
 	cwd?: string;
@@ -124,7 +124,7 @@ export interface GetConfigDirsOptions {
  * @example
  * // Get all command directories
  * getConfigDirs("commands")
- * // → [{ path: "~/.omp/agent/commands", source: ".omp", level: "user" }, ...]
+ * // → [{ path: "~/.scient-agent/agent/commands", source: ".scient-agent", level: "user" }, ...]
  *
  * @example
  * // Get only existing project skill directories
@@ -217,7 +217,7 @@ export function findConfigFileWithMeta(
 
 /**
  * Find all nearest config directories by walking up from cwd.
- * Returns one entry per config base (.omp, .claude) - the nearest one found.
+ * Returns one entry per config base (.scient-agent, .claude) - the nearest one found.
  * Results are in priority order (highest first).
  */
 export function findAllNearestProjectConfigDirs(subpath: string, cwd: string = getProjectDir()): ConfigDirEntry[] {

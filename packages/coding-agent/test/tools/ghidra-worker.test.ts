@@ -166,7 +166,7 @@ describe("Ghidra worker protocol from a hidden managed store", () => {
 		await Bun.write(path.join(stubs, "jpype.py"), STUB_JPYPE);
 		await Bun.write(path.join(stubs, "pyghidra", "__init__.py"), STUB_PYGHIDRA);
 		await Bun.write(path.join(stubs, "pyghidra", "launcher.py"), STUB_LAUNCHER);
-		const databaseDir = path.join(tempDir, ".omp", "db");
+		const databaseDir = path.join(tempDir, ".scient-agent", "db");
 		const binary = path.join(databaseDir, "stub.bin");
 		await Bun.write(binary, "Ghidra worker protocol fixture\n");
 
