@@ -1,0 +1,28 @@
+# Dependabot updates only what Scient owns: the actions its workflow uses.
+# Oh My Pi's dependencies (bun.lock, Cargo.lock, the packages' manifests, the
+# Python client, the Dockerfiles and upstream's composite actions) change only
+# through an alignment with a newer Oh My Pi release (SCIENT.md), never here:
+# a bump in one of their files is a hand-written change to an Oh My Pi file,
+# which the divergence check refuses unless a ledger entry owns it.
+version: 2
+updates:
+   - package-ecosystem: github-actions
+     # The root covers every workflow in .github/workflows; scient.yml is
+     # Scient's, bun-cache-warm.yml is Oh My Pi's and stays as upstream has it.
+     directory: /
+     exclude-paths:
+        - .github/workflows/bun-cache-warm.yml
+     schedule:
+        interval: weekly
+        day: monday
+        time: "06:00"
+        timezone: Etc/UTC
+     # Skip releases younger than a week.
+     cooldown:
+        default-days: 7
+     groups:
+        actions:
+           patterns: ["*"]
+     open-pull-requests-limit: 1
+     commit-message:
+        prefix: ci

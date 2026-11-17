@@ -683,3 +683,26 @@ jobs:
               for file in release/*; do
                  echo "https://downloads.scientfactory.com/scient-agent/$TAG/$(basename "$file")"
               done
+
+   # The one check main's branch protection requires, so a pull request can
+   # merge only when every check passed, and renaming or adding a job or a
+   # matrix entry needs no settings change: add it to `needs`. The release job
+   # is left out; it only runs on a manual release run.
+   passed:
+      name: CI passed
+      if: always()
+      needs: [release-version, build, natives-linux, upstream-tests, divergence, sign-macos, verify-macos, compress]
+      runs-on: ubuntu-24.04
+      timeout-minutes: 5
+      steps:
+         - name: Every job passed
+           env:
+              RESULTS: ${{ join(needs.*.result, ' ') }}
+           run: |
+              echo "Results: $RESULTS"
+              for result in $RESULTS; do
+                 if [ "$result" != success ]; then
+                    echo "::error::A job ended with '$result'."
+                    exit 1
+                 fi
+              done
