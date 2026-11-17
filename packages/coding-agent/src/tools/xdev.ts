@@ -37,6 +37,9 @@ import {
 	validateAgentToolArguments,
 } from "@oh-my-pi/pi-agent-core";
 import { type Tool as AiTool, jsonSchemaToTypeScript, toolWireSchema } from "@oh-my-pi/pi-ai";
+// scient(SA-CONTEXT): begin - Group external tool catalogs by service.
+import { groupXdevCatalog } from "../scient/xdev-catalog";
+// scient(SA-CONTEXT): end
 import { schemaDeclaresIntentField } from "../utils/tool-schema";
 import { resolveToolWireName } from "../utils/tool-wire-name";
 import { stripXdUrlPrefix, XD_URL_PREFIX } from "@oh-my-pi/pi-tui/tools/xd-url";
@@ -317,7 +320,13 @@ export function xdevEntries(state: XdevState): Array<{ name: string; summary: st
 
 /** `read xd://` listing with one device per line. */
 export function xdevListing(state: XdevState): string {
-	const rows = xdevEntries(state).map(({ name, summary }) => `${XD_URL_PREFIX}${name.padEnd(14)} ${summary}`);
+	// scient(SA-CONTEXT): begin - Root discovery shares the compact service catalog.
+	const catalog = groupXdevCatalog(state, {
+		sections: [],
+		catalog: new Map(xdevEntries(state).map(({ name, summary }) => [name, summary])),
+	}).catalog;
+	const rows = [...catalog].map(([name, summary]) => `${XD_URL_PREFIX}${name.padEnd(14)} ${summary}`);
+	// scient(SA-CONTEXT): end
 	return [
 		`${XD_URL_PREFIX} ${state.mountedNames.size} mounted tool devices.`,
 		...rows,
@@ -364,7 +373,9 @@ export function planXdevPromptDocs(
 		}
 		catalog.set(tool.name, promptCatalogSummary(tool, descriptionCap));
 	}
-	return { sections, catalog };
+	// scient(SA-CONTEXT): begin - Keep schemas readable but list each service once.
+	return groupXdevCatalog(state, { sections, catalog });
+	// scient(SA-CONTEXT): end
 }
 
 /**

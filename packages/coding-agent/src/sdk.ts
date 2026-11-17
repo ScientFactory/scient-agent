@@ -1,3 +1,6 @@
+// scient(SA-CONTEXT): begin - Grouped catalogs replace per-tool MCP prompt routes.
+import { hasServiceCatalog } from "./scient/xdev-catalog";
+// scient(SA-CONTEXT): end
 import * as path from "node:path";
 import { type CallRecord, ChangeJournal, callLabel } from "./commit/selective/journal";
 import { createCommitPrelude } from "./commit/selective/prelude-definition";
@@ -57,7 +60,11 @@ import { AsyncJobManager, type AsyncJobManagerApi } from "./async";
 import { AutoLearnController, buildAutoLearnInstructions } from "./autolearn/controller";
 import { createAutoresearchExtension } from "./autoresearch";
 // scient(SA-CHATGPT-APPS): begin - the person's ChatGPT apps, when the host asks for them.
-import { createChatGptAppsExtension, requestedChatGptApps } from "./scient/chatgpt-apps-extension";
+import {
+	createChatGptAppsExtension,
+	registeredExtensionToolNames,
+	requestedChatGptApps,
+} from "./scient/chatgpt-apps-extension";
 // scient(SA-CHATGPT-APPS): end
 import { loadCapability, reset as resetCapabilities } from "./capability";
 import {
@@ -3055,7 +3062,12 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			inlineExtensions.push(createAutoresearchExtension);
 			// scient(SA-CHATGPT-APPS): begin - the person's ChatGPT apps, when the host asks for them.
 			const chatGptApps = requestedChatGptApps();
-			if (chatGptApps) inlineExtensions.push(createChatGptAppsExtension(authStorage, chatGptApps));
+			if (chatGptApps)
+				inlineExtensions.push(
+					createChatGptAppsExtension(authStorage, chatGptApps, () =>
+						registeredExtensionToolNames(extensionsResult.extensions),
+					),
+				);
 			// scient(SA-CHATGPT-APPS): end
 			if (customTools.length > 0) {
 				inlineExtensions.push(createCustomToolsExtension(customTools, customToolSourcePaths));
@@ -4420,7 +4432,11 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			const xdevPromptDocs = xdev
 				? planXdevPromptDocs(xdev, cfgToolsXdevDocs.get(settings), cfgToolsXdevInlineDevices.get(settings))
 				: undefined;
-			const projection = projectMountedMCPXdevGuidance(collectMountedMCPToolRoutes(xdev ? listXdevTools(xdev) : []));
+			// scient(SA-CONTEXT): begin - Full routes remain in the service catalog.
+			const projection = projectMountedMCPXdevGuidance(
+				collectMountedMCPToolRoutes((xdev ? listXdevTools(xdev) : []).filter(tool => !hasServiceCatalog(tool))),
+			);
+			// scient(SA-CONTEXT): end
 			const routedCatalogNames = new Set(
 				projection.mappings
 					.filter(mapping => xdevPromptDocs?.catalog.has(mapping.name))

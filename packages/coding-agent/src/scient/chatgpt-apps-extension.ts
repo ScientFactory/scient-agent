@@ -132,7 +132,25 @@ function listing(storage: AuthStorage, policy: ChatGptAppsPolicy) {
 	return pending;
 }
 
-export function createChatGptAppsExtension(storage: AuthStorage, policy: ChatGptAppsPolicy): ExtensionFactory {
+/** Existing extensions, including Scient's connector bridge, keep their canonical tool names. */
+export function registeredExtensionToolNames(
+	extensions: readonly { tools: ReadonlyMap<string, unknown> }[],
+): Set<string> {
+	return new Set(extensions.flatMap(extension => [...extension.tools.keys()]));
+}
+
+function alternateToolName(app: ChatGptApp, remoteName: string): string {
+	const name = `chatgpt__${chatGptToolName(app, remoteName)}`;
+	if (name.length <= 64) return name;
+	const digest = createHash("sha256").update(`${app.id}\0${remoteName}`).digest("hex").slice(0, 8);
+	return `${name.slice(0, 55)}_${digest}`;
+}
+
+export function createChatGptAppsExtension(
+	storage: AuthStorage,
+	policy: ChatGptAppsPolicy,
+	preferredToolNames: () => ReadonlySet<string> = () => new Set(),
+): ExtensionFactory {
 	return async pi => {
 		let found: { client: ChatGptAppsClient; apps: ChatGptApp[] };
 		try {
@@ -142,11 +160,17 @@ export function createChatGptAppsExtension(storage: AuthStorage, policy: ChatGpt
 			return;
 		}
 		const { client, apps } = found;
+		const preferred = preferredToolNames();
 		const taken = new Set<string>();
 		for (const app of apps) {
+			// The app's catalog row; tool proxies carry this extra field through.
+			const service = {
+				mcpServerDescription: app.description ?? `${app.name}, through the person's ChatGPT account`,
+			};
 			for (const tool of app.tools) {
-				const name = chatGptToolName(app, tool.name);
-				if (taken.has(name)) continue;
+				const canonical = chatGptToolName(app, tool.name);
+				const name = preferred.has(canonical) ? alternateToolName(app, tool.name) : canonical;
+				if (taken.has(name) || preferred.has(name)) continue;
 				taken.add(name);
 				pi.registerTool({
 					name,
@@ -156,6 +180,7 @@ export function createChatGptAppsExtension(storage: AuthStorage, policy: ChatGpt
 					// Like an MCP tool: changes stay conservative, the read-only hint only informs.
 					approval: "write",
 					mcpServerName: app.name,
+					...service,
 					mcpToolName: tool.name,
 					mcpReadOnlyHint: tool.readOnly,
 					strict: false,
