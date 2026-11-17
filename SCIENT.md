@@ -1069,7 +1069,7 @@ Report work as done only when all of these hold on the final head. Without a pul
 - Every link a reader can follow that the change adds (docs, messages, pull request text) was fetched once and works.
 - The pull request says, for macOS, Linux and Windows, what ran there and what is still unproven. The six-platform CI proves the build and the isolation check on each system, not behavior that differs between them.
 - The pull request names its review and result in the template's Review section.
-- The delivery the task allowed is complete. Without pull request authorization, the handback names the branch, head and what is still owed. Merge only when authorized, on the head that had its review, after `gh pr checks <number>` shows every job green (`gh pr merge <number> --rebase --match-head-commit <sha>`). Rerun a failed job the change cannot have caused once; if it fails again, report it instead of merging.
+- The delivery the task allowed is complete. Without pull request authorization, the handback names the branch, head and what is still owed. Merge only when authorized, on the head that had its review, after `gh pr checks <number>` shows every job green, `CI passed` included, which `main` requires (`gh pr merge <number> --rebase --match-head-commit <sha>`). Rerun a failed job the change cannot have caused once; if it fails again, report it instead of merging.
 
 ## Release
 
