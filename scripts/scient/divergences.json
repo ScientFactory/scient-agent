@@ -475,6 +475,11 @@
 				"packages/coding-agent/src/modes/rpc/wire/state.ts"
 			],
 			"verification": ["bun --cwd=packages/coding-agent test test/scient/rpc-plan.test.ts"]
+		},
+		"SA-RELAY-CONNECT": {
+			"status": "upstreamed",
+			"contract": "Overlapping connection attempts share one discovery relay connection. A delayed hello from a previous link cannot replace the current tab list and strand a tab while its debugger is attaching.",
+			"disposition": "Oh My Pi 19.1.1 replaced the extension's direct WebSocket with a native messaging port. connectRelay() records the port synchronously, so another call reuses it. Writing the instance id no longer reconnects. Each linked notification creates a new epoch, and the worker checks that epoch after building the hello. Side-panel hellos are also bound to their own port. Retired with the 19.1.1 alignment."
 		}
 	}
 }
