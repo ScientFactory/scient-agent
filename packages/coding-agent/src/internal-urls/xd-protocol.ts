@@ -4,6 +4,9 @@ import { REPORT_ISSUE_DEVICE_NAME } from "@oh-my-pi/pi-tui/tools/report-tool-iss
 import { isResolutionDeviceName } from "@oh-my-pi/pi-tui/tools/resolve";
 import { ToolError } from "@oh-my-pi/pi-tui/tools/tool-errors";
 import { parseXdTopicUrl, parseXdUrl } from "@oh-my-pi/pi-tui/tools/xd-url";
+// scient(SA-CONTEXT): begin - Read-only service catalogs share the xd transport.
+import { xdevServiceDocs } from "../scient/xdev-catalog";
+// scient(SA-CONTEXT): end
 import type { ToolSession } from "../tools";
 import { getEnabledEvalPreludes } from "../eval/preludes";
 import { resolveToolTier } from "../tools/approval";
@@ -131,6 +134,9 @@ export class XdProtocolHandler implements ProtocolHandler {
 
 	/** `read xd://<tool>/<topic>`: one named doc topic of a tool. */
 	#topic(session: ToolSession, name: string, topic: string): string {
+		// scient(SA-CONTEXT): begin - Service URLs list exact tool paths, never execute.
+		if (name === "services" && session.xdev) return xdevServiceDocs(session.xdev, topic);
+		// scient(SA-CONTEXT): end
 		const tool = session.getToolByName?.(name);
 		// A session without eval (a reviewer subagent, a cell's nested read) still reads the eval docs its
 		// assignment links: they describe the kernel, not this session's tool.

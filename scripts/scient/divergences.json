@@ -494,6 +494,29 @@
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/relay-extension-hello.test.ts test/scient/relay-extension-connect.test.ts test/tools/browser-relay-tab-isolation.test.ts"
 			]
+		},
+		"SA-CONTEXT": {
+			"status": "active",
+			"contract": "External xd catalogs list each service once, with exact tool routes and schemas readable on demand. Computer helper documentation is read on demand when read is active; computer policy stays in the system prompt and sessions without read inline the manual. Grouped MCP catalogs replace per-tool prompt route lists. A general catalog optimization and upstream candidate.",
+			"owned": [
+				"packages/coding-agent/src/scient/xdev-catalog.ts",
+				"packages/coding-agent/src/scient/xdev-catalog.md",
+				"packages/coding-agent/src/scient/xdev-service-row.md",
+				"packages/coding-agent/test/scient/xdev-catalog.test.ts",
+				"packages/coding-agent/test/scient/eval-docs.test.ts",
+				"packages/coding-agent/test/scient/context-session.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/tools/xdev.ts",
+				"packages/coding-agent/CHANGELOG.md",
+				"packages/coding-agent/src/internal-urls/xd-protocol.ts",
+				"packages/coding-agent/src/sdk.ts",
+				"packages/coding-agent/src/tools/computer.ts",
+				"packages/coding-agent/src/tools/eval.ts"
+			],
+			"verification": [
+				"bun test packages/coding-agent/test/scient/xdev-catalog.test.ts packages/coding-agent/test/scient/eval-docs.test.ts"
+			]
 		}
 	}
 }

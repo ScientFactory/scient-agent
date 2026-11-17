@@ -1,3 +1,6 @@
+// scient(SA-CONTEXT): begin - Grouped catalogs replace per-tool MCP prompt routes.
+import { hasServiceCatalog } from "./scient/xdev-catalog";
+// scient(SA-CONTEXT): end
 import * as path from "node:path";
 import { type CallRecord, ChangeJournal, callDetails } from "./commit/selective/journal";
 import { createCommitPrelude } from "./commit/selective/prelude-definition";
@@ -4569,7 +4572,11 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 			const xdevPromptDocs = xdev
 				? planXdevPromptDocs(xdev, cfgToolsXdevDocs.get(settings), cfgToolsXdevInlineDevices.get(settings))
 				: undefined;
-			const projection = projectMountedMCPXdevGuidance(collectMountedMCPToolRoutes(xdev ? listXdevTools(xdev) : []));
+			// scient(SA-CONTEXT): begin - Full routes remain in the service catalog.
+			const projection = projectMountedMCPXdevGuidance(
+				collectMountedMCPToolRoutes((xdev ? listXdevTools(xdev) : []).filter(tool => !hasServiceCatalog(tool))),
+			);
+			// scient(SA-CONTEXT): end
 			const routedCatalogNames = new Set(
 				projection.mappings
 					.filter(mapping => xdevPromptDocs?.catalog.has(mapping.name))

@@ -230,6 +230,12 @@
 - Fixed RPC login for providers that require an at-your-own-risk confirmation; the confirmation is now presented to the host and login proceeds only after approval.
 - On Linux, language-server file watching no longer consumes excessive inotify watches in `node_modules` and `.git/objects`.
 
+<!-- scient(SA-CONTEXT): begin - Smaller initial tool context. -->
+### Changed
+
+- Tool catalogs show one row per service, with its description and, when they fit, its tool names. The computer manual loads when needed. This keeps more context available for your work.
+
+<!-- scient(SA-CONTEXT): end -->
 ## [18.22.0] - 2026-11-16
 
 ### Breaking Changes
