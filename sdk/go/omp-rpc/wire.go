@@ -2030,6 +2030,50 @@ func (v *TodoStatus) UnmarshalJSON(data []byte) error {
 	return unknownValue("TodoStatus", s)
 }
 
+type PlanOp string
+
+const (
+	PlanOpGet   PlanOp = "get"
+	PlanOpEnter PlanOp = "enter"
+	PlanOpExit  PlanOp = "exit"
+)
+
+func (v *PlanOp) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "PlanOp")
+	if err != nil {
+		return err
+	}
+	switch value := PlanOp(s); value {
+	case PlanOpGet, PlanOpEnter, PlanOpExit:
+		*v = value
+		return nil
+	}
+	return unknownValue("PlanOp", s)
+}
+
+type PlanResult struct {
+	// Plan mode is on: the agent plans and changes nothing until a plan is approved.
+	Enabled bool `json:"enabled"`
+	// The plan file the agent drafts, while plan mode is on.
+	PlanFilePath *string `json:"planFilePath,omitempty"`
+}
+
+func (v *PlanResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PlanResult", v.decodeFrom)
+}
+
+func (v *PlanResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PlanResult
+	d := fieldDecoder{raw: raw, owner: "PlanResult"}
+	d.required("enabled", &out.Enabled)
+	d.optional("planFilePath", &out.PlanFilePath)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 type GoalOp string
 
 const (
@@ -3220,7 +3264,7 @@ func (v *AvailableSlashCommand) decodeFrom(raw map[string]json.RawMessage) error
 	return nil
 }
 
-// OMP-native session entries in append order.
+// Scient Agent-native session entries in append order.
 type SessionEntries struct {
 	Entries []map[string]json.RawMessage `json:"entries"`
 	LeafID  *string                      `json:"leafId"`
@@ -3435,10 +3479,14 @@ func (v *BtwHistoryRecord) decodeFrom(raw map[string]json.RawMessage) error {
 }
 
 type LoginProvider struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Available     bool   `json:"available"`
-	Authenticated bool   `json:"authenticated"`
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Available     bool              `json:"available"`
+	Authenticated bool              `json:"authenticated"`
+	Kind          LoginProviderKind `json:"kind"`
+	Stored        bool              `json:"stored"`
+	Store         string            `json:"store"`
+	Emails        []string          `json:"emails,omitempty"`
 }
 
 func (v *LoginProvider) UnmarshalJSON(data []byte) error {
@@ -3452,11 +3500,35 @@ func (v *LoginProvider) decodeFrom(raw map[string]json.RawMessage) error {
 	d.required("name", &out.Name)
 	d.required("available", &out.Available)
 	d.required("authenticated", &out.Authenticated)
+	d.required("kind", &out.Kind)
+	d.required("stored", &out.Stored)
+	d.required("store", &out.Store)
+	d.optional("emails", &out.Emails)
 	if d.err != nil {
 		return d.err
 	}
 	*v = out
 	return nil
+}
+
+type LoginProviderKind string
+
+const (
+	LoginProviderKindAccount LoginProviderKind = "account"
+	LoginProviderKindKey     LoginProviderKind = "key"
+)
+
+func (v *LoginProviderKind) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "LoginProviderKind")
+	if err != nil {
+		return err
+	}
+	switch value := LoginProviderKind(s); value {
+	case LoginProviderKindAccount, LoginProviderKindKey:
+		*v = value
+		return nil
+	}
+	return unknownValue("LoginProviderKind", s)
 }
 
 // A stored credential `logout` can remove; `active` marks credentials the session may be using.
@@ -3835,6 +3907,8 @@ type MessageEndEvent struct {
 	Message AgentMessage `json:"message"`
 	// Shared by the start, updates, and end of one message; unique per process.
 	MessageID *string `json:"messageId,omitempty"`
+	// On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires.
+	PromptCache *PromptCacheEntry `json:"promptCache,omitempty"`
 }
 
 func (v *MessageEndEvent) UnmarshalJSON(data []byte) error {
@@ -3847,6 +3921,7 @@ func (v *MessageEndEvent) decodeFrom(raw map[string]json.RawMessage) error {
 	d.constant("type", "message_end")
 	d.required("message", &out.Message)
 	d.optional("messageId", &out.MessageID)
+	d.optional("promptCache", &out.PromptCache)
 	if d.err != nil {
 		return d.err
 	}
@@ -3857,6 +3932,52 @@ func (v *MessageEndEvent) decodeFrom(raw map[string]json.RawMessage) error {
 func (v MessageEndEvent) MarshalJSON() ([]byte, error) {
 	type plain MessageEndEvent
 	return encodeObject(plain(v), `"type":"message_end"`, nil)
+}
+
+type PromptCacheEntry struct {
+	// Retention tier the provider wrote the entry under: minutes or about an hour.
+	Tier PromptCacheEntryTier `json:"tier"`
+	// Epoch ms when a request last wrote or read the entry (its send time).
+	TouchedAt int64 `json:"touchedAt"`
+	// How long the provider keeps the entry after `touchedAt`.
+	TtlMs int64 `json:"ttlMs"`
+}
+
+func (v *PromptCacheEntry) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PromptCacheEntry", v.decodeFrom)
+}
+
+func (v *PromptCacheEntry) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PromptCacheEntry
+	d := fieldDecoder{raw: raw, owner: "PromptCacheEntry"}
+	d.required("tier", &out.Tier)
+	d.required("touchedAt", &out.TouchedAt)
+	d.required("ttlMs", &out.TtlMs)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+type PromptCacheEntryTier string
+
+const (
+	PromptCacheEntryTierShort PromptCacheEntryTier = "short"
+	PromptCacheEntryTierLong  PromptCacheEntryTier = "long"
+)
+
+func (v *PromptCacheEntryTier) UnmarshalJSON(data []byte) error {
+	s, err := decodeString(data, "PromptCacheEntryTier")
+	if err != nil {
+		return err
+	}
+	switch value := PromptCacheEntryTier(s); value {
+	case PromptCacheEntryTierShort, PromptCacheEntryTierLong:
+		*v = value
+		return nil
+	}
+	return unknownValue("PromptCacheEntryTier", s)
 }
 
 type ToolExecutionStartEvent struct {
@@ -4237,6 +4358,39 @@ func (v *CacheWarmingEndEvent) decodeFrom(raw map[string]json.RawMessage) error 
 func (v CacheWarmingEndEvent) MarshalJSON() ([]byte, error) {
 	type plain CacheWarmingEndEvent
 	return encodeObject(plain(v), `"type":"cache_warming_end"`, nil)
+}
+
+// Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm.
+type CacheWarmingStoppedEvent struct {
+	// Why warming stopped.
+	Reason string `json:"reason"`
+	// Epoch ms when warming stopped, which may be well before a host reads the frame.
+	StoppedAt int64 `json:"stoppedAt"`
+	// The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.
+	PromptCache *PromptCacheEntry `json:"promptCache,omitempty"`
+}
+
+func (v *CacheWarmingStoppedEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "CacheWarmingStoppedEvent", v.decodeFrom)
+}
+
+func (v *CacheWarmingStoppedEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out CacheWarmingStoppedEvent
+	d := fieldDecoder{raw: raw, owner: "CacheWarmingStoppedEvent"}
+	d.constant("type", "cache_warming_stopped")
+	d.required("reason", &out.Reason)
+	d.required("stoppedAt", &out.StoppedAt)
+	d.optional("promptCache", &out.PromptCache)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v CacheWarmingStoppedEvent) MarshalJSON() ([]byte, error) {
+	type plain CacheWarmingStoppedEvent
+	return encodeObject(plain(v), `"type":"cache_warming_stopped"`, nil)
 }
 
 type RetryFallbackAppliedEvent struct {
@@ -4638,6 +4792,7 @@ func (AutoRetryStartEvent) isRpcAgentEvent()         {}
 func (AutoRetryEndEvent) isRpcAgentEvent()           {}
 func (CacheWarmingStartEvent) isRpcAgentEvent()      {}
 func (CacheWarmingEndEvent) isRpcAgentEvent()        {}
+func (CacheWarmingStoppedEvent) isRpcAgentEvent()    {}
 func (RetryFallbackAppliedEvent) isRpcAgentEvent()   {}
 func (RetryFallbackSucceededEvent) isRpcAgentEvent() {}
 func (ModelChangedEvent) isRpcAgentEvent()           {}
@@ -4711,6 +4866,8 @@ func (v *RpcAgentEvent) decodeFrom(raw map[string]json.RawMessage) error {
 		value, err = decodeVariant[CacheWarmingStartEvent](raw)
 	case "cache_warming_end":
 		value, err = decodeVariant[CacheWarmingEndEvent](raw)
+	case "cache_warming_stopped":
+		value, err = decodeVariant[CacheWarmingStoppedEvent](raw)
 	case "retry_fallback_applied":
 		value, err = decodeVariant[RetryFallbackAppliedEvent](raw)
 	case "retry_fallback_succeeded":
@@ -4808,13 +4965,17 @@ func (v *PromptStatus) UnmarshalJSON(data []byte) error {
 // Failure detail of a `prompt_result` with `status: "error"`.
 type PromptError struct {
 	Message string `json:"message"`
-	// Transient: resubmitting later may succeed (omp's own retries are exhausted).
+	// Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).
 	Retryable  bool    `json:"retryable"`
 	Provider   *string `json:"provider,omitempty"`
 	Model      *string `json:"model,omitempty"`
 	HTTPStatus *int64  `json:"httpStatus,omitempty"`
-	// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request.
+	// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.
 	Code *PromptErrorCode `json:"code,omitempty"`
+	// Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.
+	ResetAt *int64 `json:"resetAt,omitempty"`
+	// The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none.
+	Kinds []string `json:"kinds,omitempty"`
 }
 
 func (v *PromptError) UnmarshalJSON(data []byte) error {
@@ -4830,6 +4991,8 @@ func (v *PromptError) decodeFrom(raw map[string]json.RawMessage) error {
 	d.optional("model", &out.Model)
 	d.optional("httpStatus", &out.HTTPStatus)
 	d.optional("code", &out.Code)
+	d.optional("resetAt", &out.ResetAt)
+	d.optional("kinds", &out.Kinds)
 	if d.err != nil {
 		return d.err
 	}
@@ -5315,6 +5478,90 @@ func (v *LiveEndEvent) decodeFrom(raw map[string]json.RawMessage) error {
 func (v LiveEndEvent) MarshalJSON() ([]byte, error) {
 	type plain LiveEndEvent
 	return encodeObject(plain(v), `"type":"live_end"`, nil)
+}
+
+// A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.
+type LiveDelegationEvent struct {
+	Text string `json:"text"`
+}
+
+func (v *LiveDelegationEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "LiveDelegationEvent", v.decodeFrom)
+}
+
+func (v *LiveDelegationEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out LiveDelegationEvent
+	d := fieldDecoder{raw: raw, owner: "LiveDelegationEvent"}
+	d.constant("type", "live_delegation")
+	d.required("text", &out.Text)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v LiveDelegationEvent) MarshalJSON() ([]byte, error) {
+	type plain LiveDelegationEvent
+	return encodeObject(plain(v), `"type":"live_delegation"`, nil)
+}
+
+// The plan the agent proposed in plan mode, sent just before the select request that asks to approve it.
+type PlanProposedEvent struct {
+	Title        string `json:"title"`
+	PlanFilePath string `json:"planFilePath"`
+	Markdown     string `json:"markdown"`
+}
+
+func (v *PlanProposedEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PlanProposedEvent", v.decodeFrom)
+}
+
+func (v *PlanProposedEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PlanProposedEvent
+	d := fieldDecoder{raw: raw, owner: "PlanProposedEvent"}
+	d.constant("type", "plan_proposed")
+	d.required("title", &out.Title)
+	d.required("planFilePath", &out.PlanFilePath)
+	d.required("markdown", &out.Markdown)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v PlanProposedEvent) MarshalJSON() ([]byte, error) {
+	type plain PlanProposedEvent
+	return encodeObject(plain(v), `"type":"plan_proposed"`, nil)
+}
+
+// Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation.
+type PlanUpdatedEvent struct {
+	Enabled      bool    `json:"enabled"`
+	PlanFilePath *string `json:"planFilePath,omitempty"`
+}
+
+func (v *PlanUpdatedEvent) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PlanUpdatedEvent", v.decodeFrom)
+}
+
+func (v *PlanUpdatedEvent) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PlanUpdatedEvent
+	d := fieldDecoder{raw: raw, owner: "PlanUpdatedEvent"}
+	d.constant("type", "plan_updated")
+	d.required("enabled", &out.Enabled)
+	d.optional("planFilePath", &out.PlanFilePath)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v PlanUpdatedEvent) MarshalJSON() ([]byte, error) {
+	type plain PlanUpdatedEvent
+	return encodeObject(plain(v), `"type":"plan_updated"`, nil)
 }
 
 // State of one draft-only microphone capture.
@@ -5886,6 +6133,37 @@ func (v AskUiRequest) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_request","method":"ask"`, nil)
 }
 
+// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+type FormUiRequest struct {
+	ID      string `json:"id"`
+	HTML    string `json:"html"`
+	Timeout *int64 `json:"timeout,omitempty"`
+}
+
+func (v *FormUiRequest) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "FormUiRequest", v.decodeFrom)
+}
+
+func (v *FormUiRequest) decodeFrom(raw map[string]json.RawMessage) error {
+	var out FormUiRequest
+	d := fieldDecoder{raw: raw, owner: "FormUiRequest"}
+	d.constant("type", "extension_ui_request")
+	d.required("id", &out.ID)
+	d.constant("method", "form")
+	d.required("html", &out.HTML)
+	d.optional("timeout", &out.Timeout)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v FormUiRequest) MarshalJSON() ([]byte, error) {
+	type plain FormUiRequest
+	return encodeObject(plain(v), `"type":"extension_ui_request","method":"form"`, nil)
+}
+
 // Close the dialog opened by request `targetId`; a later answer to it is ignored.
 type CancelUiRequest struct {
 	ID       string `json:"id"`
@@ -6112,6 +6390,7 @@ func (ConfirmUiRequest) isExtensionUiRequest()       {}
 func (InputUiRequest) isExtensionUiRequest()         {}
 func (EditorUiRequest) isExtensionUiRequest()        {}
 func (AskUiRequest) isExtensionUiRequest()           {}
+func (FormUiRequest) isExtensionUiRequest()          {}
 func (CancelUiRequest) isExtensionUiRequest()        {}
 func (NotifyUiRequest) isExtensionUiRequest()        {}
 func (SetStatusUiRequest) isExtensionUiRequest()     {}
@@ -6145,6 +6424,8 @@ func (v *ExtensionUiRequest) decodeFrom(raw map[string]json.RawMessage) error {
 		value, err = decodeVariant[EditorUiRequest](raw)
 	case "ask":
 		value, err = decodeVariant[AskUiRequest](raw)
+	case "form":
+		value, err = decodeVariant[FormUiRequest](raw)
 	case "cancel":
 		value, err = decodeVariant[CancelUiRequest](raw)
 	case "notify":
@@ -6306,6 +6587,73 @@ func (v AnswersUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
 }
 
+// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
+type FormUiResponse struct {
+	ID   string                                 `json:"id"`
+	Data map[string]StringOrNumberOrStringArray `json:"data"`
+}
+
+func (v *FormUiResponse) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "FormUiResponse", v.decodeFrom)
+}
+
+func (v *FormUiResponse) decodeFrom(raw map[string]json.RawMessage) error {
+	var out FormUiResponse
+	d := fieldDecoder{raw: raw, owner: "FormUiResponse"}
+	d.constant("type", "extension_ui_response")
+	d.required("id", &out.ID)
+	d.required("data", &out.Data)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+func (v FormUiResponse) MarshalJSON() ([]byte, error) {
+	type plain FormUiResponse
+	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
+}
+
+// StringOrNumberOrStringArray holds exactly one of its fields, chosen by the JSON kind of the value.
+type StringOrNumberOrStringArray struct {
+	String *string
+	Number *float64
+	Array  []string
+}
+
+func (v StringOrNumberOrStringArray) MarshalJSON() ([]byte, error) {
+	switch {
+	case v.String != nil:
+		return json.Marshal(*v.String)
+	case v.Number != nil:
+		return json.Marshal(*v.Number)
+	case v.Array != nil:
+		return json.Marshal(v.Array)
+	}
+	return nil, emptyUnion("StringOrNumberOrStringArray")
+}
+
+func (v *StringOrNumberOrStringArray) UnmarshalJSON(data []byte) error {
+	var out StringOrNumberOrStringArray
+	var err error
+	switch jsonKind(data) {
+	case '"':
+		err = json.Unmarshal(data, &out.String)
+	case '0':
+		err = json.Unmarshal(data, &out.Number)
+	case '[':
+		err = json.Unmarshal(data, &out.Array)
+	default:
+		return unexpectedKind("StringOrNumberOrStringArray", data)
+	}
+	if err != nil {
+		return err
+	}
+	*v = out
+	return nil
+}
+
 // Host reply to an extension UI request; variants share `type` and differ by their payload key.
 type ExtensionUiResponse struct {
 	// Value holds one variant. Encode-only: no discriminator tells the variants apart.
@@ -6321,6 +6669,7 @@ func (ValueUiResponse) isExtensionUiResponse()   {}
 func (ConfirmUiResponse) isExtensionUiResponse() {}
 func (CancelUiResponse) isExtensionUiResponse()  {}
 func (AnswersUiResponse) isExtensionUiResponse() {}
+func (FormUiResponse) isExtensionUiResponse()    {}
 
 func (v ExtensionUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeVariant("ExtensionUiResponse", v.Value)
@@ -6673,6 +7022,7 @@ func (ValueUiResponse) isRpcInbound()   {}
 func (ConfirmUiResponse) isRpcInbound() {}
 func (CancelUiResponse) isRpcInbound()  {}
 func (AnswersUiResponse) isRpcInbound() {}
+func (FormUiResponse) isRpcInbound()    {}
 func (HostToolUpdate) isRpcInbound()    {}
 func (HostToolResult) isRpcInbound()    {}
 func (HostUriResult) isRpcInbound()     {}
@@ -6821,6 +7171,9 @@ func (LivePhaseEvent) isRpcNotification()               {}
 func (LiveLevelsEvent) isRpcNotification()              {}
 func (LiveTranscriptEvent) isRpcNotification()          {}
 func (LiveEndEvent) isRpcNotification()                 {}
+func (LiveDelegationEvent) isRpcNotification()          {}
+func (PlanProposedEvent) isRpcNotification()            {}
+func (PlanUpdatedEvent) isRpcNotification()             {}
 func (DictationStateEvent) isRpcNotification()          {}
 func (DictationTranscriptEvent) isRpcNotification()     {}
 func (DictationEndEvent) isRpcNotification()            {}
@@ -6849,6 +7202,7 @@ func (AutoRetryStartEvent) isRpcNotification()          {}
 func (AutoRetryEndEvent) isRpcNotification()            {}
 func (CacheWarmingStartEvent) isRpcNotification()       {}
 func (CacheWarmingEndEvent) isRpcNotification()         {}
+func (CacheWarmingStoppedEvent) isRpcNotification()     {}
 func (RetryFallbackAppliedEvent) isRpcNotification()    {}
 func (RetryFallbackSucceededEvent) isRpcNotification()  {}
 func (ModelChangedEvent) isRpcNotification()            {}
@@ -6903,6 +7257,12 @@ func (v *RpcNotification) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveTranscriptEvent](raw)
 	case "live_end":
 		value, err = decodeVariant[LiveEndEvent](raw)
+	case "live_delegation":
+		value, err = decodeVariant[LiveDelegationEvent](raw)
+	case "plan_proposed":
+		value, err = decodeVariant[PlanProposedEvent](raw)
+	case "plan_updated":
+		value, err = decodeVariant[PlanUpdatedEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":
@@ -6959,6 +7319,8 @@ func (v *RpcNotification) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[CacheWarmingStartEvent](raw)
 	case "cache_warming_end":
 		value, err = decodeVariant[CacheWarmingEndEvent](raw)
+	case "cache_warming_stopped":
+		value, err = decodeVariant[CacheWarmingStoppedEvent](raw)
 	case "retry_fallback_applied":
 		value, err = decodeVariant[RetryFallbackAppliedEvent](raw)
 	case "retry_fallback_succeeded":
@@ -7026,6 +7388,9 @@ func (LivePhaseEvent) isRpcServerFrame()               {}
 func (LiveLevelsEvent) isRpcServerFrame()              {}
 func (LiveTranscriptEvent) isRpcServerFrame()          {}
 func (LiveEndEvent) isRpcServerFrame()                 {}
+func (LiveDelegationEvent) isRpcServerFrame()          {}
+func (PlanProposedEvent) isRpcServerFrame()            {}
+func (PlanUpdatedEvent) isRpcServerFrame()             {}
 func (DictationStateEvent) isRpcServerFrame()          {}
 func (DictationTranscriptEvent) isRpcServerFrame()     {}
 func (DictationEndEvent) isRpcServerFrame()            {}
@@ -7054,6 +7419,7 @@ func (AutoRetryStartEvent) isRpcServerFrame()          {}
 func (AutoRetryEndEvent) isRpcServerFrame()            {}
 func (CacheWarmingStartEvent) isRpcServerFrame()       {}
 func (CacheWarmingEndEvent) isRpcServerFrame()         {}
+func (CacheWarmingStoppedEvent) isRpcServerFrame()     {}
 func (RetryFallbackAppliedEvent) isRpcServerFrame()    {}
 func (RetryFallbackSucceededEvent) isRpcServerFrame()  {}
 func (ModelChangedEvent) isRpcServerFrame()            {}
@@ -7118,6 +7484,12 @@ func (v *RpcServerFrame) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[LiveTranscriptEvent](raw)
 	case "live_end":
 		value, err = decodeVariant[LiveEndEvent](raw)
+	case "live_delegation":
+		value, err = decodeVariant[LiveDelegationEvent](raw)
+	case "plan_proposed":
+		value, err = decodeVariant[PlanProposedEvent](raw)
+	case "plan_updated":
+		value, err = decodeVariant[PlanUpdatedEvent](raw)
 	case "dictation_state":
 		value, err = decodeVariant[DictationStateEvent](raw)
 	case "dictation_transcript":
@@ -7174,6 +7546,8 @@ func (v *RpcServerFrame) UnmarshalJSON(data []byte) error {
 		value, err = decodeVariant[CacheWarmingStartEvent](raw)
 	case "cache_warming_end":
 		value, err = decodeVariant[CacheWarmingEndEvent](raw)
+	case "cache_warming_stopped":
+		value, err = decodeVariant[CacheWarmingStoppedEvent](raw)
 	case "retry_fallback_applied":
 		value, err = decodeVariant[RetryFallbackAppliedEvent](raw)
 	case "retry_fallback_succeeded":
@@ -7261,6 +7635,25 @@ func (v *SetAskDialogResult) UnmarshalJSON(data []byte) error {
 func (v *SetAskDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
 	var out SetAskDialogResult
 	d := fieldDecoder{raw: raw, owner: "SetAskDialogResult"}
+	d.required("enabled", &out.Enabled)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+type SetFormDialogResult struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (v *SetFormDialogResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "SetFormDialogResult", v.decodeFrom)
+}
+
+func (v *SetFormDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out SetFormDialogResult
+	d := fieldDecoder{raw: raw, owner: "SetFormDialogResult"}
 	d.required("enabled", &out.Enabled)
 	if d.err != nil {
 		return d.err
@@ -7714,6 +8107,7 @@ func (v *GetLogoutAccountsResult) decodeFrom(raw map[string]json.RawMessage) err
 
 type LogoutResult struct {
 	RemainingSource *string `json:"remainingSource,omitempty"`
+	ProviderID      *string `json:"providerId,omitempty"`
 }
 
 func (v *LogoutResult) UnmarshalJSON(data []byte) error {
@@ -7724,6 +8118,7 @@ func (v *LogoutResult) decodeFrom(raw map[string]json.RawMessage) error {
 	var out LogoutResult
 	d := fieldDecoder{raw: raw, owner: "LogoutResult"}
 	d.optional("remainingSource", &out.RemainingSource)
+	d.optional("providerId", &out.ProviderID)
 	if d.err != nil {
 		return d.err
 	}
@@ -7800,6 +8195,25 @@ func (v *GetBtwHistoryResult) decodeFrom(raw map[string]json.RawMessage) error {
 	var out GetBtwHistoryResult
 	d := fieldDecoder{raw: raw, owner: "GetBtwHistoryResult"}
 	d.required("records", &out.Records)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+type PredictNextMessageResult struct {
+	Text *string `json:"text"`
+}
+
+func (v *PredictNextMessageResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "PredictNextMessageResult", v.decodeFrom)
+}
+
+func (v *PredictNextMessageResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out PredictNextMessageResult
+	d := fieldDecoder{raw: raw, owner: "PredictNextMessageResult"}
+	d.nullable("text", &out.Text)
 	if d.err != nil {
 		return d.err
 	}
@@ -7992,6 +8406,18 @@ func (c Commands) SetAskDialog(ctx context.Context, p SetAskDialogCommand) (bool
 	return out.Enabled, err
 }
 
+// SetFormDialogCommand holds the parameters of "set_form_dialog".
+type SetFormDialogCommand struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetFormDialog sends "set_form_dialog": Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.
+func (c Commands) SetFormDialog(ctx context.Context, p SetFormDialogCommand) (bool, error) {
+	var out SetFormDialogResult
+	err := c.call(ctx, "set_form_dialog", p, 0, &out)
+	return out.Enabled, err
+}
+
 // GetAvailableCommands sends "get_available_commands": List the slash-command catalog.
 func (c Commands) GetAvailableCommands(ctx context.Context) ([]AvailableSlashCommand, error) {
 	var out GetAvailableCommandsResult
@@ -8137,9 +8563,10 @@ func (c Commands) LiveStart(ctx context.Context, p LiveStartCommand) (string, er
 
 // LiveConnectCommand holds the parameters of "live_connect".
 type LiveConnectCommand struct {
-	SdpOffer     string  `json:"sdpOffer"`
-	Voice        *string `json:"voice,omitempty"`
-	Instructions *string `json:"instructions,omitempty"`
+	SdpOffer       string  `json:"sdpOffer"`
+	Voice          *string `json:"voice,omitempty"`
+	Instructions   *string `json:"instructions,omitempty"`
+	HostDelegation *bool   `json:"hostDelegation,omitempty"`
 }
 
 // LiveConnect sends "live_connect": Start a live voice session whose audio runs on a caller-owned WebRTC peer: send its SDP offer, apply the returned answer.
@@ -8147,6 +8574,17 @@ func (c Commands) LiveConnect(ctx context.Context, p LiveConnectCommand) (LiveCo
 	var out LiveConnectResult
 	err := c.call(ctx, "live_connect", p, 0, &out)
 	return out, err
+}
+
+// LiveReportCommand holds the parameters of "live_report".
+type LiveReportCommand struct {
+	Text  string `json:"text"`
+	Final *bool  `json:"final,omitempty"`
+}
+
+// LiveReport sends "live_report": Report the delegated request's progress, or with `final` its answer, to the live voice session.
+func (c Commands) LiveReport(ctx context.Context, p LiveReportCommand) error {
+	return c.call(ctx, "live_report", p, 0, nil)
 }
 
 // LiveStop sends "live_stop": Stop the live voice session, if any.
@@ -8522,10 +8960,10 @@ func (c Commands) GetLogoutAccounts(ctx context.Context, p GetLogoutAccountsComm
 // LogoutCommand holds the parameters of "logout".
 type LogoutCommand struct {
 	ProviderID   string `json:"providerId"`
-	CredentialID int64  `json:"credentialId"`
+	CredentialID *int64 `json:"credentialId,omitempty"`
 }
 
-// Logout sends "logout": Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.
+// Logout sends "logout": Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.
 func (c Commands) Logout(ctx context.Context, p LogoutCommand) (LogoutResult, error) {
 	var out LogoutResult
 	err := c.call(ctx, "logout", p, 0, &out)
@@ -8588,4 +9026,23 @@ func (c Commands) GetBtwHistory(ctx context.Context) ([]BtwHistoryRecord, error)
 	var out GetBtwHistoryResult
 	err := c.call(ctx, "get_btw_history", nil, 0, &out)
 	return out.Records, err
+}
+
+// PredictNextMessage sends "predict_next_message": The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one.
+func (c Commands) PredictNextMessage(ctx context.Context) (*string, error) {
+	var out PredictNextMessageResult
+	err := c.call(ctx, "predict_next_message", nil, 30*time.Second, &out)
+	return out.Text, err
+}
+
+// PlanCommand holds the parameters of "plan".
+type PlanCommand struct {
+	Op PlanOp `json:"op"`
+}
+
+// Plan sends "plan": Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request).
+func (c Commands) Plan(ctx context.Context, p PlanCommand) (PlanResult, error) {
+	var out PlanResult
+	err := c.call(ctx, "plan", p, 0, &out)
+	return out, err
 }
