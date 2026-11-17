@@ -174,7 +174,7 @@ jobs:
               path: |
                  packages/natives/native/*.node
                  packages/natives/native/index.d.ts
-              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
 
          - name: Regenerate the addon's runtime exports
            if: steps.native-cache.outputs.cache-hit == 'true'
@@ -216,6 +216,13 @@ jobs:
            if: ${{ !matrix.x64 && steps.native-cache.outputs.cache-hit != 'true' }}
            run: bun run build:native
 
+         # The `local` profile keeps symbol tables and debug information, which
+         # make the shipped binary 2-8 MB bigger and each unpacked addon 29-78 MB
+         # bigger. Oh My Pi strips its release addons the same way.
+         - name: Strip the native addons
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           run: bun scripts/scient/strip-native.ts
+
          # Saved as its own step, not post-job, so a failed second variant can
          # never leave a half-built set under the key the next run would hit.
          - name: Save the native addon for the next run
@@ -225,7 +232,7 @@ jobs:
               path: |
                  packages/natives/native/*.node
                  packages/natives/native/index.d.ts
-              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
 
          # Scient's own tests, and the packages whose state layout differs by
          # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).

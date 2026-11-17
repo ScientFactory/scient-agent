@@ -38,6 +38,8 @@
 				"scripts/scient/lib/ledger.ts",
 				"scripts/scient/lib/markers.ts",
 				"scripts/scient/native-variant.ts",
+				"scripts/scient/strip-native.ts",
+				"scripts/scient/strip-native.test.ts",
 				"scripts/scient/macos-spelling-ready.ts",
 				"scripts/scient/release-version.ts",
 				"scripts/scient/release-version.test.ts",
