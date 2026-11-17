@@ -1,7 +1,7 @@
 # Development Rules
 
 <!-- scient(SA-POLICY): begin - Scient's rules come first in this fork. -->
-> **This is Scient Agent, Scient's fork of Oh My Pi.** Before changing anything, read [SCIENT.md](SCIENT.md), above all "Keeping Scient's changes apart": every change goes where the next alignment with Oh My Pi costs least, and Scient's rules there come before this file's.
+> **This is Scient Agent, Scient's fork of Oh My Pi.** Before changing anything, read [SCIENT.md](SCIENT.md), above all "Keeping Scient's changes apart": every change goes where the next alignment with Oh My Pi costs least, and Scient's rules there come before this file's. Work is done only when it meets SCIENT.md's "Definition of done".
 
 <!-- scient(SA-POLICY): end -->
 ## Default Context

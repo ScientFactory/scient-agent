@@ -1060,6 +1060,15 @@ Scient's own tests live in `test/scient/` folders and run on macOS with the plat
 
 The macOS native test process preloads `scripts/scient/macos-spelling-ready.ts`. AppKit can return no spans when its first XPC request times out during spelling-service startup; the preflight requires the service to identify a known misspelling within three probes before running the unchanged tests. Persistent unavailability fails qualification. This provisions the CI fixture; it does not retry failed tests, change runtime results, or qualify cold-service startup behavior.
 
+## Definition of done
+
+Report work as done only when all of these hold on the final head:
+
+- `bun check` and the focused tests of the changed area pass, and so do the checks above that the change touches: `divergence-check.ts` for any change to an Oh My Pi file, and the generators' `--check` for names and wording.
+- Every link or URL the change adds was fetched once and works.
+- The pull request says, for macOS, Linux and Windows, what ran there and what is still unproven. The six-platform CI proves the build and the isolation check on each system, not behavior that differs between them.
+- The pull request is open and names its review. This repository has no merge queue, required checks or auto-merge: merge only when authorized, on the reviewed head, after its CI is green (`gh pr merge <number> --rebase --match-head-commit <sha>`).
+
 ## Release
 
 `.github/workflows/scient.yml` builds and checks every platform on every push to `main` and on every pull request into it: macOS (Apple silicon and Intel), Linux (x86-64 and ARM64, glibc) and Windows (x86-64 and ARM64), each on its own GitHub-hosted runner, each with the isolation check. The first step stamps the commit into `packages/coding-agent/src/scient/build-id.ts` (`scripts/scient/stamp-build-id.ts`), which `--runtime-info` reports; a build made elsewhere reports `source`. On x86-64 the binary carries the `modern` (AVX2) and `baseline` native addons (`PI_NATIVE_X64_VARIANT` builds each). Before an addon is cached and embedded, `scripts/scient/strip-native.ts` strips the symbol tables and debug information the `local` cargo profile leaves, as Oh My Pi strips its release addons: Apple's `strip -x -S` on macOS, which keeps the arm64 linker signature valid, and `strip --strip-unneeded` on Linux. Windows keeps that information in separate `.pdb` files, so its addons are left as built.

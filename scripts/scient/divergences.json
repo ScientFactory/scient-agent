@@ -226,7 +226,7 @@
 		},
 		"SA-POLICY": {
 			"status": "active",
-			"contract": "An agent working here reads SCIENT.md first, and its rule on keeping Scient's changes apart comes before Oh My Pi's guidance; Scient accepts AI-assisted pull request descriptions, and the contributor stays responsible for them.",
+			"contract": "An agent working here reads SCIENT.md first, and its rule on keeping Scient's changes apart comes before Oh My Pi's guidance; Scient accepts AI-assisted pull request descriptions, and the contributor stays responsible for them. Its pull requests meet SCIENT.md's definition of done.",
 			"upstream": [".github/PULL_REQUEST_TEMPLATE.md", "AGENTS.md", "CONTRIBUTING.md"]
 		},
 		"SA-SECURITY": {
