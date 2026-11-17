@@ -320,9 +320,18 @@ function scheduleReconnect(): void {
 	setTimeout(() => void connect(), delay);
 }
 
+// scient(SA-RELAY-CONNECT): begin - Concurrent connect() calls open one socket: the latest, with the newest settings.
+let connectCalls = 0;
+// scient(SA-RELAY-CONNECT): end
 async function connect(): Promise<void> {
 	if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+	// scient(SA-RELAY-CONNECT): begin - Count this call, so an earlier one still loading the settings stands down.
+	const call = ++connectCalls;
+	// scient(SA-RELAY-CONNECT): end
 	const settings = await loadSettings();
+	// scient(SA-RELAY-CONNECT): begin - A later connect() is loading the settings; it opens the socket.
+	if (call !== connectCalls) return;
+	// scient(SA-RELAY-CONNECT): end
 	const url = `ws://127.0.0.1:${settings.port}/ext${settings.token ? `?token=${encodeURIComponent(settings.token)}` : ""}`;
 	const socket = new WebSocket(url);
 	ws = socket;
@@ -411,6 +420,9 @@ chrome.alarms.onAlarm.addListener(alarm => {
 
 chrome.storage.onChanged.addListener((_changes, areaName) => {
 	if (areaName !== "local") return;
+	// scient(SA-RELAY-CONNECT): begin - Only the port and token are settings; the instance id written on first start is not.
+	if (!("port" in _changes) && !("token" in _changes)) return;
+	// scient(SA-RELAY-CONNECT): end
 	// Settings changed: drop the current connection and re-dial with new ones.
 	ws?.close();
 	void connect();
