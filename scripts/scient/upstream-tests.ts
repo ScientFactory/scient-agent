@@ -96,6 +96,30 @@ export interface Judgement {
 
 const NO_QUARANTINE: Quarantine = { rows: [], today: "" };
 
+const DAY_MS = 86_400_000;
+
+/** The UTC midnight a canonical `YYYY-MM-DD` names, or `undefined` for any other spelling. */
+function utcDay(value: unknown): number | undefined {
+	if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+	const time = Date.parse(`${value}T00:00:00Z`);
+	return Number.isNaN(time) || new Date(time).toISOString().slice(0, 10) !== value ? undefined : time;
+}
+
+/** Whether a row can match at all: canonical dates, expiring no earlier than it started and within a week. */
+export function rowIsValid(row: QuarantineRow): boolean {
+	const start = utcDay(row.quarantined);
+	const end = utcDay(row.expires);
+	return (
+		start !== undefined &&
+		end !== undefined &&
+		end >= start &&
+		end - start <= 7 * DAY_MS &&
+		typeof row.test === "string" &&
+		typeof row.signature === "string" &&
+		row.signature.trim().length > 0
+	);
+}
+
 const CHUNK_HEADER = /^==> \[\d+\/\d+\] (.+) \((?:ok|FAILED exit (\d+)), [\d.]+s\)$/;
 const FAILED_FOOTER = /^(\d+) of \d+ test chunk\(s\) FAILED$/;
 
@@ -184,7 +208,12 @@ function judgeChunk(
 			continue;
 		}
 		const row = quarantine.rows.find(
-			entry => entry.test === id && output.includes(entry.signature) && quarantine.today <= entry.expires,
+			entry =>
+				rowIsValid(entry) &&
+				entry.test === id &&
+				output.includes(entry.signature) &&
+				utcDay(quarantine.today) !== undefined &&
+				quarantine.today <= entry.expires,
 		);
 		if (row) quarantined.push({ test: id, row: row.id, owner: row.owner, expires: row.expires });
 		else problems.push(`failed: ${id}`);

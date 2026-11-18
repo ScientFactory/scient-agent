@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { judge, type Quarantine, type QuarantineRow } from "./upstream-tests";
+import { judge, type Quarantine, type QuarantineRow, rowIsValid } from "./upstream-tests";
 
 // Shaped as `scripts/ci-test-ts.ts <mode> --full` prints a failed run, with
 // Bun 1.4's own output inside each chunk.
@@ -160,6 +160,20 @@ describe("the flake quarantine", () => {
 		expect(judge(1, run([flaky(strayFile)]), new Set()).problems).toEqual([`failed: ${row.test}`]);
 	});
 
+	it("never matches a row whose dates are not canonical or span more than a week", () => {
+		for (const dates of [
+			{ quarantined: "2026-11-18", expires: "2026-11-2" },
+			{ quarantined: "2026-11-18", expires: "2026-11-31" },
+			{ quarantined: "2026-11-18", expires: "2026-11-26" },
+			{ quarantined: "2026-11-18", expires: "2026-11-17" },
+		]) {
+			const bad = { ...row, ...dates };
+			expect(rowIsValid(bad)).toBe(false);
+			const judged = judge(1, run([flaky(strayFile)]), new Set(), { rows: [bad], today: "2026-11-18" });
+			expect(judged.problems).toEqual([`failed: ${row.test}`]);
+		}
+	});
+
 	it("keeps every row exact, a week long and documented in SCIENT.md", async () => {
 		const root = path.resolve(import.meta.dir, "..", "..");
 		const register = await Bun.file(path.join(import.meta.dir, "ci-quarantine.json")).json();
@@ -171,8 +185,7 @@ describe("the flake quarantine", () => {
 			expect(entry.test).toMatch(/^packages\/[^ ]+\.test\.[cm]?[jt]sx? > .+ > .+/);
 			expect(entry.signature.trim().length).toBeGreaterThan(5);
 			expect(entry.owner.length).toBeGreaterThan(0);
-			const week = new Date(`${entry.quarantined}T00:00:00Z`).getTime() + 7 * 86_400_000;
-			expect(entry.expires <= new Date(week).toISOString().slice(0, 10)).toBe(true);
+			expect(rowIsValid(entry)).toBe(true);
 			expect(scientMd).toContain(`| \`${entry.id}\``);
 			expect(scientMd).toContain(entry.expires);
 		}
