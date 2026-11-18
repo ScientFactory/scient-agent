@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"rows": [
+		{
+			"id": "browser-open-options-downloads",
+			"test": "packages/coding-agent/test/tools/browser-open-options.test.ts > browser open options > saves each tab's downloads into its own downloads directory, also after another tab closes",
+			"signature": ".crdownload\",",
+			"owner": "Browser tool",
+			"quarantined": "2026-11-18",
+			"expires": "2026-11-25"
+		}
+	]
+}

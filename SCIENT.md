@@ -1060,6 +1060,22 @@ Scient's own tests live in `test/scient/` folders and run on macOS with the plat
 
 The macOS native test process preloads `scripts/scient/macos-spelling-ready.ts`. AppKit can return no spans when its first XPC request times out during spelling-service startup; the preflight requires the service to identify a known misspelling within three probes before running the unchanged tests. Persistent unavailability fails qualification. This provisions the CI fixture; it does not retry failed tests, change runtime results, or qualify cold-service startup behavior.
 
+### Flake quarantine
+
+`KNOWN_FAILURES` is for tests that fail on untouched Oh My Pi. A flaky test that fails on Scient's tree, on content that also passed, can be quarantined instead. The rule is the one Scient Desktop's `Check` follows (owner decision, 2026-11-17).
+
+- **Exact match.** A row names one test and a signature: text the failure's own output must contain, between the test before it and its `(fail)` line. The same test failing another way still fails the job, and so does everything `KNOWN_FAILURES` never excuses (a crash, an error outside any test, a report that does not add up).
+- **Still visible.** The test still runs. Each quarantined failure is printed as a warning and listed in the job summary with its row.
+- **Expiry.** Every row has an owner and expires 7 days after it was quarantined. From the next day (UTC) its failures fail the job again, unless the cause is fixed (the fix removes the row) or the owner extends it.
+- **Releases.** A release run (`release: true`) takes no rows, so a release ships only from a run without a quarantined failure.
+- **The rows** are in `scripts/scient/ci-quarantine.json`; each row's id and expiry must also be in the table below (a test checks this). The daily CI care task adds each occurrence (date, run link, running count) to its row.
+
+| Row | Test | Signature | Owner | Quarantined → expires | Occurrences (running count) | Cause |
+| --- | --- | --- | --- | --- | --- | --- |
+| `browser-open-options-downloads` | `coding-agent` `browser-open-options.test.ts` › saves each tab's downloads into its own downloads directory, also after another tab closes | `.crdownload",` in the failed `readdir(second)` diff | Browser tool | 2026-11-18 → 2026-11-25 | 11-16 [main](https://github.com/ScientFactory/scient-agent/actions/runs/43954563060) (1); 11-17 [PR #70](https://github.com/ScientFactory/scient-agent/actions/runs/44078095729) (2) | Open. Upstream's test and code, unchanged by Scient. In 30 local runs Chrome's own download never left a `.crdownload` behind at completion, but Chrome also saved downloads that no page started (no `downloadWillBegin`) into the folder it was pointed at last, the second tab's here. Not yet reproduced in the test itself. |
+
+The other two browser tests that failed `main` on 2026-11-16 need no row. "does not call a cancelled run's page listeners" (`browser-nav-frames-dialogs.test.ts`) is in `KNOWN_FAILURES` for 18.22.0. The relay default-tab test (`browser-relay-tab-isolation`) was fixed by #75 and has not failed since.
+
 ## Definition of done
 
 Report work as done only when all of these hold on the final head. Without a pull request, the handback carries what the pull request would.

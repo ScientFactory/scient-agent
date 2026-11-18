@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { judge } from "./upstream-tests";
+import * as path from "node:path";
+import { judge, type Quarantine, type QuarantineRow } from "./upstream-tests";
 
 // Shaped as `scripts/ci-test-ts.ts <mode> --full` prints a failed run, with
 // Bun 1.4's own output inside each chunk.
@@ -44,6 +45,7 @@ describe("a failed bucket", () => {
 	it("passes when every failure is a known upstream failure", () => {
 		expect(judge(1, run([knownOnly]), KNOWN)).toEqual({
 			known: [`packages/coding-agent/${FILE} > ${KNOWN_NAME}`],
+			quarantined: [],
 			problems: [],
 		});
 	});
@@ -109,5 +111,70 @@ describe("a failed bucket", () => {
 			"the runner printed no failure summary",
 		]);
 		expect(judge(2, run([knownOnly]), KNOWN).problems).toEqual(["the runner exited 2, not with failed tests"]);
+	});
+});
+
+describe("the flake quarantine", () => {
+	const FLAKY = "saves each tab's downloads";
+	const row: QuarantineRow = {
+		id: "downloads",
+		test: `packages/coding-agent/${FILE} > ${FLAKY}`,
+		signature: '.crdownload",',
+		owner: "Browser tool",
+		quarantined: "2026-11-18",
+		expires: "2026-11-25",
+	};
+	const strayFile = ["error: expect(received).toEqual(expected)", "", "- []", "+ [", '+   "0a1d.crdownload",', "+ ]"];
+	const flaky = (error: string[]) =>
+		chunk(LABEL, 1, [
+			"",
+			`${FILE}:`,
+			"(pass) an earlier test [1.00ms]",
+			...error,
+			`(fail) ${FLAKY} [2199.58ms]`,
+			...summary(110, 1),
+		]);
+	const on = (today: string): Quarantine => ({ rows: [row], today });
+
+	it("lets a failure through when it shows the row's signature, and reports it", () => {
+		expect(judge(1, run([flaky(strayFile)]), new Set(), on("2026-11-25"))).toEqual({
+			known: [],
+			quarantined: [{ test: row.test, row: "downloads", owner: "Browser tool", expires: "2026-11-25" }],
+			problems: [],
+		});
+	});
+
+	it("blocks the same test failing another way", () => {
+		const timeout = ["error: Test timed out after 30000ms"];
+		expect(judge(1, run([flaky(timeout)]), new Set(), on("2026-11-20")).problems).toEqual([`failed: ${row.test}`]);
+	});
+
+	it("reads the signature only from the failing test's own output", () => {
+		const body = ["", `${FILE}:`, ...strayFile, "(pass) an earlier test [1.00ms]", `(fail) ${FLAKY} [2.00ms]`];
+		const judged = judge(1, run([chunk(LABEL, 1, [...body, ...summary(110, 1)])]), new Set(), on("2026-11-20"));
+		expect(judged.problems).toEqual([`failed: ${row.test}`]);
+	});
+
+	it("blocks again from the day after the row expires, and without rows", () => {
+		expect(judge(1, run([flaky(strayFile)]), new Set(), on("2026-11-26")).problems).toEqual([`failed: ${row.test}`]);
+		expect(judge(1, run([flaky(strayFile)]), new Set()).problems).toEqual([`failed: ${row.test}`]);
+	});
+
+	it("keeps every row exact, a week long and documented in SCIENT.md", async () => {
+		const root = path.resolve(import.meta.dir, "..", "..");
+		const register = await Bun.file(path.join(import.meta.dir, "ci-quarantine.json")).json();
+		const scientMd = await Bun.file(path.join(root, "SCIENT.md")).text();
+		const ids = new Set<string>();
+		for (const entry of register.rows as QuarantineRow[]) {
+			expect(ids.has(entry.id)).toBe(false);
+			ids.add(entry.id);
+			expect(entry.test).toMatch(/^packages\/[^ ]+\.test\.[cm]?[jt]sx? > .+ > .+/);
+			expect(entry.signature.trim().length).toBeGreaterThan(5);
+			expect(entry.owner.length).toBeGreaterThan(0);
+			const week = new Date(`${entry.quarantined}T00:00:00Z`).getTime() + 7 * 86_400_000;
+			expect(entry.expires <= new Date(week).toISOString().slice(0, 10)).toBe(true);
+			expect(scientMd).toContain(`| \`${entry.id}\``);
+			expect(scientMd).toContain(entry.expires);
+		}
 	});
 });
