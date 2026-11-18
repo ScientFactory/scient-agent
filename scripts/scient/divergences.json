@@ -44,7 +44,8 @@
 				"scripts/scient/release-version.ts",
 				"scripts/scient/release-version.test.ts",
 				"scripts/scient/upstream-tests.ts",
-				"scripts/scient/upstream-tests.test.ts"
+				"scripts/scient/upstream-tests.test.ts",
+				"scripts/scient/ci-quarantine.json"
 			],
 			"upstream": ["scripts/host-detect.ts"],
 			"deleted": [
