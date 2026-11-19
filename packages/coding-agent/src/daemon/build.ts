@@ -11,6 +11,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { isCompiledBinary, logger, VERSION } from "@oh-my-pi/pi-utils";
 import { resolveCliEntryCmd } from "../subprocess/worker-client";
+// scient(SA-WORKER): begin - A newer Scient Agent release replaces an older release's daemon.
+import { PRODUCT_VERSION } from "@oh-my-pi/pi-utils/scient/product";
+// scient(SA-WORKER): end
 
 let cached: string | undefined;
 
@@ -52,6 +55,9 @@ function buildStamp(): number {
 
 /** This process's build identity, `VERSION+<stamp>`; compare with `compareDaemonBuilds`. */
 export function daemonBuildId(): string {
+	// scient(SA-WORKER): begin - A newer Scient Agent release replaces an older release's daemon.
+	cached ??= `${PRODUCT_VERSION}+${buildStamp()}`;
+	// scient(SA-WORKER): end
 	cached ??= `${VERSION}+${buildStamp()}`;
 	return cached;
 }
