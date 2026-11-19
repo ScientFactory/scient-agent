@@ -195,16 +195,15 @@
 		},
 		"SA-WORKER": {
 			"status": "active",
-			"contract": "Shared workers (tiny model, embedding server) carry the product version, so a new Scient Agent release never reuses an earlier release's worker.",
-			"owned": [
-				"packages/coding-agent/src/scient/worker-tag.ts",
-				"packages/coding-agent/test/scient/worker-tag.test.ts"
-			],
+			"contract": "Oh My Pi's per-user daemon, which hosts the shared workers (tiny model, embeddings, word prediction), names its build by Scient Agent's release, so a newer release always has an older release's daemon re-exec into it and drop its workers, whatever the binaries' file times. Oh My Pi's package version, which two Scient Agent releases on one Oh My Pi release share, would leave the order to the binaries' modification times.",
+			"owned": ["packages/coding-agent/test/scient/daemon-build.test.ts"],
 			"upstream": [
-				"packages/coding-agent/src/mnemopi/embed-client.ts",
-				"packages/coding-agent/src/tiny/title-client.ts"
+				"packages/coding-agent/src/daemon/build.ts",
+				"packages/coding-agent/test/daemon/build.test.ts"
 			],
-			"verification": ["bun --cwd=packages/coding-agent test test/scient/worker-tag.test.ts"]
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/daemon-build.test.ts test/daemon/build.test.ts"
+			]
 		},
 		"SA-BRAND": {
 			"status": "active",

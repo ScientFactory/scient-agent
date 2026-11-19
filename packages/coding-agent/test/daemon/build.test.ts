@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import * as path from "node:path";
-import { VERSION } from "@oh-my-pi/pi-utils";
+// scient(SA-WORKER): begin - The daemon's build carries Scient Agent's release.
+import { PRODUCT_VERSION } from "@oh-my-pi/pi-utils/scient/product";
+// scient(SA-WORKER): end
 import { daemonBuildId } from "../../src/daemon/build";
 import { compareDaemonBuilds, parseDaemonBuild } from "../../src/daemon/protocol";
 
@@ -32,7 +34,9 @@ describe("daemon build identity", () => {
 
 	it("gives every process of one install the same build id, so client and daemon never ping-pong upgrades", async () => {
 		const own = daemonBuildId();
-		expect(parseDaemonBuild(own).version).toBe(VERSION);
+		// scient(SA-WORKER): begin - The daemon's build carries Scient Agent's release.
+		expect(parseDaemonBuild(own).version).toBe(PRODUCT_VERSION);
+		// scient(SA-WORKER): end
 		expect(parseDaemonBuild(own).stamp).toBeGreaterThan(0);
 
 		const buildModule = path.join(import.meta.dir, "..", "..", "src", "daemon", "build.ts");
