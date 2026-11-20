@@ -10,6 +10,7 @@ import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core/thinking";
 import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
 import { getModelPricingStatus } from "@oh-my-pi/pi-catalog/models";
 import { ensureSqliteLockShim, isEnoent, isEnotdir } from "@oh-my-pi/pi-utils";
+import { bindAgentMesh } from "./irc/mesh";
 import {
 	APP_NAME,
 	directoryIsMissing,
@@ -83,7 +84,6 @@ import {
 	scheduleMarketplaceAutoUpdate,
 	type MarketplaceAutoUpdateOptions,
 } from "./extensibility/plugins/marketplace-auto-update";
-import { registerDaemonProjectPresence } from "./launch/presence";
 import type { MCPManager } from "./mcp";
 import type { InteractiveMode } from "./modes/interactive-mode";
 import { formatSessionContinuationNotice } from "./modes/persistence-failure";
@@ -884,7 +884,11 @@ async function runInteractiveMode(
 	}
 }
 
-type SessionPromptResult = "accepted" | "declined" | "unavailable";
+/**
+ * `"keep"`: open the session where it is stored, with the launch directory as
+ * its working directory, as `--resume <path>` does.
+ */
+type SessionPromptResult = "accepted" | "declined" | "unavailable" | "keep";
 
 type SessionPrompt = (session: SessionInfo) => Promise<SessionPromptResult>;
 
@@ -903,6 +907,11 @@ async function promptMoveSession(session: SessionInfo): Promise<SessionPromptRes
 		rl.close();
 		resumeStartupWatchdog();
 	}
+}
+
+/** Protocol modes (`rpc`, `rpc-ui`, `acp`) own stdin and stdout, so they never ask. */
+async function keepSessionInPlace(): Promise<SessionPromptResult> {
+	return "keep";
 }
 
 /**
@@ -953,6 +962,7 @@ function isForeignSessionImport(parsed: Pick<Args, "fromClaude" | "fromCodex">):
 type MissingCwdMoveResult =
 	| { status: "not-needed" }
 	| { status: "declined" }
+	| { status: "kept" }
 	| { status: "moved"; manager: SessionManager };
 
 async function moveMissingCwdSessionIfNeeded(
@@ -970,6 +980,9 @@ async function moveMissingCwdSessionIfNeeded(
 	// Filed under this folder (or a removed worktree of it): the session belongs here, no question to ask.
 	if (!(await SessionManager.isStrandedIn(session, cwd, sessionDir))) {
 		const movePromptResult = await askToMoveSession(session);
+		if (movePromptResult === "keep") {
+			return { status: "kept" };
+		}
 		if (movePromptResult === "unavailable") {
 			throw new SessionResolutionError(
 				`Session "${sessionArg}" belongs to a directory that no longer exists (${sourceCwd}); run interactively to move it into the current project.`,
@@ -2224,7 +2237,7 @@ export async function runRootCommand(
 					parsedArgs,
 					cwd,
 					settingsInstance,
-					promptMoveSession,
+					isProtocolMode ? keepSessionInPlace : promptMoveSession,
 					{
 						nativeFlagOwnership: "preliminary",
 						onSessionContinuation: continuation => resumedContinuations.push(continuation),
@@ -2375,13 +2388,6 @@ export async function runRootCommand(
 			}
 		}
 		await pluginPreloadPromise;
-		// Pure file I/O: overlap it with session-option building, but land it before
-		// extensions load or the session can start project daemons.
-		const daemonPresencePromise =
-			deps === DEFAULT_RUN_ROOT_DEPENDENCIES
-				? logger.time("registerDaemonProjectPresence", registerDaemonProjectPresence, cwd)
-				: undefined;
-		daemonPresencePromise?.catch(() => {});
 
 		let startupTelemetry: CreateAgentSessionOptions["telemetry"];
 		let startupTopLevelExtensions: CreateAgentSessionOptions["topLevelExtensions"];
@@ -2417,7 +2423,7 @@ export async function runRootCommand(
 			options.settingsApproval = isInteractive;
 			options.tuiTranscript = isInteractive;
 			options.autoTitle = isInteractive;
-			options.deferSkillDescriptionCompression = isInteractive;
+			options.deferHintCompression = isInteractive;
 			options.settings = settingsInstance;
 			options.telemetry = startupTelemetry;
 			options.topLevelExtensions = startupTopLevelExtensions;
@@ -2450,7 +2456,6 @@ export async function runRootCommand(
 			});
 			startupTelemetry = sessionOptions.telemetry;
 		}
-		await daemonPresencePromise;
 
 		// Handle CLI --api-key as runtime override (not persisted)
 		if (parsedArgs.apiKey) {
@@ -2686,6 +2691,7 @@ export async function runRootCommand(
 				mcpManager,
 				startBackgroundModelDiscovery,
 			} = createdSession;
+			if (isInteractive) session.addDisposer(bindAgentMesh(sessionOptions.cwd ?? getProjectDir(), settingsInstance));
 			if (!isInteractive) session.validateRetryFallbackChains();
 
 			const sessionToolNames = session.getAllToolNames();
@@ -2764,7 +2770,7 @@ export async function runRootCommand(
 						.catch(error => logger.warn("Startup changelog failed", { error: String(error) }));
 				}
 				void session.loadDeferredExtensions();
-				session.startSkillDescriptionCompression();
+				session.startHintCompression();
 				modelRegistry.refreshInBackground();
 				session.validateRetryFallbackChains();
 				if (configuredScope.length > 0) {

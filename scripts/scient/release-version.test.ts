@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { nextVersions, releaseRefusal, releaseVersion, stampedManifest } from "./release-version";
+import { nextVersions, releaseRefusal, releaseVersion, stampedManifest, upstreamRefusal } from "./release-version";
 
 describe("release version", () => {
 	it("follows the latest published release by one patch, minor or major step", () => {
@@ -47,5 +47,13 @@ describe("release version", () => {
 		const stamped = stampedManifest(manifest, "0.1.9");
 		expect(JSON.parse(stamped)).toEqual({ ...JSON.parse(manifest), version: "0.1.9" });
 		expect(stamped).toBe(manifest.replace('"version": "0.1.8"', '"version": "0.1.9"'));
+	});
+
+	it("releases each Oh My Pi major as its own Scient Agent major", () => {
+		expect(upstreamRefusal("0.1.14", "18.22.0")).toBeUndefined();
+		expect(upstreamRefusal("1.0.0", "19.0.1")).toBeUndefined();
+		// A blank run's next patch on a new Oh My Pi major: every older Desktop would install it.
+		expect(upstreamRefusal("0.1.14", "19.0.1")).toContain("1.0.0");
+		expect(upstreamRefusal("2.0.0", "20.0.0")).toContain("no Scient Agent major yet");
 	});
 });

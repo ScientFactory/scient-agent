@@ -67,6 +67,26 @@ export function releaseRefusal(version: string, state: ReleaseState): string | u
 	return `The latest published release is v${latest}, so the next release is ${next.join(", ")} (patch, minor or major), not ${version}.`;
 }
 
+/**
+ * The Scient Agent major each Oh My Pi major ships as. Scient Desktop accepts a product major only once
+ * it is qualified against that Oh My Pi major, and a Desktop from before then installs nothing past its
+ * own ceiling, the next product major: a build on a new Oh My Pi major released in the old product
+ * major would be installed by every such Desktop and then refused. An alignment to a new Oh My Pi
+ * major adds its row once Scient Desktop accepts it.
+ */
+export const PRODUCT_MAJOR_BY_UPSTREAM_MAJOR: Readonly<Record<number, number>> = { 18: 0, 19: 1 };
+
+/** Why `version` may not be released for a build on Oh My Pi `upstream`, or undefined when it may. */
+export function upstreamRefusal(version: string, upstream: string): string | undefined {
+	const upstreamMajor = Number(upstream.split(".")[0]);
+	const productMajor = PRODUCT_MAJOR_BY_UPSTREAM_MAJOR[upstreamMajor];
+	if (productMajor === undefined) {
+		return `This build is on Oh My Pi ${upstream}, whose major has no Scient Agent major yet; add it to PRODUCT_MAJOR_BY_UPSTREAM_MAJOR once Scient Desktop accepts it.`;
+	}
+	if (Number(version.split(".")[0]) === productMajor) return undefined;
+	return `This build is on Oh My Pi ${upstream}, which Scient Agent releases as ${productMajor}.x, not ${version}; give the run the first ${productMajor}.x version after the latest published release (${productMajor}.0.0 when that starts the major).`;
+}
+
 /** `scient.json`'s text with `version` as the product version, its layout unchanged. */
 export function stampedManifest(manifest: string, version: string): string {
 	const scient = JSON.parse(manifest) as { version: string };
@@ -107,7 +127,11 @@ async function check(): Promise<void> {
 		return;
 	}
 	const tagExists = (await ghOrNotFound(["api", `repos/${repo}/git/ref/tags/v${version}`, "--jq", ".ref"])) !== null;
-	const refusal = releaseRefusal(version, { latestPublished, tagExists });
+	const scient = (await Bun.file(path.resolve(import.meta.dir, "..", "..", "scient.json")).json()) as {
+		upstream: { version: string };
+	};
+	const refusal =
+		releaseRefusal(version, { latestPublished, tagExists }) ?? upstreamRefusal(version, scient.upstream.version);
 	if (refusal) {
 		console.log(`::error::${refusal}`);
 		process.exitCode = 1;

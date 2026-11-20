@@ -13,11 +13,11 @@ Everything else is upstream's code and behavior.
 | Name | The executable is `scient-agent`, and shell profile aliases run it. `--version` prints `scient-agent/<version>`; `--runtime-info` prints a JSON description (product, version, upstream release and commit, RPC versions, build id) for hosts. Process titles, log files and Windows named pipes carry the name. |
 | Wording | The agent calls itself Scient Agent, and its command `scient-agent`, wherever a person or a model reads its words: messages, help, sign-in instructions, prompts, the built-in documentation, window and notification titles. The prompts also address researchers: the model's role is a research and coding assistant, and each personality matches its explanations to the reader's expertise instead of assuming a technical reader. `scripts/scient/rename-wording.ts` generates this. |
 | State | The config root is `~/.scient-agent` (project folder `.scient-agent/`), or the absolute directory a host sets in `SCIENT_AGENT_ROOT`. User config lookups, the native addon cache, browser storage state and crash logs follow it. A host's root is authoritative: `SCIENT_AGENT_DIR` is ignored under it, and a `.env` in the project or the home directory cannot set any `SCIENT_AGENT_*` variable (a `.env` inside the root can). The root is taken only from the launch environment, never from a `.env`. Standalone use keeps upstream's `.env` overrides. |
-| Variables | The variables that choose where state lives have `SCIENT_AGENT_*` names: `CONFIG_DIR`, `CONFIG_FILES`, `DIR`, `PROFILE`, `SESSION_DIR`, `WORKTREE_DIR`, `AUTH_BROKER_*`, `NATIVES_DIR`, the cache database overrides, and the runtime directory, socket and configuration variables the agent hands its own workers. OMP's names for them are ignored. Tuning variables (`PI_*`) are unchanged. |
+| Variables | The variables that choose where state lives have `SCIENT_AGENT_*` names: `CONFIG_DIR`, `CONFIG_FILES`, `DIR`, `PROFILE`, `SESSION_DIR`, `WORKTREE_DIR`, `AUTH_BROKER_*`, `NATIVES_DIR`, the cache database overrides, the directory, TCP address and re-exec hand-over of Oh My Pi's per-user daemon, and the configuration the agent hands its own workers. OMP's names for them are ignored. Tuning variables (`PI_*`) are unchanged. |
 | Discovery | A host can add foreign user-level sources with `SCIENT_AGENT_ENABLE_SOURCES` (provider ids separated by commas or whitespace). These are unioned with `enabledProviders` for discovery without changing or persisting that setting; `disabledProviders` still wins. The same aliases apply, including `claude` enabling `claude-plugins`. Under a host root, project and home `.env` files cannot add sources. |
 | Native addon cache | A compiled binary extracts its addons into a directory named for their content, so two builds on one upstream version never load each other's, and it loads only from that directory. A modern addon that fails to load falls back to the same build's baseline addon; an addon found beside the executable is not a fallback. |
 | Symbol | The sign-in page every browser sign-in ends on and the `stats` dashboard show Scient Agent's symbol (`packages/utils/src/scient/scient-agent-symbol.svg.txt`, the file Scient Desktop shows for the agent; copy it over when the symbol changes) in Scient's colors. |
-| Shared workers | The tiny model worker and the shared embedding server are reused while their launch tag matches. The tag carries the product version, not the upstream package version, so a new Scient Agent release replaces a worker an earlier release left running. |
+| Shared workers | The tiny model worker, the embedding server and word prediction run in Oh My Pi's per-user daemon. The daemon's build carries Scient Agent's release, not the upstream package version, so a new Scient Agent release has an older release's daemon re-exec into it, which replaces its workers. |
 | Updates | `scient-agent update` only updates plugins. The startup update check and the startup marketplace refresh are off, and Oh My Pi's background auto-update is never offered or started. A host or installer replaces the executable. |
 | Reporting | Automatic tool-issue reports to OMP's service are off by default. |
 | Shell traces | The bash tool records no execution trace unless the user turns `display.shellVisualization` on. Scient Agent's host draws no shell visualization, and every live frame of a running command would carry the whole trace, up to megabytes. |
@@ -1009,6 +1009,68 @@ Not run locally: Rust tests and Oh My Pi's six buckets in full. CI builds and ch
 
 Review: a Codex review of the replay found the two disassembler defects fixed above (the shared host-configuration variable and the uncounted database hosts). It also flagged the Ghidra runner staged under the shared `omp-ghidra-worker` temporary folder; that is how Oh My Pi stages every runner (Python, MLX, and IDA before it), by content hash in an owner-private folder, so identical bytes share a file and it was left as it was at earlier alignments. It agreed `SA-BROWSER-DEADLINE` stays and found no breaking RPC change.
 
+### Twelfth alignment intake — 2026-11-20
+
+Scient Agent is aligned with Oh My Pi 19.0.1.
+
+- Frozen owned `main`: `7b91cb1139e5d16c5ff9beb26500a07c8190b367`.
+- Accepted source baseline: OMP `18.22.0`, `3e8cff3b7ce19a805c11a26a6dd1703066435851`, tag `omp-sync/v18.22.0`.
+- Target: OMP `19.0.1`, `f40f335845f0b136453d12fec8d6057011082766`, under `refs/upstream-tags/v19.0.1`: 961 commits across four releases (18.22.1, 18.22.2, 19.0.0 and 19.0.1), changing 3,378 files.
+- Inventory: the 38 commits of the accepted replay, replacing all three generated commits, and the 6 commits on `main` after the `sync:` import:
+  - Into `SA-RELEASE`: the actions bump (#74) and the flake quarantine (#76). Into `SA-POLICY`: the definition of done (#70, 4 commits).
+  - Folding was checked first on the 18.22.0 base: that replay's tree equals frozen `main`.
+- Replay: `replay/omp-v19.0.1`: generators, identity, 34 contracts in ledger order (33 active, one upstreamed), wording and RPC clients.
+
+| Step | Result |
+|---|---|
+| Identity generator | Upstream renamed its crates (`crates/pi-natives` is `crates/natives`, and so on), so the rules naming Rust files follow. 19.0.0 runs every shared background process (the tiny model, embeddings, word prediction, language servers, the blob broker, disassemblers, services) in one per-user daemon. Its directory, TCP address and re-exec hand-over (`OMP_DAEMON_DIR`, `OMP_DAEMON_TCP`, `OMP_DAEMON_RESUME`) and the disassembler worker token (`OMP_DISASM_WORKER_TOKEN`) are now `SCIENT_AGENT_*`; the variables of the brokers the daemon replaced left the rule with them. New rules: the shell and its TypeScript resolver hand internal URLs unresolved to `scient-agent` (they exempted `omp`), the `local://` fallback moved to `local-root.ts`, and the new `omp-resource` and `omp-remote-edit` temporary folders are Scient Agent's. 639 files renamed. The daemon's own files follow the config root with no rule: `run/daemon` (`getDaemonDir`, a `baseRootSubdir`), its socket or pipe through the existing rules. |
+| Contract commits | Four conflicts. `SA-RELEASE`: upstream changed the workflows and Nix files it removes. `SA-MAC-GRANT`: a new module line beside the hook. `SA-USAGE-RESET`: upstream now bounds usage-limit bookkeeping by three seconds; the hook stays after `markReached`, and a timeout records the provider's hint alone, counted from the response. `SA-CONTEXT`: eval documentation readable without the eval tool. |
+| Wording generator | Six rules follow the crate renames. 505 files rewritten. |
+| RPC generator | Regenerated the schema and TypeScript, Python, Rust and Go clients. |
+| Hooked files upstream changed | 49 of 86, most by the crate renames; reviewed against every ledger contract. |
+| Footprint | 235 marker blocks, 649 lines, in 86 files, from 234, 643 and 86 at the eleventh intake: `SA-USAGE-RESET` adds two blocks for upstream's bookkeeping timeout, and `SA-WORKER`'s hooks moved from the two worker clients upstream rewrote to the daemon's build and its test. |
+
+Decisions:
+
+| Change | Why |
+|---|---|
+| `SA-WORKER` adapted | The launch tags it carried are gone with the workers' own processes. The daemon names its build by Oh My Pi's package version and the binary's file time, and a newer build has an older daemon re-exec into it, which stops the inference and prediction units. Two Scient Agent releases on one Oh My Pi release share that version, so their order came down to file times, and a reinstalled older release could look newer. The daemon's build now leads with Scient Agent's release (`daemon/build.ts`), and upstream's build test expects it. Retiring the contract was considered first and rejected for that case. |
+| `SA-PROMPT-CACHE` kept | 19.0.0's bridge compaction runs while a run is streaming and commits at a mid-run boundary; it reuses the background compaction Scient Desktop already shows. Desktop's idle compaction follows `cache_warming_stopped` after the run, so the two do not overlap. |
+| Daemon and Desktop's process reaping | Desktop stops what an agent's process tree left running when a thread stops. On macOS the daemon was seen with PID 1 as its parent and a session of its own while the agent that started it still ran, so it is not in that tree; the brokers it replaces were started the same way. |
+| Not adopted | `SCIENT_AGENT_DAEMON_DIR` and `SCIENT_AGENT_DAEMON_TCP` can still point outside a host's root: Desktop passes no `SCIENT_AGENT_*` variable but the root, and a `.env` outside the root cannot set them, as for the broker overrides before. `mcp.evalNamespaces` (off by default) would move Scient's service catalog into eval namespaces; Desktop does not turn it on. The WebKit engine stays in `~/.o2/lib/abkit`, which upstream shares with Tern on purpose. |
+
+**RPC changes for Desktop.** Protocol versions stay 1 and 2. Additions only: `cache_warming_start` and `cache_warming_end` carry `method` (`prewarm` or `replay`), bash takes `excludeFromContext`, and `handoff` now runs as background compaction (Desktop does not send it). **Desktop compatibility needs a Desktop change**: every shipped Desktop refused this build, because its Scient Agent target required the stock Oh My Pi provider's major, 18. [Scient Desktop #1034](https://github.com/ScientFactory/scient-desktop/pull/1034) gives Scient Agent its own upstream range (18.2.8 or newer on 18 or 19) and accepts product majors 0 and 1. This build is released as **1.0.0**: older Desktops stop below 1.0.0, so they keep 0.1.13 instead of installing a release they would refuse. The release check now enforces it (see Release).
+
+**Known failures.** A probe (branch `probe/pristine-1901`, [run 44643479068](https://github.com/ScientFactory/scient-agent/actions/runs/44643479068)) ran each bucket on untouched 19.0.1 and on the replay `7ca5ec2110`, on Scient's runner type, concurrency and per-test ceiling: `coding-agent-native` 8 times each, the other five twice each. Its logs were read test by test with `upstream-tests.ts`'s own judge.
+
+| Test | Untouched 19.0.1 | Scient's replay |
+|---|---|---|
+| A cancelled bash job's TERM cleanup | 3 of 8 | 0 |
+| A pipe shell exits 143 when terminated | 3 of 8 | 2 of 8 |
+| A pseudo-terminal shell goes on after an interrupt | 2 of 8 | 1 of 8 |
+| A timed-out tool activation; an interactive bash PTY's start | 1 of 8 each | 1 of 8 each |
+| Startup with a broker that stays unreachable; closing an owned page by id; five `browser-tab-worker-startup` renderer-crash tests (one run) | 1 of 8 each | 0 |
+| `bash-host-urls` and `bash-url-filesystem`: Scient Agent's own URLs | 0 | 8 of 8 |
+| Spotlight's waitlisted account (`coding-agent-ui`) | 0 of 2 | 2 of 2 |
+| PDF page screenshots in Chromium; a relay tab Chrome detached | 0 | 2 of 8 each |
+| A pseudo-terminal shell is the terminal's shell; a page load stopped mid-goto | 0 | 1 of 8 each |
+
+The first five rows are the twelve tests listed for 19.0.1. The next two were Scient defects, fixed in the identity generator: the shell's TypeScript resolver still exempted `omp`, and two upstream tests named the program as `omp` (a stand-in executable, and Spotlight's User-Agent, which is `APP_NAME/<version>`). The PDF and relay-detach tests are quarantined (see Flake quarantine): upstream's tests, in code no Scient hook touches; the relay one plays the extension's side itself. The last two are not listed, and a recurrence takes a rerun. One untouched `coding-agent-native` run also had two errors outside any test, which nothing excuses. The 18.22.0 entries lapsed.
+
+#### Local checks
+
+On macOS arm64 with Bun 1.4.4 and the repo-pinned November nightly:
+- Identity and wording `--check`, the script tests (88) and `check:ts` pass. Scient's own tests pass: `coding-agent` 127, `utils` 16, `natives` 8, `ai` 4.
+- 318 Oh My Pi test files around the hooks upstream changed (RPC, sessions, cache warming, usage limits, auth, the SDK, live voice, xd and computer tools, the relay): 3,652 pass, none fail. The daemon's tests: 105 of 108 pass; a hint single-flight case, a blob index case and a two-process start time out on this Mac (the last passes alone), and all three passed in every one of the probe's 16 `coding-agent-native` runs.
+- Replay-mode divergence verification passes: 38 commits, all three generated commits equal their generators.
+- Compiled macOS arm64 executable: `--runtime-info` reports OMP 19.0.1 at the full pin above, RPC `[1,2]`, `hostCommands` `apps` and `dictate`. Compiled isolation passes, and the hosts contacted on startup are v0.1.13's seven. `capability-check.ts` against v0.1.13 passes every case.
+- Real model turns over RPC, with the app's OpenAI Codex and Anthropic sign-ins copied into a throwaway root (no OpenRouter): a reply, a shell call, a subagent, a cancelled run, and the session resumed in a second process, on `openai-codex/gpt-6-luna` and `anthropic/claude-haiku-5-5`.
+- Scient Desktop's live suites (`OMP_QUALIFY_TARGET=scient`, Desktop `main` `6eb2b0dc8b`): the unchanged Desktop refuses the candidate in every session. With Desktop #1034's acceptance, the candidate and v0.1.13 fail the same 13 of 34 cases and no other (this machine's Ollama lacks the custom-model fixture's model, no stock `omp` runs beside it, and the Scient extension fixture's tool does not load in either).
+
+Not run locally: Rust tests and Oh My Pi's six buckets in full. CI builds and checks the six platforms and runs the six buckets.
+
+Review: Codex reviewed the replay three times. The first review found the two new temporary folders shared with a stock `omp`, the TypeScript resolver's `omp` exemption, the usage-limit timeout dropping the provider's hint, and the file-time ordering that made `SA-WORKER` stay; all four were fixed. It also argued that the daemon directory and TCP overrides, the eval namespaces and the WebKit folder needed changes; the "Not adopted" row says why they did not. A Codex debate chose the 1.0.0 product major over a catalog contract revision for the Desktop gate. The second review found the Desktop resume and manifest gaps fixed in #1034, and the hint's time anchor, fixed; its recheck was clean but for the manifest's `updatedAt`, fixed.
+
 ### Recurring cadence
 
 Check upstream releases at least weekly and before each Scient Agent release; use a daily read-only digest if OMP's pace warrants it. Prepare one bounded release alignment at a time, with urgent security/compatibility fixes handled sooner. Monitoring reports movement; it never merges code or advances accepted pins. This repository currently has release/build CI, **not an automated upstream monitor**. The procedure above is manual until a separately implemented read-only monitor and accepted receipt/checkpoint format exist.
@@ -1054,7 +1116,7 @@ Each bucket runs through `scripts/scient/upstream-tests.ts`, which runs upstream
 - a chunk whose Bun fail count differs from the failures it names;
 - a report the script cannot read in full.
 
-Four tests are listed for 18.22.0. Each was seen failing on untouched 18.22.0 on the same runner type; the counts are under "Eleventh alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
+Twelve tests are listed for 19.0.1. Each was seen failing on untouched 19.0.1 on the same runner type; the counts are under "Twelfth alignment intake". The job sets the 120-second per-test ceiling upstream's CI sets, which removed most of the timing failures listed for 18.13.0.
 
 Scient's own tests live in `test/scient/` folders and run on macOS with the platform-sensitive `utils` and `natives` suites.
 
@@ -1073,6 +1135,8 @@ The macOS native test process preloads `scripts/scient/macos-spelling-ready.ts`.
 | Row | Test | Signature | Owner | Quarantined → expires | Occurrences (running count) | Cause |
 | --- | --- | --- | --- | --- | --- | --- |
 | `browser-open-options-downloads` | `coding-agent` `browser-open-options.test.ts` › saves each tab's downloads into its own downloads directory, also after another tab closes | `.crdownload",` in the failed `readdir(second)` diff | Browser tool | 2026-11-18 → 2026-11-25 | 11-16 [main](https://github.com/ScientFactory/scient-agent/actions/runs/43954563060) (1); 11-17 [PR #70](https://github.com/ScientFactory/scient-agent/actions/runs/44078095729) (2) | Open. Upstream's test and code, unchanged by Scient. In 30 local runs Chrome's own download never left a `.crdownload` behind at completion, but Chrome also saved downloads that no page started (no `downloadWillBegin`) into the folder it was pointed at last, the second tab's here. Not yet reproduced in the test itself. |
+| `read-pdf-screenshot-timeout` | `coding-agent` `read-pdf-screenshot-chromium.test.ts` › paints each requested image-only page instead of the empty viewer | `Timed out rendering PDF page` | Read tool | 2026-11-20 → 2026-11-27 | 11-20 probe of the 19.0.1 replay, [run 44643479068](https://github.com/ScientFactory/scient-agent/actions/runs/44643479068) (2) | Open. Upstream's test and code, which no Scient hook touches. It failed in 2 of 8 runs on Scient's replay and none of 8 untouched; on 18.22.0 it failed untouched (1 of 8) and was listed as known. |
+| `browser-relay-detach-reattach` | `coding-agent` `browser-relay-detach.test.ts` › keeps the recovered tab but fails an open whose navigation never started before its budget ran out | `could not reattach to the tab, so it was released` | Browser tool | 2026-11-20 → 2026-11-27 | 11-20 probe of the 19.0.1 replay, [run 44643479068](https://github.com/ScientFactory/scient-agent/actions/runs/44643479068) (2) | Open. New in 19.0.1; it plays the extension's side over CDP itself, so `SA-RELAY-CONNECT`'s extension code is not in it. It failed in 2 of 8 runs on Scient's replay and none of 8 untouched, and passes 5 of 5 locally; the open's 20 ms budget ran out before the tab was reattached. |
 
 The other two browser tests that failed `main` on 2026-11-16 need no row. "does not call a cancelled run's page listeners" (`browser-nav-frames-dialogs.test.ts`) is in `KNOWN_FAILURES` for 18.22.0. The relay default-tab test (`browser-relay-tab-isolation`) was fixed by #75 and has not failed since.
 
@@ -1097,7 +1161,7 @@ The macOS builds are signed by upstream's `scripts/ci-macos-sign.sh`, unchanged,
 
 A release follows Scient Desktop's order: the version is the run's input, it is checked first, and the tag comes last. No pull request bumps a version.
 
-1. Run the workflow manually on `main` with `release` set: `gh workflow run scient.yml --repo ScientFactory/scient-agent --ref main -f release=true`. Leave `version` blank to release the next patch after the latest published release, or give the next minor or major (`-f version=0.2.0`).
+1. Run the workflow manually on `main` with `release` set: `gh workflow run scient.yml --repo ScientFactory/scient-agent --ref main -f release=true`. Leave `version` blank to release the next patch after the latest published release, or give the next minor or major (`-f version=0.2.0`). A build on a new Oh My Pi major starts a new product major, released only once a Scient Desktop that accepts it is out: a Desktop installs nothing past its own ceiling, the next product major, so older Desktops keep the release they can run. The check maps them (`PRODUCT_MAJOR_BY_UPSTREAM_MAJOR` in `scripts/scient/release-version.ts`: Oh My Pi 18 is 0.x, 19 is 1.x) and refuses any other version, a blank run's next patch included.
 2. Its first job (`scripts/scient/release-version.ts`) refuses a version that does not come right after the latest published release, or that a tag carries already, before any build starts. Each build writes the version into its own checkout's `scient.json` (`--stamp`) and checks that the binary reports it. The run signs the macOS builds with the Developer ID, notarizes them and refuses an ad-hoc signature. Only when every job passed does it check the version again and draft a GitHub release with every binary, its zstd copy (`<binary>.zst`) and the SHA-256 of each, targeting the commit it built.
 3. A person publishes the draft. Publishing creates the `v<version>` tag on that commit; a draft has no tag.
 
