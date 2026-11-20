@@ -40,7 +40,7 @@ function userImage(entries: FileEntry[]): ImageContent | undefined {
 	return undefined;
 }
 
-describe("omp session pack/unpack archive", () => {
+describe("scient-agent session pack/unpack archive", () => {
 	let root: string;
 	let agentA: string;
 	let agentB: string;

@@ -344,7 +344,7 @@ export class AgentProtocolHandler implements ProtocolHandler {
 		const peers = agentMesh()?.peers() ?? [];
 		const content =
 			peers.length === 0
-				? "No other omp instances in this project.\n"
+				? "No other Scient Agent instances in this project.\n"
 				: `${peers.map(peer => `- agent://${peer.pid} (${peer.status})`).join("\n")}\n\nRead agent://<pid>/<id> for a subagent's output; write agent://<pid> to message its main agent.\n`;
 		return {
 			url: url.href,
@@ -360,7 +360,8 @@ export class AgentProtocolHandler implements ProtocolHandler {
 	async #resolvePeer(url: InternalUrl, target: PidTarget): Promise<InternalResource> {
 		const { pid, id } = target.address;
 		const peer = agentMesh()?.peer(pid);
-		if (!peer) throw new Error(`No omp instance with pid ${pid} in this project. List them with agent://peers`);
+		if (!peer)
+			throw new Error(`No Scient Agent instance with pid ${pid} in this project. List them with agent://peers`);
 		const sessionFile = peer.sessionFile;
 		if (!sessionFile) throw new Error(`Instance ${pid} has no session file; its agents cannot be read.`);
 		if (!id) {

@@ -245,7 +245,7 @@ export async function compressionWorks(dir: string, method: CompressMethod): Pro
 	try {
 		await Bun.write(path.join(scratch, SCRATCH_OWNER_MARKER), "");
 		const probe = path.join(scratch, "probe.txt");
-		await Bun.write(probe, "omp gc compression probe\n".repeat(10_000));
+		await Bun.write(probe, "scient-agent gc compression probe\n".repeat(10_000));
 		const candidate = await compressCandidate(probe);
 		if (!candidate) return false;
 		const batch = await compressFilesInPlace([candidate], method, new Set());

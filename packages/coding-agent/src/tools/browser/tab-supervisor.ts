@@ -402,7 +402,7 @@ class PageSessionLostError extends ToolError {
 class TabHeldOutError extends ToolError {
 	constructor(context?: string) {
 		super(
-			`${context ? `${context}. ` : ""}omp could not reattach to the tab: ${DEBUGGER_DETACH_REFUSAL}, and that frame was still there after omp cleared it. omp kept the tab open as it is, and the next call on it reattaches to it; if that call fails the same way, the frame stays until the user closes it in Chrome (Escape, or a click elsewhere on the page)`,
+			`${context ? `${context}. ` : ""}Scient Agent could not reattach to the tab: ${DEBUGGER_DETACH_REFUSAL}, and that frame was still there after Scient Agent cleared it. Scient Agent kept the tab open as it is, and the next call on it reattaches to it; if that call fails the same way, the frame stays until the user closes it in Chrome (Escape, or a click elsewhere on the page)`,
 		);
 	}
 }
@@ -470,7 +470,9 @@ export function listTabs(): ManagedTabInfo[] {
 			continue;
 		}
 		// The browser no longer lists the tab's page: release the name rather than list a tab every call fails on.
-		void forceKillTab(tab.name, `Tab ${JSON.stringify(tab.name)}'s page closed outside omp`).catch(() => undefined);
+		void forceKillTab(tab.name, `Tab ${JSON.stringify(tab.name)}'s page closed outside Scient Agent`).catch(
+			() => undefined,
+		);
 	}
 	return live.map(tab => ({
 		name: tab.name,
@@ -1165,7 +1167,7 @@ const WEBKIT_NO_TLS = /TLS support is not available/i;
 
 /** The title of a WebKit tab's window: the tab's name, which is how the user and the agent both know it. */
 function webKitWindowTitle(name: string): string {
-	return `${name} — omp browser`;
+	return `${name} — Scient Agent browser`;
 }
 
 /** Give a live WebKit tab its window, or take it away; the page goes on either way. */
@@ -1456,7 +1458,7 @@ async function dispatchRun(
 			// Bun throws `InvalidStateError` once the worker is gone, which can precede its exit event.
 			if (!(error instanceof DOMException && error.name === "InvalidStateError")) throw error;
 			throw new ToolError(
-				`Tab ${JSON.stringify(name)}'s worker exited before this call reached it; omp reattaches the tab to a new worker, so retry the call.`,
+				`Tab ${JSON.stringify(name)}'s worker exited before this call reached it; Scient Agent reattaches the tab to a new worker, so retry the call.`,
 			);
 		}
 		const hungReason = `Browser code execution hung past its ${opts.timeoutMs}ms budget`;
@@ -1492,7 +1494,7 @@ async function dispatchRun(
 		} catch (error) {
 			if (error instanceof ToolError && error.message === hungReason) {
 				throw new ToolError(
-					`${hungReason}, so omp released tab ${JSON.stringify(name)} (closing its page if omp opened it); open it again with browser.open().${longerBudgetHint(opts.timeoutMs)}`,
+					`${hungReason}, so Scient Agent released tab ${JSON.stringify(name)} (closing its page if Scient Agent opened it); open it again with browser.open().${longerBudgetHint(opts.timeoutMs)}`,
 				);
 			}
 			if (error instanceof RendererCrashedError) {
@@ -1525,8 +1527,8 @@ async function dispatchRun(
 					// The relay hides a tab whose debugging bar the user cancelled, so a re-adoption cannot succeed. The kill
 					// below attempts to close a tab omp opened; only a borrowed one is deliberately kept open.
 					const cancelled = tab.ownsPage
-						? `${error.message}. The user cancelled Chrome's debugging bar${landed}. omp tried to close the tab it had opened; open a new one to continue`
-						: `${error.message}. The user cancelled Chrome's debugging bar${landed}. omp released the tab; the relay hides it until its URL changes, so navigate it in Chrome, then open it again`;
+						? `${error.message}. The user cancelled Chrome's debugging bar${landed}. Scient Agent tried to close the tab it had opened; open a new one to continue`
+						: `${error.message}. The user cancelled Chrome's debugging bar${landed}. Scient Agent released the tab; the relay hides it until its URL changes, so navigate it in Chrome, then open it again`;
 					if (tabs.get(name) === tab && tab.state === "alive") await forceKillTab(name, cancelled);
 					if (opts.signal?.aborted) throw new ToolAbortError();
 					throw new ToolError(cancelled);
@@ -1537,8 +1539,8 @@ async function dispatchRun(
 				// is then kept), names another extension's frame as the cause.
 				const detached = `${error.message}. ${DEBUGGER_DETACH_CAUSE}${landed}`;
 				const lost = tab.ownsPage
-					? `${error.message}${landed}. omp could not reattach to the tab it had opened, so it tried to close it: either the tab had closed, or ${DEBUGGER_DETACH_REFUSAL}. Open a new tab to continue; if another extension's frame was the cause, it can detach omp there again`
-					: `${error.message}${landed}. omp could not reattach to the tab, so it was released: either the tab was closed, or ${DEBUGGER_DETACH_REFUSAL}. If the tab is still open, open it again once that frame is gone; if Chrome refused the attach, the relay hides the tab until its URL changes, so navigate it in Chrome first`;
+					? `${error.message}${landed}. Scient Agent could not reattach to the tab it had opened, so it tried to close it: either the tab had closed, or ${DEBUGGER_DETACH_REFUSAL}. Open a new tab to continue; if another extension's frame was the cause, it can detach Scient Agent there again`
+					: `${error.message}${landed}. Scient Agent could not reattach to the tab, so it was released: either the tab was closed, or ${DEBUGGER_DETACH_REFUSAL}. If the tab is still open, open it again once that frame is gone; if Chrome refused the attach, the relay hides the tab until its URL changes, so navigate it in Chrome first`;
 				const reattached = await recoverWorkerTab(tab, name, opts.timeoutMs, lost, {
 					recover: false,
 					failedReason: lost,
@@ -1550,7 +1552,7 @@ async function dispatchRun(
 				if (error.when === "during" || opts.readopted) {
 					const hidden = takeHiddenFramesNotice(tab);
 					throw new DebuggerReattachedError(
-						`${detached}. ${hidden ? `${hidden} ` : ""}omp reattached to the same tab on a new worker without reloading it, so the next call works; check the page before repeating this one. ${WORKER_RESETS}.`,
+						`${detached}. ${hidden ? `${hidden} ` : ""}Scient Agent reattached to the same tab on a new worker without reloading it, so the next call works; check the page before repeating this one. ${WORKER_RESETS}.`,
 						error.when,
 					);
 				}
@@ -1559,7 +1561,7 @@ async function dispatchRun(
 				if (remainingMs <= 0) {
 					const hidden = takeHiddenFramesNotice(tab);
 					throw new DebuggerReattachedError(
-						`${detached}. ${hidden ? `${hidden} ` : ""}omp reattached to the same tab on a new worker without reloading it, but that used up this call's ${opts.timeoutMs}ms budget, so the call was not run again; repeat it. ${WORKER_RESETS}.`,
+						`${detached}. ${hidden ? `${hidden} ` : ""}Scient Agent reattached to the same tab on a new worker without reloading it, but that used up this call's ${opts.timeoutMs}ms budget, so the call was not run again; repeat it. ${WORKER_RESETS}.`,
 						error.when,
 					);
 				}
@@ -1572,13 +1574,13 @@ async function dispatchRun(
 				);
 				result.displays.unshift({
 					type: "text",
-					text: `Chrome had detached omp from this tab since the last call (${DEBUGGER_DETACH_CAUSE}); omp reattached to the same tab on a new worker, without reloading it, and then ran this call. ${WORKER_RESETS}.`,
+					text: `Chrome had detached Scient Agent from this tab since the last call (${DEBUGGER_DETACH_CAUSE}); Scient Agent reattached to the same tab on a new worker, without reloading it, and then ran this call. ${WORKER_RESETS}.`,
 				});
 				return result;
 			}
 			if (error instanceof PageSessionLostError) {
 				for (const ctrl of pending.toolCalls.values()) ctrl.abort(error);
-				const lost = `${error.message}. omp could not reattach to the tab's page (it may have closed), so it released the tab. Open it again with browser.open()`;
+				const lost = `${error.message}. Scient Agent could not reattach to the tab's page (it may have closed), so it released the tab. Open it again with browser.open()`;
 				// A new worker connects afresh and adopts the same target, page untouched; a target that is gone kills the tab.
 				const reattached = await recoverWorkerTab(tab, name, opts.timeoutMs, lost, {
 					recover: false,
@@ -1590,7 +1592,7 @@ async function dispatchRun(
 				const remainingMs = Math.floor(opts.timeoutMs - (performance.now() - startedAt));
 				if (error.when === "during" || opts.readopted || remainingMs <= 0) {
 					throw new ToolError(
-						`${error.message}. omp reattached to the same page on a new worker without reloading it, so the next call works; ${error.when === "during" ? "check the page before repeating this one" : "repeat this call"}. ${WORKER_RESETS}.`,
+						`${error.message}. Scient Agent reattached to the same page on a new worker without reloading it, so the next call works; ${error.when === "during" ? "check the page before repeating this one" : "repeat this call"}. ${WORKER_RESETS}.`,
 					);
 				}
 				// Nothing ran: run the call on the new worker, within what the reattach left of its budget.
@@ -1602,7 +1604,7 @@ async function dispatchRun(
 				);
 				result.displays.unshift({
 					type: "text",
-					text: `omp had lost its connection to this tab's page since the last call; it reattached to the same page on a new worker, without reloading it, and then ran this call. ${WORKER_RESETS}.`,
+					text: `Scient Agent had lost its connection to this tab's page since the last call; it reattached to the same page on a new worker, without reloading it, and then ran this call. ${WORKER_RESETS}.`,
 				});
 				return result;
 			}
@@ -1621,7 +1623,7 @@ async function dispatchRun(
 				if (runTimedOut) {
 					throw new ToolError(
 						reattached
-							? `${error.message}. omp reattached the tab to a new worker without reloading its page. ${RECYCLE_RESETS}${longerBudgetHint(opts.timeoutMs)}`
+							? `${error.message}. Scient Agent reattached the tab to a new worker without reloading its page. ${RECYCLE_RESETS}${longerBudgetHint(opts.timeoutMs)}`
 							: `${error.message}. The tab could not be reattached and was released; open it again with browser.open().${longerBudgetHint(opts.timeoutMs)}`,
 					);
 				}
@@ -1940,7 +1942,7 @@ async function releaseTabInner(tab: TabSession, name: string, opts: ReleaseTabOp
 			}
 		} else if (targetCloseFailed) {
 			// Nothing here can retry it; a relay closes a tab of an offline browser once that browser reconnects.
-			logger.warn("Could not confirm a browser tab omp opened was closed; it may still be open", {
+			logger.warn("Could not confirm a browser tab Scient Agent opened was closed; it may still be open", {
 				name,
 				targetId: tab.targetId,
 			});
@@ -2554,16 +2556,17 @@ function readoptHeldOutTab(name: string, timeoutMs: number): void {
 		{
 			// The page is as the user left it; stopping its loading would cancel a navigation they started.
 			recover: false,
-			failedReason: "omp could not reattach to the tab after Chrome had refused it, so the tab was released",
+			failedReason:
+				"Scient Agent could not reattach to the tab after Chrome had refused it, so the tab was released",
 		},
 	)
 		.then(reattached => {
 			if (reattached) {
-				tab.workerExitNotice = `Chrome had kept omp out of this tab since an earlier call (${DEBUGGER_DETACH_REFUSAL}); omp reattached to it on a new worker before this call, without reloading it. ${WORKER_RESETS}.`;
+				tab.workerExitNotice = `Chrome had kept Scient Agent out of this tab since an earlier call (${DEBUGGER_DETACH_REFUSAL}); Scient Agent reattached to it on a new worker before this call, without reloading it. ${WORKER_RESETS}.`;
 			}
 			return reattached;
 		})
-		.catch(heldOutWith(`Chrome still keeps omp out of tab ${JSON.stringify(tab.name)}`))
+		.catch(heldOutWith(`Chrome still keeps Scient Agent out of tab ${JSON.stringify(tab.name)}`))
 		.finally(() => {
 			if (tab.workerRecovery === readoption) tab.workerRecovery = undefined;
 		});
@@ -2659,7 +2662,7 @@ function attachTabWorker(tab: WorkerTabSession, worker: WorkerHandle): void {
 			.then(reattached => {
 				// No run was in flight to report the reset, so the next call on the tab does.
 				if (reattached && idle) {
-					tab.workerExitNotice = `${exited} since the last call; omp reattached the tab to a new worker on the same page, without reloading it. ${WORKER_RESETS}.`;
+					tab.workerExitNotice = `${exited} since the last call; Scient Agent reattached the tab to a new worker on the same page, without reloading it. ${WORKER_RESETS}.`;
 				}
 				return reattached;
 			})
@@ -2935,7 +2938,8 @@ async function targetIdForTarget(target: Target): Promise<string> {
 /** Say where `tab.run` code runs, after it failed reaching for a page global. */
 function addPageGlobalHint(error: Error): void {
 	const original = `${error.name}: ${error.message}`;
-	error.message += ": tab.run code runs in omp's Bun runtime, not in the page; run page code with tab.evaluate(...)";
+	error.message +=
+		": tab.run code runs in Scient Agent's Bun runtime, not in the page; run page code with tab.evaluate(...)";
 	if (error.stack?.startsWith(original))
 		error.stack = `${error.name}: ${error.message}${error.stack.slice(original.length)}`;
 }
@@ -2999,7 +3003,7 @@ async function boundInProcessRun(
 	let timer = setTimeout(() => {
 		expire(
 			new ToolError(
-				`Browser code execution did not stop at its ${timeoutMs}ms budget, so omp ended the call; tab ${JSON.stringify(name)} takes new calls, but what the call started in the page may still be running.${longerBudgetHint(timeoutMs)}`,
+				`Browser code execution did not stop at its ${timeoutMs}ms budget, so Scient Agent ended the call; tab ${JSON.stringify(name)} takes new calls, but what the call started in the page may still be running.${longerBudgetHint(timeoutMs)}`,
 			),
 		);
 	}, timeoutMs + GRACE_MS);

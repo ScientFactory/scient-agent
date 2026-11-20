@@ -68,9 +68,9 @@ describe("hostCommandUrls", () => {
 		);
 	});
 
-	it("leaves omp's own URLs, message text, and what nothing backs as written", async () => {
+	it("leaves Scient Agent's own URLs, message text, and what nothing backs as written", async () => {
 		for (const command of [
-			"omp read 'skill://tdd:1-14' local://x.md",
+			"scient-agent read 'skill://tdd:1-14' local://x.md",
 			"sudo /usr/local/bin/scient-agent read local://x.md",
 			"curl https://example.com/a.txt -H 'Referer: https://example.com/?next=local://x'",
 			"log.sh 'local://handover.md is ready for review'",
@@ -81,8 +81,8 @@ describe("hostCommandUrls", () => {
 			expect(await host(command)).toBe(command);
 		}
 		// The next command after `omp` is no longer its own.
-		expect(await host("omp read local://x.md && cat local://x.md | omp -p local://y")).toBe(
-			"omp read local://x.md && cat /host/x.md | omp -p local://y",
+		expect(await host("scient-agent read local://x.md && cat local://x.md | scient-agent -p local://y")).toBe(
+			"scient-agent read local://x.md && cat /host/x.md | scient-agent -p local://y",
 		);
 	});
 
@@ -206,14 +206,14 @@ describe("bash internal URLs outside the embedded shell", () => {
 		vi.spyOn(daemonClients, "daemonClient").mockResolvedValue(client);
 
 		await new BashTool(session).execute("start-web", {
-			command: `SEED=local://data.txt uv run python local://serve.py --prompt "$(cat local://data.txt)" < local://data.txt; omp read local://data.txt:1-2`,
+			command: `SEED=local://data.txt uv run python local://serve.py --prompt "$(cat local://data.txt)" < local://data.txt; scient-agent read local://data.txt:1-2`,
 			name: "web",
 		});
 
 		// The engine in that process resolves the URLs itself, to the files this session backs them with.
 		const args = started?.args ?? [];
 		expect(args.at(-1)).toBe(
-			`SEED=local://data.txt uv run python local://serve.py --prompt "$(cat local://data.txt)" < local://data.txt; omp read local://data.txt:1-2`,
+			`SEED=local://data.txt uv run python local://serve.py --prompt "$(cat local://data.txt)" < local://data.txt; scient-agent read local://data.txt:1-2`,
 		);
 		expect(args.at(-2)).toBe("--");
 		expect(args).toContain(SHELL_PROCESS_SELECTOR);
@@ -252,7 +252,7 @@ describe("bash internal URLs outside the embedded shell", () => {
 	});
 
 	it.skipIf(ptyUnavailable)(
-		"runs a pty command in the session's shell: omp's jq on a local:// file, the session's functions and exports",
+		"runs a pty command in the session's shell: Scient Agent's jq on a local:// file, the session's functions and exports",
 		async () => {
 			initTheme();
 			vi.spyOn(Settings.prototype, "getShellConfig").mockReturnValue({

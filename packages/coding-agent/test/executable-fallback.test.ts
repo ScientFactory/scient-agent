@@ -234,7 +234,7 @@ process.stdout.write(Bun.spawnSync([exe, "-e", "console.log('running build')"]).
 		},
 	);
 
-	it("restarts a build started by path as itself, not as another omp on PATH", () => {
+	it("restarts a build started by path as itself, not as another Scient Agent on PATH", () => {
 		vi.spyOn(utils, "isCompiledBinary").mockReturnValue(true);
 		const root = process.platform === "win32" ? "C:" : "";
 		const devBuild = `${root}/work/omp/dist/omp`;

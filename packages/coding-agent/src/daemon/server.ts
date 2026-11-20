@@ -206,7 +206,7 @@ class Daemon {
 		this.#server = tcp
 			? await IpcServer.listenTcp(tcp.host, tcp.port, LISTEN_OPTIONS, accept)
 			: await IpcServer.listen(daemonEndpoint(), LISTEN_OPTIONS, accept);
-		logger.debug("omp daemon listening", { pid: process.pid, build: daemonBuildId(), tcp });
+		logger.debug("Scient Agent daemon listening", { pid: process.pid, build: daemonBuildId(), tcp });
 	}
 
 	/** Stop every non-detached unit, close everything, and let the process exit. */
@@ -432,7 +432,7 @@ class Daemon {
 		await this.#units.releaseLogs();
 		// From here to the exec nothing awaits: no callback of this image can run in between.
 		const keepFds = this.#units.reexecFds();
-		logger.debug("omp daemon re-exec", { from: daemonBuildId(), to: hello.client.build, keepFds });
+		logger.debug("Scient Agent daemon re-exec", { from: daemonBuildId(), to: hello.client.build, keepFds });
 		try {
 			// Closed explicitly so no store fd crosses the exec, whatever its close-on-exec flag.
 			this.#store.close();
@@ -516,7 +516,7 @@ async function acquireDaemonLock(retryMs: number): Promise<FileLock | undefined>
 				return lock;
 			}
 			lock.release();
-			logger.debug("Another omp daemon is re-executing; stepping aside", { pid: handover.pid });
+			logger.debug("Another Scient Agent daemon is re-executing; stepping aside", { pid: handover.pid });
 			return undefined;
 		}
 		if (Date.now() >= deadline) return undefined;
@@ -532,10 +532,10 @@ export async function startDaemonFromEnvironment(): Promise<void> {
 	// Native lock: the OS releases it however this process ends. A re-exec'd image waits out a daemon stepping aside.
 	const lock = await acquireDaemonLock(resumed ? LOCK_HANDOVER_TIMEOUT_MS : 0);
 	if (!lock) {
-		logger.debug("Another omp daemon holds the lock");
+		logger.debug("Another Scient Agent daemon holds the lock");
 		return;
 	}
-	setProcessName("omp daemon");
+	setProcessName("scient-agent daemon");
 	let store: DaemonStore | undefined;
 	let daemon: Daemon | undefined;
 	try {

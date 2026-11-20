@@ -376,12 +376,14 @@ async function blobDaemon(): Promise<DaemonClient | null> {
 	try {
 		const client = await daemonClient();
 		if (client.welcome.caps[BLOB_BROKER_KIND] !== BLOB_MODULE_VERSION) {
-			logger.debug("omp daemon has no compatible blob module; using in-process image URL backends");
+			logger.debug("Scient Agent daemon has no compatible blob module; using in-process image URL backends");
 			return null;
 		}
 		return client;
 	} catch (error) {
-		logger.debug("omp daemon unreachable; using in-process image URL backends", { error: errorMessage(error) });
+		logger.debug("Scient Agent daemon unreachable; using in-process image URL backends", {
+			error: errorMessage(error),
+		});
 		return null;
 	}
 }

@@ -84,7 +84,7 @@ describe("native-window frame timeout cleanup", () => {
 });
 
 describe("front-tab sources", () => {
-	test("reads omp's own visible Chromium and the loopback relay, and leaves every other browser out", () => {
+	test("reads Scient Agent's own visible Chromium and the loopback relay, and leaves every other browser out", () => {
 		expect(frontTabSource({ kind: "headless", headless: true })).toBeUndefined();
 		expect(frontTabSource({ kind: "headless", headless: false })).toBe("chrome");
 		expect(
@@ -576,7 +576,7 @@ describe("front tab by the browser's tab list", () => {
 		expect(await chrome("agent", { user: 1, agent: 1 }).inFront(list("user", "agent"))).toBe(false);
 	});
 
-	test("takes a tab omp opened in front for in front while no page of its window is listed before it", async () => {
+	test("takes a tab Scient Agent opened in front for in front while no page of its window is listed before it", async () => {
 		const agent = chrome("agent", { agent: 1, blank: 1, user: 1 }, true);
 		expect(await agent.inFront(list("agent", "blank"))).toBe(true);
 		expect(await agent.inFront(list("user", "agent", "blank"))).toBe(false);

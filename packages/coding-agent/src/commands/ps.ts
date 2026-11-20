@@ -41,15 +41,15 @@ export default class Ps extends Command {
 	};
 
 	static examples = [
-		"omp ps",
-		"omp ps --all",
-		"omp ps logs web --follow",
-		"omp ps stop web",
-		"omp ps kill web",
-		"omp ps send web 'rs\\n'",
-		"omp ps send web --signal SIGINT",
-		"omp ps mode web persist",
-		"omp ps info web",
+		"scient-agent ps",
+		"scient-agent ps --all",
+		"scient-agent ps logs web --follow",
+		"scient-agent ps stop web",
+		"scient-agent ps kill web",
+		"scient-agent ps send web 'rs\\n'",
+		"scient-agent ps send web --signal SIGINT",
+		"scient-agent ps mode web persist",
+		"scient-agent ps info web",
 	];
 
 	async run(): Promise<void> {

@@ -30,7 +30,7 @@ async function storedRefreshToken(dbPath: string): Promise<string | undefined> {
 	}
 }
 
-describe("omp auth-broker serve shutdown", () => {
+describe("scient-agent auth-broker serve shutdown", () => {
 	// The broker's background refresher exchanges the expiring row at startup; the provider
 	// answers only after the broker began stopping, as when a restart lands mid-refresh.
 	// POSIX signals: on Windows `kill("SIGTERM")` terminates the child outright. The budget

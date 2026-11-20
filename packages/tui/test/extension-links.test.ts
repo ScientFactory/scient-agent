@@ -81,7 +81,7 @@ describe("extension-owned links", () => {
 		expect(cells.every(run => run.endsWith("=demo:open/8"))).toBe(true);
 	});
 
-	it("strips only omp's link markers from what the terminal receives, even once unclaimed", () => {
+	it("strips only Scient Agent's link markers from what the terminal receives, even once unclaimed", () => {
 		setExtensionLinks(["demo"]);
 		const rows = render(
 			"Some words before [a much longer link label](demo:open/8) then [docs](https://example.com)",
@@ -139,7 +139,7 @@ describe("extension-owned links", () => {
 		}
 	});
 
-	it("treats only omp's marked links as extension links, not a hyperlink of a claimed scheme", () => {
+	it("treats only Scient Agent's marked links as extension links, not a hyperlink of a claimed scheme", () => {
 		setExtensionLinks(["demo"]);
 		expect(extensionLinkLabels("See \x1b]8;;demo:open/7\x07the details\x1b]8;;\x07.")).toEqual([]);
 		expect(extensionLinkLabels("See \x1b]8;id=other;demo:open/7\x07the details\x1b]8;;\x07.")).toEqual([]);

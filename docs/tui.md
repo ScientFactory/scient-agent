@@ -22,7 +22,7 @@ If your extension/tool can run headless, guard with `ctx.hasUI` / `pi.hasUI`. RP
 ## Project-local TUI debug tool
 
 `.scient-agent/tools/tui.ts` provides the repository's `tui` debug tool. `start` accepts
-either a TypeScript/JavaScript `file` (run with Bun; under the compiled `omp`
+either a TypeScript/JavaScript `file` (run with Bun; under the compiled `scient-agent`
 binary, the `bun` on `PATH`) or an executable `bin` with separate `args`.
 Windows uses native ConPTY without requiring a POSIX shell; macOS/Linux use
 Bun's PTY.
@@ -230,7 +230,7 @@ return loader;
 
 ## Pause status
 
-The `/pause` screen shows the same local turn-and-job state in ANSI and TSP: draining turns and running jobs count, while parked or finished turns do not. When both counts reach zero, it hides the rows and signals readiness. These counts cover OMP-tracked work only, not device-wide idleness.
+The `/pause` screen shows the same local turn-and-job state in ANSI and TSP: draining turns and running jobs count, while parked or finished turns do not. When both counts reach zero, it hides the rows and signals readiness. These counts cover Scient Agent-tracked work only, not device-wide idleness.
 
 ## Realistic custom component example (extension command)
 

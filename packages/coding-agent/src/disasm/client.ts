@@ -116,7 +116,9 @@ class HostConnection {
 	}
 
 	#goneError(): HostGoneError {
-		return new HostGoneError(`${unitLabel(this.#key)} ${this.#key} closed; see \`omp ps logs ${this.#unitId}\``);
+		return new HostGoneError(
+			`${unitLabel(this.#key)} ${this.#key} closed; see \`scient-agent ps logs ${this.#unitId}\``,
+		);
 	}
 
 	#onLine(line: string): void {
@@ -347,7 +349,7 @@ async function openDatabase(
 		const db = await attachOpen();
 		if (db) return db;
 	}
-	throw new ToolError(`${unitLabel(key)} ${key} exited right after starting; see \`omp ps\``);
+	throw new ToolError(`${unitLabel(key)} ${key} exited right after starting; see \`scient-agent ps\``);
 }
 
 /** Options for {@link acquireDatabase}. */
@@ -401,7 +403,7 @@ export async function acquireDatabase(
 		const unit = await openingUnit(key);
 		const age = unit ? ` for ${Math.round((Date.now() - unit.startedAt) / 60_000)}m` : "";
 		const where = unit ? ` in unit \`${unit.id}\`` : "";
-		const stop = unit ? `, or stop it with \`omp ps stop ${unit.id}\`` : "";
+		const stop = unit ? `, or stop it with \`scient-agent ps stop ${unit.id}\`` : "";
 		throw new ToolError(
 			`${label} is still analyzing ${databaseRef(loc)} (opening${age}); the analysis continues${where}. Retry later${stop}`,
 		);

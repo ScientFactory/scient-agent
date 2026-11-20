@@ -52,7 +52,7 @@ export const cfgMcpBuiltinTransforms = register({
 		group: "Discovery & MCP",
 		label: "MCP Built-in Transforms",
 		description:
-			"Skip recognized MCP servers that omp's own tools replace (Codex's node_repl while eval runs JavaScript)",
+			"Skip recognized MCP servers that Scient Agent's own tools replace (Codex's node_repl while eval runs JavaScript)",
 	},
 });
 

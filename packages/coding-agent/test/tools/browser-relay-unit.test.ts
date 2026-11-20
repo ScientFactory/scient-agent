@@ -182,7 +182,7 @@ describe("ensureRelayDaemon", () => {
 });
 
 describe("restartRelayDaemon", () => {
-	it("replaces a daemon relay from an older omp and leases the replacement", async () => {
+	it("replaces a daemon relay from an older Scient Agent and leases the replacement", async () => {
 		stub.seed(unitKey, "g-old");
 		serving = { version: OLDER_VERSION, cdpClients: 0 };
 
@@ -196,7 +196,7 @@ describe("restartRelayDaemon", () => {
 		await result.lease?.release();
 	});
 
-	it("leaves a relay from a newer omp running", async () => {
+	it("leaves a relay from a newer Scient Agent running", async () => {
 		// Two omp versions replacing each other's relay would make every session lose its connection in turns.
 		stub.seed(unitKey, "g-newer");
 		serving = { version: NEWER_VERSION, cdpClients: 0 };

@@ -41,8 +41,8 @@ describe("describeAuthBrokerStartupError", () => {
 		expect(message).not.toBeNull();
 		expect(message).toContain("Auth broker request failed after 2 attempt(s)");
 		// Both recovery routes the reporter asked for: start it, or disable it.
-		expect(message).toContain("omp auth-broker serve");
-		expect(message).toContain("omp config reset auth.broker.url");
+		expect(message).toContain("scient-agent auth-broker serve");
+		expect(message).toContain("scient-agent config reset auth.broker.url");
 		expect(message).toContain("SCIENT_AGENT_AUTH_BROKER_URL");
 	});
 
@@ -114,7 +114,7 @@ describe("runRootCommand — unreachable auth broker at startup", () => {
 		expect(thrown).toBeInstanceOf(ProcessExitSignal);
 		expect(exitCodes).toEqual([1]);
 		expect(stderr).toContain("Auth broker request failed after 2 attempt(s)");
-		expect(stderr).toContain("omp auth-broker serve");
+		expect(stderr).toContain("scient-agent auth-broker serve");
 	}, 15_000);
 });
 
@@ -124,7 +124,7 @@ describe("discoverAuthStorage with a broker that is down", () => {
 		{ interactive: true, requests: 1, notice: false },
 		{ interactive: false, requests: 2, notice: true },
 	])(
-		"retries only outside interactive omp (interactive: $interactive)",
+		"retries only outside interactive Scient Agent (interactive: $interactive)",
 		async ({ interactive, requests, notice }) => {
 			let served = 0;
 			using server = Bun.serve({

@@ -93,7 +93,7 @@ function onTerminal(
 }
 
 describe("shell process on pipes", () => {
-	it("runs omp's utilities and tools ahead of PATH on its own stdin, and exits with the command's status", async () => {
+	it("runs Scient Agent's utilities and tools ahead of PATH on its own stdin, and exits with the command's status", async () => {
 		using tempDir = TempDir.createSync("@omp-shell-process-");
 		// No directory on the search path has any of them.
 		const lookup = `PATH='${tempDir.path()}'`;

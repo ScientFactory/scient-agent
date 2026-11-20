@@ -77,7 +77,7 @@ export function formatCellError(stack: string, source: CellErrorSource): string 
 		kept.push(line);
 	}
 	if (hidden === 0) return stack;
-	const count = `${hidden} omp frame${hidden === 1 ? "" : "s"} hidden`;
+	const count = `${hidden} Scient Agent frame${hidden === 1 ? "" : "s"} hidden`;
 	// Only an error raised through the cell can be caught by it; a worker exit or a failed install cannot.
 	kept.push(
 		stack.includes(source.filename)

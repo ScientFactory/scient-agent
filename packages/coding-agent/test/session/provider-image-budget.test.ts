@@ -347,7 +347,7 @@ describe("provider context image budgets", () => {
 		// Devin refuses a request over 32 MiB; a gateway gets no byte budget.
 		["Gemini through a Devin gateway", DEVIN_GATEWAY_GEMINI_MODEL, 33_554_432],
 	] as const)(
-		"keeps %s under its measured body limit at omp's 500 KiB image resize target",
+		"keeps %s under its measured body limit at Scient Agent's 500 KiB image resize target",
 		(_label, model, bodyLimit) => {
 			// No byte budget applies on these hosts, so the count alone bounds the
 			// inline bytes of resized screenshots (`images.autoResize`, on by default).

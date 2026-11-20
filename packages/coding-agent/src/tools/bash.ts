@@ -1702,7 +1702,7 @@ export class BashTool implements AgentTool<BashToolSchema, BashToolDetails> {
 			const rewritten = rewriteGitWorktreeAdd(command, resolveCliEntryCmd());
 			if (rewritten !== command) {
 				pendingNotices.push(
-					"Ran `git worktree add` as `omp worktree add`: a copy-on-write clone of the checkout without .git, other worktrees, or untracked .env files. Set worktree.clone=false for plain git.",
+					"Ran `git worktree add` as `scient-agent worktree add`: a copy-on-write clone of the checkout without .git, other worktrees, or untracked .env files. Set worktree.clone=false for plain git.",
 				);
 				command = rewritten;
 			}

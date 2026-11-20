@@ -206,7 +206,7 @@ export class WebKitHost {
 	async show(block: number, title: string): Promise<void> {
 		const viewerPath = this.#viewerPath;
 		if (viewerPath === undefined || !this.canShow) {
-			throw new ToolError("omp's WebKit browser cannot show a window here: its engine ships no viewer.");
+			throw new ToolError("Scient Agent's WebKit browser cannot show a window here: its engine ships no viewer.");
 		}
 		this.#viewer ??= WebKitViewer.launch(viewerPath, {
 			input: (source, events) => this.#userInputFrom(source, events),

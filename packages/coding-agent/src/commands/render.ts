@@ -25,10 +25,10 @@ export default class Render extends Command {
 	};
 
 	static examples = [
-		"omp render",
-		"omp render 01a0285c --plain",
-		"omp render ~/.scient-agent/agent/sessions/--work-pi--/big.jsonl -q -t --repaint 5",
-		"omp render -w 200 > thread.ansi",
+		"scient-agent render",
+		"scient-agent render 01a0285c --plain",
+		"scient-agent render ~/.scient-agent/agent/sessions/--work-pi--/big.jsonl -q -t --repaint 5",
+		"scient-agent render -w 200 > thread.ansi",
 	];
 
 	async run(): Promise<void> {

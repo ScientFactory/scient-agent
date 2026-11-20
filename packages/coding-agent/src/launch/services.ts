@@ -456,7 +456,7 @@ export async function modeService(
 	// Detaching relaunches the service, which would start the shared Chrome on an
 	// unprepared profile and reopen its previous pages.
 	if (mode === "detached" && isSharedBrowserUnit((await request(session, { op: "describe", unit: ref }, signal)).unit))
-		throw new Error(`${name} is omp's project-shared browser and cannot be detached`);
+		throw new Error(`${name} is Scient Agent's project-shared browser and cannot be detached`);
 	// A session-held service lives on a lease and `mode` takes none: hold one first, or the
 	// daemon's idle policy (idleMs 0) stops the service the moment it turns session-held.
 	const lease =

@@ -95,7 +95,7 @@ The tool returns a `text` content block plus optional `details` and image blocks
 - Background output notices (`notify`):
   - while a background job or a named service runs, each output line (stdout and stderr, as merged for the model) matching the `notify` regex is delivered as an `async-notify` follow-up; lines that match within 200 ms of the first go out together. The notice names a job by its command and a service by its name, and says whether it is still running.
   - delivery is the result's: a new turn when the session is idle, an aside between requests otherwise, and the end of a blocked `wait` (which returns `Wait interrupted by message.`, the notice following it).
-  - a job's matches belong to the transcript the job started in. A service's belong to the session that owns it, like its exit notification: the launch broker matches the output and reports only while that session's omp process is connected, and a resumed session receives them again. Output printed while the owner is away is not reported.
+  - a job's matches belong to the transcript the job started in. A service's belong to the session that owns it, like its exit notification: the launch broker matches the output and reports only while that session's Scient Agent process is connected, and a resumed session receives them again. Output printed while the owner is away is not reported.
   - when a service exits, its matches not sent yet, an unterminated last line included, go out at once, ahead of its exit notification, which carries no output. A job's are dropped, as its result carries the output; so are those of a stopped service or a cancelled job.
   - the notice message's `details.reports[]`: `{ id, type: "bash" | "service", pattern, lines, omitted, running, stopped }`; batches of one source queued between two injections merge into one entry.
 - Failure:
@@ -223,7 +223,7 @@ Choose the setting by the desired outcome:
    - Starts like a foreground managed job, then backgrounds it when it outlives the wait window; at capacity, Bash falls back to direct foreground execution.
 6. Named supervised service
    - Requires `launch.enabled` and an active Bash tool; `async: true` and any supplied `timeout` are incompatible and ignored with a notice.
-   - `notify` reports the service's matching output while it runs, up to 30 notices per start; starting it again re-arms it. A broker left running by an older omp starts the service and ignores the regex; the result then says `Ignored notify: …` instead of confirming it.
+   - `notify` reports the service's matching output while it runs, up to 30 notices per start; starting it again re-arms it. A broker left running by an older Scient Agent starts the service and ignores the regex; the result then says `Ignored notify: …` instead of confirming it.
    - Runs through the launch broker with project-unique `name`, the configured shell environment plus the session identity, PTY defaulting to `true`, and optional readiness conditions. Reusing a live name restarts it with the new spec.
    - Readiness waits for all supplied log/port conditions, service exit, or timeout. `ready.log` is a Unicode multiline regex over accumulated output: `^` and `$` match line boundaries, including after earlier startup output, and matches may span output chunks. `$` also matches at the end of the output received so far, so an anchored pattern can match a line the service has not finished writing (this lets prompts without a trailing newline match). Inspect with `read proc://<name>`.
 7. Intercepted command

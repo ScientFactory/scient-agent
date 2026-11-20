@@ -505,7 +505,7 @@ describe("StatusLineComponent usage refresh", () => {
 			component.dispose();
 		});
 
-		it("warns about each saved reset once across conversations and omp processes", async () => {
+		it("warns about each saved reset once across conversations and Scient Agent processes", async () => {
 			const sevenDayResetAt = Date.now() + 80 * 3_600_000;
 			const creditExpiresAt = [Date.now() + 5 * 3_600_000];
 			const reports = async () =>

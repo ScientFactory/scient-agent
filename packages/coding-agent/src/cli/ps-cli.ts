@@ -167,7 +167,7 @@ export async function runPsCommand(cmd: PsCommandArgs): Promise<void> {
 			return;
 		}
 		if (!cmd.name) {
-			console.error(chalk.red(`${cmd.action} requires a unit name or id. Run \`omp ps\` to list units.`));
+			console.error(chalk.red(`${cmd.action} requires a unit name or id. Run \`scient-agent ps\` to list units.`));
 			process.exitCode = 1;
 			return;
 		}

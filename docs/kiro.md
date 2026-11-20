@@ -10,11 +10,11 @@ Kiro is a native provider backed by the Kiro API (`kiro-api`). For general crede
 
 ## Login methods
 
-**Identity Center** runs an AWS IAM Identity Center device login. OMP asks for the **Start URL** (your HTTPS access portal URL, for example `https://company.awsapps.com/start`) and the **OIDC region**, shows a verification URL and one-time code, and waits for browser approval. OMP then lists the Kiro profiles in the partition of that region: `us-east-1` and `eu-central-1` for commercial AWS, or `us-gov-west-1` and `us-gov-east-1` when the OIDC region is an AWS GovCloud (US) region. When several Kiro profiles are available, you pick one; the selected profile decides the region requests and discovery use. AWS GovCloud (US) supports only Identity Center: Builder ID and Google/GitHub sign-in are not available there.
+**Identity Center** runs an AWS IAM Identity Center device login. Scient Agent asks for the **Start URL** (your HTTPS access portal URL, for example `https://company.awsapps.com/start`) and the **OIDC region**, shows a verification URL and one-time code, and waits for browser approval. Scient Agent then lists the Kiro profiles in the partition of that region: `us-east-1` and `eu-central-1` for commercial AWS, or `us-gov-west-1` and `us-gov-east-1` when the OIDC region is an AWS GovCloud (US) region. When several Kiro profiles are available, you pick one; the selected profile decides the region requests and discovery use. AWS GovCloud (US) supports only Identity Center: Builder ID and Google/GitHub sign-in are not available there.
 
 **Builder ID** signs in with a personal AWS Builder ID through the same device flow, pinned to the public Builder portal and `us-east-1`, so it asks for nothing.
 
-**Google** and **GitHub** use Kiro's device sign-in: OMP shows a link to `app.kiro.dev` and a one-time code, and you approve it in a browser. No local callback server is involved, so this works over SSH or on a headless machine.
+**Google** and **GitHub** use Kiro's device sign-in: Scient Agent shows a link to `app.kiro.dev` and a one-time code, and you approve it in a browser. No local callback server is involved, so this works over SSH or on a headless machine.
 
 **API key** takes a `ksk_…` key, validates it, and stores it with its resolved region. `KIRO_API_KEY` is the environment fallback. Set `KIRO_API_REGION` when the key's region is known:
 
@@ -23,11 +23,11 @@ export KIRO_API_KEY=ksk_...
 export KIRO_API_REGION=us-east-1
 ```
 
-`KIRO_API_REGION` pins an API key without a stored region (such as `KIRO_API_KEY`) to that region for model discovery and requests. Without it, OMP probes the bootstrap regions `us-east-1` and `eu-central-1` and uses the key only when exactly one accepts it. An invalid region is an error.
+`KIRO_API_REGION` pins an API key without a stored region (such as `KIRO_API_KEY`) to that region for model discovery and requests. Without it, Scient Agent probes the bootstrap regions `us-east-1` and `eu-central-1` and uses the key only when exactly one accepts it. An invalid region is an error.
 
 ## Models and discovery
 
-The model roster is discovered per credential and never bundled into OMP's catalog, because it depends on the signed-in account. Kiro defaults to `auto` until you pick a model. The model cache is scoped per login for Identity Center, Builder ID, Google, and GitHub, and per key and region for API keys, so one account's roster is never reused for another.
+The model roster is discovered per credential and never bundled into Scient Agent's catalog, because it depends on the signed-in account. Kiro defaults to `auto` until you pick a model. The model cache is scoped per login for Identity Center, Builder ID, Google, and GitHub, and per key and region for API keys, so one account's roster is never reused for another.
 
 ## Accounts and usage
 
@@ -37,13 +37,13 @@ Each OAuth login gets a random login id, and its identity key is `account:<login
 
 `/usage` shows each account's monthly plan credits with the reset date, active bonus and purchased add-on credits with their expiry, and overage credits when overage billing is enabled in your Kiro account. With several accounts, requests prefer accounts with plan, bonus, or add-on credits left; accounts that can only draw overage are used last.
 
-An add-on expires at the time reported by Kiro. OMP reads the legacy purchased-credit list only when the current list is missing or empty, so the same purchase is never counted twice.
+An add-on expires at the time reported by Kiro. Scient Agent reads the legacy purchased-credit list only when the current list is missing or empty, so the same purchase is never counted twice.
 
 ## Logout and re-login
 
 Use `/logout` and select Kiro to remove stored Kiro credentials. It does not remove an environment-provided `KIRO_API_KEY`.
 
-When a refresh fails in a way that cannot recover (`invalid_grant`, `expired_token`, `invalid_client`, missing refresh state, or HTTP 400/401 for Google/GitHub), OMP disables the stored credential and asks you to run `/login kiro` again. Other refresh failures are retried. Also log in again after your AWS profile, Start URL, or OIDC region changes.
+When a refresh fails in a way that cannot recover (`invalid_grant`, `expired_token`, `invalid_client`, missing refresh state, or HTTP 400/401 for Google/GitHub), Scient Agent disables the stored credential and asks you to run `/login kiro` again. Other refresh failures are retried. Also log in again after your AWS profile, Start URL, or OIDC region changes.
 
 ## Troubleshooting
 

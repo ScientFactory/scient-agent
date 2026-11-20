@@ -263,11 +263,14 @@ async function installLocked(engineDir: string, options: InstallWebKitEngineOpti
 	}
 	const target = path.join(versionsDir, build.version);
 	if (hostExecutableAt(target, process.platform) === null) {
-		logger.warn(installed === null ? "Downloading omp's WebKit engine" : "Updating omp's WebKit engine", {
-			version: build.version,
-			file: build.file.name,
-			engineDir,
-		});
+		logger.warn(
+			installed === null ? "Downloading Scient Agent's WebKit engine" : "Updating Scient Agent's WebKit engine",
+			{
+				version: build.version,
+				file: build.file.name,
+				engineDir,
+			},
+		);
 		await download(build, target, options);
 	}
 	await pointLink(engineDir, target);
