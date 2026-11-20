@@ -81,7 +81,7 @@ export default class Worktree extends Command {
 	async run(): Promise<void> {
 		const { args, flags } = await this.parse(Worktree);
 		// Load settings so the `worktree.base` override is applied before we scan
-		// — otherwise this command would inspect ~/.omp/wt while the agent created
+		// — otherwise this command would inspect ~/.scient-agent/wt while the agent created
 		// its worktrees under the configured base.
 		if (args.action === "add") {
 			if (!args.path) {

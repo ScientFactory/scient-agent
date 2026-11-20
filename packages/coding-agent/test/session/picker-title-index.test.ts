@@ -15,7 +15,7 @@ import { makeAssistantMessage } from "../session-manager/helpers";
 describe("resume picker title index", () => {
 	let testAgentDir: string;
 	let cwd: string;
-	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 
 	beforeEach(() => {
 		testAgentDir = fs.mkdtempSync(path.join(os.tmpdir(), "omp-picker-titles-"));
@@ -31,7 +31,7 @@ describe("resume picker title index", () => {
 			setAgentDir(originalAgentDir);
 		} else {
 			setAgentDir(path.join(getConfigRootDir(), "agent"));
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		}
 		removeSyncWithRetries(testAgentDir);
 	});

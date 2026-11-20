@@ -13,7 +13,11 @@ import { cfgAuthBrokerUrl, cfgAuthUnpausedProviders } from "@oh-my-pi/pi-coding-
 
 const PROVIDER = "live-broker-test";
 const TOKEN = "live-broker-bearer";
-const BROKER_ENV = ["OMP_AUTH_BROKER_URL", "OMP_AUTH_BROKER_TOKEN", "OMP_AUTH_BROKER_SNAPSHOT_TTL_MS"] as const;
+const BROKER_ENV = [
+	"SCIENT_AGENT_AUTH_BROKER_URL",
+	"SCIENT_AGENT_AUTH_BROKER_TOKEN",
+	"SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS",
+] as const;
 
 interface Broker {
 	handle: AuthBrokerServerHandle;
@@ -43,7 +47,7 @@ describe("auth broker settings take effect live", () => {
 			delete process.env[key];
 		}
 		// No snapshot cache: every connection must hit its broker.
-		process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
+		process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
 	});
 
 	afterEach(async () => {
@@ -111,7 +115,11 @@ describe("auth broker settings take effect live", () => {
 
 	it.each([
 		{ layer: "global config", file: ["agent", "config.yml"], expected: "stored-key" },
-		{ layer: "project config (a repository cannot unpause)", file: [".omp", "config.yml"], expected: undefined },
+		{
+			layer: "project config (a repository cannot unpause)",
+			file: [".scient-agent", "config.yml"],
+			expected: undefined,
+		},
 	])("discovery with $layer listing a paused provider", async ({ file, expected }) => {
 		const paused = "discovery-paused-test";
 		vi.spyOn(compatAuth, "providerDisabledReason").mockImplementation(provider =>

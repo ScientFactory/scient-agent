@@ -18,10 +18,10 @@ import { removeWithRetries } from "@oh-my-pi/pi-utils";
 import { rejectionOf } from "./helpers/rejection";
 
 const ENV_KEYS = [
-	"OMP_AUTH_BROKER_URL",
-	"OMP_AUTH_BROKER_TOKEN",
-	"OMP_AUTH_BROKER_SNAPSHOT_CACHE",
-	"OMP_AUTH_BROKER_SNAPSHOT_TTL_MS",
+	"SCIENT_AGENT_AUTH_BROKER_URL",
+	"SCIENT_AGENT_AUTH_BROKER_TOKEN",
+	"SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_CACHE",
+	"SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS",
 ] as const;
 const PROVIDER = "unit-auth-broker-cache";
 const TOKEN = "coding-agent-cache-token";
@@ -79,10 +79,10 @@ describe("discoverAuthStorage auth-broker snapshot cache", () => {
 	test("boots from a fresh encrypted cache when the broker is down", async () => {
 		const cachePath = path.join(tempDir, "snapshot.enc");
 		const downUrl = "http://127.0.0.1:1";
-		process.env.OMP_AUTH_BROKER_URL = downUrl;
-		process.env.OMP_AUTH_BROKER_TOKEN = TOKEN;
-		process.env.OMP_AUTH_BROKER_SNAPSHOT_CACHE = cachePath;
-		process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "3600000";
+		process.env.SCIENT_AGENT_AUTH_BROKER_URL = downUrl;
+		process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = TOKEN;
+		process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_CACHE = cachePath;
+		process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "3600000";
 		await writeAuthBrokerSnapshotCache({
 			path: cachePath,
 			token: TOKEN,
@@ -113,10 +113,10 @@ describe("discoverAuthStorage auth-broker snapshot cache", () => {
 				bearerTokens: [TOKEN],
 				disableRefresher: true,
 			});
-			process.env.OMP_AUTH_BROKER_URL = handle.url;
-			process.env.OMP_AUTH_BROKER_TOKEN = TOKEN;
-			process.env.OMP_AUTH_BROKER_SNAPSHOT_CACHE = cachePath;
-			process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "3600000";
+			process.env.SCIENT_AGENT_AUTH_BROKER_URL = handle.url;
+			process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = TOKEN;
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_CACHE = cachePath;
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "3600000";
 
 			storage = await discoverAuthStorage(tempDir);
 			expect(await storage.keys.get(PROVIDER)).toBe("broker-api-key");
@@ -154,10 +154,10 @@ describe("discoverAuthStorage auth-broker snapshot cache", () => {
 		const url = server.url.toString();
 		let storage: AuthStorage | undefined;
 		try {
-			process.env.OMP_AUTH_BROKER_URL = url;
-			process.env.OMP_AUTH_BROKER_TOKEN = TOKEN;
-			process.env.OMP_AUTH_BROKER_SNAPSHOT_CACHE = cachePath;
-			process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "3600000";
+			process.env.SCIENT_AGENT_AUTH_BROKER_URL = url;
+			process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = TOKEN;
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_CACHE = cachePath;
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "3600000";
 			await writeAuthBrokerSnapshotCache({
 				path: cachePath,
 				token: TOKEN,
@@ -234,9 +234,9 @@ describe("discoverAuthStorage auth-broker snapshot cache", () => {
 			const proxyUrl = `http://127.0.0.1:${proxy.port}/`;
 			let storage: AuthStorage | undefined;
 			try {
-				process.env.OMP_AUTH_BROKER_URL = proxyUrl;
-				process.env.OMP_AUTH_BROKER_TOKEN = TOKEN;
-				process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
+				process.env.SCIENT_AGENT_AUTH_BROKER_URL = proxyUrl;
+				process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = TOKEN;
+				process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
 				const retries: AuthBrokerStartupRetry[] = [];
 				storage = await discoverAuthStorage(tempDir, { onBrokerRetry: retry => retries.push(retry) });
 				expect(await storage.keys.get(PROVIDER)).toBe("broker-api-key");
@@ -262,9 +262,9 @@ describe("discoverAuthStorage auth-broker snapshot cache", () => {
 			},
 		});
 		try {
-			process.env.OMP_AUTH_BROKER_URL = server.url.toString();
-			process.env.OMP_AUTH_BROKER_TOKEN = TOKEN;
-			process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
+			process.env.SCIENT_AGENT_AUTH_BROKER_URL = server.url.toString();
+			process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = TOKEN;
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
 			expect(await rejectionOf(discoverAuthStorage(tempDir))).toMatchObject({ status: 401 });
 			expect(requests).toBe(1);
 
@@ -296,9 +296,9 @@ describe("discoverAuthStorage auth-broker snapshot cache", () => {
 		};
 		vi.useFakeTimers();
 		try {
-			process.env.OMP_AUTH_BROKER_URL = server.url.toString();
-			process.env.OMP_AUTH_BROKER_TOKEN = TOKEN;
-			process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
+			process.env.SCIENT_AGENT_AUTH_BROKER_URL = server.url.toString();
+			process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = TOKEN;
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
 			let settled = false;
 			const retries: AuthBrokerStartupRetry[] = [];
 			const discovered = discoverAuthStorage(tempDir, { onBrokerRetry: retry => retries.push(retry) });

@@ -35,7 +35,7 @@ const CONNECT_RETRY_MS = 100;
 const LOG_TAIL_BYTES = 64 * 1024;
 const LOG_TAIL_LINES = 20;
 /** Environment key carrying the token the worker requires as the first line of every connection. */
-const WORKER_TOKEN_ENV = "OMP_DISASM_WORKER_TOKEN";
+const WORKER_TOKEN_ENV = "SCIENT_AGENT_DISASM_WORKER_TOKEN";
 
 /** RPC methods shared by disassembler workers. */
 export type WorkerMethod =
@@ -231,7 +231,7 @@ export class DisasmWorker {
 		const script = await stageRunnerScript(backend.workerStageDir, "py", backend.workerScript);
 		const token = crypto.randomUUID();
 		await fs.promises.mkdir(path.dirname(files.logPath), { recursive: true });
-		// `ipcEndpoint` may fall back to `/tmp/omp-<euid>/` when the state dir is too long for `sun_path`.
+		// `ipcEndpoint` may fall back to `/tmp/scient-agent-<euid>/` when the state dir is too long for `sun_path`.
 		await fs.promises.mkdir(path.dirname(files.endpoint), { recursive: true, mode: 0o700 });
 		await fs.promises.rm(files.endpoint, { force: true });
 		let pid: number;

@@ -28,7 +28,7 @@ beforeEach(async () => {
 	client = new RpcClient({
 		command: [process.execPath, path.join(import.meta.dir, "fixtures", "skill-image-rpc-agent.ts")],
 		cwd: directory,
-		env: { PI_CODING_AGENT_DIR: directory, PI_NO_TITLE: "1" },
+		env: { SCIENT_AGENT_DIR: directory, PI_NO_TITLE: "1" },
 	});
 	await client.start();
 });

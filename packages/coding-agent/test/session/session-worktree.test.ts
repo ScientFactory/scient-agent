@@ -98,9 +98,9 @@ describe("session worktree helpers (real git)", () => {
 		root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "omp-session-wt-")));
 		repo = path.join(root, "repo");
 		await fs.mkdir(repo);
-		savedEnv = process.env.OMP_WORKTREE_DIR;
+		savedEnv = process.env.SCIENT_AGENT_WORKTREE_DIR;
 		savedCwd = process.cwd();
-		delete process.env.OMP_WORKTREE_DIR;
+		delete process.env.SCIENT_AGENT_WORKTREE_DIR;
 		setWorktreesDir(path.join(root, "wt"));
 		git(repo, "init", "-q", "-b", "main");
 		git(repo, "config", "core.autocrlf", "false");
@@ -112,8 +112,8 @@ describe("session worktree helpers (real git)", () => {
 	afterEach(async () => {
 		process.chdir(savedCwd);
 		setWorktreesDir(undefined);
-		if (savedEnv === undefined) delete process.env.OMP_WORKTREE_DIR;
-		else process.env.OMP_WORKTREE_DIR = savedEnv;
+		if (savedEnv === undefined) delete process.env.SCIENT_AGENT_WORKTREE_DIR;
+		else process.env.SCIENT_AGENT_WORKTREE_DIR = savedEnv;
 		await fs.rm(root, { recursive: true, force: true });
 	});
 
@@ -346,8 +346,8 @@ describe("session worktree helpers (ovnfs checkout)", () => {
 		await Bun.write(command, "#!/bin/sh\n");
 		await fs.chmod(command, 0o755);
 		settings = Settings.isolated({ "ovnfs.path": command });
-		savedEnv = process.env.OMP_WORKTREE_DIR;
-		process.env.OMP_WORKTREE_DIR = path.join(root, "wt");
+		savedEnv = process.env.SCIENT_AGENT_WORKTREE_DIR;
+		process.env.SCIENT_AGENT_WORKTREE_DIR = path.join(root, "wt");
 		checkouts = new Map();
 		vi.spyOn(daemon, "startDaemon").mockResolvedValue({ socket: path.join(root, "ovnfs.sock") });
 		vi.spyOn(daemon, "runningDaemon").mockResolvedValue({ socket: path.join(root, "ovnfs.sock") });
@@ -382,8 +382,8 @@ describe("session worktree helpers (ovnfs checkout)", () => {
 
 	afterEach(async () => {
 		vi.restoreAllMocks();
-		if (savedEnv === undefined) delete process.env.OMP_WORKTREE_DIR;
-		else process.env.OMP_WORKTREE_DIR = savedEnv;
+		if (savedEnv === undefined) delete process.env.SCIENT_AGENT_WORKTREE_DIR;
+		else process.env.SCIENT_AGENT_WORKTREE_DIR = savedEnv;
 		await fs.rm(root, { recursive: true, force: true });
 	});
 

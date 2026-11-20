@@ -17,7 +17,7 @@ import { resolveMCPTransformContext } from "@oh-my-pi/pi-coding-agent/mcp/transf
 import { getConfigRootDir, removeWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
 import "@oh-my-pi/pi-coding-agent/discovery";
 
-const originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
 const fallbackAgentDir = path.join(getConfigRootDir(), "agent");
 
 /** Codex Desktop's entries as it writes them on macOS and Windows, plus a server that only shares the name. */
@@ -74,7 +74,7 @@ describe("built-in MCP transforms", () => {
 			setAgentDir(originalAgentDirEnv);
 		} else {
 			setAgentDir(fallbackAgentDir);
-			delete process.env.PI_CODING_AGENT_DIR;
+			delete process.env.SCIENT_AGENT_DIR;
 		}
 		if (originalHome === undefined) delete process.env.HOME;
 		else process.env.HOME = originalHome;
@@ -103,7 +103,7 @@ describe("built-in MCP transforms", () => {
 		// `/mcp enable` on another tool's server lands in the user allowlist; on
 		// an omp-owned entry it writes `enabled: true`.
 		await writeJson(path.join(userAgentDir, "mcp.json"), { mcpServers: {}, enabledServers: ["codex_js"] });
-		await writeJson(path.join(projectDir, ".omp", "mcp.json"), {
+		await writeJson(path.join(projectDir, ".scient-agent", "mcp.json"), {
 			mcpServers: {
 				kept_repl: { command: "/opt/a/node_repl", enabled: true },
 				bare_repl: { command: "/opt/b/node_repl" },
@@ -119,7 +119,9 @@ describe("built-in MCP transforms", () => {
 	test("does not report a match under a name a higher-priority server owns", async () => {
 		// The omp-owned `codex_js` is the one that connects; Codex's same-named
 		// entry was shadowed already, so listing it as replaced would be wrong.
-		await writeJson(path.join(projectDir, ".omp", "mcp.json"), { mcpServers: { codex_js: { command: "mine" } } });
+		await writeJson(path.join(projectDir, ".scient-agent", "mcp.json"), {
+			mcpServers: { codex_js: { command: "mine" } },
+		});
 
 		const { dropped, result } = await load(true);
 

@@ -4,7 +4,7 @@
  * private methods:
  *
  * - `fake/state` (request): pid, ppid, initialize count, open/closed documents,
- *   every request id it received, and the `FAKE_LS_MARK` / `OMP_DAEMON_DIR`
+ *   every request id it received, and the `FAKE_LS_MARK` / `SCIENT_AGENT_DAEMON_DIR`
  *   values of its own environment.
  * - `fake/echo` (request, `{ value, hold? }`): answers `{ value }`; with `hold`
  *   the answer waits for a `fake/release` notification.
@@ -98,7 +98,7 @@ async function handle(message: Message): Promise<void> {
 				requestIds,
 				env: {
 					mark: process.env.FAKE_LS_MARK ?? null,
-					daemonDir: process.env.OMP_DAEMON_DIR ?? null,
+					daemonDir: process.env.SCIENT_AGENT_DAEMON_DIR ?? null,
 				},
 			});
 			return;

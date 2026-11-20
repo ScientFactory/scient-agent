@@ -28,7 +28,7 @@ function rpcResults(sent: Frame[]): Frame[] {
 
 it("survives a browser that never exposed chrome.downloads: still dials the relay and forwards tab and debugger events", () => {
 	const { urls, sent } = runProbe(false);
-	expect(urls).toEqual(["ws://127.0.0.1:9224/ext"]);
+	expect(urls).toEqual(["ws://127.0.0.1:9324/ext"]);
 	// The degraded hello omits the downloads capability, so the relay tells the agent to reinstall
 	// instead of failing lookups with a generic not-found.
 	const hello = sent.find(frame => frame.t === "hello");
@@ -41,7 +41,7 @@ it("survives a browser that never exposed chrome.downloads: still dials the rela
 
 it("advertises the downloads capability when the downloads API exists", () => {
 	const { urls, sent } = runProbe(true);
-	expect(urls).toEqual(["ws://127.0.0.1:9224/ext"]);
+	expect(urls).toEqual(["ws://127.0.0.1:9324/ext"]);
 	expect(sent.find(frame => frame.t === "hello")).toMatchObject({ downloadsProtocol: 1 });
 });
 

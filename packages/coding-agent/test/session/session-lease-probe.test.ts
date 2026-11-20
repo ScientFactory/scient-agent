@@ -133,7 +133,7 @@ describe("session lease probe", () => {
 		try {
 			const ids = [heldId, uniqueId("free"), "../../etc/passwd", "", "-dash", "x".repeat(300), hashedHeldId];
 			const result = Bun.spawnSync([process.execPath, CLI, "session", "lease", "--json", "--", ...ids], {
-				env: { ...process.env, PI_CODING_AGENT_DIR: tempDir.join("agent") },
+				env: { ...process.env, SCIENT_AGENT_DIR: tempDir.join("agent") },
 			});
 			expect(result.exitCode, result.stderr.toString()).toBe(0);
 			expect(JSON.parse(result.stdout.toString())).toEqual({ held: [heldId, hashedHeldId], unknown: [] });

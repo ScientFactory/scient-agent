@@ -261,9 +261,9 @@ describe("daemon infer module", () => {
 			const { unitId } = await openInfer(client, "embed:env", params);
 			const tunnel = await attach(client, unitId);
 			tunnel.send({ type: "env", id: "marker", name: "FAKE_INFER_MARKER" });
-			tunnel.send({ type: "env", id: "daemon-dir", name: "OMP_DAEMON_DIR" });
+			tunnel.send({ type: "env", id: "daemon-dir", name: "SCIENT_AGENT_DAEMON_DIR" });
 			expect((await tunnel.final("marker")).value).toBe("from-client");
-			// The daemon itself runs with OMP_DAEMON_DIR set; it must not leak into the worker.
+			// The daemon itself runs with SCIENT_AGENT_DAEMON_DIR set; it must not leak into the worker.
 			expect((await tunnel.final("daemon-dir")).value).toBeNull();
 		},
 		TEST_TIMEOUT_MS,

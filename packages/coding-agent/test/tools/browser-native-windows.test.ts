@@ -93,7 +93,7 @@ describe("front-tab sources", () => {
 		expect(frontTabSource({ kind: "spawned", path: "/Applications/App.app/Contents/MacOS/App" })).toBeUndefined();
 		expect(frontTabSource({ kind: "connected", cdpUrl: "http://127.0.0.1:9222" })).toBeUndefined();
 		expect(frontTabSource({ kind: "connected", cdpUrl: "https://remote.example" })).toBeUndefined();
-		expect(frontTabSource({ kind: "relay", cdpUrl: "http://127.0.0.1:9224" })).toBe("relay");
+		expect(frontTabSource({ kind: "relay", cdpUrl: "http://127.0.0.1:9324" })).toBe("relay");
 		expect(frontTabSource({ kind: "relay", cdpUrl: "https://remote.example" })).toBeUndefined();
 	});
 });
@@ -712,7 +712,7 @@ describe("front tab by the browser's tab list", () => {
 		];
 		const windowOf = vi.fn(windows({}));
 		const relay = (id: string) =>
-			new FrontTab("relay", "ws://127.0.0.1:9224/devtools/browser/x", id, windowOf, false);
+			new FrontTab("relay", "ws://127.0.0.1:9324/devtools/browser/x", id, windowOf, false);
 		expect(await relay("user").inFront(entries)).toBe(true);
 		expect(await relay("agent").inFront(entries)).toBe(false);
 		expect(await relay("older").inFront(entries)).toBeUndefined();

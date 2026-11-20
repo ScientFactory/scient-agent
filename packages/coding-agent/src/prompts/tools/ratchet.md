@@ -11,7 +11,7 @@ Adapted from the claude-api skill's build-eval, eval-audit, and hillclimb guides
 - Talk to the user only at the stops below and in one status line per round. Everything else runs unattended.
 
 # API (Python; JS identical with camelCase options: `offLimits`, `testFraction`)
-`r = ratchet("inbox-routing")` binds a flow at `.omp/ratchet/<flow>/`. Every method is async and returns plain data.
+`r = ratchet("inbox-routing")` binds a flow at `.scient-agent/ratchet/<flow>/`. Every method is async and returns plain data.
 - `await r.init(cases=[…], harness=[…], change=[…], off_limits=[…], command=None)` — repo-relative paths.
   - `cases`: inputs + expected answers.
   - `harness`: runner + grader + anything the eval executes.

@@ -39,7 +39,7 @@ export interface InstallPinnedHubFilesOptions {
 }
 
 const HF_RESOLVE_BASE = "https://huggingface.co";
-const READY_MARKER = ".omp-ready";
+const READY_MARKER = ".scient-agent-ready";
 /** Whole-file transfer bound, sized for weight files of a few hundred MB. */
 const DOWNLOAD_TIMEOUT_MS = 30 * 60_000;
 

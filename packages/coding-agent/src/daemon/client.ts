@@ -1156,7 +1156,7 @@ const SMOKE_DAEMON_EXIT_MS = 10_000;
 
 /**
  * Point every daemon use of this process at a fresh private runtime dir (and
- * off any `OMP_DAEMON_TCP`), for the distribution smoke test. The returned
+ * off any `SCIENT_AGENT_DAEMON_TCP`), for the distribution smoke test. The returned
  * cleanup closes the shared client, shuts that daemon down, restores the
  * environment, and removes the dir.
  */

@@ -31,7 +31,7 @@ beforeEach(async () => {
 });
 
 // Past the harness's 10s lock wait: a daemon stuck mid-exec is killed before the next test swaps
-// `OMP_DAEMON_DIR`, instead of a timed-out teardown restoring the env and removing the dir under it.
+// `SCIENT_AGENT_DAEMON_DIR`, instead of a timed-out teardown restoring the env and removing the dir under it.
 afterEach(async () => {
 	await harness.dispose();
 }, 30_000);

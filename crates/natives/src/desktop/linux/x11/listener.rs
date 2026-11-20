@@ -21,7 +21,7 @@ use x11rb::{
 
 use crate::desktop::error::{CoreResult, DesktopError};
 
-const DEVICE_PREFIX: &str = "OMP MPX ";
+const DEVICE_PREFIX: &str = "SCIENT MPX ";
 const DRAIN: u8 = 1;
 const HELD: u8 = 2;
 

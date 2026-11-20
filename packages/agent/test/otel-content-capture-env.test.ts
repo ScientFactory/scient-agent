@@ -12,12 +12,12 @@ import * as path from "node:path";
 const tempDirs: string[] = [];
 
 // Every variable `dirs.ts` consults to pick the profile, agent dir or config/state roots. A probe child
-// must not inherit any of them from the developer's shell (e.g. OMP_PROFILE beats PI_PROFILE, and a
-// named profile ignores PI_CODING_AGENT_DIR), or it would read a different agent dir than its fixture.
+// must not inherit any of them from the developer's shell (e.g. SCIENT_AGENT_PROFILE beats SCIENT_AGENT_PROFILE_FALLBACK, and a
+// named profile ignores SCIENT_AGENT_DIR), or it would read a different agent dir than its fixture.
 const DIR_RESOLUTION_ENV_RESET = {
-	OMP_PROFILE: undefined,
-	PI_PROFILE: undefined,
-	PI_CONFIG_DIR: undefined,
+	SCIENT_AGENT_PROFILE: undefined,
+	SCIENT_AGENT_PROFILE_FALLBACK: undefined,
+	SCIENT_AGENT_CONFIG_DIR: undefined,
 	XDG_DATA_HOME: undefined,
 	XDG_STATE_HOME: undefined,
 	XDG_CACHE_HOME: undefined,
@@ -47,7 +47,7 @@ async function probeContentCapture(agentEnv: string, shellEnv: Record<string, st
 			...process.env,
 			HOME: home,
 			USERPROFILE: home,
-			PI_CODING_AGENT_DIR: agentDir,
+			SCIENT_AGENT_DIR: agentDir,
 			...DIR_RESOLUTION_ENV_RESET,
 			OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: undefined,
 			...shellEnv,

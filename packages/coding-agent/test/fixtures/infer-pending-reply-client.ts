@@ -4,7 +4,7 @@
  * worker delays, prints the reply, and never closes anything. The process must
  * stay alive for the reply, then exit on its own.
  *
- * Env: `FAKE_JSONL_WORKER` (worker script path), `OMP_DAEMON_DIR` (isolated daemon).
+ * Env: `FAKE_JSONL_WORKER` (worker script path), `SCIENT_AGENT_DAEMON_DIR` (isolated daemon).
  */
 import * as path from "node:path";
 import { InferConnection } from "../../src/daemon/modules/infer";

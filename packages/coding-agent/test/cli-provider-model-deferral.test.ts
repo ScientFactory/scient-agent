@@ -119,7 +119,7 @@ describe("print-mode suggestions for a provider-qualified miss", () => {
 describe("print mode with a stale configured default", () => {
 	test("warns on stderr naming the stale default and the model that runs instead", async () => {
 		const home = path.join(os.tmpdir(), `pi-cli-stale-default-${Snowflake.next()}`);
-		const agentDir = path.join(home, ".omp", "agent");
+		const agentDir = path.join(home, ".scient-agent", "agent");
 		fs.mkdirSync(agentDir, { recursive: true });
 		fs.writeFileSync(
 			path.join(agentDir, "config.yml"),

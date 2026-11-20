@@ -1,6 +1,6 @@
 /**
  * Contract: collab tests never leak guest replica `.jsonl` files or host
- * discovery sockets into the developer's real `~/.omp`.
+ * discovery sockets into the developer's real `~/.scient-agent`.
  * `installInMemoryRelay()` redirects an unmocked `os.homedir()` into a
  * per-install temp directory (while preserving an explicit `setAgentDir()`
  * override or caller-owned `os.homedir()` spy) and `uninstallInMemoryRelay()`
@@ -31,12 +31,12 @@ import { installInMemoryRelay, uninstallInMemoryRelay } from "./helpers/in-memor
 
 const REAL_HOMEDIR = os.homedir();
 const ISOLATED_DIR_ENV_KEYS = [
-	"OMP_PROFILE",
-	"PI_PROFILE",
+	"SCIENT_AGENT_PROFILE",
+	"SCIENT_AGENT_PROFILE_FALLBACK",
 	"OMP_CODING_AGENT_DIR",
-	"PI_CODING_AGENT_DIR",
+	"SCIENT_AGENT_DIR",
 	"OMP_CONFIG_DIR",
-	"PI_CONFIG_DIR",
+	"SCIENT_AGENT_CONFIG_DIR",
 ] as const;
 const ORIGINAL_DIR_ENV = new Map<string, string | undefined>(
 	ISOLATED_DIR_ENV_KEYS.map(key => [key, process.env[key] ?? Bun.env[key]]),

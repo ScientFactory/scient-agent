@@ -49,7 +49,7 @@ export async function writeResourceBackingFile(url: string, bytes: Uint8Array, m
 	if (!name || name === "." || name === "..") name = "resource";
 	const extension = EXTENSION_BY_MIME[mimeType.split(";")[0].trim().toLowerCase()];
 	if (extension && !path.extname(name)) name += extension;
-	const file = path.join(root, "omp-resource", Bun.hash(url).toString(16), name);
+	const file = path.join(root, "scient-agent-resource", Bun.hash(url).toString(16), name);
 	await Bun.write(file, bytes);
 	return file;
 }

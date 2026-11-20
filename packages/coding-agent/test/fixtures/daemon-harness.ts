@@ -1,8 +1,8 @@
 /**
  * Runs a real omp daemon in a private runtime dir for one test.
  *
- * `OMP_DAEMON_DIR` is the only seam the client and server share, so it is set
- * (and `OMP_DAEMON_TCP` cleared) for the duration of one test and restored by
+ * `SCIENT_AGENT_DAEMON_DIR` is the only seam the client and server share, so it is set
+ * (and `SCIENT_AGENT_DAEMON_TCP` cleared) for the duration of one test and restored by
  * `dispose()`, which also shuts the daemon down, kills any process the test
  * tracked, and removes the dir.
  */

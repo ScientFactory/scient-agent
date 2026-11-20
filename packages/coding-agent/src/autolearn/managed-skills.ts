@@ -2,8 +2,8 @@
  * Managed-skills primitives for the experimental auto-learn feature.
  *
  * Managed skills are auto-generated/enhanced `SKILL.md` files kept in an
- * isolated directory (`~/.omp/agent/managed-skills`) separate from
- * user-authored skills (`~/.omp/agent/skills`). They are discovered and
+ * isolated directory (`~/.scient-agent/agent/managed-skills`) separate from
+ * user-authored skills (`~/.scient-agent/agent/skills`). They are discovered and
  * surfaced like normal skills, but every write here is confined to
  * `getManagedSkillsDir()` — auto-management can never touch authored skills.
  */
@@ -21,7 +21,7 @@ export const MAX_MANAGED_SKILL_BYTES = 64_000;
 
 const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-/** Resolve the isolated managed-skills directory (`~/.omp/agent/managed-skills`). */
+/** Resolve the isolated managed-skills directory (`~/.scient-agent/agent/managed-skills`). */
 export function getManagedSkillsDir(agentDir: string = getAgentDir()): string {
 	return path.join(agentDir, "managed-skills");
 }
@@ -111,7 +111,7 @@ function serializeSkillMutation<T>(name: string, op: () => Promise<T>): Promise<
 /**
  * Validate the managed-skills root before composing any child path. A symlinked
  * root is allowed when it resolves to an existing directory: the operator may
- * point the store at the shared skills tree (`~/.omp/agent/managed-skills` ->
+ * point the store at the shared skills tree (`~/.scient-agent/agent/managed-skills` ->
  * `~/meta/notes/omp-skills`). Child paths stay inside that target because a
  * skill name is one safe path segment and a child directory symlink is rejected
  * at the mutation itself. A broken link or a link to a non-directory has no

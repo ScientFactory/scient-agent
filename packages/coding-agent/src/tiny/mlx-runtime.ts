@@ -20,7 +20,7 @@ export function ensureTinyMlxRuntime(onPhase?: (phase: RuntimeInstallPhase) => v
 	return ensureManagedVenv(
 		{
 			dir: getTinyMlxRuntimeDir(),
-			marker: ".omp-mlx-lm",
+			marker: ".scient-agent-mlx-lm",
 			key: MLX_LM_VERSION,
 			python: { min: "3.10", below: "3.14" },
 			install: [`mlx-lm==${MLX_LM_VERSION}`],

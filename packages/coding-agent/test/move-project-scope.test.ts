@@ -52,7 +52,7 @@ process.stdin.on("data", chunk => {
 
 /** One project with its own agent, extension tool, custom tool, and MCP server, all named `<label>`. */
 function writeProject(root: string, label: string, mcpServerScript: string): void {
-	const omp = path.join(root, ".omp");
+	const omp = path.join(root, ".scient-agent");
 	fs.mkdirSync(path.join(omp, "agents"), { recursive: true });
 	fs.writeFileSync(
 		path.join(omp, "agents", `${label}-agent.md`),

@@ -144,9 +144,13 @@ describe("bash internal URLs through the shell filesystem", () => {
 		await fs.writeFile(script, "console.log(process.argv.slice(2).join('\\n'));\n");
 		await fs.mkdir(localRoot, { recursive: true });
 		await fs.writeFile(path.join(localRoot, "data.txt"), "payload\n");
-		await fs.writeFile(path.join(tempDir, "omp"), `#!/bin/sh\nexec '${process.execPath}' '${script}' "$@"\n`, {
-			mode: 0o755,
-		});
+		await fs.writeFile(
+			path.join(tempDir, "scient-agent"),
+			`#!/bin/sh\nexec '${process.execPath}' '${script}' "$@"\n`,
+			{
+				mode: 0o755,
+			},
+		);
 
 		const { text, isError } = await run(`PATH="$PWD:$PATH" omp read local://data.txt:1-1 --from=local://data.txt`);
 

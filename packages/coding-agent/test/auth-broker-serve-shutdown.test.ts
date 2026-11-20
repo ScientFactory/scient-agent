@@ -41,7 +41,7 @@ describe("omp auth-broker serve shutdown", () => {
 			using tempDir = TempDir.createSync("@omp-auth-broker-shutdown-");
 			const home = tempDir.join("home");
 			fs.mkdirSync(home);
-			const dbPath = path.join(home, ".omp", "agent", "agent.db");
+			const dbPath = path.join(home, ".scient-agent", "agent", "agent.db");
 			fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 			const tokenRequested = Promise.withResolvers<void>();
@@ -77,10 +77,10 @@ describe("omp auth-broker serve shutdown", () => {
 				NO_COLOR: "1",
 			};
 			for (const key of [
-				"PI_CODING_AGENT_DIR",
-				"PI_CONFIG_DIR",
-				"OMP_PROFILE",
-				"PI_PROFILE",
+				"SCIENT_AGENT_DIR",
+				"SCIENT_AGENT_CONFIG_DIR",
+				"SCIENT_AGENT_PROFILE",
+				"SCIENT_AGENT_PROFILE_FALLBACK",
 				"XDG_CACHE_HOME",
 				"XDG_CONFIG_HOME",
 				"XDG_DATA_HOME",

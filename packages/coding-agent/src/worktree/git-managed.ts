@@ -93,7 +93,7 @@ async function scanWorktrees(): Promise<DiskEntry[]> {
 			continue;
 		}
 
-		// Legacy nesting: ~/.omp/wt/<encoded-project>/<branch-or-id>
+		// Legacy nesting: ~/.scient-agent/wt/<encoded-project>/<branch-or-id>
 		let children: string[];
 		try {
 			children = await fs.readdir(dir);

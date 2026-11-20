@@ -131,11 +131,11 @@ describe("Codex config.toml settings", () => {
 		expect(cfgPersonality.get(settings)).toBe("default");
 	});
 
-	test("ignores project config.toml when the project's own .omp/config.yml disables codex", async () => {
+	test("ignores project config.toml when the project's own .scient-agent/config.yml disables codex", async () => {
 		const agentDir = path.join(root, "agent");
 		await fs.mkdir(agentDir, { recursive: true });
 		await Bun.write(path.join(project, ".codex", "config.toml"), 'personality = "friendly"\n');
-		await Bun.write(path.join(project, ".omp", "config.yml"), "disabledProviders:\n  - codex\n");
+		await Bun.write(path.join(project, ".scient-agent", "config.yml"), "disabledProviders:\n  - codex\n");
 
 		const settings = await Settings.init({ cwd: project, agentDir });
 

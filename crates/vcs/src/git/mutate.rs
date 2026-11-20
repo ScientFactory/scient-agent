@@ -75,7 +75,11 @@ pub(crate) fn update_reference(
 				.duration_since(std::time::UNIX_EPOCH)
 				.map_or(0, |elapsed| elapsed.as_secs())
 		);
-		gix::actor::SignatureRef { name: "omp".into(), email: "omp@localhost".into(), time: &now }
+		gix::actor::SignatureRef {
+			name:  "scient-agent".into(),
+			email: "scient-agent@localhost".into(),
+			time:  &now,
+		}
 	};
 	repo
 		.edit_references_as(Some(edit), Some(committer))
@@ -1110,7 +1114,8 @@ impl CommitMessageFile {
 		let tick = std::time::SystemTime::now()
 			.duration_since(std::time::UNIX_EPOCH)
 			.map_or(0, |elapsed| elapsed.as_nanos());
-		let path = git_dir.join(format!(".omp-commit-msg-{}-{tick}-{n}", std::process::id()));
+		let path =
+			git_dir.join(format!(".scient-agent-commit-msg-{}-{tick}-{n}", std::process::id()));
 		// Close before the guard exists so a failed write can unlink the
 		// partial file on Windows, where an open handle blocks removal.
 		let mut file = fs::OpenOptions::new()
