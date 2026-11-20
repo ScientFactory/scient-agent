@@ -400,18 +400,18 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 	"packages/tui/src/native/backend.ts": [['title: "omp"', `title: "${PRODUCT}"`]],
 	// The stats dashboard's page title, written by its build script.
 	"packages/stats/build.ts": [["<title>omp stats</title>", `<title>${PRODUCT} stats</title>`]],
-	"crates/pi-natives/src/power.rs": [['"omp agent session"', `"${PRODUCT} session"`]],
-	"crates/pi-natives/src/desktop/win32/window.rs": [["run omp at the same", `run ${COMMAND} at the same`]],
+	"crates/natives/src/power.rs": [['"omp agent session"', `"${PRODUCT} session"`]],
+	"crates/natives/src/desktop/win32/window.rs": [["run omp at the same", `run ${COMMAND} at the same`]],
 	// "Oh My Pi is handling ..." in these two files is about the other product, and stays.
-	"crates/pi-natives/src/oauth_callback/darwin.rs": [
+	"crates/natives/src/oauth_callback/darwin.rs": [
 		["omp application", `${PRODUCT} application`],
 		["omp callback", `${PRODUCT} callback`],
 		// The callback application's name in its Info.plist, which the Dock and Finder show.
 		["<string>omp OAuth Callback</string>", `<string>${PRODUCT} OAuth Callback</string>`],
 	],
-	"crates/pi-natives/src/oauth_callback/linux.rs": [["Name=omp OAuth Callback", `Name=${PRODUCT} OAuth Callback`]],
-	"crates/pi-natives/src/applefm/mod.rs": [["This omp build", `This ${PRODUCT} build`]],
-	"crates/pi-voice/src/device/linux.rs": [['c"omp"', `c"${COMMAND}"`]],
+	"crates/natives/src/oauth_callback/linux.rs": [["Name=omp OAuth Callback", `Name=${PRODUCT} OAuth Callback`]],
+	"crates/natives/src/applefm/mod.rs": [["This omp build", `This ${PRODUCT} build`]],
+	"crates/voice/src/device/linux.rs": [['c"omp"', `c"${COMMAND}"`]],
 	// Prompts, where things are the agent's rather than the product's.
 	"packages/coding-agent/src/prompts/internal-urls/cfg.md": [
 		[`cfg://: ${COMMAND} settings;`, "cfg://: agent settings;"],

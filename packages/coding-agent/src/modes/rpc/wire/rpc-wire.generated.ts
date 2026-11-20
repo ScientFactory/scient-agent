@@ -189,6 +189,7 @@ export interface CustomMessage {
 	timestamp: number;
 	details?: unknown;
 	attribution?: Attribution;
+	excludeFromContext?: boolean;
 }
 
 export interface HookMessage {
@@ -830,6 +831,8 @@ export type AutoCompactionAction = "context-full" | "remote" | "handoff" | "shak
 
 export type CacheWarmingPhase = "streaming" | "idle";
 
+export type CacheWarmingMethod = "prewarm" | "replay";
+
 export type CacheWarmingOutcome = "hit" | "miss" | "error" | "aborted";
 
 export type NotifyType = "info" | "warning" | "error";
@@ -947,7 +950,7 @@ export interface AutoCompactionEndEvent {
 	skipped?: boolean;
 }
 
-/** A manual compaction (`compact` command, `/compact`, extension `ctx.compact()`) began; the live turn is already aborted. */
+/** A manual compaction began. Handoff mode leaves live turns running and applies between turns or when idle. */
 export interface ManualCompactionStartEvent {
 	type: "manual_compaction_start";
 	/** The `/compact <mode>` subcommand, when one was given. */
@@ -988,6 +991,7 @@ export interface AutoRetryEndEvent {
 export interface CacheWarmingStartEvent {
 	type: "cache_warming_start";
 	phase: CacheWarmingPhase;
+	method: CacheWarmingMethod;
 	provider: string;
 	model: string;
 }
@@ -996,6 +1000,7 @@ export interface CacheWarmingStartEvent {
 export interface CacheWarmingEndEvent {
 	type: "cache_warming_end";
 	phase: CacheWarmingPhase;
+	method: CacheWarmingMethod;
 	provider: string;
 	model: string;
 	outcome: CacheWarmingOutcome;

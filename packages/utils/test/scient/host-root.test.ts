@@ -32,7 +32,7 @@ interface Probe {
 	readonly agentDir: string;
 	readonly configRoot: string;
 	readonly nativesDir: string;
-	readonly globalDaemonDir: string;
+	readonly daemonDir: string;
 	readonly sessionOwnersDir: string;
 	readonly logsDir: string;
 	readonly env: Record<string, string | null>;
@@ -68,7 +68,7 @@ async function probe(dirs: { home: string; project: string }, launch: Record<str
 		"	nativesDir: dirs.getNativesDir(),",
 		"	agentDir: dirs.getAgentDir(),",
 		"	configRoot: dirs.getConfigRootDir(),",
-		'	globalDaemonDir: dirs.getGlobalDaemonRuntimeDir("text-predict"),',
+		"	daemonDir: dirs.getDaemonDir(),",
 		"	sessionOwnersDir: dirs.getSessionOwnersDir(),",
 		"	logsDir: dirs.getLogsDir(),",
 		"	env: Object.fromEntries(names.map(name => [name, $env[name] ?? null])),",
@@ -160,13 +160,13 @@ describe("host-assigned config root", () => {
 
 	it("keeps machine-wide daemons, session owners and logs inside each host's root", async () => {
 		const dirs = await scratch();
-		// An initialized XDG state folder would otherwise hold every product's global daemons.
+		// An initialized XDG state folder would otherwise hold every product's daemon.
 		const xdgState = path.join(dirs.elsewhere, "state");
 		await fs.mkdir(path.join(xdgState, "scient-agent"), { recursive: true });
 		for (const name of ["host-a", "host-b"]) {
 			const root = path.join(dirs.root, name);
 			const result = await probe(dirs, { SCIENT_AGENT_ROOT: root, XDG_STATE_HOME: xdgState });
-			expect(result.globalDaemonDir).toBe(path.join(root, "run", "daemons", "global", "text-predict"));
+			expect(result.daemonDir).toBe(path.join(root, "run", "daemon"));
 			expect(result.sessionOwnersDir.startsWith(`${root}${path.sep}`)).toBe(true);
 			expect(result.logsDir).toBe(path.join(root, "logs"));
 		}

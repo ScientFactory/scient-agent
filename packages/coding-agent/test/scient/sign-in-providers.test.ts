@@ -67,9 +67,11 @@ describe("sign-in providers", () => {
 		"devin-windsurf",
 		// A Google browser sign-in through the managed Antigravity CLI.
 		"antigravity-cli",
+		// AWS Identity Center, Builder ID, or Google and GitHub through a one-time code; a key is one choice among them.
+		"kiro-login",
 	];
 	/** Hooks named differently from the entry that uses them. */
-	const HOOK_ENTRY: Record<string, string> = { "mistral-vibe-sign-in": "mistral" };
+	const HOOK_ENTRY: Record<string, string> = { "mistral-vibe-sign-in": "mistral", "kiro-login": "kiro" };
 
 	it("goes by what a hook-implemented sign-in asks for, not by how it is implemented", () => {
 		// These hooks prompt for a pasted key or token.

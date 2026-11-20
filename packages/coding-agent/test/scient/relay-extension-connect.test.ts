@@ -93,7 +93,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE)("relay extension connection", () => {
 			});
 			expect(await waitForRelayExtension(`http://127.0.0.1:${nextPort}`)).toBe("ready");
 		} finally {
-			if (browser) await closeLaunchedBrowser(browser);
+			if (browser) await closeLaunchedBrowser({ browser, userDataDir });
 			server.stop();
 			next?.stop();
 			await fs.rm(extensionDir, { recursive: true, force: true });

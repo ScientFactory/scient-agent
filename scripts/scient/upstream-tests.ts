@@ -31,27 +31,67 @@ interface KnownFailure {
 	evidence: string;
 }
 
-// Seen failing on untouched 18.22.0 on ubuntu-22.04 (2026-11-17), in 8 coding-agent-native and 2 workspace
-// bucket runs; SCIENT.md, "Eleventh alignment intake", has the counts.
+// Seen failing on untouched 19.0.1 on ubuntu-22.04 (2026-11-20), in 8 coding-agent-native and 2 workspace
+// bucket runs; SCIENT.md, "Twelfth alignment intake", has the counts.
 const KNOWN_FAILURES: KnownFailure[] = [
 	{
-		commit: "3e8cff3b7ce19a805c11a26a6dd1703066435851",
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/bash-job-lifecycle.test.ts > allows a cancelled bash job to run its TERM cleanup",
+		evidence: "Failed in 3 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/shell-process-worker.test.ts > shell process on pipes > ends its command and exits 143 when terminated",
+		evidence: "Failed in 3 of 8 bucket runs untouched, and in 2 of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/shell-process-worker.test.ts > shell process on a pseudo-terminal > goes on after an interrupt its foreground program handles",
+		evidence: "Failed in 2 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
 		test: "packages/coding-agent/test/sdk-tool-activation.test.ts > createAgentSession defaultInactive tool activation > releases a timed-out activation so later lifecycle registrations can proceed",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
 	},
 	{
-		commit: "3e8cff3b7ce19a805c11a26a6dd1703066435851",
-		test: "packages/coding-agent/test/tools/browser-background-input.test.ts > background tab input > drives an app CDP URL tab in the background",
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/tools/bash-interactive.test.ts > runInteractiveBashPty > starts the program on a terminal from the session's exports, without the guards of unattended commands",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in 1 of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/auth-broker-snapshot-cache.test.ts > discoverAuthStorage auth-broker snapshot cache > fails startup once the broker stays unreachable for the whole retry budget",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "3e8cff3b7ce19a805c11a26a6dd1703066435851",
-		test: "packages/coding-agent/test/tools/browser-nav-frames-dialogs.test.ts > browser navigation, frames, dialogs, and tab listing > does not call a cancelled run's page listeners for the requests the cancel stops",
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > closing a Scient Agent-owned page > closes the page by id when its worker reports closed without closing it",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 	{
-		commit: "3e8cff3b7ce19a805c11a26a6dd1703066435851",
-		test: "packages/coding-agent/test/tools/read-pdf-screenshot-chromium.test.ts > PDF page screenshots in Chromium > paints each requested image-only page instead of the empty viewer",
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > closes a reattached headless tab's page when the tab is released",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > leaves a tab closed while its crashed page is being reattached closed",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > leaves a tab reopened under the same name alone when the closed one's reattach fails",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > reattaches to a page Puppeteer has not listed yet because its URL is still empty",
+		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
+	},
+	{
+		commit: "f40f335845f0b136453d12fec8d6057011082766",
+		test: "packages/coding-agent/test/tools/browser-tab-worker-startup.test.ts > browser tabs whose renderer crashed > reports the reload when an open navigates a tab whose renderer crashed",
 		evidence: "Failed in 1 of 8 bucket runs untouched, and in none of 8 on Scient's replay.",
 	},
 ];

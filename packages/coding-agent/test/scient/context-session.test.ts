@@ -63,7 +63,7 @@ it("keeps external tool names out of the initial SDK prompt and eval description
 				text: expect.stringContaining("xd://service__record_0"),
 			}),
 		);
-		const rest = await read.execute("discover-rest", { path: "xd://services/service:601" });
+		const rest = await read.execute("discover-rest", { path: "xd://services/service:601-" });
 		expect(rest.content).toContainEqual(
 			expect.objectContaining({
 				type: "text",

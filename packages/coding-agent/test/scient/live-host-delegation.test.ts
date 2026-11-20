@@ -22,7 +22,7 @@ async function startController(options: Partial<LiveSessionControllerOptions>) {
 	let onEvent: ((event: LiveServerEvent) => void) | undefined;
 	let onSessionEvent: ((event: unknown) => void) | undefined;
 	const sentToModel: unknown[] = [];
-	const transportSpy = vi.spyOn(liveTransport, "CodexLiveTransport") as unknown as {
+	const transportSpy = vi.spyOn(liveTransport, "LiveTransport") as unknown as {
 		mockImplementation(implementation: (options: LiveTransportOptions) => object): void;
 	};
 	transportSpy.mockImplementation(function (transportOptions: LiveTransportOptions) {

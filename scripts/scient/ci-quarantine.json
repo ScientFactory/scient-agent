@@ -8,6 +8,22 @@
 			"owner": "Browser tool",
 			"quarantined": "2026-11-18",
 			"expires": "2026-11-25"
+		},
+		{
+			"id": "read-pdf-screenshot-timeout",
+			"test": "packages/coding-agent/test/tools/read-pdf-screenshot-chromium.test.ts > PDF page screenshots in Chromium > paints each requested image-only page instead of the empty viewer",
+			"signature": "Timed out rendering PDF page",
+			"owner": "Read tool",
+			"quarantined": "2026-11-20",
+			"expires": "2026-11-27"
+		},
+		{
+			"id": "browser-relay-detach-reattach",
+			"test": "packages/coding-agent/test/tools/browser-relay-detach.test.ts > relay tabs Chrome detaches Scient Agent from > keeps the recovered tab but fails an open whose navigation never started before its budget ran out",
+			"signature": "could not reattach to the tab, so it was released",
+			"owner": "Browser tool",
+			"quarantined": "2026-11-20",
+			"expires": "2026-11-27"
 		}
 	]
 }

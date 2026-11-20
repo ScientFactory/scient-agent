@@ -15,8 +15,11 @@ import { MissingApiKeyError } from "@oh-my-pi/pi-ai/error";
 import { parseArgs } from "@oh-my-pi/pi-coding-agent/cli/args";
 import { clearOmpExtensionCliRoots } from "@oh-my-pi/pi-coding-agent/discovery/omp-extension-roots";
 import { runRootCommand } from "@oh-my-pi/pi-coding-agent/main";
-import { describeAuthBrokerStartupError } from "@oh-my-pi/pi-coding-agent/session/auth-broker-config";
-import { setInteractiveHost } from "@oh-my-pi/pi-utils";
+import {
+	describeAuthBrokerStartupError,
+	discoverAuthStorage,
+} from "@oh-my-pi/pi-coding-agent/session/auth-broker-config";
+import { setInteractiveHost, TempDir } from "@oh-my-pi/pi-utils";
 
 class ProcessExitSignal extends Error {
 	constructor(readonly code: number) {
@@ -113,4 +116,49 @@ describe("runRootCommand — unreachable auth broker at startup", () => {
 		expect(stderr).toContain("Auth broker request failed after 2 attempt(s)");
 		expect(stderr).toContain("scient-agent auth-broker serve");
 	}, 15_000);
+});
+
+describe("discoverAuthStorage with a broker that is down", () => {
+	// A restarting broker answers 503; a later answer the retry cannot fix (401) ends startup.
+	it.each([
+		{ interactive: true, requests: 1, notice: false },
+		{ interactive: false, requests: 2, notice: true },
+	])(
+		"retries only outside interactive Scient Agent (interactive: $interactive)",
+		async ({ interactive, requests, notice }) => {
+			let served = 0;
+			using server = Bun.serve({
+				port: 0,
+				fetch: () => new Response("unavailable", { status: ++served === 1 ? 503 : 401 }),
+			});
+			using agentDir = TempDir.createSync("@omp-broker-down-");
+			const env = {
+				SCIENT_AGENT_AUTH_BROKER_URL: process.env.SCIENT_AGENT_AUTH_BROKER_URL,
+				SCIENT_AGENT_AUTH_BROKER_TOKEN: process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN,
+				SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS: process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS,
+			};
+			process.env.SCIENT_AGENT_AUTH_BROKER_URL = server.url.toString();
+			process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = "test-token";
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
+			const previous = setInteractiveHost(interactive);
+			let stderr = "";
+			vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {
+				stderr += String(chunk);
+				return true;
+			});
+			try {
+				await expect(discoverAuthStorage(agentDir.path())).rejects.toBeInstanceOf(AuthBrokerError);
+			} finally {
+				vi.restoreAllMocks();
+				setInteractiveHost(previous);
+				for (const [key, value] of Object.entries(env)) {
+					if (value === undefined) delete process.env[key];
+					else process.env[key] = value;
+				}
+			}
+			expect(served).toBe(requests);
+			expect(stderr.includes("Waiting for auth broker")).toBe(notice);
+		},
+		15_000,
+	);
 });

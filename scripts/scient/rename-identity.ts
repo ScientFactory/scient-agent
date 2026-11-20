@@ -52,7 +52,7 @@ const RENAMES: ReadonlyArray<readonly [RegExp, string]> = [
 	// Overrides for where a database, runtime directory, socket, or native library
 	// lives, and the configuration the agent hands its own worker processes.
 	[
-		/\bOMP_(GITHUB_CACHE_DB|COMMIT_CACHE_DB|JUDGMENT_CACHE_DB|AUTORESEARCH_DB_DIR|DAEMON_RUNTIME_DIR|DAEMON_PROJECT_DIR|LSP_MUX_SOCKET|LSP_MUX_PROJECT_DIR|TINY_WORKER_SOCKET|MNEMOPI_EMBED_SOCKET|MNEMOPI_EMBED_TAG|TEXT_PREDICT_SOCKET|TEXT_PREDICT_AGENT_DIR|BLOB_BROKER_SOCKET|BLOB_BROKER_CONFIG|DISASM_HOST_CONFIG|TUI_DEBUG|NATIVE_LIBRARY_PATH)\b/g,
+		/\bOMP_(GITHUB_CACHE_DB|COMMIT_CACHE_DB|JUDGMENT_CACHE_DB|AUTORESEARCH_DB_DIR|DAEMON_DIR|DAEMON_TCP|DAEMON_RESUME|DISASM_WORKER_TOKEN|TUI_DEBUG|NATIVE_LIBRARY_PATH)\b/g,
 		"SCIENT_AGENT_$1",
 	],
 	// Windows named pipes are machine-wide, so the name is all that separates two products.
@@ -105,6 +105,8 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		],
 		['return value ? value : "omp";', `return value ? value : "${COMMAND}";`],
 	],
+	// The User-Agent names the app (`APP_NAME/<version>`); a test that reads it names it too.
+	"packages/coding-agent/test/spotlight/wire.test.ts": [['toStartWith("omp/")', `toStartWith("${COMMAND}/")`]],
 	"packages/coding-agent/src/cli/commands/init-xdg.ts": [
 		['const APP_NAME = "omp";', `const APP_NAME = "${COMMAND}";`],
 	],
@@ -113,24 +115,24 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		['"omp",', `"${COMMAND}",`],
 		['title: "omp"', `title: "${COMMAND}"`],
 	],
-	"crates/pi-natives/src/crash_handler.rs": [
+	"crates/natives/src/crash_handler.rs": [
 		['const APP_NAME: &str = "omp";', `const APP_NAME: &str = "${COMMAND}";`],
 		['"/xdg/state/omp/logs"', `"/xdg/state/${COMMAND}/logs"`],
 	],
-	"crates/pi-natives/src/desktop/linux/wayland/portal.rs": [['base.join("omp")', `base.join("${COMMAND}")`]],
+	"crates/natives/src/desktop/linux/wayland/portal.rs": [['base.join("omp")', `base.join("${COMMAND}")`]],
 	// X11 input pairs are machine-wide: the master name and holder property decide which
 	// product may adopt or free a pair, and every product's pairs count toward one limit.
 	// The name also names the uinput devices, which must stay under 80 bytes, so the
 	// prefix is short.
-	"crates/pi-natives/src/desktop/linux/x11/mpx.rs": [
+	"crates/natives/src/desktop/linux/x11/mpx.rs": [
 		['const OWNER_PREFIX: &str = "OMP MPX v2.";', 'const OWNER_PREFIX: &str = "SCIENT MPX v2.";'],
 		['const HOLDER_PROPERTY: &str = "_OMP_MPX_HOLDER";', 'const HOLDER_PROPERTY: &str = "_SCIENT_MPX_HOLDER";'],
 	],
-	"crates/pi-natives/src/desktop/linux/x11/wm.rs": [
+	"crates/natives/src/desktop/linux/x11/wm.rs": [
 		["/// `_OMP_MPX_HOLDER`, the master", "/// `_SCIENT_MPX_HOLDER`, the master"],
 		['"_OMP_MPX_HOLDER",', '"_SCIENT_MPX_HOLDER",'],
 	],
-	"crates/pi-natives/src/desktop/linux/x11/listener.rs": [
+	"crates/natives/src/desktop/linux/x11/listener.rs": [
 		['const DEVICE_PREFIX: &str = "OMP MPX ";', 'const DEVICE_PREFIX: &str = "SCIENT MPX ";'],
 	],
 	"packages/natives/native/loader-state.js": [
@@ -183,9 +185,11 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		['path.join(xdgDataDir, "omp")', `path.join(xdgDataDir, "${COMMAND}")`],
 	],
 	// Folders in the temporary directory.
-	"packages/coding-agent/src/internal-urls/local-protocol.ts": [['"omp-local"', `"${COMMAND}-local"`]],
+	"packages/coding-agent/src/internal-urls/local-root.ts": [['"omp-local"', `"${COMMAND}-local"`]],
 	"packages/coding-agent/test/internal-urls/local-protocol.test.ts": [['"omp-local"', `"${COMMAND}-local"`]],
 	"packages/coding-agent/test/tools/plan-mode-guard-local.test.ts": [['"omp-local"', `"${COMMAND}-local"`]],
+	"packages/coding-agent/src/internal-urls/filesystem-resource.ts": [['"omp-resource"', `"${COMMAND}-resource"`]],
+	"packages/coding-agent/src/edit/remote-mirror.ts": [['"omp-remote-edit"', `"${COMMAND}-remote-edit"`]],
 	"packages/coding-agent/src/stream/recording.ts": [['"omp-recordings"', `"${COMMAND}-recordings"`]],
 	"packages/coding-agent/src/utils/shell-snapshot.ts": [["omp-shell-snapshots", `${COMMAND}-shell-snapshots`]],
 	"packages/coding-agent/test/shell-snapshot.test.ts": [["omp-shell-snapshots", `${COMMAND}-shell-snapshots`]],
@@ -193,13 +197,33 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 	"packages/coding-agent/src/tools/browser/upload-files.ts": [["omp-uploads-", `${COMMAND}-uploads-`]],
 	"packages/coding-agent/test/tools/browser-upload-contents.test.ts": [["omp-uploads-", `${COMMAND}-uploads-`]],
 	// The process a system dialog names, and git's committer on an agent's ref update.
-	"crates/pi-natives/src/power.rs": [['const INHIBIT_WHO: &str = "omp";', `const INHIBIT_WHO: &str = "${COMMAND}";`]],
-	"crates/pi-vcs/src/git/mutate.rs": [
+	// The program the shell hands internal URLs to unresolved: the one that reads them.
+	"crates/shell/src/host/urls.rs": [
+		[
+			'name == b"omp" || (cfg!(windows) && name.eq_ignore_ascii_case(b"omp.exe"))',
+			`name == b"${COMMAND}" || (cfg!(windows) && name.eq_ignore_ascii_case(b"${COMMAND}.exe"))`,
+		],
+	],
+	"packages/coding-agent/src/tools/bash-host-urls.ts": [
+		['return name === "omp" || name === "omp.exe";', `return name === "${COMMAND}" || name === "${COMMAND}.exe";`],
+	],
+	"packages/coding-agent/test/tools/bash-host-urls.test.ts": [
+		['"sudo /usr/local/bin/omp read local://x.md"', `"sudo /usr/local/bin/${COMMAND} read local://x.md"`],
+	],
+	"packages/coding-agent/test/tools/bash-url-filesystem.test.ts": [
+		['path.join(tempDir, "omp")', `path.join(tempDir, "${COMMAND}")`],
+	],
+	"crates/shell/tests/vfs.rs": [
+		['bin.path().join("omp")', `bin.path().join("${COMMAND}")`],
+		[" omp read virtual://", ` ${COMMAND} read virtual://`],
+	],
+	"crates/natives/src/power.rs": [['const INHIBIT_WHO: &str = "omp";', `const INHIBIT_WHO: &str = "${COMMAND}";`]],
+	"crates/vcs/src/git/mutate.rs": [
 		['"omp".into()', `"${COMMAND}".into()`],
 		['"omp@localhost"', `"${COMMAND}@localhost"`],
 	],
 	// Sign-in helper applications and the transaction marker each platform registers.
-	"crates/pi-natives/src/oauth_callback/darwin.rs": [
+	"crates/natives/src/oauth_callback/darwin.rs": [
 		[
 			'const BUNDLE_PREFIX: &str = "dev.omp.oauth-callback.";',
 			'const BUNDLE_PREFIX: &str = "com.scientfactory.agent.oauth-callback.";',
@@ -215,13 +239,13 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		],
 		['"dev.omp.oauth-callback.aaaaaaaa', '"com.scientfactory.agent.oauth-callback.aaaaaaaa'],
 	],
-	"crates/pi-natives/src/oauth_callback/linux.rs": [
+	"crates/natives/src/oauth_callback/linux.rs": [
 		[
 			'const DESKTOP_ID_PREFIX: &str = "dev.omp.oauth-callback.";',
 			'const DESKTOP_ID_PREFIX: &str = "com.scientfactory.agent.oauth-callback.";',
 		],
 	],
-	"crates/pi-natives/src/oauth_callback/windows.rs": [
+	"crates/natives/src/oauth_callback/windows.rs": [
 		['"omp OAuth Callback Transaction"', `"${PRODUCT} OAuth Callback Transaction"`],
 	],
 	// What the agent registers as with services it signs in to or reports to.

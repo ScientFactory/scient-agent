@@ -99,9 +99,9 @@
 				"packages/coding-agent/test/scient/user-config-root.test.ts"
 			],
 			"upstream": [
-				"crates/pi-natives/src/crash_handler.rs",
-				"crates/pi-natives/src/oauth_callback/darwin.rs",
-				"crates/pi-natives/src/oauth_callback/linux.rs",
+				"crates/natives/src/crash_handler.rs",
+				"crates/natives/src/oauth_callback/darwin.rs",
+				"crates/natives/src/oauth_callback/linux.rs",
 				"packages/coding-agent/src/tools/browser/storage-state.ts",
 				"packages/utils/src/dirs.ts",
 				"packages/utils/src/env.ts"
@@ -197,16 +197,15 @@
 		},
 		"SA-WORKER": {
 			"status": "active",
-			"contract": "Shared workers (tiny model, embedding server) carry the product version, so a new Scient Agent release never reuses an earlier release's worker.",
-			"owned": [
-				"packages/coding-agent/src/scient/worker-tag.ts",
-				"packages/coding-agent/test/scient/worker-tag.test.ts"
-			],
+			"contract": "Oh My Pi's per-user daemon, which hosts the shared workers (tiny model, embeddings, word prediction), names its build by Scient Agent's release, so a newer release always has an older release's daemon re-exec into it and drop its workers, whatever the binaries' file times. Oh My Pi's package version, which two Scient Agent releases on one Oh My Pi release share, would leave the order to the binaries' modification times.",
+			"owned": ["packages/coding-agent/test/scient/daemon-build.test.ts"],
 			"upstream": [
-				"packages/coding-agent/src/mnemopi/embed-client.ts",
-				"packages/coding-agent/src/tiny/title-client.ts"
+				"packages/coding-agent/src/daemon/build.ts",
+				"packages/coding-agent/test/daemon/build.test.ts"
 			],
-			"verification": ["bun --cwd=packages/coding-agent test test/scient/worker-tag.test.ts"]
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/daemon-build.test.ts test/daemon/build.test.ts"
+			]
 		},
 		"SA-BRAND": {
 			"status": "active",
@@ -239,9 +238,9 @@
 			"status": "active",
 			"contract": "Scient builds the native addon with cargo on the pinned toolchain: stable expressions where Oh My Pi's Bazel build allows unstable ones.",
 			"upstream": [
-				"crates/pi-vfs/src/canonicalize.rs",
-				"crates/pi-vfs/src/native/windows.rs",
-				"crates/pi-vfs/src/path.rs"
+				"crates/vfs/src/canonicalize.rs",
+				"crates/vfs/src/native/windows.rs",
+				"crates/vfs/src/path.rs"
 			]
 		},
 		"SA-RPC-SPOOL": {
@@ -318,11 +317,11 @@
 		"SA-MAC-GRANT": {
 			"status": "active",
 			"contract": "On macOS a Screen Recording or Accessibility grant made while the agent runs counts at once, with no restart: macOS keeps each process's first answer, so when the agent's own answer is no, a short-lived child process asks again before computer control refuses. The child's checks never prompt; a refusal is reused for two seconds and a grant for the life of the process. A general fix, to be offered upstream.",
-			"owned": ["crates/pi-natives/src/desktop/macos/scient/fresh_grant.rs"],
+			"owned": ["crates/natives/src/desktop/macos/scient/fresh_grant.rs"],
 			"upstream": [
-				"crates/pi-natives/src/desktop/macos/ax.rs",
-				"crates/pi-natives/src/desktop/macos/capture.rs",
-				"crates/pi-natives/src/desktop/macos/mod.rs"
+				"crates/natives/src/desktop/macos/ax.rs",
+				"crates/natives/src/desktop/macos/capture.rs",
+				"crates/natives/src/desktop/macos/mod.rs"
 			],
 			"verification": ["bun run test:rs"]
 		},
@@ -331,9 +330,9 @@
 			"contract": "On macOS the agent sends no Accessibility (AX) message while it is not trusted: making an application element, the AX hit-test behind window probes, and the AXHidden read before showing an application all check trust first, without a prompt. An AX message from an untrusted process makes macOS ask for Accessibility, so a computer call that refuses for lack of a permission raised that prompt. Only the host asks. Probes then answer nothing, as they do when an application doesn't answer. A general fix, to be offered upstream.",
 			"owned": [],
 			"upstream": [
-				"crates/pi-natives/src/desktop/macos/applications.rs",
-				"crates/pi-natives/src/desktop/macos/ax.rs",
-				"crates/pi-natives/src/desktop/macos/mod.rs"
+				"crates/natives/src/desktop/macos/applications.rs",
+				"crates/natives/src/desktop/macos/ax.rs",
+				"crates/natives/src/desktop/macos/mod.rs"
 			],
 			"verification": ["bun run test:rs"]
 		},
