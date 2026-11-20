@@ -106,6 +106,8 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		['return value ? value : "omp";', `return value ? value : "${COMMAND}";`],
 	],
 	// The User-Agent names the app (`APP_NAME/<version>`); a test that reads it names it too.
+	// The Git view's GitHub avatar lookup names the app to GitHub.
+	"packages/coding-agent/src/cli/git-tui/avatar.ts": [['"User-Agent": "omp"', `"User-Agent": "${COMMAND}"`]],
 	"packages/coding-agent/test/spotlight/wire.test.ts": [['toStartWith("omp/")', `toStartWith("${COMMAND}/")`]],
 	"packages/coding-agent/src/cli/commands/init-xdg.ts": [
 		['const APP_NAME = "omp";', `const APP_NAME = "${COMMAND}";`],
