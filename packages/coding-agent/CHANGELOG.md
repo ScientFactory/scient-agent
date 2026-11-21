@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+<!-- scient(SA-CODEX-PLUGINS): begin - Installed Codex plugins. -->
+### Added
+
+- The skills and MCP servers of the Codex plugins you installed and enabled load when the `codex-plugins` source is on (`enabledProviders`, or a host's `SCIENT_AGENT_ENABLE_SOURCES`). Plugins that only work inside OpenAI's apps are left out.
+
+<!-- scient(SA-CODEX-PLUGINS): end -->
 ## [19.0.1] - 2026-11-19
 
 ### Added

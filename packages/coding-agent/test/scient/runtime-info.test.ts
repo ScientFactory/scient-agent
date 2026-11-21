@@ -16,6 +16,7 @@ describe("--runtime-info", () => {
 			rpcProtocolVersions: [1, 2],
 			buildId: BUILD_ID,
 			hostCommands: ["apps", "dictate"],
+			enableSources: ["claude-plugins", "codex-plugins"],
 		});
 	});
 });

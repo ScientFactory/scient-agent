@@ -256,6 +256,9 @@ function extractMCPServersFromToml(
 
 	return result;
 }
+// scient(SA-CODEX-PLUGINS): begin - Installed Codex plugins map their MCP servers as Codex's config.toml does.
+export { extractMCPServersFromToml };
+// scient(SA-CODEX-PLUGINS): end
 
 // =============================================================================
 // Skills (skills/)
