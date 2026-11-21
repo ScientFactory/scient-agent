@@ -24,6 +24,11 @@ export interface RuntimeInfo {
 	 * prompt, so a host checks this list instead of guessing from the version.
 	 */
 	hostCommands: string[];
+	/**
+	 * Plugin discovery sources a host may name in `SCIENT_AGENT_ENABLE_SOURCES`. An executable
+	 * that does not list a source has no reader for it, so a host checks this list before it offers it.
+	 */
+	enableSources: string[];
 }
 
 export function formatRuntimeInfo(): string {
@@ -34,6 +39,7 @@ export function formatRuntimeInfo(): string {
 		rpcProtocolVersions: [1, 2],
 		buildId: BUILD_ID,
 		hostCommands: ["apps", "dictate"],
+		enableSources: ["claude-plugins", "codex-plugins"],
 	};
 	return `${JSON.stringify(info)}\n`;
 }

@@ -69,7 +69,7 @@
 		},
 		"SA-PRODUCT": {
 			"status": "active",
-			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps and the Scient commands a host may run (hostCommands).",
+			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps, the Scient commands a host may run (hostCommands) and the plugin sources a host may add with SCIENT_AGENT_ENABLE_SOURCES (enableSources).",
 			"owned": [
 				"scient.json",
 				"scripts/scient/stamp-build-id.ts",
@@ -516,6 +516,23 @@
 			],
 			"verification": [
 				"bun test packages/coding-agent/test/scient/xdev-catalog.test.ts packages/coding-agent/test/scient/eval-docs.test.ts"
+			]
+		},
+		"SA-CODEX-PLUGINS": {
+			"status": "active",
+			"contract": "The opt-in user source codex-plugins (enabledProviders or SCIENT_AGENT_ENABLE_SOURCES; codex does not imply it) loads the skills and MCP servers of Codex plugins enabled in $CODEX_HOME/config.toml (default ~/.codex), from the version Codex runs in $CODEX_HOME/plugins/cache/<marketplace>/<name>/ and its .codex-plugin/plugin.json. MCP fields map as the codex provider maps config.toml (env_vars, bearer_token_env_var, tool_timeout_sec), relative command and cwd resolve inside the package, servers are named <plugin>:<server>, and a plugin's mcp_servers.<name>.enabled = false disables one. OpenAI host-only plugins (browser, chrome, codex-app-tools, computer-use, unified-computer-use from openai-bundled), servers launched by computer-use-client-launcher or signed in with Codex's ChatGPT session, app references and hooks are not loaded.",
+			"owned": [
+				"packages/coding-agent/src/scient/codex-plugins.ts",
+				"packages/coding-agent/test/scient/codex-plugins.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/capability/index.ts",
+				"packages/coding-agent/src/discovery/codex.ts",
+				"packages/coding-agent/src/discovery/index.ts",
+				"packages/coding-agent/CHANGELOG.md"
+			],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/codex-plugins.test.ts"
 			]
 		}
 	}

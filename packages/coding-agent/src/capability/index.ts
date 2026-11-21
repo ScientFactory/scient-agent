@@ -56,6 +56,9 @@ const FOREIGN_USER_PROVIDERS: Record<string, true> = {
 	codex: true,
 	claude: true,
 	"claude-plugins": true,
+	// scient(SA-CODEX-PLUGINS): begin - Installed Codex plugins are opt-in like Claude's.
+	"codex-plugins": true,
+	// scient(SA-CODEX-PLUGINS): end
 	gemini: true,
 	opencode: true,
 	windsurf: true,
