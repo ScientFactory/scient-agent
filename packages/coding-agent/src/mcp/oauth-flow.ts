@@ -393,6 +393,10 @@ export interface MCPOAuthConfig {
 	clientId?: string;
 	/** Client secret (optional for PKCE flows) */
 	clientSecret?: string;
+	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in follows no token-endpoint redirect.
+	/** Fail the token exchange on a redirect instead of following it with the code, verifier and secret. */
+	rejectRedirects?: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 	/** OAuth scopes (space-separated) */
 	scopes?: string;
 	/**
@@ -616,6 +620,9 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 			},
 			body: params.toString(),
 			signal: this.ctrl.signal,
+			// scient(SA-CODEX-PLUGINS): begin - as Codex's OAuth client, never forward the exchange elsewhere.
+			...(this.config.rejectRedirects && { redirect: "error" as const }),
+			// scient(SA-CODEX-PLUGINS): end
 		});
 
 		if (!response.ok) {
@@ -886,6 +893,10 @@ export interface RefreshMCPOAuthTokenOptions {
 	 * Preserved advertised resources leave this false/undefined.
 	 */
 	stripSameOriginResource?: boolean;
+	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in follows no token-endpoint redirect.
+	/** Fail the refresh on a redirect instead of following it with the refresh token and secret. */
+	rejectRedirects?: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 }
 
 /**
@@ -900,7 +911,10 @@ export async function refreshMCPOAuthToken(
 	resourceOrOpts?: string | RefreshMCPOAuthTokenOptions,
 	opts?: RefreshMCPOAuthTokenOptions,
 ): Promise<OAuthCredentials> {
-	const optsFromTrailing = typeof resourceOrOpts === "string" ? opts : resourceOrOpts;
+	// scient(SA-CODEX-PLUGINS): begin - an undefined resource still reads the trailing options (redirect refusal,
+	// signal, authorization URL), which keying on a string resource alone dropped.
+	const optsFromTrailing = typeof resourceOrOpts === "object" ? resourceOrOpts : opts;
+	// scient(SA-CODEX-PLUGINS): end
 	const fetchImpl: FetchImpl = optsFromTrailing?.fetch ?? fetch;
 	const resource = typeof resourceOrOpts === "string" ? resourceOrOpts : undefined;
 	// Filter against the authorization-server origin when known (RFC 8414
@@ -927,6 +941,9 @@ export async function refreshMCPOAuthToken(
 		headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
 		body: params.toString(),
 		signal: optsFromTrailing?.signal,
+		// scient(SA-CODEX-PLUGINS): begin - as Codex's OAuth client, never forward the refresh elsewhere.
+		...(optsFromTrailing?.rejectRedirects && { redirect: "error" as const }),
+		// scient(SA-CODEX-PLUGINS): end
 	});
 
 	if (!response.ok) {

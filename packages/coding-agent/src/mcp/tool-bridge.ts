@@ -507,6 +507,8 @@ async function reconnectWithAbort(
 	deadlineAt?: number,
 ): Promise<MCPServerConnection | null> {
 	try {
+		// A spent deadline starts no reconnect.
+		if (deadlineAt !== undefined && performance.now() >= deadlineAt) return null;
 		const pending = untilAborted(signal, () => reconnect(options));
 		if (deadlineAt === undefined) return await pending;
 		void pending.catch(() => {});

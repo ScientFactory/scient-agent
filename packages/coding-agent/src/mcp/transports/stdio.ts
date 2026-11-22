@@ -924,6 +924,25 @@ export class StdioTransport implements MCPTransport {
 			}, delay);
 		};
 		if (isMCPTimeoutEnabled(timeout)) armTimer();
+		// scient(SA-CODEX-PLUGINS): begin - a capped tool call whose budget ran out while it was being prepared is
+		// not written: no timer would be left to end it.
+		if (
+			method === "tools/call" &&
+			this.config.toolTimeoutMs !== undefined &&
+			performance.now() >= startedAt + maxTotalMs
+		) {
+			settle(
+				new MCPTransportError({
+					transport: "stdio",
+					stage: "send",
+					failure: "timeout",
+					message: `Request timeout after ${maxTotalMs}ms`,
+					retryable: false,
+				}),
+			);
+			return promise;
+		}
+		// scient(SA-CODEX-PLUGINS): end
 
 		if (signal) {
 			signal.addEventListener("abort", onAbort, { once: true });

@@ -61,6 +61,9 @@ const HOST_LAUNCHER = "computer-use-client-launcher";
 /** Codex's tool-call limit when a server sets no tool_timeout_sec (codex-mcp DEFAULT_TOOL_TIMEOUT). */
 const CODEX_DEFAULT_TOOL_TIMEOUT_MS = 300_000;
 
+/** The server names Codex starts (codex-mcp validate_mcp_server_name). */
+const CODEX_SERVER_NAME = /^[a-zA-Z0-9_:@/.-]+$/;
+
 const IS_WINDOWS = process.platform === "win32";
 
 /**
@@ -1263,6 +1266,11 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			const reason = hostOnlyReason(server);
 			if (reason !== undefined) {
 				logger.debug(`${skip}: ${reason}`);
+				continue;
+			}
+			// Codex refuses to start a server whose name does not match its pattern (validate_mcp_server_name).
+			if (!CODEX_SERVER_NAME.test(serverName)) {
+				warnings.push(`${skip}: Codex refuses its name, which must match ${CODEX_SERVER_NAME.source}`);
 				continue;
 			}
 			// Codex registers the config's own `[mcp_servers.<name>]` over a plugin's server of that name,

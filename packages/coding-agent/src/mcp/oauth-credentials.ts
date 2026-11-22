@@ -133,9 +133,23 @@ export function selectMcpOAuthRefreshMaterial(
  */
 export function refreshManagedMcpOAuthCredential(
 	credential: MCPStoredOAuthCredential,
-	opts: { serverUrl?: string; auth?: MCPAuthConfig; signal?: AbortSignal } = {},
+	// scient(SA-CODEX-PLUGINS): begin - every refresh path (manager, broker, `omp token`) names the row, so a
+	// server-bound sign-in refreshes as Codex does: with the stored client ID and only the secret its current
+	// definition configures (none when the caller has no definition), and following no redirect.
+	opts: {
+		serverUrl?: string;
+		auth?: MCPAuthConfig;
+		signal?: AbortSignal;
+		credentialId?: string;
+		clientSecret?: string;
+	} = {},
 ): Promise<OAuthCredentials> {
-	const material = selectMcpOAuthRefreshMaterial(credential, opts.auth);
+	const bound = isMcpOAuthServerCredentialId(opts.credentialId);
+	const material = selectMcpOAuthRefreshMaterial(
+		bound ? { ...credential, clientSecret: opts.clientSecret } : credential,
+		opts.auth,
+	);
+	// scient(SA-CODEX-PLUGINS): end
 	const tokenUrl = material?.tokenUrl;
 	if (!credential.refresh || !tokenUrl) {
 		throw new Error("MCP OAuth credential is missing refresh material");
@@ -147,6 +161,9 @@ export function refreshManagedMcpOAuthCredential(
 		authorizationUrl,
 		stripSameOriginResource: resourceIsFallback,
 		signal: opts.signal,
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound refresh follows no redirect; others are unchanged.
+		...(bound && { rejectRedirects: true }),
+		// scient(SA-CODEX-PLUGINS): end
 	});
 }
 
@@ -214,8 +231,6 @@ export async function refreshStoredManagedMcpOAuthCredential(
 	// scient(SA-CODEX-PLUGINS): begin - like Codex, a server-bound sign-in refreshes with the stored client ID and
 	// the secret configured now, or none; it never sends or keeps a stored secret.
 	const bound = isMcpOAuthServerCredentialId(provider);
-	const withCurrentSecret = (credential: MCPStoredOAuthCredential): MCPStoredOAuthCredential =>
-		bound ? { ...credential, clientSecret: opts.clientSecret } : credential;
 	const observedCredential: MCPStoredOAuthCredential = row.credential;
 	// scient(SA-CODEX-PLUGINS): end
 	const serverUrl =
@@ -235,10 +250,12 @@ export async function refreshStoredManagedMcpOAuthCredential(
 		refresh: (current, signal) =>
 			current.refresh === REMOTE_REFRESH_SENTINEL
 				? refreshBrokeredMcpOAuthCredential(authStorage, row.id, provider, signal)
-				: refreshManagedMcpOAuthCredential(withCurrentSecret(current), {
+				: refreshManagedMcpOAuthCredential(current, {
 						serverUrl,
 						auth: opts.auth,
 						signal,
+						credentialId: provider,
+						clientSecret: opts.clientSecret,
 					}),
 		// scient(SA-CODEX-PLUGINS): end
 		mergeRefreshedCredential: (current, refreshed) => {
