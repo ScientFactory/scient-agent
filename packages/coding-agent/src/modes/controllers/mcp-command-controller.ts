@@ -1307,8 +1307,13 @@ export class MCPCommandController {
 
 			// Resolve auth config if needed
 			let resolvedConfig: MCPServerConfig;
-			// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it.
-			const testConfig = withTrustedMcpAuth(name, config, this.ctx.mcpManager?.getSource(name)?.provider);
+			// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it: the
+			// source is the selected definition's own, and a config-file definition has none that binds.
+			const testConfig = withTrustedMcpAuth(
+				name,
+				config,
+				found.discovered ? this.ctx.mcpManager?.getSource(name)?.provider : undefined,
+			);
 			if (this.ctx.mcpManager) {
 				resolvedConfig = await this.ctx.mcpManager.prepareConfig(testConfig);
 			} else {
@@ -1601,9 +1606,23 @@ export class MCPCommandController {
 		}
 
 		try {
-			const found = await findMcpServerForAuth(name, getProjectDir(), this.ctx.mcpManager, {
-				enableProjectConfig: cfgMcpEnableProjectConfig.get(this.ctx.settings),
-			});
+			// scient(SA-CODEX-PLUGINS): begin - a challenge from a live imported server is answered for that live
+			// definition, never a same-named config-file entry.
+			const live =
+				options.authChallenge !== undefined && this.ctx.mcpManager?.getSource(name)?.provider === "codex-plugins"
+					? this.ctx.mcpManager.getServerConfig(name)
+					: undefined;
+			const found = live
+				? {
+						filePath: getMCPConfigPath("user", getProjectDir()),
+						scope: "user" as const,
+						config: live,
+						discovered: true,
+					}
+				: await findMcpServerForAuth(name, getProjectDir(), this.ctx.mcpManager, {
+						enableProjectConfig: cfgMcpEnableProjectConfig.get(this.ctx.settings),
+					});
+			// scient(SA-CODEX-PLUGINS): end
 			if (!found) {
 				if (!options.silent) this.ctx.showError(`Server "${name}" not found.`);
 				return;

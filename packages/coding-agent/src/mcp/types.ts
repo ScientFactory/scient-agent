@@ -76,6 +76,13 @@ interface MCPServerConfigBase {
 	enabled?: boolean;
 	/** MCP request timeout in milliseconds (default: 30000, 0 to disable) */
 	timeout?: number;
+	// scient(SA-CODEX-PLUGINS): begin - a hard cap on tool calls.
+	/**
+	 * Hard limit on a `tools/call`, in milliseconds, which a call's own wait arguments never extend
+	 * (an imported Codex plugin's `tool_timeout_sec`).
+	 */
+	toolTimeoutMs?: number;
+	// scient(SA-CODEX-PLUGINS): end
 	/**
 	 * Encoding for outgoing JSON-RPC request ids (default: `"number"`).
 	 *

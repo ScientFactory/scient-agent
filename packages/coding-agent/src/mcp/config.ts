@@ -59,6 +59,7 @@ function convertToLegacyConfig(server: MCPServer): MCPServerConfig {
 		// scient(SA-CODEX-PLUGINS): begin - only the codex-plugins source binds a server to its own sign-in,
 		// and only under the id its name and URL give: any other definition naming one is not bound to it.
 		auth: trustedMcpAuth(server.name, server.auth, server.url, server._source.provider),
+		toolTimeoutMs: server.toolTimeoutMs,
 		// scient(SA-CODEX-PLUGINS): end
 		oauth: server.oauth,
 	};

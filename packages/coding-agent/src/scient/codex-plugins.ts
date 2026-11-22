@@ -978,9 +978,11 @@ async function mapLegacyServer(
 	if (!isStdio && server.url == null) return { error: "it declares neither command nor url" };
 	const wrong = (isStdio ? NOT_STDIO : NOT_HTTP).find(key => server[key] != null);
 	if (wrong !== undefined) return { error: `${wrong} is not supported for ${isStdio ? "stdio" : "streamable HTTP"}` };
+	// Codex holds every tool call to tool_timeout_sec, whatever the call's arguments ask; at zero every
+	// call times out, which no cap here can reproduce.
+	if (server.tool_timeout_sec === 0) return { error: "Codex times out each of its tool calls (tool_timeout_sec = 0)" };
 	const common = {
-		...(typeof server.tool_timeout_sec === "number" &&
-			server.tool_timeout_sec > 0 && { timeout: server.tool_timeout_sec * 1000 }),
+		...(typeof server.tool_timeout_sec === "number" && { toolTimeoutMs: server.tool_timeout_sec * 1000 }),
 	};
 
 	if (isStdio) {

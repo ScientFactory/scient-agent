@@ -64,12 +64,24 @@ export function resolveMCPRequestDeadline(
 	configTimeout: number | undefined,
 	method: string,
 	params?: Record<string, unknown>,
+	// scient(SA-CODEX-PLUGINS): begin - a hard cap on tool calls (an imported Codex plugin's tool_timeout_sec).
+	toolTimeoutCapMs?: number,
+	// scient(SA-CODEX-PLUGINS): end
 ): MCPRequestDeadline {
 	const configured = envTimeoutMs() ?? configTimeout;
 	if (method !== "tools/call") {
 		const timeoutMs = configured ?? DEFAULT_MCP_TIMEOUT_MS;
 		return { timeoutMs, maxTotalMs: timeoutMs };
 	}
+	// scient(SA-CODEX-PLUGINS): begin - Codex keeps tool_timeout_sec as the limit, whatever the call asks for.
+	if (toolTimeoutCapMs !== undefined) {
+		const cap =
+			configured !== undefined && isMCPTimeoutEnabled(configured)
+				? Math.min(toolTimeoutCapMs, configured)
+				: toolTimeoutCapMs;
+		return { timeoutMs: cap, maxTotalMs: cap };
+	}
+	// scient(SA-CODEX-PLUGINS): end
 	const base = configured ?? DEFAULT_MCP_TOOL_CALL_TIMEOUT_MS;
 	if (!isMCPTimeoutEnabled(base)) return { timeoutMs: base, maxTotalMs: base };
 	const requested = requestedToolTimeoutMs(params?.arguments);

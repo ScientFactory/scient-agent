@@ -157,6 +157,20 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		expect(storage.credentials.get(oauthFlow.mcpOAuthCredentialId(SERVER_URL))).toMatchObject({ access: "native" });
 	});
 
+	it("asks for a fresh sign-in once the plugin configures another OAuth client", async () => {
+		const storage = freshStorage();
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		const stored: oauthFlow.MCPStoredOAuthCredential = { ...token, clientId: "client-a" };
+		await storage.credentials.set(credentialId, stored);
+		const withClient = (clientId: string): MCPServerConfig => ({
+			...boundConfig(),
+			oauth: { clientId, clientSecret: "s" },
+		});
+		expect(lookupMcpOAuthCredential(storage, withClient("client-a"))?.credentialId).toBe(credentialId);
+		// Client A's token is neither sent nor refreshed for client B.
+		expect(lookupMcpOAuthCredential(storage, withClient("client-b"))).toBeUndefined();
+	});
+
 	it("leaves a server's own token in charge, as Codex does", async () => {
 		const storage = freshStorage();
 		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
@@ -283,5 +297,44 @@ describe("an imported Codex plugin server's own sign-in", () => {
 			setProjectDir(previousProject);
 			setAgentDir(previousAgent);
 		}
+	});
+
+	it("answers a live imported server's sign-in challenge for that server, not a same-named file entry", async () => {
+		using temp = TempDir.createSync("@scient-codex-plugins-challenge-");
+		const previousProject = getProjectDir();
+		const previousAgent = getAgentDir();
+		setProjectDir(temp.path());
+		setAgentDir(temp.join("agent"));
+		// A config-file entry of the same name, which a lookup by name alone would pick.
+		await Bun.write(
+			getMCPConfigPath("project", temp.path()),
+			JSON.stringify({ mcpServers: { [NAME]: { type: "http", url: SERVER_URL } } }),
+		);
+		const connect = vi.spyOn(mcpClient, "connectToServer").mockRejectedValue(new Error("HTTP 401"));
+		const storage = freshStorage();
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		try {
+			const ctx = createInteractiveModeContext({
+				session: { modelRegistry: { authStorage: storage } },
+				mcpManager: createMcpManagerStub({
+					// The live server names its own token, so no OAuth sign-in may start for it.
+					getServerConfig: vi.fn(() => ({ ...boundConfig(), auth: { type: "apikey" as const, credentialId } })),
+					getSource: vi.fn(() => ({
+						provider: "codex-plugins",
+						providerName: "Codex Plugins",
+						path: "/codex/plugin/.mcp.json",
+						level: "user" as const,
+					})),
+				}),
+			});
+			const challenge = { wwwAuthenticate: ['Bearer scope="read"'] };
+			expect(await new MCPCommandController(ctx).handleMCPAuthChallenge(NAME, challenge)).toBeUndefined();
+		} finally {
+			setProjectDir(previousProject);
+			setAgentDir(previousAgent);
+		}
+		// Refused before any probe: the file entry was never signed in.
+		expect(connect).not.toHaveBeenCalled();
+		expect(storage.credentials.get(oauthFlow.mcpOAuthCredentialId(SERVER_URL))).toBeUndefined();
 	});
 });
