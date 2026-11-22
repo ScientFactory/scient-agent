@@ -124,6 +124,10 @@ export interface MCPStdioServerConfig extends MCPServerConfigBase {
 	envPolicy?: "literal";
 	/** Env keys whose values are final package data; auth resolution keeps them verbatim. */
 	envLiteralKeys?: string[];
+	// scient(SA-CODEX-PLUGINS): begin - A Codex plugin's server inherits only what Codex passes it.
+	/** When set, only these variables are inherited from the agent's environment; `env` still applies on top. */
+	envInherit?: string[];
+	// scient(SA-CODEX-PLUGINS): end
 	cwd?: string;
 }
 

@@ -592,10 +592,15 @@ export class StdioTransport implements MCPTransport {
 		signal?.throwIfAborted();
 		if (this.#connected) return;
 
+		// scient(SA-CODEX-PLUGINS): begin - A Codex plugin's server inherits only what Codex passes it.
+		const inherited: Record<string, string | undefined> = this.config.envInherit
+			? Object.fromEntries(this.config.envInherit.map(name => [name, Bun.env[name]]).filter(([, value]) => value))
+			: Bun.env;
 		const env = {
-			...Bun.env,
+			...inherited,
 			...this.config.env,
 		};
+		// scient(SA-CODEX-PLUGINS): end
 		const cwd = this.config.cwd ?? getProjectDir();
 		const spawnCommand = await resolveStdioSpawnCommand(this.config, {
 			cwd,
