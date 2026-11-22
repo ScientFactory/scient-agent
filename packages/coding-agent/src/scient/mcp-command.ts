@@ -54,6 +54,16 @@ function print(value: unknown): void {
 	process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
+/** Waits until everything printed has reached stdout; a write that failed makes the exit nonzero. */
+function flushStdout(): Promise<void> {
+	const { promise, resolve } = Promise.withResolvers<void>();
+	process.stdout.write("", error => {
+		if (error) process.exitCode = 1;
+		resolve();
+	});
+	return promise;
+}
+
 /** A connection failure in words written here: the HTTP status at most, never the server's text. */
 function connectionFailure(config: MCPServerConfig | undefined, failure: string): string {
 	const status = /^HTTP (\d{3})\b/.exec(failure)?.[1];
@@ -164,7 +174,8 @@ export default class Mcp extends Command {
 			authStorage.close();
 			releaseSettings();
 		}
-		// The startup window's timer outlives a startup that settled sooner; nothing else is left to do.
+		// The startup window's timer outlives a startup that settled sooner; once the output is out, nothing is left to do.
+		await flushStdout();
 		process.exit();
 	}
 
