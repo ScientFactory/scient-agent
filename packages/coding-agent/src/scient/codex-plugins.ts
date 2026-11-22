@@ -147,11 +147,6 @@ interface CodexPlugin {
 	id: string;
 	name: string;
 	marketplace: string;
-	/**
-	 * Skill namespace and MCP server prefix: the name, or `<name>:<marketplace>` when two enabled
-	 * plugins share it. Neither part may contain `:`, so the qualified form never meets another.
-	 */
-	label: string;
 	/** The active version's folder, symlinks resolved; every package path stays inside it. */
 	root: string;
 	/** `standard`: a root Agent Plugins `plugin.json`, read under that standard; `legacy`: a Codex-style manifest. */
@@ -175,6 +170,8 @@ interface PluginList {
 	env: Record<string, string>;
 	/** The user config's skill rules, in Codex's order. */
 	skillRules: SkillRule[];
+	/** Servers the config names in `[mcp_servers]`, which Codex runs instead of a plugin's same-named one. */
+	configuredServers: ReadonlySet<string>;
 }
 
 /** Codex's rule for a cache path segment (plugin, marketplace or version name). */
@@ -290,7 +287,7 @@ async function readPlugin(
 	id: string,
 	config: Record<string, unknown>,
 	warnings: string[],
-): Promise<Omit<CodexPlugin, "label"> | null> {
+): Promise<CodexPlugin | null> {
 	const at = id.lastIndexOf("@");
 	const name = id.slice(0, at);
 	const marketplace = id.slice(at + 1);
@@ -485,6 +482,41 @@ async function readSkillRules(user: Record<string, unknown>, warnings: string[])
 }
 
 /**
+ * Where an app's settings in a plugin's `apps` table have a type Codex rejects (`AppConfig`), as
+ * a key path suffix (`""` for the table itself), or undefined.
+ */
+function appTypeError(settings: unknown): string | undefined {
+	const isReviewer = (value: unknown) => value === "user" || value === "auto_review" || value === "guardian_subagent";
+	if (!isRecord(settings)) return "";
+	for (const key of ["enabled", "destructive_enabled", "open_world_enabled", "default_tools_enabled"]) {
+		if (settings[key] != null && !isBoolean(settings[key])) return `.${key}`;
+	}
+	if (settings.omit_tools_from != null && !SERVER_FIELD_TYPES.omit_tools_from(settings.omit_tools_from)) {
+		return ".omit_tools_from";
+	}
+	if (settings.approvals_reviewer != null && !isReviewer(settings.approvals_reviewer)) return ".approvals_reviewer";
+	const mode = settings.default_tools_approval_mode;
+	if (mode != null && !isApprovalMode(mode)) return ".default_tools_approval_mode";
+	for (const [group, fields] of [
+		["tools", { enabled: isBoolean, approval_mode: isApprovalMode, approvals_reviewer: isReviewer }],
+		["links", { approvals_reviewer: isReviewer, default_tools_approval_mode: isApprovalMode }],
+	] as const) {
+		const entries = settings[group];
+		if (entries == null) continue;
+		if (!isRecord(entries)) return `.${group}`;
+		for (const [name, entry] of Object.entries(entries)) {
+			if (!isRecord(entry)) return `.${group}.${name}`;
+			for (const [field, valid] of Object.entries(fields)) {
+				if (entry[field] != null && !(valid as (value: unknown) => boolean)(entry[field])) {
+					return `.${group}.${name}.${field}`;
+				}
+			}
+		}
+	}
+	return undefined;
+}
+
+/**
  * The first field of the merged `[plugins]` table whose type Codex rejects (`PluginsConfigToml`),
  * or undefined. Codex then reads no plugin settings at all.
  */
@@ -495,7 +527,13 @@ function pluginsTypeError(table: Record<string, unknown>): string | undefined {
 		for (const key of ["remote_plugin_id", "release_id"]) {
 			if (config[key] != null && !isString(config[key])) return `${id}.${key}`;
 		}
-		if (config.apps != null && !isRecord(config.apps)) return `${id}.apps`;
+		if (config.auto_provision != null && !isBoolean(config.auto_provision)) return `${id}.auto_provision`;
+		const apps = config.apps;
+		if (apps != null && !isRecord(apps)) return `${id}.apps`;
+		for (const [app, settings] of Object.entries(apps ?? {})) {
+			const mistyped = appTypeError(settings);
+			if (mistyped !== undefined) return `${id}.apps.${app}${mistyped}`;
+		}
 		const servers = config.mcp_servers;
 		if (servers == null) continue;
 		if (!isRecord(servers)) return `${id}.mcp_servers`;
@@ -517,6 +555,13 @@ function pluginsTypeError(table: Record<string, unknown>): string | undefined {
 /** Installed, enabled Codex plugins outside {@link HOST_PLUGINS}. */
 async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const warnings: string[] = [];
+	const none = (env: Record<string, string>): PluginList => ({
+		plugins: [],
+		warnings,
+		env,
+		skillRules: [],
+		configuredServers: new Set(),
+	});
 	// The environment Scient Agent was launched with: no `.env` file, from this project or one the
 	// agent worked in before, chooses Codex's home or what reaches a plugin's server.
 	const launch = getLaunchEnv();
@@ -524,26 +569,40 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 		warnings.push(
 			"[codex-plugins] This run cannot tell Scient Agent's launch environment from .env files (start it with --no-env-file); no Codex plugins load",
 		);
-		return { plugins: [], warnings, env: {}, skillRules: [] };
+		return none({});
 	}
 	const env = filterProcessEnv(launch);
-	// Codex's home: `CODEX_HOME`, else `~/.codex`.
-	const home = env.CODEX_HOME?.trim() || path.join(ctx.home, ".codex");
+	// Codex's home: `CODEX_HOME` exactly as set, which must be a folder, canonicalized; else `~/.codex`.
+	let home = path.join(ctx.home, ".codex");
+	if (env.CODEX_HOME) {
+		if (!(await fs.stat(env.CODEX_HOME).catch(() => null))?.isDirectory()) {
+			warnings.push(
+				`[codex-plugins] CODEX_HOME points to ${JSON.stringify(env.CODEX_HOME)}, which is not a folder, so Codex does not start; no Codex plugins load`,
+			);
+			return none(env);
+		}
+		home = await fs.realpath(env.CODEX_HOME);
+	}
 	const policy = await managedPolicy();
 	if (policy !== undefined) {
 		warnings.push(`[codex-plugins] ${policy}, which Scient Agent cannot apply; no Codex plugins load`);
-		return { plugins: [], warnings, env, skillRules: [] };
+		return none(env);
 	}
 	const user = await readToml(path.join(home, "config.toml"), warnings);
-	if (user === null) return { plugins: [], warnings, env, skillRules: [] };
+	if (user === null) return none(env);
 	const system = await readToml(path.join(systemDir(), "config.toml"), warnings);
 	const merged = mergeLayers(system ?? {}, user);
+	// `[features] plugins = false` turns every plugin off in Codex.
+	if (isRecord(merged.features) && "plugins" in merged.features && merged.features.plugins !== true) {
+		warnings.push("[codex-plugins] Codex's plugins are turned off ([features] plugins); no Codex plugins load");
+		return none(env);
+	}
 	const table = isRecord(merged.plugins) ? merged.plugins : {};
 	// Codex reads no plugin at all from a [plugins] table it cannot read.
 	const mistyped = pluginsTypeError(table);
 	if (mistyped !== undefined) {
 		warnings.push(`[codex-plugins] Codex cannot read its [plugins] settings (${mistyped}); no Codex plugins load`);
-		return { plugins: [], warnings, env, skillRules: [] };
+		return none(env);
 	}
 	const defaults = isRecord(table._default) ? table._default : {};
 	const enabledByDefault = defaults.enabled !== false;
@@ -554,15 +613,13 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 			return enabled ? readPlugin(home, id, config, warnings) : null;
 		}),
 	);
-	const found = read.filter(plugin => plugin !== null);
-	const shared = new Set(
-		found.filter((plugin, index) => found.findIndex(other => other.name === plugin.name) !== index).map(p => p.name),
-	);
-	const plugins = found.map(plugin => ({
-		...plugin,
-		label: shared.has(plugin.name) ? `${plugin.name}:${plugin.marketplace}` : plugin.name,
-	}));
-	return { plugins, warnings, env, skillRules: await readSkillRules(user, warnings) };
+	return {
+		plugins: read.filter(plugin => plugin !== null),
+		warnings,
+		env,
+		skillRules: await readSkillRules(user, warnings),
+		configuredServers: new Set(isRecord(merged.mcp_servers) ? Object.keys(merged.mcp_servers) : []),
+	};
 }
 
 /**
@@ -616,7 +673,7 @@ async function readPluginSkill(
 			level: "user",
 			// skill:// resolves every file of the skill inside the package too.
 			containRoot: plugin.root,
-			_source: createSourceMeta(PROVIDER_ID, skillPath, "user", undefined, plugin.label),
+			_source: createSourceMeta(PROVIDER_ID, skillPath, "user", undefined, plugin.id),
 		};
 	} catch {
 		warnings.push(`[codex-plugins] Failed to read skill file: ${skillPath}`);
@@ -689,15 +746,17 @@ async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 				const dir = await packagePath(plugin, relative, "skills", warnings);
 				if (dir !== null) dirs.add(dir);
 			}
-			const namespace =
-				typeof plugin.manifest.name === "string" && plugin.manifest.name ? plugin.manifest.name : plugin.name;
+			// Codex names a plugin's skills `<manifest name>:<skill>`, the package folder's name standing
+			// in for a blank manifest name.
+			const raw = typeof plugin.manifest.name === "string" ? plugin.manifest.name : "";
+			const namespace = raw.trim() ? raw : path.basename(plugin.root);
 			for (const dir of dirs) {
 				for (const skill of await scanPluginSkills(plugin, dir, warnings)) found.push({ skill, namespace });
 			}
 		}),
 	);
-	// The user's [[skills.config]] rules, in order: a path selects one SKILL.md, a name every skill
-	// so named (bare, or as Codex names plugin skills, `<manifest name>:<skill>`).
+	// The user's [[skills.config]] rules, in order: a path selects one SKILL.md, a name the skill
+	// Codex names so.
 	const realPaths = await Promise.all(found.map(({ skill }) => fs.realpath(skill.path).catch(() => skill.path)));
 	const disabled = new Set<string>();
 	for (const rule of skillRules) {
@@ -705,7 +764,7 @@ async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 			const selected =
 				"path" in rule.selector
 					? rule.selector.path === realPaths[index]
-					: rule.selector.name === skill.name || rule.selector.name === `${namespace}:${skill.name}`;
+					: rule.selector.name === `${namespace}:${skill.name}`;
 			if (!selected) return;
 			if (rule.enabled) disabled.delete(realPaths[index]);
 			else disabled.add(realPaths[index]);
@@ -743,8 +802,9 @@ function toolFilterKey(table: Record<string, unknown>): string | undefined {
 
 /**
  * The Codex key that makes some of a server's tools ask before they run (`prompt`, `writes`, or a
- * mode Scient Agent does not know), or undefined when Codex runs them all without asking. Scient
- * Agent cannot carry Codex's approval modes over, so such a server would run its tools unasked.
+ * mode Scient Agent does not know) or caps their output (`output_token_limit`), or undefined when
+ * neither applies. Scient Agent cannot carry either over, so such a server would run its tools
+ * unasked or return more than Codex allows.
  */
 function approvalKey(table: Record<string, unknown>): string | undefined {
 	const unasked = (mode: unknown) => mode == null || mode === "auto" || mode === "approve";
@@ -753,6 +813,7 @@ function approvalKey(table: Record<string, unknown>): string | undefined {
 	if (!isRecord(table.tools)) return "tools";
 	for (const [tool, config] of Object.entries(table.tools)) {
 		if (!isRecord(config) || !unasked(config.approval_mode)) return `tools.${tool}.approval_mode`;
+		if (config.output_token_limit != null) return `tools.${tool}.output_token_limit`;
 	}
 	return undefined;
 }
@@ -1084,7 +1145,7 @@ async function readStandardServers(
 
 async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> {
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
-	const { plugins, warnings, env } = await listCodexPlugins(ctx);
+	const { plugins, warnings, env, configuredServers } = await listCodexPlugins(ctx);
 	const items: MCPServer[] = [];
 	for (const plugin of plugins) {
 		const policies = isRecord(plugin.config.mcp_servers) ? plugin.config.mcp_servers : {};
@@ -1101,6 +1162,12 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			const reason = hostOnlyReason(server);
 			if (reason !== undefined) {
 				logger.debug(`${skip}: ${reason}`);
+				continue;
+			}
+			// Codex registers the config's own `[mcp_servers.<name>]` over a plugin's server of that name,
+			// so its settings, `enabled = false` included, are what Codex runs.
+			if (configuredServers.has(serverName)) {
+				warnings.push(`${skip}: Codex runs your own [mcp_servers.${serverName}] instead`);
 				continue;
 			}
 			const declaredPolicy = policies[serverName];
@@ -1128,11 +1195,12 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 				continue;
 			}
 			items.push({
-				name: `${plugin.label}:${serverName}`,
+				// The plugin's ID names the server, so no other plugin's arrival renames it.
+				name: `${plugin.id}:${serverName}`,
 				...mapped.server,
 				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`.
 				...(policy.enabled === false && { enabled: false }),
-				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
+				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.id),
 			});
 		}
 	}

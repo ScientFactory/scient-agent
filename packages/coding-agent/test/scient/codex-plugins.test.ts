@@ -162,8 +162,12 @@ describe("installed Codex plugins", () => {
 
 		const byName = new Map((await servers()).map(server => [server.name, server]));
 		// The Computer Use client launcher runs only inside Codex.
-		expect([...byName.keys()].sort()).toEqual(["research:papers", "research:quiet", "research:tracker"]);
-		expect(byName.get("research:papers")).toMatchObject({
+		expect([...byName.keys()].sort()).toEqual([
+			"research@market:papers",
+			"research@market:quiet",
+			"research@market:tracker",
+		]);
+		expect(byName.get("research@market:papers")).toMatchObject({
 			command: path.join(researchRoot, "bin", "papers"),
 			args: ["--stdio"],
 			cwd: researchRoot,
@@ -172,18 +176,18 @@ describe("installed Codex plugins", () => {
 			transport: "stdio",
 		});
 		// Codex passes its own short list plus the server's env_vars, never the whole environment.
-		const papers = byName.get("research:papers");
+		const papers = byName.get("research@market:papers");
 		expect(papers?.envInherit).toEqual([]);
 		expect(papers?.env).toMatchObject({ PATH: process.env.PATH, CODEX_PLUGIN_TEST_TOKEN: "forwarded-value" });
 		expect(papers?.env?.CODEX_PLUGIN_TEST_PAT).toBeUndefined();
-		expect(byName.get("research:tracker")).toMatchObject({
+		expect(byName.get("research@market:tracker")).toMatchObject({
 			url: "https://mcp.example.test/mcp",
 			headers: { Authorization: "Bearer pat-value" },
 			headerPolicy: "origin-locked",
 			transport: "http",
 		});
 		// The plugin's config table turns this server off, as Codex does.
-		expect(byName.get("research:quiet")?.enabled).toBe(false);
+		expect(byName.get("research@market:quiet")?.enabled).toBe(false);
 	});
 
 	/**
@@ -206,7 +210,7 @@ describe("installed Codex plugins", () => {
 	const limits = async () => {
 		const result = await loadCapability<MCPServer>("mcps", { cwd, agentDir });
 		return {
-			names: result.items.filter(server => server.name.startsWith("limits:")).map(server => server.name),
+			names: result.items.filter(server => server.name.startsWith("limits@market:")).map(server => server.name),
 			warnings: result.warnings.filter(warning => warning.includes("of limits@market")),
 		};
 	};
@@ -217,7 +221,7 @@ describe("installed Codex plugins", () => {
 			open: { command: "node", args: ["open.mjs"], disabled_tools: [] },
 		});
 		expect(await limits()).toEqual({
-			names: ["limits:open"],
+			names: ["limits@market:open"],
 			warnings: [
 				'[Codex Plugins] [codex-plugins] Skipping MCP server "narrow" of limits@market: Codex restricts its tools (enabled_tools), which Scient Agent cannot enforce',
 			],
@@ -234,7 +238,7 @@ describe("installed Codex plugins", () => {
 			['[plugins."limits@market".mcp_servers.prompted]', 'default_tools_approval_mode = "prompt"'],
 		);
 		const { names, warnings } = await limits();
-		expect(names).toEqual(["limits:approved"]);
+		expect(names).toEqual(["limits@market:approved"]);
 		expect(warnings).toContainEqual(expect.stringContaining("tools.save.approval_mode"));
 		expect(warnings).toContainEqual(expect.stringContaining("default_tools_approval_mode"));
 	});
@@ -245,15 +249,21 @@ describe("installed Codex plugins", () => {
 			negative: { command: "node", args: ["negative.mjs"], startup_timeout_sec: -1 },
 			// One past u64::MAX, which Codex's startup_timeout_ms cannot hold.
 			huge: { command: "node", args: ["huge.mjs"], startup_timeout_ms: 2 ** 64 },
+			capped: { command: "node", args: ["capped.mjs"], tools: { read: { output_token_limit: 100 } } },
 			shown: { command: "node", args: ["shown.mjs"], omit_tools_from: [] },
 		});
 		const { names, warnings } = await limits();
-		expect(names).toEqual(["limits:shown"]);
+		expect(names).toEqual(["limits@market:shown"]);
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"hidden" of limits@market: Codex restricts its tools (omit_tools_from)'),
 		);
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"negative" of limits@market: invalid startup_timeout_sec'),
+		);
+		expect(warnings).toContainEqual(
+			expect.stringContaining(
+				'"capped" of limits@market: Codex restricts its tools (tools.read.output_token_limit)',
+			),
 		);
 	});
 
@@ -263,7 +273,7 @@ describe("installed Codex plugins", () => {
 			['[plugins."limits@market".mcp_servers.denied]', 'disabled_tools = ["delete"]'],
 		);
 		expect(await limits()).toEqual({
-			names: ["limits:open"],
+			names: ["limits@market:open"],
 			warnings: [
 				'[Codex Plugins] [codex-plugins] Skipping MCP server "denied" of limits@market: Codex restricts its tools (disabled_tools), which Scient Agent cannot enforce',
 			],
@@ -277,7 +287,7 @@ describe("installed Codex plugins", () => {
 			open: { command: "node", args: ["open.mjs"] },
 		});
 		expect(await limits()).toEqual({
-			names: ["limits:open"],
+			names: ["limits@market:open"],
 			warnings: [
 				`[Codex Plugins] [codex-plugins] Skipping MCP server "bad" of limits@market: invalid env_vars (${mcpPath})`,
 				`[Codex Plugins] [codex-plugins] Skipping MCP server "headers" of limits@market: invalid http_headers (${mcpPath})`,
@@ -332,7 +342,7 @@ describe("installed Codex plugins", () => {
 			].join("\n"),
 		);
 		clearFsCache();
-		expect([...(await load()).byName.keys()]).toEqual(["opted:one"]);
+		expect([...(await load()).byName.keys()]).toEqual(["opted@market:one"]);
 	});
 
 	it("rejects servers Codex would reject and maps OAuth client settings", async () => {
@@ -356,8 +366,8 @@ describe("installed Codex plugins", () => {
 			},
 		});
 		const { byName, warnings } = await load();
-		expect([...byName.keys()].filter(name => name.startsWith("strict:"))).toEqual(["strict:signin"]);
-		expect(byName.get("strict:signin")).toMatchObject({
+		expect([...byName.keys()].filter(name => name.startsWith("strict@market:"))).toEqual(["strict@market:signin"]);
+		expect(byName.get("strict@market:signin")).toMatchObject({
 			oauth: { clientId: "client-1", callbackPort: 4567, scope: "read write" },
 			auth: { type: "oauth", resource: "https://mcp.example.test/mcp" },
 		});
@@ -382,16 +392,16 @@ describe("installed Codex plugins", () => {
 			},
 		});
 		const { byName, warnings } = await load();
-		expect([...byName.keys()].filter(name => name.startsWith("paths:")).sort()).toEqual([
-			"paths:fromPath",
-			"paths:literal",
+		expect([...byName.keys()].filter(name => name.startsWith("paths@market:")).sort()).toEqual([
+			"paths@market:fromPath",
+			"paths@market:literal",
 		]);
 		// Origin-locked headers and literal env are never resolved as variables or `!commands`.
-		expect(byName.get("paths:literal")).toMatchObject({
+		expect(byName.get("paths@market:literal")).toMatchObject({
 			headers: { "X-Run": "!touch /tmp/pwned" },
 			headerPolicy: "origin-locked",
 		});
-		expect(byName.get("paths:fromPath")).toMatchObject({
+		expect(byName.get("paths@market:fromPath")).toMatchObject({
 			command: "node",
 			cwd: root,
 			env: { MODE: "CODEX_PLUGIN_TEST_PAT" },
@@ -416,7 +426,7 @@ describe("installed Codex plugins", () => {
 		clearFsCache();
 		expect((await skills()).map(skill => skill.name)).toEqual(["lit-review"]);
 		const { byName, warnings } = await load();
-		expect([...byName.keys()].some(name => name.startsWith("linked:"))).toBe(false);
+		expect([...byName.keys()].some(name => name.startsWith("linked@market:"))).toBe(false);
 		expect(warnings).toContainEqual(expect.stringContaining("Ignoring mcpServers path outside linked@market"));
 	});
 
@@ -427,30 +437,86 @@ describe("installed Codex plugins", () => {
 		// Its name is what `twin` qualified with `alpha` would look like if dots qualified names.
 		await install("twin.alpha@gamma", { ".codex-plugin/plugin.json": { name: "twin.alpha" }, ".mcp.json": server });
 		expect([...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort()).toEqual([
-			"twin.alpha:api",
-			"twin:alpha:api",
-			"twin:beta:api",
+			"twin.alpha@gamma:api",
+			"twin@alpha:api",
+			"twin@beta:api",
 		]);
 	});
 
-	it("matches a skill rule to the name Codex gives a plugin's skills, whatever the marketplace", async () => {
+	it("matches skill rules to the name Codex gives a plugin's skills, and only that name", async () => {
 		for (const id of ["twin@alpha", "twin@beta"]) {
 			const root = await install(id, { ".codex-plugin/plugin.json": { name: "twin" } });
 			await writeSkill(root, "search");
 		}
+		// A blank manifest name leaves Codex the package folder's name, the version.
+		const blank = await install("blank@market", { ".codex-plugin/plugin.json": { name: "  " } });
+		await writeSkill(blank, "find");
 		const configPath = temp.join("codex-home", "config.toml");
-		const rule = ["[[skills.config]]", 'name = "twin:search"', "enabled = false", ""];
-		await Bun.write(configPath, [await Bun.file(configPath).text(), ...rule].join("\n"));
+		const rules = [
+			"[[skills.config]]",
+			'name = "twin:search"',
+			"enabled = false",
+			// Codex names no plugin skill bare `search`, so this enables nothing.
+			"[[skills.config]]",
+			'name = "search"',
+			"enabled = true",
+			"[[skills.config]]",
+			'name = "1.0.0:find"',
+			"enabled = false",
+			"",
+		];
+		await Bun.write(configPath, [await Bun.file(configPath).text(), ...rules].join("\n"));
 		clearFsCache();
-		expect((await skills()).map(skill => skill.name)).not.toContain("search");
+		const names = (await skills()).map(skill => skill.name);
+		expect(names).not.toContain("search");
+		expect(names).not.toContain("find");
 	});
 
 	it("loads no plugin from a [plugins] table Codex cannot read", async () => {
-		await install("strict@market", { ".codex-plugin/plugin.json": { name: "strict" } }, ['enabled = "false"']);
-		const { byName, warnings } = await load();
-		expect(byName.size).toBe(0);
-		expect(warnings).toContainEqual(
-			expect.stringContaining("cannot read its [plugins] settings (strict@market.enabled)"),
+		const configPath = temp.join("codex-home", "config.toml");
+		const original = await Bun.file(configPath).text();
+		for (const [line, field] of [
+			['enabled = "false"', "strict@market.enabled"],
+			['auto_provision = "yes"', "strict@market.auto_provision"],
+			["apps.connector = false", "strict@market.apps.connector"],
+			[
+				'apps.connector.tools.list.approval_mode = "sometimes"',
+				"strict@market.apps.connector.tools.list.approval_mode",
+			],
+		]) {
+			await Bun.write(configPath, original);
+			await install("strict@market", { ".codex-plugin/plugin.json": { name: "strict" } }, [line]);
+			const { byName, warnings } = await load();
+			expect(byName.size).toBe(0);
+			expect(warnings).toContainEqual(expect.stringContaining(`cannot read its [plugins] settings (${field})`));
+		}
+	});
+
+	it("follows Codex's home, plugins switch and own server settings", async () => {
+		const codexHome = temp.join("codex-home");
+		const configPath = path.join(codexHome, "config.toml");
+		const original = await Bun.file(configPath).text();
+		restoreEnvValue("SCIENT_AGENT_ENABLE_SOURCES", "codex-plugins");
+		// Codex opens CODEX_HOME exactly as set: with a trailing space it names another folder.
+		restoreEnvValue("CODEX_HOME", `${codexHome} `);
+		let result = await load();
+		expect(result.byName.size).toBe(0);
+		expect(result.warnings).toContainEqual(expect.stringContaining("which is not a folder"));
+		restoreEnvValue("CODEX_HOME", codexHome);
+		// `[features] plugins = false` turns every plugin off.
+		await Bun.write(configPath, `${original}\n[features]\nplugins = false\n`);
+		clearFsCache();
+		result = await load();
+		expect(result.byName.size).toBe(0);
+		expect(result.warnings).toContainEqual(expect.stringContaining("plugins are turned off"));
+		// The config's own [mcp_servers.papers] is what Codex runs, not the plugin's server.
+		await Bun.write(configPath, `${original}\n[mcp_servers.papers]\ncommand = "node"\nenabled = false\n`);
+		clearFsCache();
+		result = await load();
+		expect(result.byName.has("research@market:papers")).toBe(false);
+		expect(result.byName.has("research@market:tracker")).toBe(true);
+		expect(result.warnings).toContainEqual(
+			expect.stringContaining("Codex runs your own [mcp_servers.papers] instead"),
 		);
 	});
 
@@ -463,7 +529,7 @@ describe("installed Codex plugins", () => {
 			});
 			const { byName, warnings } = await load();
 			// Codex takes the path, finds no such file, and does not fall back to .mcp.json.
-			expect(byName.has("slashed:fallback")).toBe(false);
+			expect(byName.has("slashed@market:fallback")).toBe(false);
 			expect(warnings).toContainEqual(expect.stringContaining("Missing mcpServers file declared by slashed@market"));
 		},
 	);
@@ -565,18 +631,18 @@ describe("installed Codex plugins", () => {
 		await fs.symlink(outside, path.join(linkedRoot, ".codex-plugin"), "dir");
 		clearFsCache();
 		const { byName, warnings } = await load();
-		expect(byName.get("rules:off")?.enabled).toBe(false);
+		expect(byName.get("rules@market:off")?.enabled).toBe(false);
 		// Codex turns an ema_auth server off for good, so it is not listed for a setting to turn on.
-		expect(byName.has("rules:retired")).toBe(false);
+		expect(byName.has("rules@market:retired")).toBe(false);
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"retired" of rules@market: Codex turns it off (ema_auth)'),
 		);
-		expect(byName.has("rules:numeric")).toBe(false);
+		expect(byName.has("rules@market:numeric")).toBe(false);
 		expect(warnings).toContainEqual(expect.stringContaining('"numeric" of rules@market: invalid command'));
-		expect(byName.get("rules:withheld")?.env).toMatchObject({ KEEP: "y" });
-		expect(byName.get("rules:withheld")?.env?.NODE_REPL_AUTH_TOKEN).toBeUndefined();
-		expect(byName.get("rules:withheld")?.env?.openai_spiffe_id).toBeUndefined();
-		expect(byName.has("linkedfolder:x")).toBe(false);
+		expect(byName.get("rules@market:withheld")?.env).toMatchObject({ KEEP: "y" });
+		expect(byName.get("rules@market:withheld")?.env?.NODE_REPL_AUTH_TOKEN).toBeUndefined();
+		expect(byName.get("rules@market:withheld")?.env?.openai_spiffe_id).toBeUndefined();
+		expect(byName.has("linkedfolder@market:x")).toBe(false);
 		expect(warnings).toContainEqual(
 			expect.stringContaining("Ignoring linkedfolder@market: .codex-plugin is not a folder"),
 		);
@@ -628,9 +694,12 @@ describe("installed Codex plugins", () => {
 		await fs.symlink(path.join(linked, "real-mcp.json"), path.join(linked, "mcp.json"));
 		clearFsCache();
 		const { byName, warnings } = await load();
-		expect(byName.has("portable2:events")).toBe(false);
-		expect(byName.get("portable2:local")?.env).toMatchObject({ CODEX_PLUGIN_TEST_PAT: "pat-value", MODE: "x" });
-		expect(byName.has("linkedmcp:y")).toBe(false);
+		expect(byName.has("portable2@market:events")).toBe(false);
+		expect(byName.get("portable2@market:local")?.env).toMatchObject({
+			CODEX_PLUGIN_TEST_PAT: "pat-value",
+			MODE: "x",
+		});
+		expect(byName.has("linkedmcp@market:y")).toBe(false);
 		expect(warnings).toContainEqual(expect.stringContaining("linkedmcp@market: mcp.json is not a regular file"));
 	});
 
@@ -667,9 +736,9 @@ describe("installed Codex plugins", () => {
 			},
 		});
 		const { byName } = await load();
-		expect(byName.get("viaclaude:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
-		expect(byName.get("invalidoverlay:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
-		expect(byName.get("textflag:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("viaclaude@market:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("invalidoverlay@market:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("textflag@market:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
 	});
 
 	it("skips a manifest Codex cannot read and falls back as Codex does from paths it would not take", async () => {
@@ -685,10 +754,10 @@ describe("installed Codex plugins", () => {
 		await writeSkill(loose, "loose-skill");
 		clearFsCache();
 		const { byName, warnings } = await load();
-		expect(byName.has("typed:x")).toBe(false);
+		expect(byName.has("typed@market:x")).toBe(false);
 		expect(warnings).toContainEqual(expect.stringContaining("Invalid plugin.json for typed@market (name)"));
 		// Codex drops both paths and reads the package's skills/ and .mcp.json instead.
-		expect(byName.has("loose:y")).toBe(true);
+		expect(byName.has("loose@market:y")).toBe(true);
 		expect(warnings).toContainEqual(expect.stringContaining("Ignoring mcpServers of loose@market"));
 		const names = (await skills()).map(skill => skill.name);
 		expect(names).not.toContain("typed-skill");
@@ -709,9 +778,9 @@ describe("installed Codex plugins", () => {
 			".mcp.json": { mcpServers: { tool: { command: "node" } } },
 		});
 		const { byName } = await load();
-		expect(byName.get("portable:remote")).toMatchObject({ transport: "http", headerPolicy: "origin-locked" });
-		expect(byName.has("portable:legacy")).toBe(false);
-		expect(byName.has("clauded:tool")).toBe(true);
+		expect(byName.get("portable@market:remote")).toMatchObject({ transport: "http", headerPolicy: "origin-locked" });
+		expect(byName.has("portable@market:legacy")).toBe(false);
+		expect(byName.has("clauded@market:tool")).toBe(true);
 	});
 
 	it("starts a stdio server with only the variables Codex would pass", async () => {
