@@ -88,7 +88,10 @@ export function serverStatusLine(
 	if (failure === undefined) return base;
 	const url = config && (config.type === "http" || config.type === "sse") ? config.url : undefined;
 	if (url && config && analyzeAuthError(new Error(failure), url).requiresAuth) {
-		const signIn = canSignIn(config) && !(authStorage && boundSignInNeedsLocalSecret(config, authStorage));
+		const signIn =
+			canSignIn(config) &&
+			addressIsPublic(url) &&
+			!(authStorage && boundSignInNeedsLocalSecret(config, authStorage));
 		return {
 			...base,
 			status: "needs-auth",
@@ -187,30 +190,29 @@ export default class Mcp extends Command {
 		const config = configs[name];
 		const source = sources[name];
 		if (!config) throw new McpReauthRefusalError(`No MCP server named "${name}" is configured.`);
+		// Cases a browser sign-in cannot serve, refused here in words written here, before any connection.
+		if (config.enabled === false) throw new McpReauthRefusalError(`${name} is turned off.`);
+		if (!canSignIn(config)) {
+			throw new McpReauthRefusalError(
+				`${name} does not sign in with a browser: it runs on this computer or uses its own key.`,
+			);
+		}
+		if (boundSignInNeedsLocalSecret(config, authStorage)) {
+			throw new McpReauthRefusalError(
+				`${name} needs its client secret at every refresh, which the shared sign-in service cannot supply.`,
+			);
+		}
+		// A key in the server's own address would reach a sign-in server as its resource, even from a refresh.
+		if (!addressIsPublic(urlOf(config))) {
+			throw new McpReauthRefusalError(
+				`${name}'s address carries values of its own, which Scient Agent does not send to a sign-in page.`,
+			);
+		}
 		// Registers the definition the way a conversation does, so the sign-in uses the one it selected.
 		await manager.connectServers(configs, sources, undefined, LIST_WAIT_MS);
 		const found = await selectedServer(name, config, source, manager, cwd);
 		if (!found) {
 			throw new McpReauthRefusalError(`"${name}" is configured somewhere Scient Agent cannot sign in to it from.`);
-		}
-		// Cases a browser sign-in cannot serve, refused here in words written here.
-		const selected = manager.getServerConfig(name) ?? config;
-		if (selected.enabled === false) throw new McpReauthRefusalError(`${name} is turned off.`);
-		if (!canSignIn(selected)) {
-			throw new McpReauthRefusalError(
-				`${name} does not sign in with a browser: it runs on this computer or uses its own key.`,
-			);
-		}
-		if (boundSignInNeedsLocalSecret(selected, authStorage)) {
-			throw new McpReauthRefusalError(
-				`${name} needs its client secret at every refresh, which the shared sign-in service cannot supply.`,
-			);
-		}
-		// A key in the server's own address would reach the sign-in server as its resource: refused before any request.
-		if (!addressIsPublic(urlOf(selected))) {
-			throw new McpReauthRefusalError(
-				`${name}'s address carries values of its own, which Scient Agent does not send to a sign-in page.`,
-			);
 		}
 		const bound = source?.provider === CODEX_PLUGINS_PROVIDER;
 		let withheld = false;
