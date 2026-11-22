@@ -8,3 +8,7 @@ export const dictateHelp = {
 export const appsHelp = {
 	description: "List the ChatGPT apps (Gmail, Google Drive and others) the ChatGPT sign-in has connected",
 } satisfies CommandMetadata;
+
+export const mcpHelp = {
+	description: "List the MCP servers a conversation loads, with their status, or sign in to one (for a host)",
+} satisfies CommandMetadata;

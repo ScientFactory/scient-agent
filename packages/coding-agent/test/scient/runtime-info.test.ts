@@ -15,7 +15,7 @@ describe("--runtime-info", () => {
 			upstream: UPSTREAM,
 			rpcProtocolVersions: [1, 2],
 			buildId: BUILD_ID,
-			hostCommands: ["apps", "dictate"],
+			hostCommands: ["apps", "dictate", "mcp"],
 			enableSources: ["claude-plugins", "codex-plugins"],
 		});
 	});
