@@ -1,25 +1,28 @@
 import { Database } from "bun:sqlite";
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "bun:test";
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
 import type { SourceMeta } from "@oh-my-pi/pi-coding-agent/capability/types";
 import type { MCPLoadResult, MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
 import { mcpOAuthServerCredentialId } from "@oh-my-pi/pi-coding-agent/mcp/oauth-flow";
+import { McpReauthRefusalError, reauthorizeMcpServer } from "@oh-my-pi/pi-coding-agent/mcp/oauth-reauth";
 import type { MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { serverStatusLine } from "@oh-my-pi/pi-coding-agent/scient/mcp-command";
-import { pickUpMcpSignIns } from "@oh-my-pi/pi-coding-agent/scient/mcp-sign-in-pickup";
+import { loginFailureMessage, serverStatusLine } from "@oh-my-pi/pi-coding-agent/scient/mcp-command";
+import { McpSignInPickup } from "@oh-my-pi/pi-coding-agent/scient/mcp-sign-in-pickup";
 
 const URL_A = "https://mcp.example.test/mcp";
 const NAME = "tools@market:api";
-const CHALLENGE =
-	'HTTP 401: Unauthorized [WWW-Authenticate: Bearer resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource"]';
+const LEAKED = "sk-live-SECRET";
+const CHALLENGE = `HTTP 401: Unauthorized {"echo":"Bearer ${LEAKED}"} [WWW-Authenticate: Bearer resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource"]`;
 const bound = (
 	auth: MCPServerConfig["auth"] = { type: "oauth", credentialId: mcpOAuthServerCredentialId(NAME, URL_A) },
-) => ({ type: "http", url: URL_A, auth }) as MCPServerConfig;
+	extra: Partial<MCPServerConfig> = {},
+) => ({ type: "http", url: URL_A, auth, ...extra }) as MCPServerConfig;
 const token = (access: string) => ({ type: "oauth" as const, access, refresh: "r", expires: Date.now() + 3_600_000 });
 
 /** The few manager members these helpers read; the rest of MCPManager is not involved. */
 function fakeManager(
 	servers: Record<string, { config: MCPServerConfig; source?: Partial<SourceMeta>; tools?: number }>,
+	reconnect: (name: string) => Promise<void> = async () => {},
 ) {
 	const connected = new Set<string>();
 	const reconnects: string[] = [];
@@ -29,18 +32,20 @@ function fakeManager(
 		getServerConfig: (name: string) => servers[name]?.config,
 		getSource: (name: string) => servers[name]?.source,
 		getConnection: (name: string) =>
-			connected.has(name) || servers[name]?.tools
-				? { tools: Array.from({ length: servers[name]?.tools ?? 0 }) }
-				: undefined,
+			servers[name]?.tools ? { tools: Array.from({ length: servers[name]?.tools ?? 0 }) } : undefined,
 		reconnectServer: async (name: string) => {
 			reconnects.push(name);
+			await reconnect(name);
 			connected.add(name);
 			return null;
 		},
-		disconnect: (name: string) => connected.delete(name),
 	};
 	// Structural fake: only the members above are called by the code under test.
-	return { manager: manager as unknown as MCPManager, reconnects, disconnect: manager.disconnect };
+	return {
+		manager: manager as unknown as MCPManager,
+		reconnects,
+		disconnect: (name: string) => connected.delete(name),
+	};
 }
 
 const loadResult = (connected: string[], errors: Record<string, string>): MCPLoadResult => ({
@@ -56,25 +61,29 @@ describe("scient-agent mcp list", () => {
 			[NAME]: { config: bound(), source: { level: "user", pluginName: "tools@market" } },
 			"own-token": { config: bound({ type: "bearer" } as unknown as MCPServerConfig["auth"]) },
 			header: { config: { type: "http", url: URL_A, headers: { Authorization: "Bearer x" } } },
-			down: { config: bound() },
 		});
-		const loaded = loadResult([], {
-			[NAME]: CHALLENGE,
-			"own-token": CHALLENGE,
-			header: CHALLENGE,
-			down: "getaddrinfo ENOTFOUND",
-		});
+		const loaded = loadResult([], { [NAME]: CHALLENGE, "own-token": CHALLENGE, header: CHALLENGE });
 		expect(serverStatusLine(manager, NAME, loaded)).toEqual({
 			name: NAME,
 			status: "needs-auth",
 			scope: "user",
 			pluginId: "tools@market",
-			error: CHALLENGE,
+			error: "Sign-in needed.",
 			canStartSignIn: true,
 		});
 		expect(serverStatusLine(manager, "own-token", loaded)).not.toHaveProperty("canStartSignIn");
 		expect(serverStatusLine(manager, "header", loaded)).not.toHaveProperty("canStartSignIn");
-		expect(serverStatusLine(manager, "down", loaded).status).toBe("failed");
+	});
+
+	it("never prints what a server sent back, which can echo a token", () => {
+		const { manager } = fakeManager({ [NAME]: { config: bound() }, down: { config: bound() } });
+		const loaded = loadResult([], {
+			[NAME]: CHALLENGE,
+			down: `HTTP 500: Internal Server Error {"authorization":"Bearer ${LEAKED}"}`,
+		});
+		const lines = [serverStatusLine(manager, NAME, loaded), serverStatusLine(manager, "down", loaded)];
+		expect(JSON.stringify(lines)).not.toContain(LEAKED);
+		expect(lines[1]).toMatchObject({ status: "failed", error: "The server answered HTTP 500." });
 	});
 
 	it("reports a connected server's tool count and a server still starting as pending", () => {
@@ -82,6 +91,33 @@ describe("scient-agent mcp list", () => {
 		const loaded = loadResult(["ok"], {});
 		expect(serverStatusLine(manager, "ok", loaded)).toMatchObject({ status: "connected", toolCount: 3 });
 		expect(serverStatusLine(manager, "slow", loaded).status).toBe("pending");
+	});
+});
+
+describe("scient-agent mcp login", () => {
+	it("never prints what the sign-in server sent back", () => {
+		const exchange = new Error(`Token exchange failed: 400 {"code":"${LEAKED}","client_secret":"${LEAKED}"}`);
+		const message = loginFailureMessage(NAME, true, exchange);
+		expect(message).not.toContain(LEAKED);
+		expect(message).toContain("HTTP 400");
+		expect(loginFailureMessage(NAME, true, new Error(`boom ${LEAKED}`))).not.toContain(LEAKED);
+	});
+
+	it("does not offer an imported sign-in a broker could not refresh", async () => {
+		// A broker-held store: refresh happens without the server's definition, so without its secret.
+		const authStorage = { credentials: { heldByBroker: true } } as unknown as AuthStorage;
+		const config = bound(undefined, {
+			oauth: { clientId: "id", clientSecret: "secret" },
+		} as Partial<MCPServerConfig>);
+		const fetchSpy = vi.spyOn(globalThis, "fetch");
+		try {
+			await expect(
+				reauthorizeMcpServer(NAME, { filePath: "", scope: "user", config, discovered: true }, { authStorage }),
+			).rejects.toBeInstanceOf(McpReauthRefusalError);
+			expect(fetchSpy).not.toHaveBeenCalled();
+		} finally {
+			fetchSpy.mockRestore();
+		}
 	});
 });
 
@@ -99,36 +135,67 @@ describe("a conversation picking up a sign-in made elsewhere", () => {
 	it("connects a server once its sign-in appears, and retries only when that sign-in changes", async () => {
 		const auth = storage();
 		const { manager, reconnects, disconnect } = fakeManager({ [NAME]: { config: bound() } });
-		const tried = new Map<string, string>();
 		let refreshed = 0;
-		const pickUp = () => pickUpMcpSignIns(manager, auth, tried, async () => void refreshed++);
+		const pickup = new McpSignInPickup(manager, auth, async () => void refreshed++);
+		pickup.seed();
 
-		await pickUp();
+		await pickup.beforePrompt();
 		expect(reconnects).toEqual([]);
 
 		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("first"));
-		await pickUp();
+		await pickup.beforePrompt();
 		expect(reconnects).toEqual([NAME]);
 		expect(refreshed).toBe(1);
 
 		// The server dropped again, e.g. its sign-in was refused: the same sign-in is not retried each prompt.
 		disconnect(NAME);
-		await pickUp();
+		await pickup.beforePrompt();
 		expect(reconnects).toEqual([NAME]);
 
 		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("second"));
-		await pickUp();
+		await pickup.beforePrompt();
 		expect(reconnects).toEqual([NAME, NAME]);
+	});
+
+	it("does not retry the sign-in the session started with", async () => {
+		const auth = storage();
+		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("startup"));
+		const { manager, reconnects } = fakeManager({ [NAME]: { config: bound() } });
+		const pickup = new McpSignInPickup(manager, auth, async () => {});
+		pickup.seed();
+		await pickup.beforePrompt();
+		expect(reconnects).toEqual([]);
+	});
+
+	it("holds a prompt only briefly while a reconnect is slow, and finishes it in the background", async () => {
+		const auth = storage();
+		const gate = Promise.withResolvers<void>();
+		const { manager, reconnects } = fakeManager({ [NAME]: { config: bound() } }, () => gate.promise);
+		let refreshed = 0;
+		const pickup = new McpSignInPickup(manager, auth, async () => void refreshed++);
+		pickup.seed();
+		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("new"));
+
+		await pickup.beforePrompt(10);
+		expect(reconnects).toEqual([NAME]);
+		expect(refreshed).toBe(0);
+		// A second prompt joins the running pickup instead of starting another.
+		await pickup.beforePrompt(10);
+		expect(reconnects).toEqual([NAME]);
+
+		gate.resolve();
+		await pickup.beforePrompt();
+		expect(refreshed).toBe(1);
 	});
 
 	it("never reconnects a server a browser sign-in does not serve", async () => {
 		const auth = storage();
 		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("t"));
 		const { manager, reconnects } = fakeManager({
-			header: { config: { ...bound(), headers: { Authorization: "Bearer x" } } as MCPServerConfig },
+			header: { config: bound(undefined, { headers: { Authorization: "Bearer x" } } as Partial<MCPServerConfig>) },
 			local: { config: { type: "stdio", command: "server" } as MCPServerConfig },
 		});
-		await pickUpMcpSignIns(manager, auth, new Map(), async () => {});
+		await new McpSignInPickup(manager, auth, async () => {}).beforePrompt();
 		expect(reconnects).toEqual([]);
 	});
 });
