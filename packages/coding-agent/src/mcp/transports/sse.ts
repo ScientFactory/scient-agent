@@ -260,7 +260,14 @@ export class LegacySseTransport implements MCPTransport {
 			method,
 			params: options?.onProgress ? withProgressToken(params, id) : (params ?? {}),
 		};
-		const { timeoutMs: timeout, maxTotalMs } = resolveMCPRequestDeadline(this.#config.timeout, method, params);
+		// scient(SA-CODEX-PLUGINS): begin - a hard tool-call cap.
+		const { timeoutMs: timeout, maxTotalMs } = resolveMCPRequestDeadline(
+			this.#config.timeout,
+			method,
+			params,
+			this.#config.toolTimeoutMs,
+		);
+		// scient(SA-CODEX-PLUGINS): end
 		const operation = createMCPTimeout(timeout, this.#operationSignal(options?.signal), maxTotalMs);
 		const progressSink = options?.onProgress;
 		const deferred = Promise.withResolvers<unknown>();

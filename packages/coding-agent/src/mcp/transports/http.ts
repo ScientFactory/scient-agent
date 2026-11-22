@@ -478,7 +478,14 @@ export class HttpTransport implements MCPTransport {
 			}
 			callerSignal = controller.signal;
 		}
-		const { timeoutMs: timeout, maxTotalMs } = resolveMCPRequestDeadline(this.config.timeout, method, params);
+		// scient(SA-CODEX-PLUGINS): begin - a hard tool-call cap.
+		const { timeoutMs: timeout, maxTotalMs } = resolveMCPRequestDeadline(
+			this.config.timeout,
+			method,
+			params,
+			this.config.toolTimeoutMs,
+		);
+		// scient(SA-CODEX-PLUGINS): end
 		const operation = createMCPTimeout(timeout, this.#operationSignal(callerSignal), maxTotalMs);
 		let stage: MCPFailureStage = "send";
 		let traceId: string | undefined;

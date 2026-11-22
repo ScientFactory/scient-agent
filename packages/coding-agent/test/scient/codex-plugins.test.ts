@@ -8,6 +8,7 @@ import type { MCPServer } from "@oh-my-pi/pi-coding-agent/capability/mcp";
 import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
 import { cfgEnabledProviders } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { resolveMCPRequestDeadline } from "@oh-my-pi/pi-coding-agent/mcp/timeout";
 import { StdioTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/stdio";
 import * as piUtils from "@oh-my-pi/pi-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
@@ -169,12 +170,14 @@ describe("installed Codex plugins", () => {
 			args: ["--stdio"],
 			cwd: researchRoot,
 			envPolicy: "literal",
-			timeout: 30_000,
+			// tool_timeout_sec is a hard cap on tool calls, not the stretchable request timeout.
+			toolTimeoutMs: 30_000,
 			transport: "stdio",
 		});
 		// Codex passes its own short list plus the server's env_vars, never the whole environment.
 		const papers = byName.get("research@market:papers");
 		expect(papers?.envInherit).toEqual([]);
+		expect(papers?.timeout).toBeUndefined();
 		expect(papers?.env).toMatchObject({ PATH: process.env.PATH, CODEX_PLUGIN_TEST_TOKEN: "forwarded-value" });
 		expect(papers?.env?.CODEX_PLUGIN_TEST_PAT).toBeUndefined();
 		expect(byName.get("research@market:tracker")).toMatchObject({
@@ -250,6 +253,8 @@ describe("installed Codex plugins", () => {
 			negative: { command: "node", args: ["negative.mjs"], startup_timeout_sec: -1 },
 			// One past u64::MAX, which Codex's startup_timeout_ms cannot hold.
 			huge: { command: "node", args: ["huge.mjs"], startup_timeout_ms: 2 ** 64 },
+			// Codex times out every tool call of this one.
+			instant: { command: "node", args: ["instant.mjs"], tool_timeout_sec: 0 },
 			capped: { command: "node", args: ["capped.mjs"], tools: { read: { output_token_limit: 100 } } },
 			shown: { command: "node", args: ["shown.mjs"], omit_tools_from: [] },
 			// Codex refuses to start a server whose named bearer variable is unset.
@@ -285,6 +290,18 @@ describe("installed Codex plugins", () => {
 				'"capped" of limits@market: Codex restricts its tools (tools.read.output_token_limit)',
 			),
 		);
+		expect(warnings).toContainEqual(expect.stringContaining('"instant" of limits@market: Codex times out each'));
+	});
+
+	it("holds a tool call to tool_timeout_sec whatever its arguments ask", () => {
+		// A call asking to wait 10 s still ends at the configured 2 s, as in Codex.
+		const args = { arguments: { wait_seconds: 10 } };
+		expect(resolveMCPRequestDeadline(undefined, "tools/call", args, 2_000)).toEqual({
+			timeoutMs: 2_000,
+			maxTotalMs: 2_000,
+		});
+		// Other requests keep their own timeout.
+		expect(resolveMCPRequestDeadline(undefined, "tools/list", undefined, 2_000).timeoutMs).not.toBe(2_000);
 	});
 
 	it("skips a server whose config.toml policy narrows its tools with disabled_tools", async () => {

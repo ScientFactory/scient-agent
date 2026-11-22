@@ -94,7 +94,20 @@ export function lookupMcpOAuthCredential(
 		// scient(SA-CODEX-PLUGINS): end
 		return lookupMcpOAuthCredentialForServer(authStorage, auth, config.url, { allowUrlKeyedFallback: false });
 	}
-	return lookupMcpOAuthCredentialForServer(authStorage, auth, config.url);
+	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in made with another OAuth client than the one
+	// it now configures is not used or refreshed: Codex asks for a fresh sign-in then.
+	const lookup = lookupMcpOAuthCredentialForServer(authStorage, auth, config.url);
+	const configuredClient = config.oauth?.clientId?.trim();
+	if (
+		lookup &&
+		configuredClient &&
+		isMcpOAuthServerCredentialId(lookup.credentialId) &&
+		lookup.credential.clientId?.trim() !== configuredClient
+	) {
+		return undefined;
+	}
+	return lookup;
+	// scient(SA-CODEX-PLUGINS): end
 }
 
 export function selectMcpOAuthRefreshMaterial(

@@ -153,10 +153,9 @@ async function withPreparedMcpConnection<T>(
 		// Without this, `/mcp test|resources|prompts` silently fails for any
 		// server saved by the TUI/reauth path.
 		manager.setAuthStorage(runtime.session.modelRegistry.authStorage);
-		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it.
-		const resolvedConfig = await manager.prepareConfig(
-			withTrustedMcpAuth(name, config, runtime.mcpManager?.getSource(name)?.provider),
-		);
+		// scient(SA-CODEX-PLUGINS): begin - these definitions come from config files, which never hold an
+		// imported server's own sign-in: a server-bound id there is dropped.
+		const resolvedConfig = await manager.prepareConfig(withTrustedMcpAuth(name, config, undefined));
 		// scient(SA-CODEX-PLUGINS): end
 		connection = await connectToServer(name, resolvedConfig);
 		return await fn(connection);
