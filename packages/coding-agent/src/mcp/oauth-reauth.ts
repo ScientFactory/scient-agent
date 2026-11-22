@@ -627,7 +627,12 @@ export async function runMcpOAuthFlow(opts: McpOAuthFlowRunOptions): Promise<OAu
 			...credentials,
 			tokenUrl: opts.tokenUrl,
 			clientId: flow.resolvedClientId?.trim() || resolvedClientId,
-			clientSecret: flow.registeredClientSecret ?? resolvedClientSecret,
+			// scient(SA-CODEX-PLUGINS): begin - like Codex, a server-bound sign-in keeps no client secret: each
+			// refresh sends the one its definition configures then, never a retired one.
+			clientSecret: isMcpOAuthServerCredentialId(credentialId)
+				? undefined
+				: (flow.registeredClientSecret ?? resolvedClientSecret),
+			// scient(SA-CODEX-PLUGINS): end
 			resource: flow.resource,
 			authorizationUrl: flow.authorizationUrl,
 		};
@@ -835,7 +840,9 @@ export async function reauthorizeMcpServer(
 		storedClientId ??
 		(oauth.registrationUrl ? undefined : discoveredClientId) ??
 		"";
-	const storedClientSecret = storedClientId === flowClientId ? existingCredential?.clientSecret : undefined;
+	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in takes its secret from the current definition only.
+	const storedClientSecret = !bound && storedClientId === flowClientId ? existingCredential?.clientSecret : undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	const flowClientSecret =
 		(configuredClientId === flowClientId ? configuredClientSecret : undefined) ??
 		(persistedClientId === flowClientId ? runtimeAuth?.clientSecret : undefined) ??
