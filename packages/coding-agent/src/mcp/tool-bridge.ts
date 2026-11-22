@@ -452,7 +452,8 @@ function getMcpAuthChallenge(result: MCPToolCallResult): MCPAuthChallenge | unde
 // (an imported Codex plugin's tool_timeout_sec), carried through reconnecting and replaying it.
 /** When a logical tool call to this connection's server must end, if its server caps tool calls. */
 function toolCallDeadline(connection: MCPServerConnection): number | undefined {
-	const capMs = connection.config.toolTimeoutMs;
+	// Hosts and tests may hand the bridge a connection without its config: no cap then.
+	const capMs = connection.config?.toolTimeoutMs;
 	return capMs === undefined ? undefined : Date.now() + capMs;
 }
 
