@@ -1056,15 +1056,26 @@ async function mapLegacyServer(
 		["callback_url", "callbackUrl", "redirectUri"],
 	] as const) {
 		const value = oauthTable[snake] ?? oauthTable[camel];
-		if (typeof value === "string" && value) oauth[target] = value;
+		if (typeof value !== "string") continue;
+		// An empty client secret is kept for the check below, as Codex rejects it; an empty ID or URL means none.
+		if (value || target === "clientSecret") oauth[target] = value;
 	}
-	// Codex refuses a client secret without a client ID or of only whitespace, and holds a confidential client's
-	// sign-in to the client ID exactly as written, which Scient Agent's sign-in would trim.
+	// Codex refuses a client secret without a client ID or of only whitespace, and the enterprise sign-in
+	// settings on any server but an ema_auth one, which is left out above.
 	if (oauth.clientSecret !== undefined && (oauth.clientId === undefined || !oauth.clientSecret.trim())) {
 		return { error: "its OAuth client_secret has no client_id or is blank, so Codex refuses to start it" };
 	}
-	if (oauth.clientId !== undefined && oauth.clientId !== oauth.clientId.trim()) {
-		return { error: "its OAuth client_id has surrounding whitespace, which Scient Agent's sign-in would not keep" };
+	const enterprise = ["authorization_server_issuer", "token_endpoint_auth_method"].find(
+		key => oauthTable[key] != null,
+	);
+	if (enterprise !== undefined)
+		return { error: `its OAuth ${enterprise} needs ema_auth, so Codex refuses to start it` };
+	// Codex holds a confidential client's sign-in to its client ID and secret exactly as written, which
+	// Scient Agent's sign-in would trim.
+	if ([oauth.clientId, oauth.clientSecret].some(value => value !== undefined && value !== value.trim())) {
+		return {
+			error: "its OAuth client_id or client_secret has surrounding whitespace, which Scient Agent's sign-in would not keep",
+		};
 	}
 	const port = oauthTable.callback_port ?? oauthTable.callbackPort;
 	if (Number.isInteger(port) && Number(port) > 0) oauth.callbackPort = Number(port);

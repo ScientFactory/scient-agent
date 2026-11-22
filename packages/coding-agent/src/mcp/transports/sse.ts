@@ -266,6 +266,7 @@ export class LegacySseTransport implements MCPTransport {
 			method,
 			params,
 			this.#config.toolTimeoutMs,
+			options?.deadlineAt,
 		);
 		// scient(SA-CODEX-PLUGINS): end
 		const operation = createMCPTimeout(timeout, this.#operationSignal(options?.signal), maxTotalMs);
