@@ -75,9 +75,14 @@ export class McpSignInPickup {
 		}
 	}
 
+	/** The stored sign-in a server would use; a malformed definition counts as none, never as a failure. */
 	#signature(config: MCPServerConfig): string | undefined {
-		const lookup = lookupMcpOAuthCredential(this.authStorage, config);
-		return lookup ? `${lookup.credentialId}\0${Bun.hash(lookup.credential.access ?? "")}` : undefined;
+		try {
+			const lookup = lookupMcpOAuthCredential(this.authStorage, config);
+			return lookup ? `${lookup.credentialId}\0${Bun.hash(lookup.credential.access ?? "")}` : undefined;
+		} catch {
+			return undefined;
+		}
 	}
 
 	async #pickUp(): Promise<void> {
