@@ -383,6 +383,30 @@ export function withOmpOtelEnv<T>(fn: () => T): T {
 	}
 }
 
+// scient(SA-CODEX-PLUGINS): begin - Codex plugins read only the environment the agent was launched with.
+const launchProjectDir = getProjectDir();
+let launchDotenvValues: ReadonlySet<string> | undefined;
+
+/**
+ * The environment the agent was launched with, whichever folder it works in now: the exec
+ * environment when it is known (procfs, `--no-env-file`), else the environment without any value
+ * the launch folder's dotenv files (all those Bun autoloads) or the agent's own `.env` files
+ * (agent, config root, home) define. Codex reads its home, its plugins' credentials and their
+ * servers' variables from its launch environment alone; so does the agent when it runs them.
+ */
+export function getLaunchEnv(): Record<string, string> {
+	if (launchEnvValues) return Object.fromEntries(launchEnvValues);
+	launchDotenvValues ??= new Set(getDotenvEnvValues(launchProjectDir, Bun.env));
+	const result: Record<string, string> = {};
+	for (const key in Bun.env) {
+		const value = Bun.env[key];
+		if (value === undefined || launchDotenvValues.has(value)) continue;
+		if ([projectEnv, agentEnv, piEnv, homeEnv].some(file => file[key] === value)) continue;
+		result[key] = value;
+	}
+	return result;
+}
+// scient(SA-CODEX-PLUGINS): end
 for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {
 	for (const key in file) {
 		// scient(SA-ROOT): begin - A host-assigned root owns the agent's own variables.

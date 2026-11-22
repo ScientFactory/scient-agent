@@ -169,10 +169,10 @@ describe("installed Codex plugins", () => {
 			transport: "stdio",
 		});
 		// Codex passes its own short list plus the server's env_vars, never the whole environment.
-		expect(byName.get("research:papers")?.env).toBeUndefined();
-		expect(byName.get("research:papers")?.envInherit).toEqual(
-			expect.arrayContaining(["PATH", "HOME", "CODEX_PLUGIN_TEST_TOKEN"]),
-		);
+		const papers = byName.get("research:papers");
+		expect(papers?.envInherit).toEqual([]);
+		expect(papers?.env).toMatchObject({ PATH: process.env.PATH, CODEX_PLUGIN_TEST_TOKEN: "forwarded-value" });
+		expect(papers?.env?.CODEX_PLUGIN_TEST_PAT).toBeUndefined();
 		expect(byName.get("research:tracker")).toMatchObject({
 			url: "https://mcp.example.test/mcp",
 			headers: { Authorization: "Bearer pat-value" },
@@ -384,14 +384,130 @@ describe("installed Codex plugins", () => {
 		expect(warnings).toContainEqual(expect.stringContaining("Ignoring mcpServers path outside linked@market"));
 	});
 
-	it("keeps two marketplaces' same-named plugins apart", async () => {
+	it("keeps same-named plugins from different marketplaces apart, whatever their names", async () => {
 		const server = { mcpServers: { api: { command: "node" } } };
 		await install("twin@alpha", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
 		await install("twin@beta", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
+		// Its name is what `twin` qualified with `alpha` would look like if dots qualified names.
+		await install("twin.alpha@gamma", { ".codex-plugin/plugin.json": { name: "twin.alpha" }, ".mcp.json": server });
 		expect([...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort()).toEqual([
 			"twin.alpha:api",
-			"twin.beta:api",
+			"twin:alpha:api",
+			"twin:beta:api",
 		]);
+	});
+
+	it("keeps startup dotenv values out of the launch environment after the agent changes folders", async () => {
+		const first = temp.join("first-project");
+		const second = temp.join("second-project");
+		await Bun.write(path.join(first, ".env"), "CODEX_HOME=/from/dotenv\nCODEX_PLUGIN_TEST_SECRET=dotenv-secret\n");
+		await Bun.write(path.join(first, ".env.local"), "CODEX_PLUGIN_TEST_LOCAL=local-secret\n");
+		await fs.mkdir(second, { recursive: true });
+		// A fresh process, so the dotenv files load at its own startup in `first`.
+		const utils = path.join(import.meta.dir, "../../../utils/src/index.ts");
+		const script = [
+			`const { getLaunchEnv, setProjectDir } = await import(${JSON.stringify(utils)});`,
+			`setProjectDir(${JSON.stringify(second)});`,
+			"const env = getLaunchEnv();",
+			"console.log(JSON.stringify([Bun.env.CODEX_HOME, env.CODEX_HOME, env.CODEX_PLUGIN_TEST_SECRET, env.CODEX_PLUGIN_TEST_LOCAL, env.CODEX_PLUGIN_TEST_PAT]));",
+		].join("\n");
+		// With --no-env-file only the agent's own loader reads .env; without it Bun autoloads
+		// .env and .env.local too, as when the agent runs from source.
+		for (const flags of [["--no-env-file"], []]) {
+			const run = Bun.spawnSync([process.execPath, ...flags, "-e", script], {
+				cwd: first,
+				env: { PATH: process.env.PATH, HOME: temp.join("home"), CODEX_PLUGIN_TEST_PAT: "exported" },
+			});
+			// JSON writes a missing value as null.
+			expect(JSON.parse(run.stdout.toString().trim().split("\n").at(-1) ?? "null")).toEqual([
+				"/from/dotenv",
+				null,
+				null,
+				null,
+				"exported",
+			]);
+		}
+	});
+
+	it("follows Codex on disabled declarations, withheld variables and linked package folders", async () => {
+		await install(
+			"rules@market",
+			{
+				".codex-plugin/plugin.json": { name: "rules" },
+				".mcp.json": {
+					mcpServers: {
+						off: { command: "node", enabled: false },
+						retired: { command: "node", args: ["retired.mjs"] },
+						numeric: { command: 7, url: "https://mcp.example.test/mcp" },
+						withheld: { command: "node", env: { NODE_REPL_AUTH_TOKEN: "x", KEEP: "y" } },
+					},
+				},
+			},
+			["enabled = true", '[plugins."rules@market".mcp_servers.retired]', 'auth = "ema_auth"'],
+		);
+		const outside = temp.join("outside-manifest");
+		await Bun.write(path.join(outside, "plugin.json"), JSON.stringify({ name: "linkedfolder" }));
+		const linkedRoot = await install("linkedfolder@market", {
+			".mcp.json": { mcpServers: { x: { command: "node" } } },
+		});
+		await fs.symlink(outside, path.join(linkedRoot, ".codex-plugin"), "dir");
+		clearFsCache();
+		const { byName, warnings } = await load();
+		expect(byName.get("rules:off")?.enabled).toBe(false);
+		expect(byName.get("rules:retired")?.enabled).toBe(false);
+		expect(byName.has("rules:numeric")).toBe(false);
+		expect(warnings).toContainEqual(expect.stringContaining('"numeric" of rules@market: invalid command'));
+		expect(byName.get("rules:withheld")?.env).toMatchObject({ KEEP: "y" });
+		expect(byName.get("rules:withheld")?.env?.NODE_REPL_AUTH_TOKEN).toBeUndefined();
+		expect(byName.has("linkedfolder:x")).toBe(false);
+		expect(warnings).toContainEqual(
+			expect.stringContaining("Ignoring linkedfolder@market: .codex-plugin is not a folder"),
+		);
+	});
+
+	it("drops a skill linked out of a real skills folder", async () => {
+		const outside = temp.join("outside-skill");
+		await writeSkill(outside, "escaped");
+		const root = await install("mixed@market", { ".codex-plugin/plugin.json": { name: "mixed" } });
+		await writeSkill(root, "inside");
+		await fs.symlink(path.join(outside, "skills", "escaped"), path.join(root, "skills", "escaped"), "dir");
+		clearFsCache();
+		const names = (await skills()).map(skill => skill.name);
+		expect(names).toContain("inside");
+		expect(names).not.toContain("escaped");
+	});
+
+	it("applies Codex's rules to an Agent Plugins package's mcp.json", async () => {
+		restoreEnvValue("CODEX_PLUGIN_TEST_PAT", "pat-value");
+		const schema = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json";
+		await install("portable2@market", {
+			"plugin.json": { $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", name: "portable2" },
+			"mcp.json": {
+				$schema: schema,
+				mcpServers: {
+					events: { type: "sse", url: "https://mcp.example.test/sse" },
+					local: {
+						type: "stdio",
+						command: "node",
+						env: { CODEX_PLUGIN_TEST_PAT: "$" + "{CODEX_PLUGIN_TEST_PAT}", MODE: "x" },
+					},
+				},
+			},
+			// The package's legacy declaration forwards the variable the placeholder stands for.
+			".codex-plugin/plugin.json": { name: "portable2" },
+			".mcp.json": { mcpServers: { local: { command: "node", env_vars: ["CODEX_PLUGIN_TEST_PAT"] } } },
+		});
+		const linked = await install("linkedmcp@market", {
+			"plugin.json": { $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", name: "linkedmcp" },
+			"real-mcp.json": { $schema: schema, mcpServers: { y: { type: "stdio", command: "node" } } },
+		});
+		await fs.symlink(path.join(linked, "real-mcp.json"), path.join(linked, "mcp.json"));
+		clearFsCache();
+		const { byName, warnings } = await load();
+		expect(byName.has("portable2:events")).toBe(false);
+		expect(byName.get("portable2:local")?.env).toMatchObject({ CODEX_PLUGIN_TEST_PAT: "pat-value", MODE: "x" });
+		expect(byName.has("linkedmcp:y")).toBe(false);
+		expect(warnings).toContainEqual(expect.stringContaining("linkedmcp@market: mcp.json is not a regular file"));
 	});
 
 	it("reads Codex's manifest precedence: a root Agent Plugins manifest, then the legacy folders", async () => {
