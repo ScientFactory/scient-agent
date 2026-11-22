@@ -266,8 +266,9 @@ async function readLegacyManifest(
 		try {
 			manifest = JSON.parse((await readFile(manifestPath)) ?? "");
 		} catch {}
-		if (!isRecord(manifest)) {
-			warnings.push(`[codex-plugins] Invalid plugin.json for ${id}: ${manifestPath}`);
+		const mistyped = isRecord(manifest) ? manifestTypeError(manifest) : "the file";
+		if (mistyped !== undefined || !isRecord(manifest)) {
+			warnings.push(`[codex-plugins] Invalid plugin.json for ${id} (${mistyped}): ${manifestPath}`);
 			return null;
 		}
 		return { manifestPath, manifest };
@@ -347,33 +348,49 @@ function mergeLayers(lower: Record<string, unknown>, higher: Record<string, unkn
 	return merged;
 }
 
-let programData: string | undefined;
-
-/**
- * Windows' ProgramData known folder, which Codex resolves from the system rather than the
- * `ProgramData` variable anyone can set; Codex's default when the system cannot say.
- */
-function windowsProgramData(): string {
-	if (programData === undefined) {
-		const query = Bun.spawnSync(
-			[
-				"powershell.exe",
-				"-NoProfile",
-				"-NonInteractive",
-				"-Command",
-				"[Environment]::GetFolderPath('CommonApplicationData')",
-			],
-			{ stdout: "pipe", stderr: "ignore" },
-		);
-		const found = query.exitCode === 0 ? query.stdout.toString().trim() : "";
-		programData = path.win32.isAbsolute(found) ? found : "C:\\ProgramData";
-	}
-	return programData;
+interface WindowsPolicyProbe {
+	/** The ProgramData known folder. */
+	programData: string;
+	/** The Group Policy `RequirementsPath` value, when set. */
+	requirementsPath: string | null;
 }
 
-/** Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in ProgramData on Windows. */
+let windowsProbe: WindowsPolicyProbe | null | undefined;
+
+/**
+ * What Codex reads from Windows itself to find its policy: the ProgramData known folder (not the
+ * `ProgramData` variable anyone can set) and the 64-bit `HKLM\SOFTWARE\Policies\OpenAI\Codex`
+ * `RequirementsPath`, through .NET's calls to the same system APIs; null when they cannot be read.
+ */
+function probeWindowsPolicy(): WindowsPolicyProbe | null {
+	if (windowsProbe !== undefined) return windowsProbe;
+	const script = [
+		"$key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64').OpenSubKey('SOFTWARE\\Policies\\OpenAI\\Codex')",
+		"$path = if ($key) { $key.GetValue('RequirementsPath') } else { $null }",
+		"[Console]::Out.Write((@{ programData = [Environment]::GetFolderPath('CommonApplicationData'); requirementsPath = $path } | ConvertTo-Json -Compress))",
+	].join("; ");
+	const query = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
+		stdout: "pipe",
+		stderr: "ignore",
+	});
+	let probe: unknown = null;
+	try {
+		probe = query.exitCode === 0 ? JSON.parse(query.stdout.toString()) : null;
+	} catch {}
+	windowsProbe =
+		isRecord(probe) &&
+		typeof probe.programData === "string" &&
+		path.win32.isAbsolute(probe.programData) &&
+		(probe.requirementsPath == null || typeof probe.requirementsPath === "string")
+			? { programData: probe.programData, requirementsPath: (probe.requirementsPath as string | null) ?? null }
+			: null;
+	return windowsProbe;
+}
+
+/** Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in the ProgramData known folder on Windows. */
 function systemDir(): string {
-	return IS_WINDOWS ? path.join(windowsProgramData(), "OpenAI", "Codex") : "/etc/codex";
+	if (!IS_WINDOWS) return "/etc/codex";
+	return path.join(probeWindowsPolicy()?.programData ?? "C:\\ProgramData", "OpenAI", "Codex");
 }
 
 /**
@@ -382,19 +399,18 @@ function systemDir(): string {
  * undefined when none is present. A policy location that cannot be checked counts as present,
  * as Codex refuses to assume it absent.
  */
-async function managedPolicy(home: string): Promise<string | undefined> {
+async function managedPolicy(): Promise<string | undefined> {
+	const files = [path.join(systemDir(), "requirements.toml")];
 	if (IS_WINDOWS) {
-		const key = "HKLM\\SOFTWARE\\Policies\\OpenAI\\Codex";
-		const query = Bun.spawnSync(["reg", "query", key, "/v", "RequirementsPath", "/reg:64"], {
-			stdout: "ignore",
-			stderr: "ignore",
-		});
-		if (query.exitCode === 0) return `Codex is managed by an organization policy (${key}\\RequirementsPath)`;
+		const probe = probeWindowsPolicy();
+		if (probe === null) return "Windows cannot say where Codex's organization policy is";
+		if (probe.requirementsPath !== null) {
+			return `Codex is managed by an organization policy (Group Policy RequirementsPath ${probe.requirementsPath})`;
+		}
+	} else {
+		// Codex ignores a leftover managed_config.toml on Windows.
+		files.push("/etc/codex/managed_config.toml");
 	}
-	const files = [
-		path.join(systemDir(), "requirements.toml"),
-		IS_WINDOWS ? path.join(home, "managed_config.toml") : "/etc/codex/managed_config.toml",
-	];
 	if (process.platform === "darwin") {
 		const managed = "/Library/Managed Preferences";
 		files.push(
@@ -429,7 +445,7 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const env = filterProcessEnv(launch);
 	// Codex's home: `CODEX_HOME`, else `~/.codex`.
 	const home = env.CODEX_HOME?.trim() || path.join(ctx.home, ".codex");
-	const policy = await managedPolicy(home);
+	const policy = await managedPolicy();
 	if (policy !== undefined) {
 		warnings.push(`[codex-plugins] ${policy}, which Scient Agent cannot apply; no Codex plugins load`);
 		return { plugins: [], warnings, env };
@@ -459,10 +475,18 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	return { plugins, warnings, env };
 }
 
-/** A manifest path inside the package, symlinks resolved; null (with a warning when it points outside). */
+/**
+ * A manifest path inside the package, symlinks resolved; null (with a warning) when Codex would
+ * ignore it: not `./`-relative, holding `..`, or resolving outside the package.
+ */
 async function packagePath(plugin: CodexPlugin, value: unknown, key: string, warnings: string[]) {
-	if (typeof value !== "string" || !value.trim()) return null;
-	const resolved = await resolveContainedPath(plugin.root, path.resolve(plugin.root, value.trim()));
+	if (typeof value !== "string" || !value) return null;
+	const relative = value.startsWith("./") ? value.slice(2) : "";
+	if (!relative || relative.split(/[\\/]/).includes("..")) {
+		warnings.push(`[codex-plugins] Ignoring ${key} path of ${plugin.id}: ${value} (Codex takes ./paths without ..)`);
+		return null;
+	}
+	const resolved = await resolveContainedPath(plugin.root, path.resolve(plugin.root, relative));
 	if (resolved.status === "outside") {
 		warnings.push(`[codex-plugins] Ignoring ${key} path outside ${plugin.id}: ${value}`);
 		return null;
@@ -560,7 +584,7 @@ async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 	await Promise.all(
 		plugins.map(async plugin => {
 			const declared = plugin.format === "standard" ? undefined : plugin.manifest.skills;
-			const entries = declared == null ? ["skills"] : Array.isArray(declared) ? declared : [declared];
+			const entries = declared == null ? ["./skills"] : Array.isArray(declared) ? declared : [declared];
 			const dirs = new Set<string>();
 			for (const entry of entries) {
 				const dir = await packagePath(plugin, entry, "skills", warnings);
@@ -615,15 +639,115 @@ const isStringList = (value: unknown): value is string[] =>
 	Array.isArray(value) && value.every(item => typeof item === "string");
 const isStringMap = (value: unknown): value is Record<string, string> =>
 	isRecord(value) && Object.values(value).every(item => typeof item === "string");
+const isString = (value: unknown) => typeof value === "string";
+const isBoolean = (value: unknown) => typeof value === "boolean";
+const isPositiveInteger = (value: unknown) => Number.isInteger(value) && (value as number) > 0;
+const isApprovalMode = (value: unknown) => ["auto", "prompt", "writes", "approve"].includes(value as string);
 
-/** The names of Codex's `env_vars` entries (a name, or `{ name, source = "local" }`); null when one is malformed. */
+/** Codex's string fields of a legacy manifest's `interface` (camelCase, with its URL aliases). */
+const INTERFACE_STRINGS = [
+	"displayName",
+	"shortDescription",
+	"longDescription",
+	"developerName",
+	"category",
+	"websiteUrl",
+	"websiteURL",
+	"privacyPolicyUrl",
+	"privacyPolicyURL",
+	"termsOfServiceUrl",
+	"termsOfServiceURL",
+	"brandColor",
+	"composerIcon",
+	"logo",
+	"logoDark",
+];
+
+/** The first legacy manifest field whose type Codex rejects, which makes it skip the plugin, or undefined. */
+function manifestTypeError(manifest: Record<string, unknown>): string | undefined {
+	// `name` and `keywords` cannot be null; the other fields may be.
+	if ("name" in manifest && !isString(manifest.name)) return "name";
+	if ("keywords" in manifest && !isStringList(manifest.keywords)) return "keywords";
+	for (const key of ["version", "description", "apps"]) {
+		if (manifest[key] != null && !isString(manifest[key])) return key;
+	}
+	const ui = manifest.interface;
+	if (ui == null) return undefined;
+	if (!isRecord(ui)) return "interface";
+	for (const key of ["capabilities", "screenshots"]) {
+		if (key in ui && !isStringList(ui[key])) return `interface.${key}`;
+	}
+	for (const key of INTERFACE_STRINGS) if (ui[key] != null && !isString(ui[key])) return `interface.${key}`;
+	return undefined;
+}
+
+/**
+ * The types Codex accepts for a legacy server's fields (null counts as absent); it rejects a server
+ * with any other, so its siblings load without it.
+ */
+const SERVER_FIELD_TYPES: Record<string, (value: unknown) => boolean> = {
+	command: isString,
+	args: isStringList,
+	env: isStringMap,
+	cwd: isString,
+	http_headers: isStringMap,
+	env_http_headers: isStringMap,
+	url: isString,
+	bearer_token: isString,
+	bearer_token_env_var: isString,
+	http_headers_helper: isString,
+	environment_id: isString,
+	auth: value => value === "oauth" || value === "chatgpt" || value === "ema_auth",
+	startup_timeout_sec: value => typeof value === "number" && Number.isFinite(value),
+	startup_timeout_ms: value => Number.isInteger(value) && (value as number) >= 0,
+	tool_timeout_sec: value => typeof value === "number" && Number.isFinite(value) && value >= 0,
+	enabled: isBoolean,
+	required: isBoolean,
+	supports_parallel_tool_calls: isBoolean,
+	startup_readiness: value => value === "connection" || value === "catalog",
+	tool_input_schema_max_bytes: isPositiveInteger,
+	omit_tools_from: isStringList,
+	default_tools_approval_mode: isApprovalMode,
+	enabled_tools: isStringList,
+	disabled_tools: isStringList,
+	scopes: isStringList,
+	oauth: value =>
+		isRecord(value) &&
+		["client_id", "client_secret", "callback_url", "authorization_server_issuer", "token_endpoint_auth_method"].every(
+			key => value[key] == null || isString(value[key]),
+		) &&
+		(value.callback_port == null ||
+			(Number.isInteger(value.callback_port) &&
+				(value.callback_port as number) >= 0 &&
+				(value.callback_port as number) <= 65535)),
+	oauth_resource: isString,
+	name: isString,
+	tools: value =>
+		isRecord(value) &&
+		Object.values(value).every(
+			tool =>
+				isRecord(tool) &&
+				(tool.approval_mode == null || isApprovalMode(tool.approval_mode)) &&
+				(tool.output_token_limit == null || isPositiveInteger(tool.output_token_limit)),
+		),
+};
+
+/**
+ * The names of Codex's `env_vars` entries (a name, or `{ name, source = "local" }` with no other
+ * keys); null when one is malformed.
+ */
 function envVarNames(value: unknown): string[] | null {
 	if (value == null) return [];
 	if (!Array.isArray(value)) return null;
 	const names: string[] = [];
 	for (const entry of value) {
 		if (typeof entry === "string") names.push(entry);
-		else if (isRecord(entry) && typeof entry.name === "string" && (entry.source ?? "local") === "local") {
+		else if (
+			isRecord(entry) &&
+			typeof entry.name === "string" &&
+			(entry.source ?? "local") === "local" &&
+			Object.keys(entry).every(key => key === "name" || key === "source")
+		) {
 			names.push(entry.name);
 		} else return null;
 	}
@@ -641,8 +765,14 @@ async function mapLegacyServer(
 	server: Record<string, unknown>,
 	env: Record<string, string>,
 ): Promise<Mapped> {
-	if (server.command != null && typeof server.command !== "string") return { error: "invalid command" };
-	if (server.url != null && typeof server.url !== "string") return { error: "invalid url" };
+	const mistyped = Object.keys(SERVER_FIELD_TYPES).find(
+		key => server[key] != null && !SERVER_FIELD_TYPES[key](server[key]),
+	);
+	if (mistyped !== undefined) return { error: `invalid ${mistyped}` };
+	// Another environment runs the server for Codex; here it would run on this machine.
+	if (server.environment_id != null && server.environment_id !== "local") {
+		return { error: `it runs in Codex environment ${server.environment_id}` };
+	}
 	const isStdio = server.command != null;
 	if (!isStdio && server.url == null) return { error: "it declares neither command nor url" };
 	const wrong = (isStdio ? NOT_STDIO : NOT_HTTP).find(key => server[key] != null);
@@ -657,11 +787,8 @@ async function mapLegacyServer(
 	if (isStdio) {
 		const command = (server.command as string).trim();
 		if (!command) return { error: "command is empty" };
-		if (server.args != null && !isStringList(server.args)) return { error: "invalid args" };
-		if (server.env != null && !isStringMap(server.env)) return { error: "invalid env" };
 		const forwarded = envVarNames(server.env_vars);
 		if (forwarded === null) return { error: "invalid env_vars" };
-		if (server.cwd != null && typeof server.cwd !== "string") return { error: "invalid cwd" };
 		// Codex runs a server from the package unless it names a folder inside it.
 		const cwd = typeof server.cwd === "string" ? path.resolve(plugin.root, server.cwd) : plugin.root;
 		if (!(await isContainedResolved(plugin.root, cwd))) return { error: `cwd ${server.cwd} leaves the package` };
@@ -687,14 +814,6 @@ async function mapLegacyServer(
 
 	if (server.http_headers_helper != null) return { error: "it computes its headers with a helper command" };
 	if (server.auth != null && server.auth !== "oauth") return { error: `auth ${String(server.auth)} is not supported` };
-	if (server.http_headers != null && !isStringMap(server.http_headers)) return { error: "invalid http_headers" };
-	if (server.env_http_headers != null && !isStringMap(server.env_http_headers)) {
-		return { error: "invalid env_http_headers" };
-	}
-	if (server.bearer_token_env_var != null && typeof server.bearer_token_env_var !== "string") {
-		return { error: "invalid bearer_token_env_var" };
-	}
-	if (server.oauth != null && !isRecord(server.oauth)) return { error: "invalid oauth" };
 	const url = server.url as string;
 	if (!URL.canParse(url) || !/^https?:$/.test(new URL(url).protocol)) return { error: `invalid url ${url}` };
 	// Static headers are data; the others name variables of the launch environment, as in Codex.
@@ -744,7 +863,7 @@ async function readLegacyServerMap(
 	let parsed: unknown = declared;
 	let sourcePath = manifestPath;
 	if (!isRecord(declared)) {
-		const file = await packagePath(plugin, declared ?? ".mcp.json", "mcpServers", warnings);
+		const file = await packagePath(plugin, declared ?? "./.mcp.json", "mcpServers", warnings);
 		if (file === null) {
 			if (declared != null) warnings.push(`[codex-plugins] Missing mcpServers file declared by ${plugin.id}`);
 			return null;
@@ -861,6 +980,12 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 				warnings.push(`${skip}: Codex restricts its tools (${restricted}), which Scient Agent cannot enforce`);
 				continue;
 			}
+			// An `ema_auth` entry stands for the enterprise sign-in Codex no longer supports there; Codex
+			// turns the server off for good, so no setting here may turn it back on.
+			if ("ema_auth" in policy) {
+				warnings.push(`${skip}: Codex turns it off (ema_auth)`);
+				continue;
+			}
 			let mapped: Mapped;
 			try {
 				mapped = standard !== null ? { server } : await mapLegacyServer(plugin, server, env);
@@ -874,9 +999,8 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			items.push({
 				name: `${plugin.label}:${serverName}`,
 				...mapped.server,
-				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`, and
-				// with an `ema_auth` entry, the enterprise sign-in Codex no longer supports there.
-				...((policy.enabled === false || "ema_auth" in policy) && { enabled: false }),
+				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`.
+				...(policy.enabled === false && { enabled: false }),
 				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
 			});
 		}

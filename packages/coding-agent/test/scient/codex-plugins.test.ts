@@ -437,6 +437,8 @@ describe("installed Codex plugins", () => {
 		for (const [flags, expected] of [
 			[["--no-env-file"], launch],
 			[[], process.platform === "linux" ? launch : null],
+			// Bun loads a file it is told to even with --no-env-file.
+			[["--no-env-file", "--env-file=.env"], null],
 		] as const) {
 			const run = Bun.spawnSync([process.execPath, ...flags, "-e", script], {
 				cwd: first,
@@ -486,7 +488,11 @@ describe("installed Codex plugins", () => {
 		clearFsCache();
 		const { byName, warnings } = await load();
 		expect(byName.get("rules:off")?.enabled).toBe(false);
-		expect(byName.get("rules:retired")?.enabled).toBe(false);
+		// Codex turns an ema_auth server off for good, so it is not listed for a setting to turn on.
+		expect(byName.has("rules:retired")).toBe(false);
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"retired" of rules@market: Codex turns it off (ema_auth)'),
+		);
 		expect(byName.has("rules:numeric")).toBe(false);
 		expect(warnings).toContainEqual(expect.stringContaining('"numeric" of rules@market: invalid command'));
 		expect(byName.get("rules:withheld")?.env).toMatchObject({ KEEP: "y" });
@@ -575,9 +581,39 @@ describe("installed Codex plugins", () => {
 				},
 			},
 		});
+		await install("textflag@market", {
+			...standard("textflag"),
+			".codex-plugin/plugin.json": { name: "textflag" },
+			".mcp.json": {
+				mcpServers: { local: { command: "node", enabled: "false", env_vars: ["CODEX_PLUGIN_TEST_PAT"] } },
+			},
+		});
 		const { byName } = await load();
 		expect(byName.get("viaclaude:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
 		expect(byName.get("invalidoverlay:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("textflag:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+	});
+
+	it("skips a manifest Codex cannot read and paths it would not take", async () => {
+		const root = await install("typed@market", {
+			".codex-plugin/plugin.json": { name: 5 },
+			".mcp.json": { mcpServers: { x: { command: "node" } } },
+		});
+		await writeSkill(root, "typed-skill");
+		const loose = await install("loose@market", {
+			".codex-plugin/plugin.json": { name: "loose", skills: "skills/", mcpServers: "./sub/../.mcp.json" },
+			".mcp.json": { mcpServers: { y: { command: "node" } } },
+		});
+		await writeSkill(loose, "loose-skill");
+		clearFsCache();
+		const { byName, warnings } = await load();
+		expect(byName.has("typed:x")).toBe(false);
+		expect(byName.has("loose:y")).toBe(false);
+		expect(warnings).toContainEqual(expect.stringContaining("Invalid plugin.json for typed@market (name)"));
+		expect(warnings).toContainEqual(expect.stringContaining("Ignoring mcpServers path of loose@market"));
+		const names = (await skills()).map(skill => skill.name);
+		expect(names).not.toContain("typed-skill");
+		expect(names).not.toContain("loose-skill");
 	});
 
 	it("reads Codex's manifest precedence: a root Agent Plugins manifest, then the legacy folders", async () => {
