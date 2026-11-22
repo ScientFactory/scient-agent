@@ -2,7 +2,11 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
+import { initializeWithSettings } from "@oh-my-pi/pi-coding-agent/capability";
+import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import * as mcpClient from "@oh-my-pi/pi-coding-agent/mcp/client";
+import { loadAllMCPConfigs } from "@oh-my-pi/pi-coding-agent/mcp/config";
+import { readDisabledServers } from "@oh-my-pi/pi-coding-agent/mcp/config-writer";
 import {
 	lookupMcpOAuthCredential,
 	lookupMcpOAuthCredentialForServer,
@@ -16,7 +20,7 @@ import {
 import type { MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
 import { MCPCommandController } from "@oh-my-pi/pi-coding-agent/modes/controllers/mcp-command-controller";
 import { initTheme } from "@oh-my-pi/pi-tui/theme";
-import { getProjectDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
+import { getAgentDir, getMCPConfigPath, getProjectDir, setAgentDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
 import { createInteractiveModeContext, createMcpManagerStub } from "../helpers/interactive-mode-context";
 import { restoreEnvValue } from "../helpers/settings-test-state";
 
@@ -177,5 +181,100 @@ describe("an imported Codex plugin server's own sign-in", () => {
 				{ authStorage: storage, silent: true },
 			),
 		).rejects.toBeInstanceOf(McpReauthRefusalError);
+	});
+
+	it("gives a sign-in to no definition but its own server's", async () => {
+		const storage = freshStorage();
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		await storage.credentials.set(credentialId, token);
+		// Repointed to another URL, the id answers nothing.
+		expect(
+			lookupMcpOAuthCredentialForServer(storage, { type: "oauth", credentialId }, "https://other.example.test/mcp"),
+		).toBeUndefined();
+		using temp = TempDir.createSync("@scient-codex-plugins-claim-");
+		const filePath = path.join(temp.path(), "mcp.json");
+		// A config-file definition, or one under another name, cannot sign in under it.
+		for (const [name, discovered] of [
+			[NAME, false],
+			["copy", true],
+		] as const) {
+			await expect(
+				reauthorizeMcpServer(
+					name,
+					{ filePath, scope: "user", config: boundConfig(), discovered },
+					{ authStorage: storage, silent: true },
+				),
+			).rejects.toBeInstanceOf(McpReauthRefusalError);
+		}
+		// Nor sign it out.
+		const previous = getProjectDir();
+		setProjectDir(temp.path());
+		try {
+			const ctx = createInteractiveModeContext({
+				session: { modelRegistry: { authStorage: storage } },
+				mcpManager: createMcpManagerStub({
+					getServerConfig: vi.fn(() => boundConfig()),
+					getSource: vi.fn(() => ({
+						provider: "codex-plugins",
+						providerName: "Codex Plugins",
+						path: "/codex/plugin/.mcp.json",
+						level: "user" as const,
+					})),
+				}),
+			});
+			await new MCPCommandController(ctx).handle("/mcp unauth copy");
+			expect(ctx.showError).toHaveBeenCalledWith(expect.stringContaining("belongs to another server"));
+		} finally {
+			setProjectDir(previous);
+		}
+		expect(storage.credentials.get(credentialId)).toMatchObject({ access: "a" });
+		// Only the codex-plugins source binds a definition to a server's own sign-in, even under the id
+		// the definition's own name and URL give.
+		const ownId = oauthFlow.mcpOAuthServerCredentialId("imposter", SERVER_URL);
+		await Bun.write(
+			path.join(temp.path(), ".mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					copy: { type: "http", url: SERVER_URL, auth: { type: "oauth", credentialId } },
+					imposter: { type: "http", url: SERVER_URL, auth: { type: "oauth", credentialId: ownId } },
+				},
+			}),
+		);
+		const release = initializeWithSettings(Settings.isolated());
+		try {
+			const { configs } = await loadAllMCPConfigs(temp.path());
+			expect(configs.copy?.auth?.credentialId).toBeUndefined();
+			expect(configs.imposter?.auth?.credentialId).toBeUndefined();
+		} finally {
+			release();
+		}
+	});
+
+	it("toggles an imported server through the disabled-servers list", async () => {
+		using temp = TempDir.createSync("@scient-codex-plugins-toggle-");
+		const previousProject = getProjectDir();
+		const previousAgent = getAgentDir();
+		setProjectDir(temp.path());
+		setAgentDir(temp.join("agent"));
+		try {
+			const ctx = createInteractiveModeContext({
+				session: { modelRegistry: { authStorage: freshStorage() } },
+				mcpManager: createMcpManagerStub({
+					getServerConfig: vi.fn(() => boundConfig()),
+					getSource: vi.fn(() => ({
+						provider: "codex-plugins",
+						providerName: "Codex Plugins",
+						path: "/codex/plugin/.mcp.json",
+						level: "user" as const,
+					})),
+				}),
+			});
+			await new MCPCommandController(ctx).handle(`/mcp disable ${NAME}`);
+			expect(ctx.showError).not.toHaveBeenCalled();
+			expect(await readDisabledServers(getMCPConfigPath("user", temp.path()))).toEqual([NAME]);
+		} finally {
+			setProjectDir(previousProject);
+			setAgentDir(previousAgent);
+		}
 	});
 });

@@ -249,9 +249,21 @@ describe("installed Codex plugins", () => {
 			huge: { command: "node", args: ["huge.mjs"], startup_timeout_ms: 2 ** 64 },
 			capped: { command: "node", args: ["capped.mjs"], tools: { read: { output_token_limit: 100 } } },
 			shown: { command: "node", args: ["shown.mjs"], omit_tools_from: [] },
+			// Codex refuses to start a server whose named bearer variable is unset.
+			unsetbearer: { url: "https://mcp.example.test/a", bearer_token_env_var: "CODEX_PLUGIN_TEST_UNSET" },
+			// The bearer replaces a static header of the same name in any case.
+			cased: {
+				url: "https://mcp.example.test/b",
+				http_headers: { authorization: "Basic old" },
+				bearer_token_env_var: "CODEX_PLUGIN_TEST_PAT",
+			},
 		});
 		const { names, warnings } = await limits();
-		expect(names).toEqual(["limits@market:shown"]);
+		expect(names.sort()).toEqual(["limits@market:cased", "limits@market:shown"]);
+		expect((await load()).byName.get("limits@market:cased")?.headers).toEqual({ Authorization: "Bearer pat-value" });
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"unsetbearer" of limits@market: its bearer_token_env_var CODEX_PLUGIN_TEST_UNSET'),
+		);
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"hidden" of limits@market: Codex restricts its tools (omit_tools_from)'),
 		);
@@ -476,7 +488,8 @@ describe("installed Codex plugins", () => {
 		const configPath = temp.join("codex-home", "config.toml");
 		const rules = [
 			"[[skills.config]]",
-			'name = "twin:search"',
+			// Codex trims a selector's Unicode whitespace, U+0085 included.
+			'name = "\\u0085twin:search\\u0085"',
 			"enabled = false",
 			// Codex names no plugin skill bare `search`, so this enables nothing.
 			"[[skills.config]]",

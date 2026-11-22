@@ -8,6 +8,7 @@ import {
 	isManagedMCPOAuthCredentialId,
 	// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
 	isMcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialIdMatchesUrl,
 	// scient(SA-CODEX-PLUGINS): end
 	type MCPStoredOAuthCredential,
 	mcpOAuthCredentialId,
@@ -48,6 +49,14 @@ export function lookupMcpOAuthCredentialForServer(
 	if (!authStorage) return undefined;
 	if (auth && auth.type !== "oauth") return undefined;
 	const urlKeyedCredentialIds = mcpOAuthCredentialIdsForServerUrl(serverUrl);
+	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in answers only the URL it was made for.
+	if (
+		isMcpOAuthServerCredentialId(auth?.credentialId) &&
+		!mcpOAuthServerCredentialIdMatchesUrl(auth?.credentialId ?? "", serverUrl)
+	) {
+		return undefined;
+	}
+	// scient(SA-CODEX-PLUGINS): end
 	if (
 		auth?.credentialId &&
 		(!auth.credentialId.startsWith("mcp_oauth:profile:") || urlKeyedCredentialIds.includes(auth.credentialId))

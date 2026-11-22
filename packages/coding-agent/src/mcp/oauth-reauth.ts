@@ -38,6 +38,7 @@ import {
 	mcpOAuthCredentialId,
 	// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
 	isMcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialId,
 	// scient(SA-CODEX-PLUGINS): end
 } from "./oauth-flow";
 import type { AuthStorage } from "../session/auth-storage";
@@ -772,6 +773,17 @@ export async function reauthorizeMcpServer(
 	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in (an imported Codex plugin server)
 	// takes its values literally, as Codex does, and keeps its configured scope and resource below.
 	const bound = isMcpOAuthServerCredentialId(currentAuth?.credentialId);
+	// Only a discovered server holds its own sign-in, under the id its name and URL give.
+	if (
+		bound &&
+		!(
+			found.discovered &&
+			(found.config.type === "http" || found.config.type === "sse") &&
+			currentAuth?.credentialId === mcpOAuthServerCredentialId(name, found.config.url)
+		)
+	) {
+		throw new McpReauthRefusalError(`Server "${name}" names a sign-in that belongs to another server.`);
+	}
 	const runtimeBaseConfig = bound ? baseConfig : expandEnvVarsDeep(baseConfig);
 	// Codex never signs in with OAuth to a server that names its own token (`bearer_token_env_var`).
 	if (bound && currentAuth?.type !== "oauth") {

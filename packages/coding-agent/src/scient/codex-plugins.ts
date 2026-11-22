@@ -469,7 +469,9 @@ async function readSkillRules(user: Record<string, unknown>, warnings: string[])
 	}
 	const rules: SkillRule[] = [];
 	for (const entry of entries as Record<string, unknown>[]) {
-		const name = typeof entry.name === "string" ? entry.name.trim() : undefined;
+		// Codex trims a name selector of Unicode whitespace (`str::trim`).
+		const name =
+			typeof entry.name === "string" ? entry.name.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "") : undefined;
 		if ((entry.path == null) === (entry.name == null) || name === "") continue;
 		const selector =
 			name !== undefined
@@ -1010,14 +1012,26 @@ async function mapLegacyServer(
 	if (server.auth != null && server.auth !== "oauth") return { error: `auth ${String(server.auth)} is not supported` };
 	const url = server.url as string;
 	if (!URL.canParse(url) || !/^https?:$/.test(new URL(url).protocol)) return { error: `invalid url ${url}` };
-	// Static headers are data; the others name variables of the launch environment, as in Codex.
-	const headers: Record<string, string> = { ...(server.http_headers as Record<string, string> | undefined) };
+	// Static headers are data; the others name variables of the launch environment, as in Codex, which
+	// sets them in that order, each replacing a header of the same name in any case. A named bearer
+	// variable that is unset or empty keeps Codex from starting the server.
+	const headers: Record<string, string> = {};
+	const put = (header: string, value: string) => {
+		for (const key of Object.keys(headers)) if (key.toLowerCase() === header.toLowerCase()) delete headers[key];
+		headers[header] = value;
+	};
+	for (const [header, value] of Object.entries((server.http_headers ?? {}) as Record<string, string>))
+		put(header, value);
 	for (const [header, name] of Object.entries((server.env_http_headers ?? {}) as Record<string, string>)) {
 		const value = envValue(env, name)?.trim();
-		if (value) headers[header] = value;
+		if (value) put(header, value);
 	}
-	const bearer = server.bearer_token_env_var ? envValue(env, server.bearer_token_env_var as string)?.trim() : "";
-	if (bearer) headers.Authorization = `Bearer ${bearer}`;
+	if (server.bearer_token_env_var != null) {
+		const bearer = envValue(env, server.bearer_token_env_var as string);
+		if (!bearer)
+			return { error: `its bearer_token_env_var ${String(server.bearer_token_env_var)} is unset or empty` };
+		put("Authorization", `Bearer ${bearer}`);
+	}
 	// Codex's OAuth client settings, snake_case or the camelCase plugins may use.
 	const oauthTable = (server.oauth ?? {}) as Record<string, unknown>;
 	const oauth: NonNullable<MCPServer["oauth"]> = {};
