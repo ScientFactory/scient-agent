@@ -6,7 +6,14 @@ import type { MCPLoadResult, MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/ma
 import { mcpOAuthServerCredentialId } from "@oh-my-pi/pi-coding-agent/mcp/oauth-flow";
 import { McpReauthRefusalError, reauthorizeMcpServer } from "@oh-my-pi/pi-coding-agent/mcp/oauth-reauth";
 import type { MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { loginFailureMessage, serverStatusLine } from "@oh-my-pi/pi-coding-agent/scient/mcp-command";
+import * as path from "node:path";
+import { TempDir } from "@oh-my-pi/pi-utils";
+import {
+	authorizationUrlIsPublic,
+	loginFailureMessage,
+	selectedServer,
+	serverStatusLine,
+} from "@oh-my-pi/pi-coding-agent/scient/mcp-command";
 import { McpSignInPickup } from "@oh-my-pi/pi-coding-agent/scient/mcp-sign-in-pickup";
 
 const URL_A = "https://mcp.example.test/mcp";
@@ -198,4 +205,47 @@ describe("a conversation picking up a sign-in made elsewhere", () => {
 		await new McpSignInPickup(manager, auth, async () => {}).beforePrompt();
 		expect(reconnects).toEqual([]);
 	});
+});
+
+describe("which server mcp login signs in to", () => {
+	it("never shows a sign-in page whose resource carries the server's own key", () => {
+		const page = (resource: string) =>
+			`https://auth.example.test/authorize?client_id=c&resource=${encodeURIComponent(resource)}`;
+		expect(authorizationUrlIsPublic(page("https://mcp.example.test/mcp"))).toBe(true);
+		expect(authorizationUrlIsPublic(page(`https://mcp.example.test/mcp?key=${LEAKED}`))).toBe(false);
+		expect(authorizationUrlIsPublic(page(`https://user:${LEAKED}@mcp.example.test/mcp`))).toBe(false);
+	});
+
+	it("signs an ordinary server in from the file discovery read, only when that entry is the selected one", async () => {
+		using temp = TempDir.createSync("@scient-mcp-login-select-");
+		const file = path.join(temp.path(), ".mcp.json");
+		await Bun.write(file, JSON.stringify({ mcpServers: { api: { type: "http", url: URL_A } } }));
+		const source = { provider: "mcp-json", providerName: "", path: file, level: "project" } as SourceMeta;
+		const selected = { type: "http", url: URL_A } as MCPServerConfig;
+		const { manager } = fakeManager({ api: { config: selected } });
+		expect(await selectedServer("api", selected, source, manager, temp.path())).toMatchObject({
+			filePath: file,
+			scope: "project",
+			discovered: false,
+		});
+		// The file's entry now points elsewhere than the server discovery selected: no sign-in for it.
+		const other = { type: "http", url: "https://elsewhere.example.test/mcp" } as MCPServerConfig;
+		const { manager: otherManager } = fakeManager({ api: { config: other } });
+		expect(await selectedServer("api", other, source, otherManager, temp.path())).toBeNull();
+	});
+});
+
+it("a malformed sign-in id never stops a conversation from starting", () => {
+	const auth = new AuthStorage(new SqliteAuthCredentialStore(new Database(":memory:")));
+	try {
+		const config = {
+			type: "http",
+			url: URL_A,
+			auth: { type: "oauth", credentialId: 42 },
+		} as unknown as MCPServerConfig;
+		const { manager } = fakeManager({ broken: { config } });
+		expect(() => new McpSignInPickup(manager, auth, async () => {}).seed()).not.toThrow();
+	} finally {
+		auth.close();
+	}
 });

@@ -18,13 +18,14 @@ import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
 import { initializeWithSettings } from "../capability";
 import type { SourceMeta } from "../capability/types";
 import { Settings } from "../config/settings";
+import { expandEnvVarsDeep } from "../discovery/helpers";
 import { loadAllMCPConfigs } from "../mcp/config";
+import { readMCPConfigFile } from "../mcp/config-writer";
 import { type MCPLoadResult, MCPManager } from "../mcp/manager";
 import { analyzeAuthError } from "../mcp/oauth-discovery";
 import { MCPOAuthClientIdRequiredError } from "../mcp/oauth-flow";
 import {
 	type FoundMcpServer,
-	findMcpServerForAuth,
 	MCPOAuthCancelledError,
 	McpReauthRefusalError,
 	reauthorizeMcpServer,
@@ -146,7 +147,7 @@ export default class Mcp extends Command {
 				? Object.fromEntries(Object.entries(loaded.configs).filter(([name]) => name === only))
 				: loaded.configs;
 			if (args.action === "login")
-				await this.#login(only!, configs, loaded.sources, manager, authStorage, abort, cwd, settings);
+				await this.#login(only!, configs, loaded.sources, manager, authStorage, abort, cwd);
 			else await this.#list(configs, loaded.sources, manager, authStorage);
 		} catch (error) {
 			const message =
@@ -182,18 +183,18 @@ export default class Mcp extends Command {
 		authStorage: AuthStorage,
 		abort: AbortController,
 		cwd: string,
-		settings: Settings,
 	): Promise<void> {
 		const config = configs[name];
 		const source = sources[name];
 		if (!config) throw new McpReauthRefusalError(`No MCP server named "${name}" is configured.`);
-		// Registers the definition the way a conversation does, so the lookup finds discovered servers.
+		// Registers the definition the way a conversation does, so the sign-in uses the one it selected.
 		await manager.connectServers(configs, sources, undefined, LIST_WAIT_MS);
-		const found = await selectedServer(name, config, source, manager, cwd, settings);
+		const found = await selectedServer(name, config, source, manager, cwd);
 		if (!found) {
 			throw new McpReauthRefusalError(`"${name}" is configured somewhere Scient Agent cannot sign in to it from.`);
 		}
 		const bound = source?.provider === CODEX_PLUGINS_PROVIDER;
+		let withheld = false;
 		try {
 			await reauthorizeMcpServer(name, found, {
 				authStorage,
@@ -201,12 +202,22 @@ export default class Mcp extends Command {
 				cwd,
 				mcpManager: manager,
 				silent: true,
-				onAuth: info => print({ type: "authorization_url", url: info.url }),
+				onAuth: info => {
+					if (!authorizationUrlIsPublic(info.url)) {
+						withheld = true;
+						abort.abort();
+						return;
+					}
+					print({ type: "authorization_url", url: info.url });
+				},
 				onProgress: () => {},
 			});
 			print({ type: "completed" });
 		} catch (error) {
-			print({ type: "failed", message: loginFailureMessage(name, bound, error) });
+			const message = withheld
+				? `${name}'s address carries values of its own, which Scient Agent does not send to a sign-in page.`
+				: loginFailureMessage(name, bound, error);
+			print({ type: "failed", message });
 			process.exitCode = 1;
 		}
 	}
@@ -215,30 +226,59 @@ export default class Mcp extends Command {
 const CODEX_PLUGINS_PROVIDER = "codex-plugins";
 
 /**
- * The definition discovery selected for `name`, as the sign-in needs it. An imported Codex plugin
- * server is answered from the manager, never a same-named config file entry that lost to it; an
- * ordinary server comes from the file that holds it, so a sign-in writes back where `/mcp reauth`
- * would, and only when that entry is the one discovery selected (same transport and URL).
+ * Whether a sign-in page may be shown: the resource it names (the server's address, when discovery
+ * gave no other) carries no user name, password or query, which could hold the server's own key.
  */
-async function selectedServer(
+export function authorizationUrlIsPublic(authorizationUrl: string): boolean {
+	try {
+		return new URL(authorizationUrl).searchParams.getAll("resource").every(resource => {
+			const url = new URL(resource);
+			return !url.username && !url.password && !url.search;
+		});
+	} catch {
+		return false;
+	}
+}
+
+const transportOf = (config: MCPServerConfig): string =>
+	config.type ?? ("url" in config && typeof config.url === "string" ? "http" : "stdio");
+const urlOf = (config: MCPServerConfig): string | undefined =>
+	"url" in config && typeof config.url === "string" ? config.url : undefined;
+
+/**
+ * The definition discovery selected for `name`, as the sign-in needs it. An imported Codex plugin
+ * server is answered from the manager, never a same-named config file entry that lost to it. An
+ * ordinary server comes from the very file discovery read it from, so a sign-in writes back where
+ * `/mcp reauth` would, and only when that entry, expanded, is the selected one (same transport and
+ * URL); a definition no readable config file holds (a plugin's) signs in as a discovered server.
+ */
+export async function selectedServer(
 	name: string,
 	config: MCPServerConfig,
 	source: SourceMeta | undefined,
 	manager: MCPManager,
 	cwd: string,
-	settings: Settings,
 ): Promise<FoundMcpServer | null> {
-	if (source?.provider === CODEX_PLUGINS_PROVIDER) {
-		const selected = manager.getServerConfig(name) ?? config;
-		return { filePath: getMCPConfigPath("user", cwd), scope: "user", config: selected, discovered: true };
-	}
-	const found = await findMcpServerForAuth(name, cwd, manager, {
-		enableProjectConfig: cfgMcpEnableProjectConfig.get(settings),
-	});
-	if (!found) return null;
-	const url = (entry: MCPServerConfig): string | undefined =>
-		entry.type === "http" || entry.type === "sse" ? entry.url : undefined;
-	if (found.discovered) return found;
-	const fileUrl = url(found.config);
-	return found.config.type === config.type && (fileUrl === url(config) || fileUrl?.includes("${")) ? found : null;
+	const selected = manager.getServerConfig(name) ?? config;
+	const discovered: FoundMcpServer = {
+		filePath: getMCPConfigPath("user", cwd),
+		scope: "user",
+		config: selected,
+		discovered: true,
+	};
+	if (source?.provider === CODEX_PLUGINS_PROVIDER) return discovered;
+	if (!source) return null;
+	const entry = await readMCPConfigFile(source.path).then(
+		file => file.mcpServers?.[name],
+		() => undefined,
+	);
+	if (!entry) return discovered;
+	const expanded = expandEnvVarsDeep(entry);
+	if (transportOf(expanded) !== transportOf(selected) || urlOf(expanded) !== urlOf(selected)) return null;
+	return {
+		filePath: source.path,
+		scope: source.level === "project" ? "project" : "user",
+		config: entry,
+		discovered: false,
+	};
 }
