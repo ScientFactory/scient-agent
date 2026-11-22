@@ -1,18 +1,37 @@
 import { Database } from "bun:sqlite";
-import { afterEach, describe, expect, it, vi } from "bun:test";
+import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
 import * as mcpClient from "@oh-my-pi/pi-coding-agent/mcp/client";
-import { lookupMcpOAuthCredentialForServer } from "@oh-my-pi/pi-coding-agent/mcp/oauth-credentials";
+import {
+	lookupMcpOAuthCredential,
+	lookupMcpOAuthCredentialForServer,
+} from "@oh-my-pi/pi-coding-agent/mcp/oauth-credentials";
 import * as oauthFlow from "@oh-my-pi/pi-coding-agent/mcp/oauth-flow";
-import { reauthorizeMcpServer } from "@oh-my-pi/pi-coding-agent/mcp/oauth-reauth";
+import {
+	McpReauthRefusalError,
+	reauthorizeMcpServer,
+	reconnectMcpManagerServer,
+} from "@oh-my-pi/pi-coding-agent/mcp/oauth-reauth";
 import type { MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { MCPCommandController } from "@oh-my-pi/pi-coding-agent/modes/controllers/mcp-command-controller";
+import { initTheme } from "@oh-my-pi/pi-tui/theme";
+import { getProjectDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
+import { createInteractiveModeContext, createMcpManagerStub } from "../helpers/interactive-mode-context";
 import { restoreEnvValue } from "../helpers/settings-test-state";
 
 const SERVER_URL = "https://mcp.example.test/mcp";
 const NAME = "tools@market:api";
 const placeholder = "$" + "{CODEX_PLUGIN_OAUTH_TEST}";
+const token = { type: "oauth" as const, access: "a", refresh: "r", expires: Date.now() + 3_600_000 };
+const boundConfig = (): MCPServerConfig => ({
+	type: "http",
+	url: SERVER_URL,
+	headerPolicy: "origin-locked",
+	auth: { type: "oauth", credentialId: oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL) },
+});
+
+beforeAll(() => initTheme());
 
 describe("an imported Codex plugin server's own sign-in", () => {
 	const stores: AuthStorage[] = [];
@@ -87,5 +106,76 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		// Found by its fixed id: nothing is written to a config file, and the auth block stays.
 		expect(outcome).toMatchObject({ persisted: false, credentialId, config: { auth: { credentialId } } });
 		expect(await Bun.file(path.join(temp.path(), "mcp.json")).exists()).toBe(false);
+	});
+
+	it("reconnects on its own sign-in, and never stands in for another entry at its URL", async () => {
+		const updateServerConfig = vi.fn(() => undefined);
+		const manager = createMcpManagerStub({
+			getServerConfig: vi.fn(() => boundConfig()),
+			updateServerConfig,
+			reconnectServer: vi.fn(async () => null),
+			getConnectionStatus: vi.fn(() => "connected" as const),
+		});
+		expect(await reconnectMcpManagerServer(manager, NAME, boundConfig())).toBe("connected");
+		expect(updateServerConfig).toHaveBeenCalledWith(NAME, boundConfig());
+		// A definition without that sign-in is another server, even at the same URL.
+		expect(await reconnectMcpManagerServer(manager, NAME, { type: "http", url: SERVER_URL })).toBeUndefined();
+	});
+
+	it("signs out of its own sign-in alone", async () => {
+		const storage = freshStorage();
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		await storage.credentials.set(credentialId, token);
+		await storage.credentials.set(oauthFlow.mcpOAuthCredentialId(SERVER_URL), { ...token, access: "native" });
+		using temp = TempDir.createSync("@scient-codex-plugins-unauth-");
+		const previous = getProjectDir();
+		setProjectDir(temp.path());
+		try {
+			const ctx = createInteractiveModeContext({
+				session: { modelRegistry: { authStorage: storage } },
+				mcpManager: createMcpManagerStub({
+					getServerConfig: vi.fn(() => boundConfig()),
+					getSource: vi.fn(() => ({
+						provider: "codex-plugins",
+						providerName: "Codex Plugins",
+						path: "/codex/plugin/.mcp.json",
+						level: "user" as const,
+					})),
+				}),
+			});
+			await new MCPCommandController(ctx).handle(`/mcp unauth ${NAME}`);
+			expect(ctx.showError).not.toHaveBeenCalled();
+		} finally {
+			setProjectDir(previous);
+		}
+		expect(storage.credentials.get(credentialId)).toBeUndefined();
+		// Another server's sign-in at the same URL stays.
+		expect(storage.credentials.get(oauthFlow.mcpOAuthCredentialId(SERVER_URL))).toMatchObject({ access: "native" });
+	});
+
+	it("leaves a server's own token in charge, as Codex does", async () => {
+		const storage = freshStorage();
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		await storage.credentials.set(credentialId, token);
+		// A configured Authorization header wins over a stored sign-in.
+		expect(
+			lookupMcpOAuthCredential(storage, {
+				type: "http",
+				url: SERVER_URL,
+				headers: { Authorization: "Bearer service" },
+				auth: { type: "oauth", credentialId },
+			}),
+		).toBeUndefined();
+		// A server declaring bearer_token_env_var is bound as a key: no sign-in answers it, and none starts.
+		const keyed: MCPServerConfig = { ...boundConfig(), auth: { type: "apikey", credentialId } };
+		expect(lookupMcpOAuthCredential(storage, keyed)).toBeUndefined();
+		using temp = TempDir.createSync("@scient-codex-plugins-keyed-");
+		await expect(
+			reauthorizeMcpServer(
+				NAME,
+				{ filePath: path.join(temp.path(), "mcp.json"), scope: "user", config: keyed, discovered: true },
+				{ authStorage: storage, silent: true },
+			),
+		).rejects.toBeInstanceOf(McpReauthRefusalError);
 	});
 });

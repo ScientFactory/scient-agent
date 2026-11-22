@@ -181,6 +181,8 @@ describe("installed Codex plugins", () => {
 			headers: { Authorization: "Bearer pat-value" },
 			headerPolicy: "origin-locked",
 			transport: "http",
+			// It names its own token, so it is bound as a key: no OAuth sign-in replaces the bearer.
+			auth: { type: "apikey" },
 		});
 		// The plugin's config table turns this server off in Codex for good, so it is not listed.
 		expect(byName.has("research@market:quiet")).toBe(false);
@@ -469,6 +471,8 @@ describe("installed Codex plugins", () => {
 		await writeSkill(blank, "find");
 		// Codex collapses the name's inner whitespace before a rule meets it.
 		await writeSkill(blank, "Paper  Search");
+		// A skill without a frontmatter name takes its folder's, collapsed the same way.
+		await Bun.write(path.join(blank, "skills", "daily  review", "SKILL.md"), "---\ndescription: d\n---\nRun.\n");
 		const configPath = temp.join("codex-home", "config.toml");
 		const rules = [
 			"[[skills.config]]",
@@ -484,6 +488,9 @@ describe("installed Codex plugins", () => {
 			"[[skills.config]]",
 			'name = "1.0.0:Paper Search"',
 			"enabled = false",
+			"[[skills.config]]",
+			'name = "1.0.0:daily review"',
+			"enabled = false",
 			"",
 		];
 		await Bun.write(configPath, [await Bun.file(configPath).text(), ...rules].join("\n"));
@@ -492,6 +499,7 @@ describe("installed Codex plugins", () => {
 		expect(names).not.toContain("search");
 		expect(names).not.toContain("find");
 		expect(names.some(name => name.startsWith("Paper"))).toBe(false);
+		expect(names.some(name => name.startsWith("daily"))).toBe(false);
 	});
 
 	it("loads no plugin from a [plugins] table Codex cannot read", async () => {

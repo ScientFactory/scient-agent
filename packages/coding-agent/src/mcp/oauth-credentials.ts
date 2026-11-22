@@ -79,6 +79,10 @@ export function lookupMcpOAuthCredential(
 		return lookupMcpOAuthCredentialForServer(authStorage, auth, undefined);
 	}
 	if (hasMcpAuthorizationHeader(config)) {
+		// scient(SA-CODEX-PLUGINS): begin - for a server bound to its own sign-in, the configured
+		// Authorization header (an imported Codex plugin's bearer) wins over a stored sign-in, as in Codex.
+		if (isMcpOAuthServerCredentialId(auth?.credentialId)) return undefined;
+		// scient(SA-CODEX-PLUGINS): end
 		return lookupMcpOAuthCredentialForServer(authStorage, auth, config.url, { allowUrlKeyedFallback: false });
 	}
 	return lookupMcpOAuthCredentialForServer(authStorage, auth, config.url);

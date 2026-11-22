@@ -319,6 +319,10 @@ export function matchingManagerServerConfig(
 	const managerConfig = manager?.getServerConfig(name);
 	if (!managerConfig || managerConfig.type !== selected.type) return undefined;
 	const urls = [expandEnvVarsDeep(selected.url), selected.url];
+	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in matches only the entry holding that sign-in.
+	const boundIds = [selected.auth?.credentialId, managerConfig.auth?.credentialId];
+	if (boundIds.some(isMcpOAuthServerCredentialId) && boundIds[0] !== boundIds[1]) return undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	return urls.includes(managerConfig.url) ? managerConfig : undefined;
 }
 
@@ -342,7 +346,11 @@ export async function reconnectMcpManagerServer(
 	if (!manager) return undefined;
 	const managerConfig = matchingManagerServerConfig(manager, name, selected);
 	if (!managerConfig) return undefined;
-	const pending = manager.updateServerConfig(name, clearMcpClientAuthSurface(managerConfig));
+	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in keeps its auth block and headers:
+	// without them it would reconnect on another server's url-keyed sign-in.
+	const bound = isMcpOAuthServerCredentialId(managerConfig.auth?.credentialId);
+	const pending = manager.updateServerConfig(name, bound ? managerConfig : clearMcpClientAuthSurface(managerConfig));
+	// scient(SA-CODEX-PLUGINS): end
 	if (pending) await pending;
 	await manager.reconnectServer(name, { manual: true });
 	return manager.getConnectionStatus(name);
@@ -765,6 +773,12 @@ export async function reauthorizeMcpServer(
 	// takes its values literally, as Codex does, and keeps its configured scope and resource below.
 	const bound = isMcpOAuthServerCredentialId(currentAuth?.credentialId);
 	const runtimeBaseConfig = bound ? baseConfig : expandEnvVarsDeep(baseConfig);
+	// Codex never signs in with OAuth to a server that names its own token (`bearer_token_env_var`).
+	if (bound && currentAuth?.type !== "oauth") {
+		throw new McpReauthRefusalError(
+			`Server "${name}" signs in with its own token, so Codex does not sign in to it with OAuth.`,
+		);
+	}
 	// scient(SA-CODEX-PLUGINS): end
 	// Resolve endpoints first: this fails fast for stdio transports and
 	// probes http/sse with { oauth: false }, so nothing destructive has
@@ -836,13 +850,18 @@ export async function reauthorizeMcpServer(
 	const oauthResource = preferredResource ?? ("url" in runtimeBaseConfig ? runtimeBaseConfig.url : undefined);
 	const oauthResourceIsFallback = preferredResource === undefined;
 	const configuredScope = bound ? runtimeBaseConfig.oauth?.scope : undefined;
-	const authUrl = new URL(oauth.authorizationUrl);
-	if (configuredScope !== undefined) authUrl.searchParams.delete("scope");
+	// A URL that does not parse is left for the flow's own validation to report.
+	let authUrl = oauth.authorizationUrl;
+	if (configuredScope !== undefined && URL.canParse(authUrl)) {
+		const parsed = new URL(authUrl);
+		parsed.searchParams.delete("scope");
+		authUrl = parsed.toString();
+	}
 	// scient(SA-CODEX-PLUGINS): end
 
 	const oauthResult = await runMcpOAuthFlow({
 		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in asks for its configured scopes.
-		authUrl: configuredScope !== undefined ? authUrl.toString() : oauth.authorizationUrl,
+		authUrl,
 		tokenUrl: oauth.tokenUrl,
 		clientId: flowClientId,
 		clientSecret: flowClientSecret,
