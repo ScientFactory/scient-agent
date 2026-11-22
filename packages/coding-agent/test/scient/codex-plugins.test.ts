@@ -9,6 +9,7 @@ import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
 import { cfgEnabledProviders } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { resolveMCPRequestDeadline } from "@oh-my-pi/pi-coding-agent/mcp/timeout";
+import { HttpTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/http";
 import { StdioTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/stdio";
 import * as piUtils from "@oh-my-pi/pi-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
@@ -270,12 +271,22 @@ describe("installed Codex plugins", () => {
 				http_headers: { "X-Account": "account-a", "Bad Name": "x" },
 				env_http_headers: { "X-Account": "CODEX_PLUGIN_TEST_NEWLINE" },
 			},
+			// Codex compares a confidential client's stored ID with this one exactly, which Scient would trim.
+			spacedclient: { url: "https://mcp.example.test/d", oauth: { client_id: " id ", client_secret: "s" } },
+			// Codex refuses a client secret without a client ID.
+			secretonly: { url: "https://mcp.example.test/e", oauth: { client_secret: "s" } },
 		});
 		const { names, warnings } = await limits();
 		expect(names.sort()).toEqual(["limits@market:cased", "limits@market:kept", "limits@market:shown"]);
 		const byName = (await load()).byName;
 		expect(byName.get("limits@market:cased")?.headers).toEqual({ Authorization: "Bearer pat-value" });
 		expect(byName.get("limits@market:kept")?.headers).toEqual({ "X-Account": "account-a" });
+		// Codex's five-minute default holds a server that sets no tool_timeout_sec.
+		expect(byName.get("limits@market:shown")?.toolTimeoutMs).toBe(300_000);
+		expect(warnings).toContainEqual(expect.stringContaining('"spacedclient" of limits@market: its OAuth client_id'));
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"secretonly" of limits@market: its OAuth client_secret has no client_id'),
+		);
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"unsetbearer" of limits@market: its bearer_token_env_var CODEX_PLUGIN_TEST_UNSET'),
 		);
@@ -302,6 +313,54 @@ describe("installed Codex plugins", () => {
 		});
 		// Other requests keep their own timeout.
 		expect(resolveMCPRequestDeadline(undefined, "tools/list", undefined, 2_000).timeoutMs).not.toBe(2_000);
+	});
+
+	// The cap is the transport's own timer on a live socket, which fake timers do not drive: the test
+	// waits on no fixed delay, only on that cap (300 ms at most) firing.
+	it("keeps a tool call's cap across an HTTP sign-in refresh and retry", async () => {
+		let posts = 0;
+		const server = Bun.serve({
+			port: 0,
+			async fetch(req) {
+				await req.json();
+				posts++;
+				// The first attempt is refused; the retry is never answered.
+				return posts === 1 ? new Response("expired", { status: 401 }) : new Promise<Response>(() => {});
+			},
+		});
+		const call = async (refresh: () => Promise<Record<string, string> | null>) => {
+			posts = 0;
+			const transport = new HttpTransport({
+				type: "http",
+				url: `http://127.0.0.1:${server.port}/mcp`,
+				toolTimeoutMs: 300,
+			});
+			await transport.connect();
+			transport.onAuthError = refresh;
+			try {
+				return await transport.request("tools/call", { name: "slow", arguments: {} }).then(
+					() => "resolved",
+					(error: Error) => error.message,
+				);
+			} finally {
+				await transport.close();
+			}
+		};
+		try {
+			// A refresh that never ends still ends the call at the cap.
+			expect(await call(() => new Promise(() => {}))).toBe("Request timeout after 300ms");
+			// A refresh that takes 200 ms of the cap leaves the retry the rest, not a fresh 300 ms.
+			const realNow = Date.now;
+			let skew = 0;
+			vi.spyOn(Date, "now").mockImplementation(() => realNow() + skew);
+			const message = await call(async () => {
+				skew = 200;
+				return { Authorization: "Bearer refreshed" };
+			});
+			expect(Number(/Request timeout after (\d+)ms/.exec(message)?.[1])).toBeLessThanOrEqual(100);
+		} finally {
+			server.stop(true);
+		}
 	});
 
 	it("skips a server whose config.toml policy narrows its tools with disabled_tools", async () => {
@@ -780,6 +839,8 @@ describe("installed Codex plugins", () => {
 			MODE: "x",
 		});
 		expect(byName.has("linkedmcp@market:y")).toBe(false);
+		// mcp.json carries no tool_timeout_sec, so Codex's five-minute default holds its tool calls.
+		expect(byName.get("portable2@market:local")?.toolTimeoutMs).toBe(300_000);
 		expect(warnings).toContainEqual(expect.stringContaining("linkedmcp@market: mcp.json is not a regular file"));
 	});
 

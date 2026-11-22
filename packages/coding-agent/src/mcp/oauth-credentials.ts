@@ -94,15 +94,15 @@ export function lookupMcpOAuthCredential(
 		// scient(SA-CODEX-PLUGINS): end
 		return lookupMcpOAuthCredentialForServer(authStorage, auth, config.url, { allowUrlKeyedFallback: false });
 	}
-	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in made with another OAuth client than the one
-	// it now configures is not used or refreshed: Codex asks for a fresh sign-in then.
+	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in made for another confidential client than the one
+	// it now configures is not used or refreshed: Codex compares the exact IDs and asks for a fresh sign-in.
 	const lookup = lookupMcpOAuthCredentialForServer(authStorage, auth, config.url);
-	const configuredClient = config.oauth?.clientId?.trim();
+	if (!lookup || !isMcpOAuthServerCredentialId(lookup.credentialId)) return lookup;
+	const clientId = config.oauth?.clientId;
 	if (
-		lookup &&
-		configuredClient &&
-		isMcpOAuthServerCredentialId(lookup.credentialId) &&
-		lookup.credential.clientId?.trim() !== configuredClient
+		typeof config.oauth?.clientSecret === "string" &&
+		typeof clientId === "string" &&
+		lookup.credential.clientId !== clientId
 	) {
 		return undefined;
 	}

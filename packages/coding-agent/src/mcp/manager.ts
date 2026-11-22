@@ -975,9 +975,10 @@ export class MCPManager implements MCPManagerApi {
 		// Prepare connection tasks
 		const connectionTasks: ConnectionTask[] = [];
 
-		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it.
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it, as the
+		// source supplied with this definition says: a source left registered by an earlier definition never vouches.
 		for (const [name, declared] of Object.entries(configs)) {
-			const config = withTrustedMcpAuth(name, declared, (sources[name] ?? this.#sources.get(name))?.provider);
+			const config = withTrustedMcpAuth(name, declared, sources[name]?.provider);
 			// scient(SA-CODEX-PLUGINS): end
 			this.#startupServers.add(name);
 			// Connecting a server by name (`/mcp enable`) ends its built-in drop.

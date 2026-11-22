@@ -52,6 +52,17 @@ interface SSEResumeState {
  */
 class SSEResumeError extends Error {}
 
+// scient(SA-CODEX-PLUGINS): begin - a tool call that ran out its hard cap.
+function toolTimeoutError(capMs: number): MCPTransportError {
+	return new MCPTransportError({
+		transport: "http",
+		stage: "send",
+		failure: "timeout",
+		message: `Request timeout after ${capMs}ms`,
+		retryable: false,
+	});
+}
+// scient(SA-CODEX-PLUGINS): end
 /** Wait for the server-provided SSE retry interval while remaining abortable. */
 async function waitForSSERetry(ms: number, signal: AbortSignal): Promise<void> {
 	if (signal.aborted) throw signal.reason;
@@ -411,6 +422,11 @@ export class HttpTransport implements MCPTransport {
 		params: Record<string, unknown> | undefined,
 		options: MCPRequestOptions | undefined,
 	): Promise<T> {
+		// scient(SA-CODEX-PLUGINS): begin - a hard tool-call cap spans the first attempt, the sign-in refresh
+		// after a 401 or 403 and the retry.
+		const capMs = method === "tools/call" ? this.config.toolTimeoutMs : undefined;
+		const startedAt = Date.now();
+		// scient(SA-CODEX-PLUGINS): end
 		try {
 			return await this.#executeRequest<T>(method, params, options);
 		} catch (error) {
@@ -420,21 +436,49 @@ export class HttpTransport implements MCPTransport {
 			// state-changing tool twice.
 			const status = error instanceof Error ? AIError.status(error) : undefined;
 			if (!(error instanceof SSEResumeError) && this.onAuthError && (status === 401 || status === 403)) {
-				const newHeaders = await this.onAuthError();
+				// scient(SA-CODEX-PLUGINS): begin - the refresh and the retry get only what is left of the cap.
+				const newHeaders =
+					capMs === undefined
+						? await this.onAuthError()
+						: await this.#withinToolBudget(this.onAuthError(), capMs, startedAt);
 				if (newHeaders) {
 					// Persist refreshed headers so subsequent requests use them directly
 					this.config = { ...this.config, headers: newHeaders };
-					return this.#executeRequest<T>(method, params, options);
+					const leftMs = capMs === undefined ? undefined : this.#toolBudgetLeft(capMs, startedAt);
+					return this.#executeRequest<T>(method, params, options, leftMs);
 				}
+				// scient(SA-CODEX-PLUGINS): end
 			}
 			throw error;
 		}
 	}
 
+	// scient(SA-CODEX-PLUGINS): begin - what is left of a tool call's hard cap, or its timeout once spent.
+	#toolBudgetLeft(capMs: number, startedAt: number): number {
+		const leftMs = capMs - (Date.now() - startedAt);
+		if (leftMs > 0) return leftMs;
+		throw toolTimeoutError(capMs);
+	}
+
+	async #withinToolBudget<R>(work: Promise<R>, capMs: number, startedAt: number): Promise<R> {
+		void work.catch(() => {});
+		const operation = createMCPTimeout(this.#toolBudgetLeft(capMs, startedAt));
+		try {
+			return await untilAborted(operation.signal, work);
+		} catch (error) {
+			throw operation.timedOut() ? toolTimeoutError(capMs) : error;
+		} finally {
+			operation.clear();
+		}
+	}
+	// scient(SA-CODEX-PLUGINS): end
 	async #executeRequest<T>(
 		method: string,
 		params: Record<string, unknown> | undefined,
 		options: MCPRequestOptions | undefined,
+		// scient(SA-CODEX-PLUGINS): begin - what is left of a hard tool-call cap after an auth retry.
+		toolTimeoutCapMs?: number,
+		// scient(SA-CODEX-PLUGINS): end
 	): Promise<T> {
 		if (!this.#connected) {
 			throw new MCPTransportError({
@@ -483,7 +527,7 @@ export class HttpTransport implements MCPTransport {
 			this.config.timeout,
 			method,
 			params,
-			this.config.toolTimeoutMs,
+			toolTimeoutCapMs ?? this.config.toolTimeoutMs,
 		);
 		// scient(SA-CODEX-PLUGINS): end
 		const operation = createMCPTimeout(timeout, this.#operationSignal(callerSignal), maxTotalMs);

@@ -58,6 +58,9 @@ const HOST_PLUGINS: Record<string, true> = {
 /** OpenAI's launcher for its signed Computer Use client, which serves only Codex (the Messages plugin). */
 const HOST_LAUNCHER = "computer-use-client-launcher";
 
+/** Codex's tool-call limit when a server sets no tool_timeout_sec (codex-mcp DEFAULT_TOOL_TIMEOUT). */
+const CODEX_DEFAULT_TOOL_TIMEOUT_MS = 300_000;
+
 const IS_WINDOWS = process.platform === "win32";
 
 /**
@@ -1055,6 +1058,14 @@ async function mapLegacyServer(
 		const value = oauthTable[snake] ?? oauthTable[camel];
 		if (typeof value === "string" && value) oauth[target] = value;
 	}
+	// Codex refuses a client secret without a client ID or of only whitespace, and holds a confidential client's
+	// sign-in to the client ID exactly as written, which Scient Agent's sign-in would trim.
+	if (oauth.clientSecret !== undefined && (oauth.clientId === undefined || !oauth.clientSecret.trim())) {
+		return { error: "its OAuth client_secret has no client_id or is blank, so Codex refuses to start it" };
+	}
+	if (oauth.clientId !== undefined && oauth.clientId !== oauth.clientId.trim()) {
+		return { error: "its OAuth client_id has surrounding whitespace, which Scient Agent's sign-in would not keep" };
+	}
 	const port = oauthTable.callback_port ?? oauthTable.callbackPort;
 	if (Number.isInteger(port) && Number(port) > 0) oauth.callbackPort = Number(port);
 	// Codex asks for the configured scopes as they are, an empty list meaning none.
@@ -1258,6 +1269,8 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			items.push({
 				name,
 				...config,
+				// Codex holds each tool call to tool_timeout_sec, five minutes unless set, in both formats.
+				toolTimeoutMs: config.toolTimeoutMs ?? CODEX_DEFAULT_TOOL_TIMEOUT_MS,
 				// Its own sign-in, never another server's at the same URL: Codex keys sign-ins by name and URL. A
 				// server that names its own token (`bearer_token_env_var`) is never signed in with OAuth there,
 				// so it is bound as a key, which no stored sign-in answers.
