@@ -162,11 +162,19 @@ interface CodexPlugin {
 	config: Record<string, unknown>;
 }
 
+/** A user `[[skills.config]]` entry Codex applies to loaded skills, its path canonical. */
+interface SkillRule {
+	selector: { path: string } | { name: string };
+	enabled: boolean;
+}
+
 interface PluginList {
 	plugins: CodexPlugin[];
 	warnings: string[];
 	/** Scient Agent's launch environment, without any `.env` file's values. */
 	env: Record<string, string>;
+	/** The user config's skill rules, in Codex's order. */
+	skillRules: SkillRule[];
 }
 
 /** Codex's rule for a cache path segment (plugin, marketplace or version name). */
@@ -364,21 +372,25 @@ let windowsProbe: WindowsPolicyProbe | null | undefined;
  */
 function probeWindowsPolicy(): WindowsPolicyProbe | null {
 	if (windowsProbe !== undefined) return windowsProbe;
+	// Any error stops the script with no output, so only a lookup that succeeded reports no policy.
 	const script = [
-		"$key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64').OpenSubKey('SOFTWARE\\Policies\\OpenAI\\Codex')",
+		"$ErrorActionPreference = 'Stop'",
+		"try { $key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64').OpenSubKey('SOFTWARE\\Policies\\OpenAI\\Codex')",
 		"$path = if ($key) { $key.GetValue('RequirementsPath') } else { $null }",
-		"[Console]::Out.Write((@{ programData = [Environment]::GetFolderPath('CommonApplicationData'); requirementsPath = $path } | ConvertTo-Json -Compress))",
+		"$data = [Environment]::GetFolderPath('CommonApplicationData')",
+		"[Console]::Out.Write((@{ ok = $true; programData = $data; requirementsPath = $path } | ConvertTo-Json -Compress)) } catch { exit 1 }",
 	].join("; ");
-	const query = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
-		stdout: "pipe",
-		stderr: "ignore",
-	});
 	let probe: unknown = null;
 	try {
+		const query = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
+			stdout: "pipe",
+			stderr: "ignore",
+		});
 		probe = query.exitCode === 0 ? JSON.parse(query.stdout.toString()) : null;
 	} catch {}
 	windowsProbe =
 		isRecord(probe) &&
+		probe.ok === true &&
 		typeof probe.programData === "string" &&
 		path.win32.isAbsolute(probe.programData) &&
 		(probe.requirementsPath == null || typeof probe.requirementsPath === "string")
@@ -430,6 +442,48 @@ async function managedPolicy(): Promise<string | undefined> {
 	return undefined;
 }
 
+/**
+ * The user config's `[[skills.config]]` rules as Codex reads them: an entry selects by an absolute
+ * `path` (canonicalized) or a `name`, never both; a later entry for the same selector replaces an
+ * earlier one. A `skills` table Codex cannot read yields no rules, as in Codex.
+ */
+async function readSkillRules(user: Record<string, unknown>, warnings: string[]): Promise<SkillRule[]> {
+	const skills = user.skills;
+	if (skills == null) return [];
+	const entries = isRecord(skills) ? (skills.config ?? []) : null;
+	const valid =
+		isRecord(skills) &&
+		Array.isArray(entries) &&
+		entries.every(
+			entry =>
+				isRecord(entry) &&
+				isBoolean(entry.enabled) &&
+				(entry.path == null || (isString(entry.path) && path.isAbsolute(entry.path))) &&
+				(entry.name == null || isString(entry.name)),
+		) &&
+		(skills.bundled == null ||
+			(isRecord(skills.bundled) && (skills.bundled.enabled == null || isBoolean(skills.bundled.enabled)))) &&
+		(skills.include_instructions == null || isBoolean(skills.include_instructions)) &&
+		(skills.max_context_tokens == null || isPositiveInteger(skills.max_context_tokens));
+	if (!valid) {
+		warnings.push("[codex-plugins] Ignoring Codex's [skills] settings, which Codex cannot read either");
+		return [];
+	}
+	const rules: SkillRule[] = [];
+	for (const entry of entries as Record<string, unknown>[]) {
+		const name = typeof entry.name === "string" ? entry.name.trim() : undefined;
+		if ((entry.path == null) === (entry.name == null) || name === "") continue;
+		const selector =
+			name !== undefined
+				? { name }
+				: { path: await fs.realpath(entry.path as string).catch(() => entry.path as string) };
+		const replaced = rules.findIndex(rule => JSON.stringify(rule.selector) === JSON.stringify(selector));
+		if (replaced !== -1) rules.splice(replaced, 1);
+		rules.push({ selector, enabled: entry.enabled as boolean });
+	}
+	return rules;
+}
+
 /** Installed, enabled Codex plugins outside {@link HOST_PLUGINS}. */
 async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const warnings: string[] = [];
@@ -440,7 +494,7 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 		warnings.push(
 			"[codex-plugins] This run cannot tell Scient Agent's launch environment from .env files (start it with --no-env-file); no Codex plugins load",
 		);
-		return { plugins: [], warnings, env: {} };
+		return { plugins: [], warnings, env: {}, skillRules: [] };
 	}
 	const env = filterProcessEnv(launch);
 	// Codex's home: `CODEX_HOME`, else `~/.codex`.
@@ -448,10 +502,10 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const policy = await managedPolicy();
 	if (policy !== undefined) {
 		warnings.push(`[codex-plugins] ${policy}, which Scient Agent cannot apply; no Codex plugins load`);
-		return { plugins: [], warnings, env };
+		return { plugins: [], warnings, env, skillRules: [] };
 	}
 	const user = await readToml(path.join(home, "config.toml"), warnings);
-	if (user === null) return { plugins: [], warnings, env };
+	if (user === null) return { plugins: [], warnings, env, skillRules: [] };
 	const system = await readToml(path.join(systemDir(), "config.toml"), warnings);
 	const merged = mergeLayers(system ?? {}, user);
 	const table = isRecord(merged.plugins) ? merged.plugins : {};
@@ -472,23 +526,21 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 		...plugin,
 		label: shared.has(plugin.name) ? `${plugin.name}:${plugin.marketplace}` : plugin.name,
 	}));
-	return { plugins, warnings, env };
+	return { plugins, warnings, env, skillRules: await readSkillRules(user, warnings) };
 }
 
-/**
- * A manifest path inside the package, symlinks resolved; null (with a warning) when Codex would
- * ignore it: not `./`-relative, holding `..`, or resolving outside the package.
- */
-async function packagePath(plugin: CodexPlugin, value: unknown, key: string, warnings: string[]) {
-	if (typeof value !== "string" || !value) return null;
-	const relative = value.startsWith("./") ? value.slice(2) : "";
-	if (!relative || relative.split(/[\\/]/).includes("..")) {
-		warnings.push(`[codex-plugins] Ignoring ${key} path of ${plugin.id}: ${value} (Codex takes ./paths without ..)`);
-		return null;
-	}
+/** A manifest path's part below `./`, or null when Codex ignores the path: not `./`-relative, or holding `..`. */
+function manifestRelative(value: unknown): string | null {
+	if (typeof value !== "string" || !value.startsWith("./")) return null;
+	const relative = value.slice(2);
+	return relative && !relative.split(/[\\/]/).includes("..") ? relative : null;
+}
+
+/** A manifest path Codex takes, symlinks resolved; null (with a warning when it resolves outside the package). */
+async function packagePath(plugin: CodexPlugin, relative: string, key: string, warnings: string[]) {
 	const resolved = await resolveContainedPath(plugin.root, path.resolve(plugin.root, relative));
 	if (resolved.status === "outside") {
-		warnings.push(`[codex-plugins] Ignoring ${key} path outside ${plugin.id}: ${value}`);
+		warnings.push(`[codex-plugins] Ignoring ${key} path outside ${plugin.id}: ./${relative}`);
 		return null;
 	}
 	return resolved.status === "ok" ? resolved.realPath : null;
@@ -579,20 +631,44 @@ async function scanPluginSkills(plugin: CodexPlugin, dir: string, warnings: stri
 
 async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
-	const { plugins, warnings } = await listCodexPlugins(ctx);
-	const items: Skill[] = [];
+	const { plugins, warnings, skillRules } = await listCodexPlugins(ctx);
+	const found: Skill[] = [];
 	await Promise.all(
 		plugins.map(async plugin => {
 			const declared = plugin.format === "standard" ? undefined : plugin.manifest.skills;
-			const entries = declared == null ? ["./skills"] : Array.isArray(declared) ? declared : [declared];
+			const listed = declared == null ? [] : Array.isArray(declared) ? declared : [declared];
+			// Codex drops the paths it does not take, and falls back to `skills/` when none is left.
+			const taken = listed.map(manifestRelative).filter(relative => relative !== null);
+			if (taken.length < listed.length) {
+				warnings.push(`[codex-plugins] Ignoring skills paths of ${plugin.id} that are not ./paths without ..`);
+			}
 			const dirs = new Set<string>();
-			for (const entry of entries) {
-				const dir = await packagePath(plugin, entry, "skills", warnings);
+			for (const relative of taken.length > 0 ? taken : ["skills"]) {
+				const dir = await packagePath(plugin, relative, "skills", warnings);
 				if (dir !== null) dirs.add(dir);
 			}
-			for (const dir of dirs) items.push(...(await scanPluginSkills(plugin, dir, warnings)));
+			for (const dir of dirs) {
+				for (const skill of await scanPluginSkills(plugin, dir, warnings)) found.push(skill);
+			}
 		}),
 	);
+	// The user's [[skills.config]] rules, in order: a path selects one SKILL.md, a name every skill
+	// so named (bare, or as Codex names plugin skills, `<plugin>:<skill>`).
+	const realPaths = await Promise.all(found.map(skill => fs.realpath(skill.path).catch(() => skill.path)));
+	const disabled = new Set<string>();
+	for (const rule of skillRules) {
+		found.forEach((skill, index) => {
+			const plugin = skill._source.pluginName;
+			const selected =
+				"path" in rule.selector
+					? rule.selector.path === realPaths[index]
+					: rule.selector.name === skill.name || rule.selector.name === `${plugin}:${skill.name}`;
+			if (!selected) return;
+			if (rule.enabled) disabled.delete(realPaths[index]);
+			else disabled.add(realPaths[index]);
+		});
+	}
+	const items = found.filter((_, index) => !disabled.has(realPaths[index]));
 	// Reads finish in any order; the list does not.
 	items.sort((a, b) => compareSkillOrder(a.name, a.path, b.name, b.path));
 	return { items, warnings };
@@ -616,6 +692,9 @@ function toolFilterKey(table: Record<string, unknown>): string | undefined {
 	if (table.enabled_tools != null) return "enabled_tools";
 	const denied = table.disabled_tools;
 	if (denied != null && !(Array.isArray(denied) && denied.length === 0)) return "disabled_tools";
+	// Codex hides the server's tools from the model where this lists.
+	const omitted = table.omit_tools_from;
+	if (omitted != null && !(Array.isArray(omitted) && omitted.length === 0)) return "omit_tools_from";
 	return undefined;
 }
 
@@ -642,6 +721,9 @@ const isStringMap = (value: unknown): value is Record<string, string> =>
 const isString = (value: unknown) => typeof value === "string";
 const isBoolean = (value: unknown) => typeof value === "boolean";
 const isPositiveInteger = (value: unknown) => Number.isInteger(value) && (value as number) > 0;
+/** Seconds Rust's `Duration::try_from_secs_f64` takes, as Codex converts them: finite, not negative, under 2^64. */
+const isDurationSeconds = (value: unknown) =>
+	typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 2 ** 64;
 const isApprovalMode = (value: unknown) => ["auto", "prompt", "writes", "approve"].includes(value as string);
 
 /** Codex's string fields of a legacy manifest's `interface` (camelCase, with its URL aliases). */
@@ -698,15 +780,16 @@ const SERVER_FIELD_TYPES: Record<string, (value: unknown) => boolean> = {
 	http_headers_helper: isString,
 	environment_id: isString,
 	auth: value => value === "oauth" || value === "chatgpt" || value === "ema_auth",
-	startup_timeout_sec: value => typeof value === "number" && Number.isFinite(value),
+	startup_timeout_sec: isDurationSeconds,
 	startup_timeout_ms: value => Number.isInteger(value) && (value as number) >= 0,
-	tool_timeout_sec: value => typeof value === "number" && Number.isFinite(value) && value >= 0,
+	tool_timeout_sec: isDurationSeconds,
 	enabled: isBoolean,
 	required: isBoolean,
 	supports_parallel_tool_calls: isBoolean,
 	startup_readiness: value => value === "connection" || value === "catalog",
 	tool_input_schema_max_bytes: isPositiveInteger,
-	omit_tools_from: isStringList,
+	omit_tools_from: value =>
+		isStringList(value) && value.every(surface => ["code_mode", "deferred", "direct"].includes(surface)),
 	default_tools_approval_mode: isApprovalMode,
 	enabled_tools: isStringList,
 	disabled_tools: isStringList,
@@ -863,9 +946,14 @@ async function readLegacyServerMap(
 	let parsed: unknown = declared;
 	let sourcePath = manifestPath;
 	if (!isRecord(declared)) {
-		const file = await packagePath(plugin, declared ?? "./.mcp.json", "mcpServers", warnings);
+		// Codex drops a path it does not take, or a value of another type, and reads `.mcp.json` instead.
+		const relative = manifestRelative(declared);
+		if (declared != null && relative === null) {
+			warnings.push(`[codex-plugins] Ignoring mcpServers of ${plugin.id}, which is not a ./path without ..`);
+		}
+		const file = await packagePath(plugin, relative ?? ".mcp.json", "mcpServers", warnings);
 		if (file === null) {
-			if (declared != null) warnings.push(`[codex-plugins] Missing mcpServers file declared by ${plugin.id}`);
+			if (relative !== null) warnings.push(`[codex-plugins] Missing mcpServers file declared by ${plugin.id}`);
 			return null;
 		}
 		try {
@@ -954,7 +1042,7 @@ async function readStandardServers(
 async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> {
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
 	const { plugins, warnings, env } = await listCodexPlugins(ctx);
-	const items: MCPServer[] = [];
+	const found: { identity: string; server: MCPServer }[] = [];
 	for (const plugin of plugins) {
 		const policies = isRecord(plugin.config.mcp_servers) ? plugin.config.mcp_servers : {};
 		const standard = plugin.format === "standard" ? await readStandardServers(ctx, plugin, env, warnings) : null;
@@ -996,15 +1084,33 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 				warnings.push(`${skip}: ${mapped.error} (${sourcePath})`);
 				continue;
 			}
-			items.push({
-				name: `${plugin.label}:${serverName}`,
-				...mapped.server,
-				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`.
-				...(policy.enabled === false && { enabled: false }),
-				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
+			found.push({
+				identity: `${plugin.id}/${serverName}`,
+				server: {
+					name: `${plugin.label}:${serverName}`,
+					...mapped.server,
+					// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`.
+					...(policy.enabled === false && { enabled: false }),
+					_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
+				},
 			});
 		}
 	}
+	// Tool names keep only lowercase letters, digits and `_` of a server's name (mcp/tool-bridge.ts),
+	// so `twin:alpha:api` and `twin-alpha:api` would share their tools' names; such servers take a
+	// suffix from their plugin and server instead.
+	const toolPrefix = (name: string) =>
+		name
+			.toLowerCase()
+			.replace(/[^a-z0-9_]+/g, "_")
+			.replace(/_+/g, "_")
+			.replace(/^_+|_+$/g, "");
+	const items = found.map(({ identity, server }) => {
+		const prefix = toolPrefix(server.name);
+		if (found.filter(other => toolPrefix(other.server.name) === prefix).length < 2) return server;
+		const digest = new Bun.CryptoHasher("sha256").update(identity).digest("hex").slice(0, 6);
+		return { ...server, name: `${server.name}-${digest}` };
+	});
 	return { items, warnings };
 }
 
