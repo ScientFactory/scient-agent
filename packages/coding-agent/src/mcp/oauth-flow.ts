@@ -33,6 +33,27 @@ export function mcpOAuthCredentialId(serverUrl: string, profile: string | undefi
 	return `${MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX}${profile ?? "default"}:${serverUrl}`;
 }
 
+// scient(SA-CODEX-PLUGINS): begin - a sign-in bound to one server, as Codex keys MCP sign-ins by server name and URL.
+/** Credential-id prefix for one server's own sign-in (`mcp_oauth:server:<profile>:<encoded name>:<serverUrl>`). */
+const MCP_OAUTH_SERVER_CREDENTIAL_PREFIX = `${MCP_OAUTH_URL_CREDENTIAL_PREFIX}server:`;
+
+/**
+ * Credential id for one server's own sign-in, under its profile. Lookups find it only through the
+ * server's `auth.credentialId`, never by URL, so no other server at that URL shares it.
+ */
+export function mcpOAuthServerCredentialId(
+	serverName: string,
+	serverUrl: string,
+	profile: string | undefined = getActiveProfile(),
+): string {
+	return `${MCP_OAUTH_SERVER_CREDENTIAL_PREFIX}${profile ?? "default"}:${encodeURIComponent(serverName)}:${serverUrl}`;
+}
+
+/** Whether a credential id is one server's own sign-in ({@link mcpOAuthServerCredentialId}). */
+export function isMcpOAuthServerCredentialId(credentialId: string | undefined): boolean {
+	return credentialId?.startsWith(MCP_OAUTH_SERVER_CREDENTIAL_PREFIX) === true;
+}
+// scient(SA-CODEX-PLUGINS): end
 /** Whether a credential id was minted by OMP's MCP OAuth flows (either era). */
 export function isManagedMCPOAuthCredentialId(credentialId: string | undefined): credentialId is string {
 	return (
@@ -49,9 +70,14 @@ export function isManagedMCPOAuthCredentialId(credentialId: string | undefined):
  * is the profile; everything after it is the URL.
  */
 export function mcpOAuthCredentialProfile(credentialId: string): string | undefined {
-	if (!credentialId.startsWith(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX)) return undefined;
-	const separator = credentialId.indexOf(":", MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length);
-	return separator === -1 ? undefined : credentialId.slice(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length, separator);
+	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in carries its profile in the same place.
+	const prefix = [MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX, MCP_OAUTH_SERVER_CREDENTIAL_PREFIX].find(candidate =>
+		credentialId.startsWith(candidate),
+	);
+	if (prefix === undefined) return undefined;
+	const separator = credentialId.indexOf(":", prefix.length);
+	return separator === -1 ? undefined : credentialId.slice(prefix.length, separator);
+	// scient(SA-CODEX-PLUGINS): end
 }
 
 /**
@@ -65,6 +91,13 @@ export function mcpOAuthCredentialProfile(credentialId: string): string | undefi
  * config — recover the server URL for the RFC 8707 fallback resource on refresh.
  */
 export function mcpOAuthServerUrlFromCredentialId(credentialId: string): string | undefined {
+	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in: the URL follows its profile and server name.
+	if (credentialId.startsWith(MCP_OAUTH_SERVER_CREDENTIAL_PREFIX)) {
+		const profileEnd = credentialId.indexOf(":", MCP_OAUTH_SERVER_CREDENTIAL_PREFIX.length);
+		const nameEnd = profileEnd === -1 ? -1 : credentialId.indexOf(":", profileEnd + 1);
+		return nameEnd === -1 ? undefined : credentialId.slice(nameEnd + 1) || undefined;
+	}
+	// scient(SA-CODEX-PLUGINS): end
 	if (credentialId.startsWith(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX)) {
 		const separator = credentialId.indexOf(":", MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length);
 		return separator === -1 ? undefined : credentialId.slice(separator + 1) || undefined;

@@ -25,6 +25,7 @@ import type { LoadContext, LoadResult } from "../capability/types";
 import { classifyAgentPluginRoot, parseAgentPluginMcp } from "../discovery/agent-plugin-format";
 import { isContainedResolved, realpathIfExists, resolveContainedPath } from "../discovery/contained-path";
 import { compareSkillOrder, createSourceMeta } from "../discovery/helpers";
+import { mcpOAuthServerCredentialId } from "../mcp/oauth-flow";
 
 const PROVIDER_ID = "codex-plugins";
 const DISPLAY_NAME = "Codex Plugins";
@@ -659,7 +660,9 @@ async function readPluginSkill(
 		const { frontmatter, body } = parseFrontmatter(content, { source: skillPath });
 		if (frontmatter.enabled === false) return null;
 		const folder = path.basename(path.dirname(skillPath));
-		const name = typeof frontmatter.name === "string" ? frontmatter.name.trim() || folder : folder;
+		// Codex collapses a name's whitespace (`sanitize_single_line`), so rules match that name.
+		const raw = typeof frontmatter.name === "string" ? frontmatter.name.split(/\s+/).filter(Boolean).join(" ") : "";
+		const name = raw || folder;
 		// `/` is reserved for skill namespaces and skill:// paths.
 		if (/[\\/]/.test(name)) {
 			warnings.push(`[codex-plugins] Skill name "${name}" contains a path separator, skipping: ${skillPath}`);
@@ -965,8 +968,6 @@ async function mapLegacyServer(
 	const wrong = (isStdio ? NOT_STDIO : NOT_HTTP).find(key => server[key] != null);
 	if (wrong !== undefined) return { error: `${wrong} is not supported for ${isStdio ? "stdio" : "streamable HTTP"}` };
 	const common = {
-		// `enabled = false` in the declaration turns the server off in Codex.
-		...(server.enabled === false && { enabled: false }),
 		...(typeof server.tool_timeout_sec === "number" &&
 			server.tool_timeout_sec > 0 && { timeout: server.tool_timeout_sec * 1000 }),
 	};
@@ -1024,7 +1025,8 @@ async function mapLegacyServer(
 	}
 	const port = oauthTable.callback_port ?? oauthTable.callbackPort;
 	if (Number.isInteger(port) && Number(port) > 0) oauth.callbackPort = Number(port);
-	if (isStringList(server.scopes) && server.scopes.length > 0) oauth.scope = server.scopes.join(" ");
+	// Codex asks for the configured scopes as they are, an empty list meaning none.
+	if (isStringList(server.scopes)) oauth.scope = server.scopes.join(" ");
 	const resource = typeof server.oauth_resource === "string" && server.oauth_resource ? server.oauth_resource : null;
 	return {
 		server: {
@@ -1147,15 +1149,28 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
 	const { plugins, warnings, env, configuredServers } = await listCodexPlugins(ctx);
 	const items: MCPServer[] = [];
+	const read: { plugin: CodexPlugin; declared: Record<string, unknown>; sourcePath: string; standard: boolean }[] = [];
 	for (const plugin of plugins) {
-		const policies = isRecord(plugin.config.mcp_servers) ? plugin.config.mcp_servers : {};
 		const standard = plugin.format === "standard" ? await readStandardServers(ctx, plugin, env, warnings) : null;
 		const legacy =
 			plugin.format === "legacy"
 				? await readLegacyServerMap(plugin, plugin.manifest, plugin.manifestPath, warnings)
 				: null;
-		const declared: Record<string, unknown> = standard?.servers ?? legacy?.servers ?? {};
-		const sourcePath = standard?.sourcePath ?? legacy?.sourcePath ?? plugin.manifestPath;
+		read.push({
+			plugin,
+			declared: standard?.servers ?? legacy?.servers ?? {},
+			sourcePath: standard?.sourcePath ?? legacy?.sourcePath ?? plugin.manifestPath,
+			standard: standard !== null,
+		});
+	}
+	// Codex runs one server per name: when enabled plugins declare the same one, which declaration
+	// wins (and so whose settings apply) is Codex's call, so none of them runs here.
+	const declarers = new Map<string, string[]>();
+	for (const { plugin, declared } of read) {
+		for (const name of Object.keys(declared)) declarers.set(name, [...(declarers.get(name) ?? []), plugin.id]);
+	}
+	for (const { plugin, declared, sourcePath, standard } of read) {
+		const policies = isRecord(plugin.config.mcp_servers) ? plugin.config.mcp_servers : {};
 		for (const [serverName, server] of Object.entries(declared)) {
 			if (!isRecord(server)) continue;
 			const skip = `[codex-plugins] Skipping MCP server "${serverName}" of ${plugin.id}`;
@@ -1168,6 +1183,11 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			// so its settings, `enabled = false` included, are what Codex runs.
 			if (configuredServers.has(serverName)) {
 				warnings.push(`${skip}: Codex runs your own [mcp_servers.${serverName}] instead`);
+				continue;
+			}
+			const others = (declarers.get(serverName) ?? []).filter(id => id !== plugin.id);
+			if (others.length > 0) {
+				warnings.push(`${skip}: ${others.join(", ")} declares a server of that name too, and Codex runs only one`);
 				continue;
 			}
 			const declaredPolicy = policies[serverName];
@@ -1184,9 +1204,15 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 				warnings.push(`${skip}: Codex turns it off (ema_auth)`);
 				continue;
 			}
+			// Codex turns a server off for good when its declaration or the plugin's mcp_servers.<name>
+			// table says `enabled = false`: no setting here may start it.
+			if (server.enabled === false || policy.enabled === false) {
+				warnings.push(`${skip}: Codex turns it off (enabled = false)`);
+				continue;
+			}
 			let mapped: Mapped;
 			try {
-				mapped = standard !== null ? { server } : await mapLegacyServer(plugin, server, env);
+				mapped = standard ? { server } : await mapLegacyServer(plugin, server, env);
 			} catch (error) {
 				mapped = { error: String(error) };
 			}
@@ -1194,12 +1220,21 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 				warnings.push(`${skip}: ${mapped.error} (${sourcePath})`);
 				continue;
 			}
+			// The plugin's ID names the server, so no other plugin's arrival renames it.
+			const name = `${plugin.id}:${serverName}`;
+			const { server: config } = mapped;
 			items.push({
-				// The plugin's ID names the server, so no other plugin's arrival renames it.
-				name: `${plugin.id}:${serverName}`,
-				...mapped.server,
-				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`.
-				...(policy.enabled === false && { enabled: false }),
+				name,
+				...config,
+				// Its own sign-in, never another server's at the same URL: Codex keys sign-ins by name and URL.
+				...(config.transport === "http" &&
+					config.url && {
+						auth: {
+							...config.auth,
+							type: "oauth" as const,
+							credentialId: mcpOAuthServerCredentialId(name, config.url),
+						},
+					}),
 				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.id),
 			});
 		}

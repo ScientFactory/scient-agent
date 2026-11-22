@@ -6,6 +6,9 @@ import { expandEnvVarsDeep } from "../discovery/helpers";
 import type { AuthStorage } from "../session/auth-storage";
 import {
 	isManagedMCPOAuthCredentialId,
+	// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+	isMcpOAuthServerCredentialId,
+	// scient(SA-CODEX-PLUGINS): end
 	type MCPStoredOAuthCredential,
 	mcpOAuthCredentialId,
 	mcpOAuthCredentialProfile,
@@ -54,6 +57,9 @@ export function lookupMcpOAuthCredentialForServer(
 			return { credentialId: auth.credentialId, credential };
 		}
 	}
+	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in never takes another server's by URL.
+	if (isMcpOAuthServerCredentialId(auth?.credentialId)) return undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	if (options.allowUrlKeyedFallback === false) return undefined;
 	for (const credentialId of urlKeyedCredentialIds) {
 		const credential = authStorage.credentials.get(credentialId);

@@ -162,11 +162,7 @@ describe("installed Codex plugins", () => {
 
 		const byName = new Map((await servers()).map(server => [server.name, server]));
 		// The Computer Use client launcher runs only inside Codex.
-		expect([...byName.keys()].sort()).toEqual([
-			"research@market:papers",
-			"research@market:quiet",
-			"research@market:tracker",
-		]);
+		expect([...byName.keys()].sort()).toEqual(["research@market:papers", "research@market:tracker"]);
 		expect(byName.get("research@market:papers")).toMatchObject({
 			command: path.join(researchRoot, "bin", "papers"),
 			args: ["--stdio"],
@@ -186,8 +182,8 @@ describe("installed Codex plugins", () => {
 			headerPolicy: "origin-locked",
 			transport: "http",
 		});
-		// The plugin's config table turns this server off, as Codex does.
-		expect(byName.get("research@market:quiet")?.enabled).toBe(false);
+		// The plugin's config table turns this server off in Codex for good, so it is not listed.
+		expect(byName.has("research@market:quiet")).toBe(false);
 	});
 
 	/**
@@ -431,16 +427,36 @@ describe("installed Codex plugins", () => {
 	});
 
 	it("keeps same-named plugins from different marketplaces apart, whatever their names", async () => {
-		const server = { mcpServers: { api: { command: "node" } } };
-		await install("twin@alpha", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
-		await install("twin@beta", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
+		await install("twin@alpha", {
+			".codex-plugin/plugin.json": { name: "twin" },
+			".mcp.json": { mcpServers: { a: { command: "node" } } },
+		});
+		await install("twin@beta", {
+			".codex-plugin/plugin.json": { name: "twin" },
+			".mcp.json": { mcpServers: { b: { command: "node" } } },
+		});
 		// Its name is what `twin` qualified with `alpha` would look like if dots qualified names.
-		await install("twin.alpha@gamma", { ".codex-plugin/plugin.json": { name: "twin.alpha" }, ".mcp.json": server });
+		await install("twin.alpha@gamma", {
+			".codex-plugin/plugin.json": { name: "twin.alpha" },
+			".mcp.json": { mcpServers: { c: { command: "node" } } },
+		});
 		expect([...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort()).toEqual([
-			"twin.alpha@gamma:api",
-			"twin@alpha:api",
-			"twin@beta:api",
+			"twin.alpha@gamma:c",
+			"twin@alpha:a",
+			"twin@beta:b",
 		]);
+	});
+
+	it("runs none of the servers two enabled plugins declare under one name", async () => {
+		const server = { mcpServers: { api: { command: "node" } } };
+		await install("first@market", { ".codex-plugin/plugin.json": { name: "first" }, ".mcp.json": server });
+		await install("second@market", { ".codex-plugin/plugin.json": { name: "second" }, ".mcp.json": server });
+		const { byName, warnings } = await load();
+		expect(byName.has("first@market:api")).toBe(false);
+		expect(byName.has("second@market:api")).toBe(false);
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"api" of first@market: second@market declares a server of that name too'),
+		);
 	});
 
 	it("matches skill rules to the name Codex gives a plugin's skills, and only that name", async () => {
@@ -451,6 +467,8 @@ describe("installed Codex plugins", () => {
 		// A blank manifest name leaves Codex the package folder's name, the version.
 		const blank = await install("blank@market", { ".codex-plugin/plugin.json": { name: "  " } });
 		await writeSkill(blank, "find");
+		// Codex collapses the name's inner whitespace before a rule meets it.
+		await writeSkill(blank, "Paper  Search");
 		const configPath = temp.join("codex-home", "config.toml");
 		const rules = [
 			"[[skills.config]]",
@@ -463,6 +481,9 @@ describe("installed Codex plugins", () => {
 			"[[skills.config]]",
 			'name = "1.0.0:find"',
 			"enabled = false",
+			"[[skills.config]]",
+			'name = "1.0.0:Paper Search"',
+			"enabled = false",
 			"",
 		];
 		await Bun.write(configPath, [await Bun.file(configPath).text(), ...rules].join("\n"));
@@ -470,6 +491,7 @@ describe("installed Codex plugins", () => {
 		const names = (await skills()).map(skill => skill.name);
 		expect(names).not.toContain("search");
 		expect(names).not.toContain("find");
+		expect(names.some(name => name.startsWith("Paper"))).toBe(false);
 	});
 
 	it("loads no plugin from a [plugins] table Codex cannot read", async () => {
@@ -631,7 +653,10 @@ describe("installed Codex plugins", () => {
 		await fs.symlink(outside, path.join(linkedRoot, ".codex-plugin"), "dir");
 		clearFsCache();
 		const { byName, warnings } = await load();
-		expect(byName.get("rules@market:off")?.enabled).toBe(false);
+		expect(byName.has("rules@market:off")).toBe(false);
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"off" of rules@market: Codex turns it off (enabled = false)'),
+		);
 		// Codex turns an ema_auth server off for good, so it is not listed for a setting to turn on.
 		expect(byName.has("rules@market:retired")).toBe(false);
 		expect(warnings).toContainEqual(
@@ -710,21 +735,25 @@ describe("installed Codex plugins", () => {
 			"mcp.json": {
 				$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
 				mcpServers: {
-					local: { type: "stdio", command: "node", args: [name], env: { CODEX_PLUGIN_TEST_PAT: placeholder } },
+					[name]: { type: "stdio", command: "node", env: { CODEX_PLUGIN_TEST_PAT: placeholder } },
 				},
 			},
 		});
 		await install("viaclaude@market", {
 			...standard("viaclaude"),
 			".claude-plugin/plugin.json": { name: "viaclaude" },
-			".mcp.json": { mcpServers: { local: { command: "node", env_vars: ["CODEX_PLUGIN_TEST_PAT"] } } },
+			".mcp.json": { mcpServers: { viaclaude: { command: "node", env_vars: ["CODEX_PLUGIN_TEST_PAT"] } } },
 		});
 		await install("invalidoverlay@market", {
 			...standard("invalidoverlay"),
 			".codex-plugin/plugin.json": { name: "invalidoverlay" },
 			".mcp.json": {
 				mcpServers: {
-					local: { command: "node", url: "https://mcp.example.test/mcp", env_vars: ["CODEX_PLUGIN_TEST_PAT"] },
+					invalidoverlay: {
+						command: "node",
+						url: "https://mcp.example.test/mcp",
+						env_vars: ["CODEX_PLUGIN_TEST_PAT"],
+					},
 				},
 			},
 		});
@@ -732,13 +761,13 @@ describe("installed Codex plugins", () => {
 			...standard("textflag"),
 			".codex-plugin/plugin.json": { name: "textflag" },
 			".mcp.json": {
-				mcpServers: { local: { command: "node", enabled: "false", env_vars: ["CODEX_PLUGIN_TEST_PAT"] } },
+				mcpServers: { textflag: { command: "node", enabled: "false", env_vars: ["CODEX_PLUGIN_TEST_PAT"] } },
 			},
 		});
 		const { byName } = await load();
-		expect(byName.get("viaclaude@market:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
-		expect(byName.get("invalidoverlay@market:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
-		expect(byName.get("textflag@market:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("viaclaude@market:viaclaude")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("invalidoverlay@market:invalidoverlay")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("textflag@market:textflag")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
 	});
 
 	it("skips a manifest Codex cannot read and falls back as Codex does from paths it would not take", async () => {
