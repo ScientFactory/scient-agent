@@ -49,7 +49,7 @@ import {
 } from "../../mcp/oauth-credentials";
 import type { MCPAuthChallenge, MCPConfigFile, MCPServerConfig, MCPServerConnection } from "../../mcp/types";
 // scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
-import { isMcpOAuthServerCredentialId, mcpOAuthServerCredentialId } from "../../mcp/oauth-flow";
+import { isMcpOAuthServerCredentialId, mcpOAuthServerCredentialId, withTrustedMcpAuth } from "../../mcp/oauth-flow";
 // scient(SA-CODEX-PLUGINS): end
 import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
 import { urlHyperlinkAlways } from "@oh-my-pi/pi-tui/render";
@@ -1307,13 +1307,16 @@ export class MCPCommandController {
 
 			// Resolve auth config if needed
 			let resolvedConfig: MCPServerConfig;
+			// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it.
+			const testConfig = withTrustedMcpAuth(name, config, this.ctx.mcpManager?.getSource(name)?.provider);
 			if (this.ctx.mcpManager) {
-				resolvedConfig = await this.ctx.mcpManager.prepareConfig(config);
+				resolvedConfig = await this.ctx.mcpManager.prepareConfig(testConfig);
 			} else {
 				const tempManager = new MCPManager(getProjectDir());
 				tempManager.setAuthStorage(this.ctx.session.modelRegistry.authStorage);
-				resolvedConfig = await tempManager.prepareConfig(config);
+				resolvedConfig = await tempManager.prepareConfig(testConfig);
 			}
+			// scient(SA-CODEX-PLUGINS): end
 
 			// Create temporary connection
 			connection = await connectToServer(name, resolvedConfig, { signal: abortController.signal });

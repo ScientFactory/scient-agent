@@ -12,6 +12,9 @@ import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
 import { getActiveProfile } from "@oh-my-pi/pi-utils/dirs";
 import type { OAuthCredential } from "../session/auth-storage";
 import { buildWellKnownUrls } from "./oauth-discovery";
+// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+import type { MCPAuthConfig, MCPServerConfig } from "./types";
+// scient(SA-CODEX-PLUGINS): end
 
 /** Credential-id prefix for OMP-managed MCP OAuth credentials keyed by profile and server URL. */
 const MCP_OAUTH_URL_CREDENTIAL_PREFIX = "mcp_oauth:";
@@ -50,8 +53,41 @@ export function mcpOAuthServerCredentialId(
 }
 
 /** Whether a credential id is one server's own sign-in ({@link mcpOAuthServerCredentialId}). */
-export function isMcpOAuthServerCredentialId(credentialId: string | undefined): boolean {
-	return credentialId?.startsWith(MCP_OAUTH_SERVER_CREDENTIAL_PREFIX) === true;
+export function isMcpOAuthServerCredentialId(credentialId: unknown): boolean {
+	return typeof credentialId === "string" && credentialId.startsWith(MCP_OAUTH_SERVER_CREDENTIAL_PREFIX);
+}
+
+/**
+ * The auth block a server definition may use. A server-bound credential id stays only on the
+ * server the codex-plugins source imported under it (the id its name and URL give); any other
+ * definition drops it and finds its sign-in as a native server does.
+ */
+export function trustedMcpAuth(
+	name: string,
+	auth: MCPAuthConfig | undefined,
+	url: string | undefined,
+	provider: string | undefined,
+): MCPAuthConfig | undefined {
+	if (!auth || !isMcpOAuthServerCredentialId(auth.credentialId)) return auth;
+	if (
+		provider === "codex-plugins" &&
+		url !== undefined &&
+		auth.credentialId === mcpOAuthServerCredentialId(name, url)
+	) {
+		return auth;
+	}
+	return { ...auth, credentialId: undefined };
+}
+
+/** {@link trustedMcpAuth} applied to a server definition from the source `provider`. */
+export function withTrustedMcpAuth(
+	name: string,
+	config: MCPServerConfig,
+	provider: string | undefined,
+): MCPServerConfig {
+	const url = config.type === "http" || config.type === "sse" ? config.url : undefined;
+	const auth = trustedMcpAuth(name, config.auth, url, provider);
+	return auth === config.auth ? config : { ...config, auth };
 }
 
 /**

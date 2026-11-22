@@ -19,6 +19,7 @@ const ENV_KEYS = [
 	"CODEX_PLUGIN_TEST_TOKEN",
 	"CODEX_PLUGIN_TEST_PAT",
 	"CODEX_PLUGIN_TEST_SECRET",
+	"CODEX_PLUGIN_TEST_NEWLINE",
 ];
 
 async function writeSkill(root: string, name: string): Promise<string> {
@@ -242,6 +243,8 @@ describe("installed Codex plugins", () => {
 	});
 
 	it("skips a server Codex hides from the model or would not start", async () => {
+		// A value HTTP does not allow is skipped, so it cannot displace the static header Codex keeps.
+		restoreEnvValue("CODEX_PLUGIN_TEST_NEWLINE", "account-b\n");
 		await installLimits({
 			hidden: { command: "node", args: ["hidden.mjs"], omit_tools_from: ["direct", "deferred", "code_mode"] },
 			negative: { command: "node", args: ["negative.mjs"], startup_timeout_sec: -1 },
@@ -257,10 +260,17 @@ describe("installed Codex plugins", () => {
 				http_headers: { authorization: "Basic old" },
 				bearer_token_env_var: "CODEX_PLUGIN_TEST_PAT",
 			},
+			kept: {
+				url: "https://mcp.example.test/c",
+				http_headers: { "X-Account": "account-a", "Bad Name": "x" },
+				env_http_headers: { "X-Account": "CODEX_PLUGIN_TEST_NEWLINE" },
+			},
 		});
 		const { names, warnings } = await limits();
-		expect(names.sort()).toEqual(["limits@market:cased", "limits@market:shown"]);
-		expect((await load()).byName.get("limits@market:cased")?.headers).toEqual({ Authorization: "Bearer pat-value" });
+		expect(names.sort()).toEqual(["limits@market:cased", "limits@market:kept", "limits@market:shown"]);
+		const byName = (await load()).byName;
+		expect(byName.get("limits@market:cased")?.headers).toEqual({ Authorization: "Bearer pat-value" });
+		expect(byName.get("limits@market:kept")?.headers).toEqual({ "X-Account": "account-a" });
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"unsetbearer" of limits@market: its bearer_token_env_var CODEX_PLUGIN_TEST_UNSET'),
 		);
@@ -481,6 +491,9 @@ describe("installed Codex plugins", () => {
 		// A blank manifest name leaves Codex the package folder's name, the version.
 		const blank = await install("blank@market", { ".codex-plugin/plugin.json": { name: "  " } });
 		await writeSkill(blank, "find");
+		// A manifest name of Unicode whitespace alone is blank to Codex too.
+		const nel = await install("nel@market", { ".codex-plugin/plugin.json": { name: "\u0085" } });
+		await writeSkill(nel, "nel-skill");
 		// Codex collapses the name's inner whitespace before a rule meets it.
 		await writeSkill(blank, "Paper  Search");
 		// A skill without a frontmatter name takes its folder's, collapsed the same way.
@@ -504,6 +517,9 @@ describe("installed Codex plugins", () => {
 			"[[skills.config]]",
 			'name = "1.0.0:daily review"',
 			"enabled = false",
+			"[[skills.config]]",
+			'name = "1.0.0:nel-skill"',
+			"enabled = false",
 			"",
 		];
 		await Bun.write(configPath, [await Bun.file(configPath).text(), ...rules].join("\n"));
@@ -513,6 +529,7 @@ describe("installed Codex plugins", () => {
 		expect(names).not.toContain("find");
 		expect(names.some(name => name.startsWith("Paper"))).toBe(false);
 		expect(names.some(name => name.startsWith("daily"))).toBe(false);
+		expect(names).not.toContain("nel-skill");
 	});
 
 	it("loads no plugin from a [plugins] table Codex cannot read", async () => {

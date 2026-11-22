@@ -237,6 +237,8 @@ describe("an imported Codex plugin server's own sign-in", () => {
 				mcpServers: {
 					copy: { type: "http", url: SERVER_URL, auth: { type: "oauth", credentialId } },
 					imposter: { type: "http", url: SERVER_URL, auth: { type: "oauth", credentialId: ownId } },
+					// A malformed id belongs to no one; it must not stop its siblings from loading.
+					numeric: { type: "http", url: SERVER_URL, auth: { type: "apikey", credentialId: 5 } },
 				},
 			}),
 		);
@@ -245,9 +247,14 @@ describe("an imported Codex plugin server's own sign-in", () => {
 			const { configs } = await loadAllMCPConfigs(temp.path());
 			expect(configs.copy?.auth?.credentialId).toBeUndefined();
 			expect(configs.imposter?.auth?.credentialId).toBeUndefined();
+			expect(configs.numeric).toMatchObject({ type: "http", url: SERVER_URL });
 		} finally {
 			release();
 		}
+		// Manual connections (/mcp test) apply the same rule to the definition they read.
+		expect(oauthFlow.withTrustedMcpAuth(NAME, boundConfig(), "codex-plugins").auth?.credentialId).toBe(credentialId);
+		expect(oauthFlow.withTrustedMcpAuth(NAME, boundConfig(), "mcp-json").auth?.credentialId).toBeUndefined();
+		expect(oauthFlow.withTrustedMcpAuth("copy", boundConfig(), "codex-plugins").auth?.credentialId).toBeUndefined();
 	});
 
 	it("toggles an imported server through the disabled-servers list", async () => {
