@@ -2379,6 +2379,9 @@ export class MCPManager implements MCPManagerApi {
 					refreshStoredManagedMcpOAuthCredential(authStorage, credentialId, {
 						serverUrl: config.type === "http" || config.type === "sse" ? config.url : undefined,
 						auth,
+						// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in refreshes with the secret configured now.
+						clientSecret: typeof config.oauth?.clientSecret === "string" ? config.oauth.clientSecret : undefined,
+						// scient(SA-CODEX-PLUGINS): end
 						forceRefresh: opts?.forceRefresh,
 						keepCredentialOnRefreshFailure: true,
 						onRefreshFailure: refreshError => {

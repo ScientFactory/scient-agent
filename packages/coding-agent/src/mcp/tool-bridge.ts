@@ -454,7 +454,7 @@ function getMcpAuthChallenge(result: MCPToolCallResult): MCPAuthChallenge | unde
 function toolCallDeadline(connection: MCPServerConnection): number | undefined {
 	// Hosts and tests may hand the bridge a connection without its config: no cap then.
 	const capMs = connection.config?.toolTimeoutMs;
-	return capMs === undefined ? undefined : Date.now() + capMs;
+	return capMs === undefined ? undefined : performance.now() + capMs;
 }
 
 async function callToolWithAuthRetry(
@@ -511,9 +511,11 @@ async function reconnectWithAbort(
 		if (deadlineAt === undefined) return await pending;
 		void pending.catch(() => {});
 		const { promise: expired, resolve } = Promise.withResolvers<null>();
-		const timer = setTimeout(() => resolve(null), Math.max(0, deadlineAt - Date.now()));
+		const timer = setTimeout(() => resolve(null), Math.max(0, deadlineAt - performance.now()));
 		try {
-			return await Promise.race([pending, expired]);
+			const connection = await Promise.race([pending, expired]);
+			// A reconnect that lands at or past the deadline gets no replay.
+			return performance.now() < deadlineAt ? connection : null;
 		} finally {
 			clearTimeout(timer);
 		}

@@ -428,7 +428,7 @@ export class HttpTransport implements MCPTransport {
 		const deadlineAt =
 			capMs === undefined
 				? undefined
-				: Math.min(options?.deadlineAt ?? Number.POSITIVE_INFINITY, Date.now() + capMs);
+				: Math.min(options?.deadlineAt ?? Number.POSITIVE_INFINITY, performance.now() + capMs);
 		const callOptions = deadlineAt === undefined ? options : { ...options, deadlineAt };
 		// scient(SA-CODEX-PLUGINS): end
 		try {
@@ -446,10 +446,18 @@ export class HttpTransport implements MCPTransport {
 				const newHeaders =
 					capMs === undefined || deadlineAt === undefined
 						? await this.onAuthError()
-						: await this.#beforeToolDeadline(this.onAuthError(), capMs, deadlineAt);
+						: await this.#beforeToolDeadline(
+								() => this.onAuthError?.() ?? Promise.resolve(null),
+								capMs,
+								deadlineAt,
+							);
 				if (newHeaders) {
 					// Persist refreshed headers so subsequent requests use them directly
 					this.config = { ...this.config, headers: newHeaders };
+					// A deadline spent during the refresh sends no retry.
+					if (capMs !== undefined && deadlineAt !== undefined && performance.now() >= deadlineAt) {
+						throw toolTimeoutError(capMs);
+					}
 					return this.#executeRequest<T>(method, params, callOptions);
 				}
 				// scient(SA-CODEX-PLUGINS): end
@@ -458,11 +466,13 @@ export class HttpTransport implements MCPTransport {
 		}
 	}
 
-	// scient(SA-CODEX-PLUGINS): begin - work a capped tool call waits on, ended by the call's deadline.
-	async #beforeToolDeadline<R>(work: Promise<R>, capMs: number, deadlineAt: number): Promise<R> {
-		void work.catch(() => {});
-		const leftMs = deadlineAt - Date.now();
+	// scient(SA-CODEX-PLUGINS): begin - work a capped tool call waits on, started only while time is left and
+	// ended by the call's monotonic deadline.
+	async #beforeToolDeadline<R>(start: () => Promise<R>, capMs: number, deadlineAt: number): Promise<R> {
+		const leftMs = deadlineAt - performance.now();
 		if (leftMs <= 0) throw toolTimeoutError(capMs);
+		const work = start();
+		void work.catch(() => {});
 		const operation = createMCPTimeout(leftMs);
 		try {
 			return await untilAborted(operation.signal, work);

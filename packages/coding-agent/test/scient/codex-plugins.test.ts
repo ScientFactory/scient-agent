@@ -283,6 +283,15 @@ describe("installed Codex plugins", () => {
 			spacedsecret: { url: "https://mcp.example.test/g", oauth: { client_id: "id", client_secret: " s" } },
 			// Enterprise sign-in settings Codex allows only with ema_auth.
 			issuer: { url: "https://mcp.example.test/h", oauth: { authorization_server_issuer: "https://idp.test" } },
+			// Codex folds camelCase aliases in by key presence: a null snake_case ID still wins over clientId,
+			// leaving the secret without an ID; a numeric clientSecret alias fails the type check.
+			nullsnake: {
+				url: "https://mcp.example.test/i",
+				oauth: { client_id: null, clientId: "id", client_secret: "s" },
+			},
+			numericalias: { url: "https://mcp.example.test/j", oauth: { client_id: "id", clientSecret: 7 } },
+			// Rust trims U+0085 (NEL) as whitespace, so Codex finds this secret blank.
+			nelsecret: { url: "https://mcp.example.test/k", oauth: { client_id: "id", client_secret: "\u0085" } },
 		});
 		const { names, warnings } = await limits();
 		expect(names.sort()).toEqual(["limits@market:cased", "limits@market:kept", "limits@market:shown"]);
@@ -303,6 +312,9 @@ describe("installed Codex plugins", () => {
 				'"spacedsecret" of limits@market: its OAuth client_id or client_secret has surrounding',
 			),
 		);
+		expect(warnings).toContainEqual(expect.stringContaining('"nullsnake" of limits@market: its OAuth client_secret'));
+		expect(warnings).toContainEqual(expect.stringContaining('"numericalias" of limits@market: invalid oauth'));
+		expect(warnings).toContainEqual(expect.stringContaining('"nelsecret" of limits@market: its OAuth client_secret'));
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"issuer" of limits@market: its OAuth authorization_server_issuer needs ema_auth'),
 		);
@@ -369,14 +381,22 @@ describe("installed Codex plugins", () => {
 			// A refresh that never ends still ends the call at the cap.
 			expect(await call(() => new Promise(() => {}))).toBe("Request timeout after 300ms");
 			// A refresh that takes 200 ms of the cap leaves the retry the rest, not a fresh 300 ms.
-			const realNow = Date.now;
+			const realNow = performance.now.bind(performance);
 			let skew = 0;
-			vi.spyOn(Date, "now").mockImplementation(() => realNow() + skew);
+			vi.spyOn(performance, "now").mockImplementation(() => realNow() + skew);
 			const message = await call(async () => {
 				skew = 200;
 				return { Authorization: "Bearer refreshed" };
 			});
 			expect(Number(/Request timeout after (\d+)ms/.exec(message)?.[1])).toBeLessThanOrEqual(100);
+			// A refresh that ends past the deadline sends no retry at all.
+			skew = 0;
+			const late = await call(async () => {
+				skew = 400;
+				return { Authorization: "Bearer refreshed" };
+			});
+			expect(late).toBe("Request timeout after 300ms");
+			expect(posts).toBe(1);
 		} finally {
 			server.stop(true);
 		}
@@ -432,6 +452,21 @@ describe("installed Codex plugins", () => {
 		);
 		const result = await stalled.execute("call", {}, () => {}, ctx);
 		expect(result.isError).toBe(true);
+		expect(deadlines).toHaveLength(1);
+		// A reconnect that lands past the deadline, before its timer fires, gets no replay either.
+		deadlines.length = 0;
+		const realNow = performance.now.bind(performance);
+		let skew = 0;
+		vi.spyOn(performance, "now").mockImplementation(() => realNow() + skew);
+		const late = new MCPTool(
+			connection(async () => Promise.reject(unavailable)),
+			definition,
+			async () => {
+				skew = 400_000;
+				return connection(async () => ({ content: [{ type: "text", text: "ok" }] }));
+			},
+		);
+		expect((await late.execute("call", {}, () => {}, ctx)).isError).toBe(true);
 		expect(deadlines).toHaveLength(1);
 	});
 

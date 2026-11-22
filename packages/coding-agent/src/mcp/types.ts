@@ -318,8 +318,8 @@ export interface MCPRequestOptions {
 	onProgress?: (progress: MCPProgress) => void;
 	// scient(SA-CODEX-PLUGINS): begin - one deadline for a logical tool call across reconnects and retries.
 	/**
-	 * Epoch milliseconds a capped `tools/call` (a server's `toolTimeoutMs`) must end by, so a retry or a
-	 * replay after reconnecting gets only what is left of the cap.
+	 * Monotonic time (`performance.now()` milliseconds) a capped `tools/call` (a server's `toolTimeoutMs`)
+	 * must end by, so a retry or a replay after reconnecting gets only what is left of the cap.
 	 */
 	deadlineAt?: number;
 	// scient(SA-CODEX-PLUGINS): end

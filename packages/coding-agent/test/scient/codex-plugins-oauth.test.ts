@@ -11,6 +11,7 @@ import { MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
 import {
 	lookupMcpOAuthCredential,
 	lookupMcpOAuthCredentialForServer,
+	refreshStoredManagedMcpOAuthCredential,
 } from "@oh-my-pi/pi-coding-agent/mcp/oauth-credentials";
 import * as oauthFlow from "@oh-my-pi/pi-coding-agent/mcp/oauth-flow";
 import {
@@ -113,6 +114,42 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		expect(await Bun.file(path.join(temp.path(), "mcp.json")).exists()).toBe(false);
 	});
 
+	it("signs in again with the secret configured now, never one stored with an earlier sign-in", async () => {
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		const storage = freshStorage();
+		// An earlier build's sign-in kept the secret the plugin has since removed.
+		await storage.credentials.set(credentialId, {
+			...token,
+			tokenUrl: "https://auth.example.test/token",
+			clientId: "client-a",
+			clientSecret: "retired",
+		} as oauthFlow.MCPStoredOAuthCredential);
+		vi.spyOn(mcpClient, "connectToServer").mockRejectedValue(
+			new Error(
+				'HTTP 401: {"authorization_url":"https://auth.example.test/authorize","token_url":"https://auth.example.test/token"}',
+			),
+		);
+		const flows: { clientSecret?: string }[] = [];
+		vi.spyOn(oauthFlow.MCPOAuthFlow.prototype, "login").mockImplementation(
+			async function (this: { config: { clientSecret?: string } }) {
+				flows.push(this.config);
+				return { access: "fresh", refresh: "fresh-refresh", expires: Date.now() + 3_600_000 };
+			},
+		);
+		using temp = TempDir.createSync("@scient-codex-plugins-resign-");
+		const config: MCPServerConfig = { ...boundConfig(), oauth: { clientId: "client-a" } };
+		await reauthorizeMcpServer(
+			NAME,
+			{ filePath: path.join(temp.path(), "mcp.json"), scope: "user", config, discovered: true },
+			{ authStorage: storage, silent: true },
+		);
+		expect(flows).toHaveLength(1);
+		expect(flows[0]?.clientSecret).toBeUndefined();
+		// The new sign-in keeps no secret either.
+		expect(storage.credentials.get(credentialId)).toMatchObject({ access: "fresh", clientId: "client-a" });
+		expect(storage.credentials.get(credentialId)).not.toHaveProperty("clientSecret", expect.anything());
+	});
+
 	it("reconnects on its own sign-in, and never stands in for another entry at its URL", async () => {
 		const updateServerConfig = vi.fn(() => undefined);
 		const manager = createMcpManagerStub({
@@ -171,8 +208,8 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		// Client A's token is neither sent nor refreshed for client B, nor for an ID that differs only in spaces.
 		expect(lookupMcpOAuthCredential(storage, withClient("client-b", "s"))).toBeUndefined();
 		expect(lookupMcpOAuthCredential(storage, withClient("client-a ", "s"))).toBeUndefined();
-		// Refresh would send the stored secret, so a sign-in made with another secret is not used either.
-		expect(lookupMcpOAuthCredential(storage, withClient("client-a", "rotated"))).toBeUndefined();
+		// The secret is not part of the match: refresh sends the one configured now (tested below).
+		expect(lookupMcpOAuthCredential(storage, withClient("client-a", "rotated"))?.credentialId).toBe(credentialId);
 		// Codex holds only a confidential client (one with a secret) to its ID.
 		expect(lookupMcpOAuthCredential(storage, withClient("client-b"))?.credentialId).toBe(credentialId);
 		// A server with no sign-in of its own is looked up as before, whatever its client settings hold.
@@ -185,6 +222,37 @@ describe("an imported Codex plugin server's own sign-in", () => {
 			({ type: "http", url: SERVER_URL, oauth: { clientId, clientSecret: "s" } }) as never;
 		expect(lookupMcpOAuthCredential(storage, ordinary("configured"))?.credentialId).toBe(urlKeyed);
 		expect(lookupMcpOAuthCredential(storage, ordinary(7))?.credentialId).toBe(urlKeyed);
+	});
+
+	it("refreshes with the secret the plugin configures now, never a stored or retired one", async () => {
+		const storage = freshStorage();
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		const sent: (string | null)[] = [];
+		vi.spyOn(globalThis, "fetch").mockImplementation((async (_url: string, init?: RequestInit) => {
+			sent.push(new URLSearchParams(String(init?.body)).get("client_secret"));
+			return Response.json({ access_token: "fresh", refresh_token: "r2", expires_in: 3600 });
+		}) as never);
+		const stored = (): oauthFlow.MCPStoredOAuthCredential => ({
+			...token,
+			tokenUrl: "https://auth.example.test/token",
+			clientId: "client-a",
+			// A row an earlier build kept with the secret the plugin has since retired.
+			clientSecret: "retired",
+		});
+		await storage.credentials.set(credentialId, stored());
+		await refreshStoredManagedMcpOAuthCredential(storage, credentialId, {
+			clientSecret: "current",
+			forceRefresh: true,
+		});
+		// The plugin no longer configures a secret: none is sent, as in Codex.
+		await storage.credentials.set(credentialId, stored());
+		const { credential } = await refreshStoredManagedMcpOAuthCredential(storage, credentialId, {
+			forceRefresh: true,
+		});
+		expect(sent).toEqual(["current", null]);
+		// Nothing keeps a secret for the next refresh.
+		expect(credential?.clientSecret).toBeUndefined();
+		expect(storage.credentials.get(credentialId)).not.toHaveProperty("clientSecret", expect.anything());
 	});
 
 	it("binds a definition only by the source supplied with it, never one left registered", async () => {

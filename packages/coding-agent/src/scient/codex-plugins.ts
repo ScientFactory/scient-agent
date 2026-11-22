@@ -960,15 +960,40 @@ function envVarNames(value: unknown): string[] | null {
 
 type Mapped = { server: Partial<MCPServer> } | { error: string };
 
+/** Codex's camelCase OAuth aliases, each giving way to its snake_case twin when that key is present, even null. */
+const OAUTH_ALIASES = [
+	["callbackUrl", "callback_url"],
+	["callbackPort", "callback_port"],
+	["clientId", "client_id"],
+	["clientSecret", "client_secret"],
+] as const;
+
+/** A plugin's OAuth table as Codex reads it: aliases folded by key presence before any type is checked. */
+function codexOAuthTable(oauth: Record<string, unknown>): Record<string, unknown> {
+	const table = { ...oauth };
+	for (const [camel, snake] of OAUTH_ALIASES) {
+		if (!(camel in table)) continue;
+		if (!(snake in table)) table[snake] = table[camel];
+		delete table[camel];
+	}
+	return table;
+}
+
+/** Blank as Rust's `str::trim` sees it (Unicode White_Space, U+0085 included and U+FEFF not). */
+function isCodexBlank(value: string): boolean {
+	return !value.replace(/\p{White_Space}+/gu, "");
+}
+
 /**
  * A legacy plugin's server as Codex reads it: exactly one transport with its own fields, package
  * paths kept inside the package, values taken literally, and only Codex's variables inherited.
  */
 async function mapLegacyServer(
 	plugin: CodexPlugin,
-	server: Record<string, unknown>,
+	declared: Record<string, unknown>,
 	env: Record<string, string>,
 ): Promise<Mapped> {
+	const server = isRecord(declared.oauth) ? { ...declared, oauth: codexOAuthTable(declared.oauth) } : declared;
 	const mistyped = Object.keys(SERVER_FIELD_TYPES).find(
 		key => server[key] != null && !SERVER_FIELD_TYPES[key](server[key]),
 	);
@@ -1047,37 +1072,44 @@ async function mapLegacyServer(
 			};
 		}
 	}
-	// Codex's OAuth client settings, snake_case or the camelCase plugins may use.
+	// Codex's OAuth client settings, their camelCase aliases already folded in.
 	const oauthTable = (server.oauth ?? {}) as Record<string, unknown>;
 	const oauth: NonNullable<MCPServer["oauth"]> = {};
-	for (const [snake, camel, target] of [
-		["client_id", "clientId", "clientId"],
-		["client_secret", "clientSecret", "clientSecret"],
-		["callback_url", "callbackUrl", "redirectUri"],
+	for (const [key, target] of [
+		["client_id", "clientId"],
+		["client_secret", "clientSecret"],
+		["callback_url", "redirectUri"],
 	] as const) {
-		const value = oauthTable[snake] ?? oauthTable[camel];
+		const value = oauthTable[key];
 		if (typeof value !== "string") continue;
 		// An empty client secret is kept for the check below, as Codex rejects it; an empty ID or URL means none.
 		if (value || target === "clientSecret") oauth[target] = value;
 	}
-	// Codex refuses a client secret without a client ID or of only whitespace, and the enterprise sign-in
+	// Codex refuses a client secret without a client ID, or either of them blank, and the enterprise sign-in
 	// settings on any server but an ema_auth one, which is left out above.
-	if (oauth.clientSecret !== undefined && (oauth.clientId === undefined || !oauth.clientSecret.trim())) {
-		return { error: "its OAuth client_secret has no client_id or is blank, so Codex refuses to start it" };
+	if (
+		oauth.clientSecret !== undefined &&
+		(oauth.clientId === undefined || isCodexBlank(oauth.clientId) || isCodexBlank(oauth.clientSecret))
+	) {
+		return {
+			error: "its OAuth client_secret has no client_id or one of them is blank, so Codex refuses to start it",
+		};
 	}
+	// Without a secret, Codex takes a blank client ID for none.
+	if (oauth.clientId !== undefined && isCodexBlank(oauth.clientId)) delete oauth.clientId;
 	const enterprise = ["authorization_server_issuer", "token_endpoint_auth_method"].find(
 		key => oauthTable[key] != null,
 	);
 	if (enterprise !== undefined)
 		return { error: `its OAuth ${enterprise} needs ema_auth, so Codex refuses to start it` };
-	// Codex holds a confidential client's sign-in to its client ID and secret exactly as written, which
-	// Scient Agent's sign-in would trim.
+	// Codex holds a confidential client's sign-in to its client ID exactly as written and sends its secret as
+	// written, both of which Scient Agent's sign-in would trim.
 	if ([oauth.clientId, oauth.clientSecret].some(value => value !== undefined && value !== value.trim())) {
 		return {
 			error: "its OAuth client_id or client_secret has surrounding whitespace, which Scient Agent's sign-in would not keep",
 		};
 	}
-	const port = oauthTable.callback_port ?? oauthTable.callbackPort;
+	const port = oauthTable.callback_port;
 	if (Number.isInteger(port) && Number(port) > 0) oauth.callbackPort = Number(port);
 	// Codex asks for the configured scopes as they are, an empty list meaning none.
 	if (isStringList(server.scopes)) oauth.scope = server.scopes.join(" ");

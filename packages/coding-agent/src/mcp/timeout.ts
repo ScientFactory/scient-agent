@@ -81,8 +81,9 @@ export function resolveMCPRequestDeadline(
 			configured !== undefined && isMCPTimeoutEnabled(configured)
 				? Math.min(toolTimeoutCapMs, configured)
 				: toolTimeoutCapMs;
-		// A spent deadline still arms a timer (1 ms), as 0 would disable it.
-		if (deadlineAt !== undefined) cap = Math.max(1, Math.min(cap, deadlineAt - Date.now()));
+		// The deadline is monotonic; one spent while the request was being prepared still arms a timer (1 ms), as
+		// 0 would disable it. Callers check it before starting a retry or replay.
+		if (deadlineAt !== undefined) cap = Math.max(1, Math.floor(Math.min(cap, deadlineAt - performance.now())));
 		return { timeoutMs: cap, maxTotalMs: cap };
 	}
 	// scient(SA-CODEX-PLUGINS): end
@@ -160,7 +161,10 @@ export function createMCPTimeout(
 	let callerAborted = false;
 	let timeoutId: NodeJS.Timeout | undefined;
 	let cleared = false;
-	const startedAt = Date.now();
+	// scient(SA-CODEX-PLUGINS): begin - progress restarts are measured on the monotonic clock, so setting the
+	// wall clock back never stretches a hard cap.
+	const startedAt = performance.now();
+	// scient(SA-CODEX-PLUGINS): end
 	function onDeadline(): void {
 		if (callerAborted) return;
 		timerFired = true;
@@ -188,7 +192,9 @@ export function createMCPTimeout(
 		},
 		refresh: () => {
 			if (cleared || timerFired || callerAborted || timeoutId === undefined) return;
-			const delay = Math.min(timeoutMs, startedAt + maxTotalMs - Date.now());
+			// scient(SA-CODEX-PLUGINS): begin - the monotonic clock.
+			const delay = Math.min(timeoutMs, startedAt + maxTotalMs - performance.now());
+			// scient(SA-CODEX-PLUGINS): end
 			if (delay <= 0) return;
 			clearTimeout(timeoutId);
 			timeoutId = setTimeout(onDeadline, delay);

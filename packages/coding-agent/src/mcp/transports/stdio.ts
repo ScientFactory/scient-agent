@@ -832,8 +832,9 @@ export class StdioTransport implements MCPTransport {
 			this.config.toolTimeoutMs,
 			options?.deadlineAt,
 		);
+		// The monotonic clock, so setting the wall clock back never stretches a hard cap.
+		const startedAt = performance.now();
 		// scient(SA-CODEX-PLUGINS): end
-		const startedAt = Date.now();
 		const signal = options?.signal;
 
 		if (signal?.aborted) {
@@ -900,7 +901,9 @@ export class StdioTransport implements MCPTransport {
 
 		// Progress restarts the deadline, never past the request's hard cap.
 		const armTimer = (): void => {
-			const delay = Math.min(timeout, startedAt + maxTotalMs - Date.now());
+			// scient(SA-CODEX-PLUGINS): begin - the monotonic clock.
+			const delay = Math.min(timeout, startedAt + maxTotalMs - performance.now());
+			// scient(SA-CODEX-PLUGINS): end
 			if (delay <= 0) return;
 			const limit = delay < timeout ? maxTotalMs : timeout;
 			if (timer) clearTimeout(timer);
