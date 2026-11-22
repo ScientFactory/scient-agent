@@ -182,6 +182,33 @@ function hostOnlyReason(server: Record<string, unknown>): string | undefined {
 	return undefined;
 }
 
+/**
+ * The Codex key that narrows a server's tools, or undefined when it exposes them all. Scient
+ * Agent's MCP servers carry no tool filter, so such a server would run with more tools than Codex
+ * allows. An empty denylist narrows nothing.
+ */
+function toolFilterKey(table: Record<string, unknown>): string | undefined {
+	if (table.enabled_tools != null) return "enabled_tools";
+	const denied = table.disabled_tools;
+	if (denied != null && !(Array.isArray(denied) && denied.length === 0)) return "disabled_tools";
+	return undefined;
+}
+
+/** The first field the config.toml mapper would misread, or undefined when its shapes are sound. */
+function malformedField(server: Record<string, unknown>): string | undefined {
+	for (const key of ["args", "env_vars"]) {
+		const value = server[key];
+		if (value != null && !(Array.isArray(value) && value.every(item => typeof item === "string"))) return key;
+	}
+	for (const key of ["env", "http_headers", "env_http_headers"]) {
+		const value = server[key];
+		if (value != null && !(isRecord(value) && Object.values(value).every(item => typeof item === "string"))) {
+			return key;
+		}
+	}
+	return undefined;
+}
+
 /** The plugin's server map: the manifest's inline map, its named file, or the package's `.mcp.json`. */
 async function readServerMap(
 	plugin: CodexPlugin,
@@ -224,19 +251,37 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 		const policies = isRecord(plugin.config.mcp_servers) ? plugin.config.mcp_servers : {};
 		for (const [serverName, server] of Object.entries(map.servers)) {
 			if (!isRecord(server)) continue;
+			const skip = `[codex-plugins] Skipping MCP server "${serverName}" of ${plugin.id}`;
 			const reason = hostOnlyReason(server);
 			if (reason !== undefined) {
-				logger.debug(`[codex-plugins] Skipping MCP server "${serverName}" of ${plugin.id}: ${reason}`);
+				logger.debug(`${skip}: ${reason}`);
 				continue;
 			}
-			// Codex resolves a relative cwd, and a relative command from that cwd, against the package.
-			const mapped = extractMCPServersFromToml({ mcp_servers: { [serverName]: server } }, plugin.root)[serverName];
-			const policy = policies[serverName];
+			const declaredPolicy = policies[serverName];
+			const policy: Record<string, unknown> = isRecord(declaredPolicy) ? declaredPolicy : {};
+			const filter = toolFilterKey(server) ?? toolFilterKey(policy);
+			if (filter !== undefined) {
+				warnings.push(`${skip}: Codex restricts its tools (${filter}), which Scient Agent cannot enforce`);
+				continue;
+			}
+			const malformed = malformedField(server);
+			if (malformed !== undefined) {
+				warnings.push(`${skip}: invalid ${malformed} in ${map.sourcePath}`);
+				continue;
+			}
+			let mapped: Partial<MCPServer> | undefined;
+			try {
+				// Codex resolves a relative cwd, and a relative command from that cwd, against the package.
+				mapped = extractMCPServersFromToml({ mcp_servers: { [serverName]: server } }, plugin.root)[serverName];
+			} catch (error) {
+				warnings.push(`${skip}: ${String(error)}`);
+				continue;
+			}
 			items.push({
 				name: `${plugin.name}:${serverName}`,
 				...mapped,
 				// `[plugins."<id>".mcp_servers.<name>] enabled = false` turns the server off in Codex.
-				...(isRecord(policy) && policy.enabled === false && { enabled: false }),
+				...(policy.enabled === false && { enabled: false }),
 				_source: createSourceMeta(PROVIDER_ID, map.sourcePath, "user", undefined, plugin.name),
 			});
 		}

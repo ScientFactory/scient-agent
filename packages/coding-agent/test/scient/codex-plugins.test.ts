@@ -166,4 +166,70 @@ describe("installed Codex plugins", () => {
 		// The plugin's config table turns this server off, as Codex does.
 		expect(byName.get("research:quiet")?.enabled).toBe(false);
 	});
+
+	/**
+	 * Installs and enables `limits@market` with these servers and config.toml lines after its table;
+	 * returns its `.mcp.json`.
+	 */
+	async function installLimits(mcpServers: Record<string, unknown>, policy: string[] = []): Promise<string> {
+		const codexHome = temp.join("codex-home");
+		const configPath = path.join(codexHome, "config.toml");
+		const config = await Bun.file(configPath).text();
+		await Bun.write(configPath, [config, '[plugins."limits@market"]', "enabled = true", ...policy, ""].join("\n"));
+		const root = path.join(codexHome, "plugins", "cache", "market", "limits", "1.0.0");
+		await writeManifest(root, { name: "limits" });
+		const mcpPath = path.join(root, ".mcp.json");
+		await Bun.write(mcpPath, JSON.stringify({ mcpServers }));
+		clearFsCache();
+		restoreEnvValue("SCIENT_AGENT_ENABLE_SOURCES", "codex-plugins");
+		return mcpPath;
+	}
+	const limits = async () => {
+		const result = await loadCapability<MCPServer>("mcps", { cwd, agentDir });
+		return {
+			names: result.items.filter(server => server.name.startsWith("limits:")).map(server => server.name),
+			warnings: result.warnings.filter(warning => warning.includes("of limits@market")),
+		};
+	};
+
+	it("skips a plugin's server whose tools Codex narrows with enabled_tools", async () => {
+		await installLimits({
+			narrow: { command: "node", args: ["narrow.mjs"], enabled_tools: ["search"] },
+			open: { command: "node", args: ["open.mjs"], disabled_tools: [] },
+		});
+		expect(await limits()).toEqual({
+			names: ["limits:open"],
+			warnings: [
+				'[Codex Plugins] [codex-plugins] Skipping MCP server "narrow" of limits@market: Codex restricts its tools (enabled_tools), which Scient Agent cannot enforce',
+			],
+		});
+	});
+
+	it("skips a server whose config.toml policy narrows its tools with disabled_tools", async () => {
+		await installLimits(
+			{ denied: { command: "node", args: ["denied.mjs"] }, open: { command: "node", args: ["open.mjs"] } },
+			['[plugins."limits@market".mcp_servers.denied]', 'disabled_tools = ["delete"]'],
+		);
+		expect(await limits()).toEqual({
+			names: ["limits:open"],
+			warnings: [
+				'[Codex Plugins] [codex-plugins] Skipping MCP server "denied" of limits@market: Codex restricts its tools (disabled_tools), which Scient Agent cannot enforce',
+			],
+		});
+	});
+
+	it("skips a malformed server and keeps its siblings", async () => {
+		const mcpPath = await installLimits({
+			bad: { command: "node", env_vars: "CODEX_PLUGIN_TEST_TOKEN" },
+			headers: { url: "https://mcp.example.test/mcp", http_headers: ["X-Bad"] },
+			open: { command: "node", args: ["open.mjs"] },
+		});
+		expect(await limits()).toEqual({
+			names: ["limits:open"],
+			warnings: [
+				`[Codex Plugins] [codex-plugins] Skipping MCP server "bad" of limits@market: invalid env_vars in ${mcpPath}`,
+				`[Codex Plugins] [codex-plugins] Skipping MCP server "headers" of limits@market: invalid http_headers in ${mcpPath}`,
+			],
+		});
+	});
 });
