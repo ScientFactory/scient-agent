@@ -68,8 +68,9 @@ describe("scient-agent mcp list", () => {
 			[NAME]: { config: bound(), source: { level: "user", pluginName: "tools@market" } },
 			"own-token": { config: bound({ type: "bearer" } as unknown as MCPServerConfig["auth"]) },
 			header: { config: { type: "http", url: URL_A, headers: { Authorization: "Bearer x" } } },
+			keyed: { config: { type: "http", url: `${URL_A}?key=${LEAKED}` } as MCPServerConfig },
 		});
-		const loaded = loadResult([], { [NAME]: CHALLENGE, "own-token": CHALLENGE, header: CHALLENGE });
+		const loaded = loadResult([], { [NAME]: CHALLENGE, "own-token": CHALLENGE, header: CHALLENGE, keyed: CHALLENGE });
 		expect(serverStatusLine(manager, NAME, loaded)).toEqual({
 			name: NAME,
 			status: "needs-auth",
@@ -80,6 +81,8 @@ describe("scient-agent mcp list", () => {
 		});
 		expect(serverStatusLine(manager, "own-token", loaded)).not.toHaveProperty("canStartSignIn");
 		expect(serverStatusLine(manager, "header", loaded)).not.toHaveProperty("canStartSignIn");
+		// A key in the server's address would ride along as the sign-in's resource: no button for it.
+		expect(serverStatusLine(manager, "keyed", loaded)).not.toHaveProperty("canStartSignIn");
 	});
 
 	it("never prints what a server sent back, which can echo a token", () => {
