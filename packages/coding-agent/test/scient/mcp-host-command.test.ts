@@ -217,6 +217,9 @@ describe("which server mcp login signs in to", () => {
 		expect(authorizationUrlIsPublic(page("https://mcp.example.test/mcp"))).toBe(true);
 		expect(authorizationUrlIsPublic(page(`https://mcp.example.test/mcp?key=${LEAKED}`))).toBe(false);
 		expect(authorizationUrlIsPublic(page(`https://user:${LEAKED}@mcp.example.test/mcp`))).toBe(false);
+		expect(authorizationUrlIsPublic(`https://u:${LEAKED}@auth.example.test/authorize?client_id=c`)).toBe(false);
+		// The sign-in server's own settings in its page address are its own and kept.
+		expect(authorizationUrlIsPublic(`https://auth.example.test/authorize?tenant=t&client_id=c`)).toBe(true);
 	});
 
 	it("signs an ordinary server in from the file discovery read, only when that entry is the selected one", async () => {
