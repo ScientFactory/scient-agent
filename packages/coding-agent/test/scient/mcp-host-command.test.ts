@@ -233,6 +233,18 @@ describe("which server mcp login signs in to", () => {
 		const { manager: otherManager } = fakeManager({ api: { config: other } });
 		expect(await selectedServer("api", other, source, otherManager, temp.path())).toBeNull();
 	});
+
+	it("signs in to a URL-only entry (Cursor, Claude) over the transport discovery inferred", async () => {
+		using temp = TempDir.createSync("@scient-mcp-login-urlonly-");
+		const file = path.join(temp.path(), "mcp.json");
+		await Bun.write(file, JSON.stringify({ mcpServers: { api: { url: URL_A } } }));
+		const source = { provider: "cursor", providerName: "", path: file, level: "user" } as SourceMeta;
+		const selected = { type: "http", url: URL_A } as MCPServerConfig;
+		const { manager } = fakeManager({ api: { config: selected } });
+		const found = await selectedServer("api", selected, source, manager, temp.path());
+		expect(found?.config).toMatchObject({ type: "http", url: URL_A });
+		expect(found?.filePath).toBe(file);
+	});
 });
 
 it("a malformed sign-in id never stops a conversation from starting", () => {
