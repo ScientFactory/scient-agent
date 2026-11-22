@@ -135,6 +135,9 @@ const NOT_STDIO = [
 	"auth",
 ];
 const NOT_HTTP = ["args", "env", "env_vars", "cwd", "bearer_token"];
+/** Header names and values the `http` crate Codex uses accepts: an RFC 9110 token, and tab or visible ASCII. */
+const HTTP_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const HTTP_HEADER_VALUE = /^[\t\x20-\x7e]*$/;
 
 /** Codex's skill scan limits for a plugin's skill folder (codex-rs/ext/skills loader). */
 const MAX_SKILL_SCAN_DEPTH = 6;
@@ -760,7 +763,7 @@ async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 			// Codex names a plugin's skills `<manifest name>:<skill>`, the package folder's name standing
 			// in for a blank manifest name.
 			const raw = typeof plugin.manifest.name === "string" ? plugin.manifest.name : "";
-			const namespace = raw.trim() ? raw : path.basename(plugin.root);
+			const namespace = raw.replace(/\p{White_Space}+/gu, "") ? raw : path.basename(plugin.root);
 			for (const dir of dirs) {
 				for (const skill of await scanPluginSkills(plugin, dir, warnings)) found.push({ skill, namespace });
 			}
@@ -1013,24 +1016,31 @@ async function mapLegacyServer(
 	const url = server.url as string;
 	if (!URL.canParse(url) || !/^https?:$/.test(new URL(url).protocol)) return { error: `invalid url ${url}` };
 	// Static headers are data; the others name variables of the launch environment, as in Codex, which
-	// sets them in that order, each replacing a header of the same name in any case. A named bearer
-	// variable that is unset or empty keeps Codex from starting the server.
+	// sets them in that order, each replacing a header of the same name in any case, and skips a header
+	// whose name or value HTTP does not allow, or an environment value that is only whitespace (used
+	// as is otherwise). A named bearer variable that is unset or empty, or a bearer HTTP does not
+	// allow, keeps Codex from starting the server.
 	const headers: Record<string, string> = {};
 	const put = (header: string, value: string) => {
+		if (!HTTP_TOKEN.test(header) || !HTTP_HEADER_VALUE.test(value)) return false;
 		for (const key of Object.keys(headers)) if (key.toLowerCase() === header.toLowerCase()) delete headers[key];
 		headers[header] = value;
+		return true;
 	};
-	for (const [header, value] of Object.entries((server.http_headers ?? {}) as Record<string, string>))
+	for (const [header, value] of Object.entries((server.http_headers ?? {}) as Record<string, string>)) {
 		put(header, value);
+	}
 	for (const [header, name] of Object.entries((server.env_http_headers ?? {}) as Record<string, string>)) {
-		const value = envValue(env, name)?.trim();
-		if (value) put(header, value);
+		const value = envValue(env, name);
+		if (value?.replace(/\p{White_Space}+/gu, "")) put(header, value);
 	}
 	if (server.bearer_token_env_var != null) {
 		const bearer = envValue(env, server.bearer_token_env_var as string);
-		if (!bearer)
-			return { error: `its bearer_token_env_var ${String(server.bearer_token_env_var)} is unset or empty` };
-		put("Authorization", `Bearer ${bearer}`);
+		if (!bearer || !put("Authorization", `Bearer ${bearer}`)) {
+			return {
+				error: `its bearer_token_env_var ${String(server.bearer_token_env_var)} is unset, empty or not a header value`,
+			};
+		}
 	}
 	// Codex's OAuth client settings, snake_case or the camelCase plugins may use.
 	const oauthTable = (server.oauth ?? {}) as Record<string, unknown>;

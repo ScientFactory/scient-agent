@@ -17,6 +17,9 @@ import {
 	reauthorizeMcpServer,
 } from "../../mcp/oauth-reauth";
 import type { MCPServerConfig, MCPServerConnection } from "../../mcp/types";
+// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+import { withTrustedMcpAuth } from "../../mcp/oauth-flow";
+// scient(SA-CODEX-PLUGINS): end
 import { parseCommandArgs } from "../../utils/command-args";
 import { openPath } from "../../utils/open";
 import type { ParsedSlashCommand, SlashCommandResult, SlashCommandRuntime } from "../types";
@@ -150,7 +153,11 @@ async function withPreparedMcpConnection<T>(
 		// Without this, `/mcp test|resources|prompts` silently fails for any
 		// server saved by the TUI/reauth path.
 		manager.setAuthStorage(runtime.session.modelRegistry.authStorage);
-		const resolvedConfig = await manager.prepareConfig(config);
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it.
+		const resolvedConfig = await manager.prepareConfig(
+			withTrustedMcpAuth(name, config, runtime.mcpManager?.getSource(name)?.provider),
+		);
+		// scient(SA-CODEX-PLUGINS): end
 		connection = await connectToServer(name, resolvedConfig);
 		return await fn(connection);
 	} finally {

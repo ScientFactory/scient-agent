@@ -40,6 +40,9 @@ import {
 	refreshStoredManagedMcpOAuthCredential,
 } from "./oauth-credentials";
 import type { MCPStoredOAuthCredential } from "./oauth-flow";
+// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+import { withTrustedMcpAuth } from "./oauth-flow";
+// scient(SA-CODEX-PLUGINS): end
 import type { McpConnectionStatusEvent } from "./startup-events";
 import { resolveMCPStartupTimeoutMs } from "./timeout";
 
@@ -972,7 +975,10 @@ export class MCPManager implements MCPManagerApi {
 		// Prepare connection tasks
 		const connectionTasks: ConnectionTask[] = [];
 
-		for (const [name, config] of Object.entries(configs)) {
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it.
+		for (const [name, declared] of Object.entries(configs)) {
+			const config = withTrustedMcpAuth(name, declared, (sources[name] ?? this.#sources.get(name))?.provider);
+			// scient(SA-CODEX-PLUGINS): end
 			this.#startupServers.add(name);
 			// Connecting a server by name (`/mcp enable`) ends its built-in drop.
 			this.#builtinDrops.delete(name);
@@ -1976,6 +1982,9 @@ export class MCPManager implements MCPManagerApi {
 		source: SourceMeta | undefined,
 		reconnectEpoch: number,
 	): Promise<MCPServerConnection> {
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it.
+		config = withTrustedMcpAuth(name, config, source?.provider);
+		// scient(SA-CODEX-PLUGINS): end
 		// Capture before resolving credentials: a disconnectAll during that wait must abort this handshake too.
 		const connectSignal = this.#connectAbort.signal;
 		const resolvedConfig = await this.#resolveAuthConfig(config, { signal: connectSignal });

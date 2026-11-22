@@ -13,7 +13,7 @@ import { readMCPConfigFile } from "./config-writer";
 import { builtinDropFor, type MCPDroppedServer, type MCPTransformContext } from "./transforms";
 import type { MCPConfigFile, MCPServerConfig } from "./types";
 // scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
-import { isMcpOAuthServerCredentialId, mcpOAuthServerCredentialId } from "./oauth-flow";
+import { trustedMcpAuth } from "./oauth-flow";
 // scient(SA-CODEX-PLUGINS): end
 
 /** Options for loading MCP configs */
@@ -58,15 +58,7 @@ function convertToLegacyConfig(server: MCPServer): MCPServerConfig {
 		instructions: server.instructions,
 		// scient(SA-CODEX-PLUGINS): begin - only the codex-plugins source binds a server to its own sign-in,
 		// and only under the id its name and URL give: any other definition naming one is not bound to it.
-		auth:
-			isMcpOAuthServerCredentialId(server.auth?.credentialId) &&
-			!(
-				server._source.provider === "codex-plugins" &&
-				server.url !== undefined &&
-				server.auth?.credentialId === mcpOAuthServerCredentialId(server.name, server.url)
-			)
-				? { ...server.auth, type: server.auth?.type ?? "oauth", credentialId: undefined }
-				: server.auth,
+		auth: trustedMcpAuth(server.name, server.auth, server.url, server._source.provider),
 		// scient(SA-CODEX-PLUGINS): end
 		oauth: server.oauth,
 	};
