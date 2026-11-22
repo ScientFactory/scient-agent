@@ -243,6 +243,8 @@ describe("installed Codex plugins", () => {
 		await installLimits({
 			hidden: { command: "node", args: ["hidden.mjs"], omit_tools_from: ["direct", "deferred", "code_mode"] },
 			negative: { command: "node", args: ["negative.mjs"], startup_timeout_sec: -1 },
+			// One past u64::MAX, which Codex's startup_timeout_ms cannot hold.
+			huge: { command: "node", args: ["huge.mjs"], startup_timeout_ms: 2 ** 64 },
 			shown: { command: "node", args: ["shown.mjs"], omit_tools_from: [] },
 		});
 		const { names, warnings } = await limits();
@@ -424,17 +426,47 @@ describe("installed Codex plugins", () => {
 		await install("twin@beta", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
 		// Its name is what `twin` qualified with `alpha` would look like if dots qualified names.
 		await install("twin.alpha@gamma", { ".codex-plugin/plugin.json": { name: "twin.alpha" }, ".mcp.json": server });
-		const names = [...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort();
-		// `twin.alpha` and `twin:alpha` would give their tools the same names (mcp__twin_alpha_…), so
-		// both take a stable suffix; `twin:beta` keeps its name.
-		expect(names.map(name => name.replace(/-[0-9a-f]{6}$/, ""))).toEqual([
+		expect([...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort()).toEqual([
 			"twin.alpha:api",
 			"twin:alpha:api",
 			"twin:beta:api",
 		]);
-		expect(names).toContain("twin:beta:api");
-		expect(new Set(names.map(name => name.toLowerCase().replace(/[^a-z0-9_]+/g, "_"))).size).toBe(3);
 	});
+
+	it("matches a skill rule to the name Codex gives a plugin's skills, whatever the marketplace", async () => {
+		for (const id of ["twin@alpha", "twin@beta"]) {
+			const root = await install(id, { ".codex-plugin/plugin.json": { name: "twin" } });
+			await writeSkill(root, "search");
+		}
+		const configPath = temp.join("codex-home", "config.toml");
+		const rule = ["[[skills.config]]", 'name = "twin:search"', "enabled = false", ""];
+		await Bun.write(configPath, [await Bun.file(configPath).text(), ...rule].join("\n"));
+		clearFsCache();
+		expect((await skills()).map(skill => skill.name)).not.toContain("search");
+	});
+
+	it("loads no plugin from a [plugins] table Codex cannot read", async () => {
+		await install("strict@market", { ".codex-plugin/plugin.json": { name: "strict" } }, ['enabled = "false"']);
+		const { byName, warnings } = await load();
+		expect(byName.size).toBe(0);
+		expect(warnings).toContainEqual(
+			expect.stringContaining("cannot read its [plugins] settings (strict@market.enabled)"),
+		);
+	});
+
+	it.skipIf(process.platform === "win32")(
+		"reads a backslash as part of a file name outside Windows, as Codex does",
+		async () => {
+			await install("slashed@market", {
+				".codex-plugin/plugin.json": { name: "slashed", mcpServers: "./sub\\..\\.mcp.json" },
+				".mcp.json": { mcpServers: { fallback: { command: "node" } } },
+			});
+			const { byName, warnings } = await load();
+			// Codex takes the path, finds no such file, and does not fall back to .mcp.json.
+			expect(byName.has("slashed:fallback")).toBe(false);
+			expect(warnings).toContainEqual(expect.stringContaining("Missing mcpServers file declared by slashed@market"));
+		},
+	);
 
 	it("leaves out plugin skills the user's Codex config disables", async () => {
 		const root = await fs.realpath(await install("ruled@market", { ".codex-plugin/plugin.json": { name: "ruled" } }));
