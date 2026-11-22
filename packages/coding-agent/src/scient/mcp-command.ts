@@ -50,18 +50,21 @@ export interface McpServerStatusLine {
 	canStartSignIn?: true;
 }
 
-function print(value: unknown): void {
-	process.stdout.write(`${JSON.stringify(value)}\n`);
+let output: Promise<unknown> = Promise.resolve();
+
+/** Writes one JSON line after the ones before it; `Bun.write` resolves once every byte reached stdout. */
+function print(value: unknown): Promise<unknown> {
+	output = output.then(() => Bun.write(Bun.stdout, `${JSON.stringify(value)}\n`));
+	return output;
 }
 
 /** Waits until everything printed has reached stdout; a write that failed makes the exit nonzero. */
-function flushStdout(): Promise<void> {
-	const { promise, resolve } = Promise.withResolvers<void>();
-	process.stdout.write("", error => {
-		if (error) process.exitCode = 1;
-		resolve();
-	});
-	return promise;
+async function flushStdout(): Promise<void> {
+	try {
+		await output;
+	} catch {
+		process.exitCode = 1;
+	}
 }
 
 /** A connection failure in words written here: the HTTP status at most, never the server's text. */
