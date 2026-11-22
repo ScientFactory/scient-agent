@@ -48,6 +48,9 @@ import {
 	removeManagedMcpOAuthCredentials,
 } from "../../mcp/oauth-credentials";
 import type { MCPAuthChallenge, MCPConfigFile, MCPServerConfig, MCPServerConnection } from "../../mcp/types";
+// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+import { isMcpOAuthServerCredentialId } from "../../mcp/oauth-flow";
+// scient(SA-CODEX-PLUGINS): end
 import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
 import { urlHyperlinkAlways } from "@oh-my-pi/pi-tui/render";
 import { copyToClipboard } from "../../utils/clipboard";
@@ -1516,6 +1519,15 @@ export class MCPCommandController {
 
 			const currentAuth = found.config.auth;
 			const authStorage = this.ctx.session.modelRegistry.authStorage;
+			// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in signs out of that one alone: no
+			// other server's url-keyed sign-in goes with it, and its definition lives in no config file to rewrite.
+			if (isMcpOAuthServerCredentialId(currentAuth?.credentialId)) {
+				await removeManagedMcpOAuthCredential(authStorage, currentAuth?.credentialId);
+				await this.reloadServers();
+				this.#showMessage(["", theme.fg("success", `- Cleared auth for "${name}"`), ""].join("\n"));
+				return;
+			}
+			// scient(SA-CODEX-PLUGINS): end
 			if (currentAuth?.type === "oauth") {
 				await removeManagedMcpOAuthCredential(authStorage, currentAuth.credentialId);
 			}

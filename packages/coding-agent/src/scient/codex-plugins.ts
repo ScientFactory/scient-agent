@@ -659,10 +659,16 @@ async function readPluginSkill(
 	try {
 		const { frontmatter, body } = parseFrontmatter(content, { source: skillPath });
 		if (frontmatter.enabled === false) return null;
-		const folder = path.basename(path.dirname(skillPath));
-		// Codex collapses a name's whitespace (`sanitize_single_line`), so rules match that name.
-		const raw = typeof frontmatter.name === "string" ? frontmatter.name.split(/\s+/).filter(Boolean).join(" ") : "";
-		const name = raw || folder;
+		// Codex collapses the whitespace of a skill's name, or of the folder name standing in for it
+		// (`split_whitespace`, Unicode White_Space), so rules match that name.
+		const collapse = (value: string) =>
+			value
+				.split(/\p{White_Space}+/u)
+				.filter(Boolean)
+				.join(" ");
+		const name =
+			(typeof frontmatter.name === "string" ? collapse(frontmatter.name) : "") ||
+			collapse(path.basename(path.dirname(skillPath)));
 		// `/` is reserved for skill namespaces and skill:// paths.
 		if (/[\\/]/.test(name)) {
 			warnings.push(`[codex-plugins] Skill name "${name}" contains a path separator, skipping: ${skillPath}`);
@@ -1226,12 +1232,14 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			items.push({
 				name,
 				...config,
-				// Its own sign-in, never another server's at the same URL: Codex keys sign-ins by name and URL.
+				// Its own sign-in, never another server's at the same URL: Codex keys sign-ins by name and URL. A
+				// server that names its own token (`bearer_token_env_var`) is never signed in with OAuth there,
+				// so it is bound as a key, which no stored sign-in answers.
 				...(config.transport === "http" &&
 					config.url && {
 						auth: {
 							...config.auth,
-							type: "oauth" as const,
+							type: server.bearer_token_env_var != null ? ("apikey" as const) : ("oauth" as const),
 							credentialId: mcpOAuthServerCredentialId(name, config.url),
 						},
 					}),
