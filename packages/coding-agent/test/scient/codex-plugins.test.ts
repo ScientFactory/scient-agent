@@ -239,6 +239,22 @@ describe("installed Codex plugins", () => {
 		expect(warnings).toContainEqual(expect.stringContaining("default_tools_approval_mode"));
 	});
 
+	it("skips a server Codex hides from the model or would not start", async () => {
+		await installLimits({
+			hidden: { command: "node", args: ["hidden.mjs"], omit_tools_from: ["direct", "deferred", "code_mode"] },
+			negative: { command: "node", args: ["negative.mjs"], startup_timeout_sec: -1 },
+			shown: { command: "node", args: ["shown.mjs"], omit_tools_from: [] },
+		});
+		const { names, warnings } = await limits();
+		expect(names).toEqual(["limits:shown"]);
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"hidden" of limits@market: Codex restricts its tools (omit_tools_from)'),
+		);
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"negative" of limits@market: invalid startup_timeout_sec'),
+		);
+	});
+
 	it("skips a server whose config.toml policy narrows its tools with disabled_tools", async () => {
 		await installLimits(
 			{ denied: { command: "node", args: ["denied.mjs"] }, open: { command: "node", args: ["open.mjs"] } },
@@ -408,11 +424,41 @@ describe("installed Codex plugins", () => {
 		await install("twin@beta", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
 		// Its name is what `twin` qualified with `alpha` would look like if dots qualified names.
 		await install("twin.alpha@gamma", { ".codex-plugin/plugin.json": { name: "twin.alpha" }, ".mcp.json": server });
-		expect([...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort()).toEqual([
+		const names = [...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort();
+		// `twin.alpha` and `twin:alpha` would give their tools the same names (mcp__twin_alpha_…), so
+		// both take a stable suffix; `twin:beta` keeps its name.
+		expect(names.map(name => name.replace(/-[0-9a-f]{6}$/, ""))).toEqual([
 			"twin.alpha:api",
 			"twin:alpha:api",
 			"twin:beta:api",
 		]);
+		expect(names).toContain("twin:beta:api");
+		expect(new Set(names.map(name => name.toLowerCase().replace(/[^a-z0-9_]+/g, "_"))).size).toBe(3);
+	});
+
+	it("leaves out plugin skills the user's Codex config disables", async () => {
+		const root = await fs.realpath(await install("ruled@market", { ".codex-plugin/plugin.json": { name: "ruled" } }));
+		for (const name of ["off-by-path", "off-by-name", "back-on", "kept"]) await writeSkill(root, name);
+		const configPath = temp.join("codex-home", "config.toml");
+		const rules = [
+			"[[skills.config]]",
+			`path = ${JSON.stringify(path.join(root, "skills", "off-by-path", "SKILL.md"))}`,
+			"enabled = false",
+			"[[skills.config]]",
+			'name = "ruled:off-by-name"',
+			"enabled = false",
+			// A later entry for the same selector replaces the earlier one.
+			"[[skills.config]]",
+			'name = "back-on"',
+			"enabled = false",
+			"[[skills.config]]",
+			'name = "back-on"',
+			"enabled = true",
+		];
+		await Bun.write(configPath, [await Bun.file(configPath).text(), ...rules, ""].join("\n"));
+		clearFsCache();
+		const names = (await skills()).filter(skill => skill.path.startsWith(root)).map(skill => skill.name);
+		expect(names.sort()).toEqual(["back-on", "kept"]);
 	});
 
 	it("reads the launch environment only where the process can know it", async () => {
@@ -594,7 +640,7 @@ describe("installed Codex plugins", () => {
 		expect(byName.get("textflag:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
 	});
 
-	it("skips a manifest Codex cannot read and paths it would not take", async () => {
+	it("skips a manifest Codex cannot read and falls back as Codex does from paths it would not take", async () => {
 		const root = await install("typed@market", {
 			".codex-plugin/plugin.json": { name: 5 },
 			".mcp.json": { mcpServers: { x: { command: "node" } } },
@@ -608,12 +654,13 @@ describe("installed Codex plugins", () => {
 		clearFsCache();
 		const { byName, warnings } = await load();
 		expect(byName.has("typed:x")).toBe(false);
-		expect(byName.has("loose:y")).toBe(false);
 		expect(warnings).toContainEqual(expect.stringContaining("Invalid plugin.json for typed@market (name)"));
-		expect(warnings).toContainEqual(expect.stringContaining("Ignoring mcpServers path of loose@market"));
+		// Codex drops both paths and reads the package's skills/ and .mcp.json instead.
+		expect(byName.has("loose:y")).toBe(true);
+		expect(warnings).toContainEqual(expect.stringContaining("Ignoring mcpServers of loose@market"));
 		const names = (await skills()).map(skill => skill.name);
 		expect(names).not.toContain("typed-skill");
-		expect(names).not.toContain("loose-skill");
+		expect(names).toContain("loose-skill");
 	});
 
 	it("reads Codex's manifest precedence: a root Agent Plugins manifest, then the legacy folders", async () => {
