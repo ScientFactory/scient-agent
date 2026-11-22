@@ -53,6 +53,18 @@ export function mcpOAuthServerCredentialId(
 export function isMcpOAuthServerCredentialId(credentialId: string | undefined): boolean {
 	return credentialId?.startsWith(MCP_OAUTH_SERVER_CREDENTIAL_PREFIX) === true;
 }
+
+/**
+ * Whether a server's own sign-in id belongs to this server URL under the active profile: a
+ * definition naming another server's id, or one moved to another URL, gets nothing from it.
+ */
+export function mcpOAuthServerCredentialIdMatchesUrl(credentialId: string, serverUrl: string | undefined): boolean {
+	return (
+		serverUrl !== undefined &&
+		mcpOAuthCredentialProfile(credentialId) === (getActiveProfile() ?? "default") &&
+		mcpOAuthServerUrlFromCredentialId(credentialId) === serverUrl
+	);
+}
 // scient(SA-CODEX-PLUGINS): end
 /** Whether a credential id was minted by OMP's MCP OAuth flows (either era). */
 export function isManagedMCPOAuthCredentialId(credentialId: string | undefined): credentialId is string {

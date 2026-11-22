@@ -49,7 +49,7 @@ import {
 } from "../../mcp/oauth-credentials";
 import type { MCPAuthChallenge, MCPConfigFile, MCPServerConfig, MCPServerConnection } from "../../mcp/types";
 // scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
-import { isMcpOAuthServerCredentialId } from "../../mcp/oauth-flow";
+import { isMcpOAuthServerCredentialId, mcpOAuthServerCredentialId } from "../../mcp/oauth-flow";
 // scient(SA-CODEX-PLUGINS): end
 import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
 import { urlHyperlinkAlways } from "@oh-my-pi/pi-tui/render";
@@ -1408,7 +1408,12 @@ export class MCPCommandController {
 			const found = await findMcpServerForAuth(name, getProjectDir(), this.ctx.mcpManager, {
 				enableProjectConfig: cfgMcpEnableProjectConfig.get(this.ctx.settings),
 			});
-			if (!found) {
+			// scient(SA-CODEX-PLUGINS): begin - an imported Codex plugin server lives in no config file: its
+			// toggle is the disabledServers list, as for any third-party discovered server.
+			const imported =
+				found?.discovered === true && this.ctx.mcpManager?.getSource(name)?.provider === "codex-plugins";
+			if (!found || imported) {
+				// scient(SA-CODEX-PLUGINS): end
 				// Check if this is a discovered server from a third-party config
 				const userConfigPath = getMCPConfigPath("user", getProjectDir());
 				const disabledServers = new Set(await readDisabledServers(userConfigPath));
@@ -1522,6 +1527,15 @@ export class MCPCommandController {
 			// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in signs out of that one alone: no
 			// other server's url-keyed sign-in goes with it, and its definition lives in no config file to rewrite.
 			if (isMcpOAuthServerCredentialId(currentAuth?.credentialId)) {
+				// Only a discovered server holds its own sign-in, under the id its name and URL give.
+				const own =
+					found.discovered &&
+					(found.config.type === "http" || found.config.type === "sse") &&
+					currentAuth?.credentialId === mcpOAuthServerCredentialId(name, found.config.url);
+				if (!own) {
+					this.ctx.showError(`Server "${name}" names a sign-in that belongs to another server.`);
+					return;
+				}
 				await removeManagedMcpOAuthCredential(authStorage, currentAuth?.credentialId);
 				await this.reloadServers();
 				this.#showMessage(["", theme.fg("success", `- Cleared auth for "${name}"`), ""].join("\n"));
