@@ -206,6 +206,12 @@ export default class Mcp extends Command {
 				`${name} needs its client secret at every refresh, which the shared sign-in service cannot supply.`,
 			);
 		}
+		// A key in the server's own address would reach the sign-in server as its resource: refused before any request.
+		if (!addressIsPublic(urlOf(selected))) {
+			throw new McpReauthRefusalError(
+				`${name}'s address carries values of its own, which Scient Agent does not send to a sign-in page.`,
+			);
+		}
 		const bound = source?.provider === CODEX_PLUGINS_PROVIDER;
 		let withheld = false;
 		try {
@@ -238,16 +244,27 @@ export default class Mcp extends Command {
 
 const CODEX_PLUGINS_PROVIDER = "codex-plugins";
 
+/** Whether an address carries no user name, password or query, any of which could hold a key. */
+function addressIsPublic(address: string | undefined): boolean {
+	if (address === undefined) return true;
+	try {
+		const url = new URL(address);
+		return !url.username && !url.password && !url.search;
+	} catch {
+		return false;
+	}
+}
+
 /**
- * Whether a sign-in page may be shown: the resource it names (the server's address, when discovery
- * gave no other) carries no user name, password or query, which could hold the server's own key.
+ * Whether a sign-in page may be shown: it carries no user name or password, and the resource it
+ * names (the server's address, when discovery gave no other) no user name, password or query.
+ * The page's own query is the sign-in server's (OAuth parameters, its own settings) and is kept.
  */
 export function authorizationUrlIsPublic(authorizationUrl: string): boolean {
 	try {
-		return new URL(authorizationUrl).searchParams.getAll("resource").every(resource => {
-			const url = new URL(resource);
-			return !url.username && !url.password && !url.search;
-		});
+		const page = new URL(authorizationUrl);
+		if (page.username || page.password) return false;
+		return page.searchParams.getAll("resource").every(resource => addressIsPublic(resource));
 	} catch {
 		return false;
 	}
