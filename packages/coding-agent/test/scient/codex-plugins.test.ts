@@ -8,11 +8,18 @@ import type { MCPServer } from "@oh-my-pi/pi-coding-agent/capability/mcp";
 import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
 import { cfgEnabledProviders } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
-import { TempDir } from "@oh-my-pi/pi-utils";
+import { StdioTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/stdio";
+import { getProjectDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
 import "@oh-my-pi/pi-coding-agent/discovery";
 
-const ENV_KEYS = ["SCIENT_AGENT_ENABLE_SOURCES", "CODEX_HOME", "CODEX_PLUGIN_TEST_TOKEN", "CODEX_PLUGIN_TEST_PAT"];
+const ENV_KEYS = [
+	"SCIENT_AGENT_ENABLE_SOURCES",
+	"CODEX_HOME",
+	"CODEX_PLUGIN_TEST_TOKEN",
+	"CODEX_PLUGIN_TEST_PAT",
+	"CODEX_PLUGIN_TEST_SECRET",
+];
 
 async function writeSkill(root: string, name: string): Promise<string> {
 	const skillPath = path.join(root, "skills", name, "SKILL.md");
@@ -114,6 +121,9 @@ describe("installed Codex plugins", () => {
 		const browser = path.join(cache, "openai-bundled", "browser", "26.1117.41037");
 		await writeManifest(browser, { name: "browser", skills: "./skills/" });
 		await writeSkill(browser, "control-in-app-browser");
+		// The loader reports symlink-resolved paths (macOS temp folders live under /private).
+		researchRoot = await fs.realpath(researchRoot);
+		researchSkill = await fs.realpath(researchSkill);
 		clearFsCache();
 	});
 
@@ -154,13 +164,19 @@ describe("installed Codex plugins", () => {
 			command: path.join(researchRoot, "bin", "papers"),
 			args: ["--stdio"],
 			cwd: researchRoot,
-			env: { CODEX_PLUGIN_TEST_TOKEN: "forwarded-value" },
+			envPolicy: "literal",
 			timeout: 30_000,
 			transport: "stdio",
 		});
+		// Codex passes its own short list plus the server's env_vars, never the whole environment.
+		expect(byName.get("research:papers")?.env).toBeUndefined();
+		expect(byName.get("research:papers")?.envInherit).toEqual(
+			expect.arrayContaining(["PATH", "HOME", "CODEX_PLUGIN_TEST_TOKEN"]),
+		);
 		expect(byName.get("research:tracker")).toMatchObject({
 			url: "https://mcp.example.test/mcp",
 			headers: { Authorization: "Bearer pat-value" },
+			headerPolicy: "origin-locked",
 			transport: "http",
 		});
 		// The plugin's config table turns this server off, as Codex does.
@@ -182,7 +198,7 @@ describe("installed Codex plugins", () => {
 		await Bun.write(mcpPath, JSON.stringify({ mcpServers }));
 		clearFsCache();
 		restoreEnvValue("SCIENT_AGENT_ENABLE_SOURCES", "codex-plugins");
-		return mcpPath;
+		return fs.realpath(mcpPath);
 	}
 	const limits = async () => {
 		const result = await loadCapability<MCPServer>("mcps", { cwd, agentDir });
@@ -227,9 +243,218 @@ describe("installed Codex plugins", () => {
 		expect(await limits()).toEqual({
 			names: ["limits:open"],
 			warnings: [
-				`[Codex Plugins] [codex-plugins] Skipping MCP server "bad" of limits@market: invalid env_vars in ${mcpPath}`,
-				`[Codex Plugins] [codex-plugins] Skipping MCP server "headers" of limits@market: invalid http_headers in ${mcpPath}`,
+				`[Codex Plugins] [codex-plugins] Skipping MCP server "bad" of limits@market: invalid env_vars (${mcpPath})`,
+				`[Codex Plugins] [codex-plugins] Skipping MCP server "headers" of limits@market: invalid http_headers (${mcpPath})`,
 			],
 		});
+	});
+
+	/** Installs `<name>@<marketplace>` with this manifest file and extra files; returns its real root. */
+	async function install(
+		id: string,
+		files: Record<string, unknown>,
+		configLines: string[] = ["enabled = true"],
+	): Promise<string> {
+		const [name, marketplace] = id.split("@");
+		const codexHome = temp.join("codex-home");
+		const configPath = path.join(codexHome, "config.toml");
+		const config = await Bun.file(configPath).text();
+		await Bun.write(configPath, [config, `[plugins."${id}"]`, ...configLines, ""].join("\n"));
+		const root = path.join(codexHome, "plugins", "cache", marketplace!, name!, "1.0.0");
+		for (const [file, content] of Object.entries(files)) {
+			await Bun.write(path.join(root, file), typeof content === "string" ? content : JSON.stringify(content));
+		}
+		clearFsCache();
+		restoreEnvValue("SCIENT_AGENT_ENABLE_SOURCES", "codex-plugins");
+		return fs.realpath(root);
+	}
+	const load = async () => {
+		const result = await loadCapability<MCPServer>("mcps", { cwd, agentDir });
+		return {
+			byName: new Map(
+				result.items.filter(server => server._source.provider === "codex-plugins").map(s => [s.name, s]),
+			),
+			warnings: result.warnings,
+		};
+	};
+
+	it("follows [plugins._default]: a table without enabled inherits it", async () => {
+		const server = { mcpServers: { one: { command: "node" } } };
+		await install("inherits@market", { ".codex-plugin/plugin.json": { name: "inherits" }, ".mcp.json": server });
+		await install("opted@market", { ".codex-plugin/plugin.json": { name: "opted" }, ".mcp.json": server });
+		await Bun.write(
+			path.join(temp.join("codex-home"), "config.toml"),
+			[
+				"[plugins._default]",
+				"enabled = false",
+				// A table with only a server policy and no `enabled` takes the default.
+				'[plugins."inherits@market".mcp_servers.one]',
+				"enabled = true",
+				'[plugins."opted@market"]',
+				"enabled = true",
+				"",
+			].join("\n"),
+		);
+		clearFsCache();
+		expect([...(await load()).byName.keys()]).toEqual(["opted:one"]);
+	});
+
+	it("rejects servers Codex would reject and maps OAuth client settings", async () => {
+		await install("strict@market", {
+			".codex-plugin/plugin.json": { name: "strict" },
+			".mcp.json": {
+				mcpServers: {
+					both: { command: "node", url: "https://mcp.example.test/mcp" },
+					argsOnHttp: { url: "https://mcp.example.test/mcp", args: ["x"] },
+					helper: { url: "https://mcp.example.test/mcp", http_headers_helper: "./headers.sh" },
+					ema: { url: "https://mcp.example.test/mcp", auth: "ema_auth" },
+					signin: {
+						type: "http",
+						url: "https://mcp.example.test/mcp",
+						oauth_resource: "https://mcp.example.test/mcp",
+						scopes: ["read", "write"],
+						oauth: { clientId: "client-1", callback_port: 4567 },
+						note: "unknown fields are ignored, as in Codex",
+					},
+				},
+			},
+		});
+		const { byName, warnings } = await load();
+		expect([...byName.keys()].filter(name => name.startsWith("strict:"))).toEqual(["strict:signin"]);
+		expect(byName.get("strict:signin")).toMatchObject({
+			oauth: { clientId: "client-1", callbackPort: 4567, scope: "read write" },
+			auth: { type: "oauth", resource: "https://mcp.example.test/mcp" },
+		});
+		expect(warnings.filter(w => w.includes("of strict@market"))).toEqual([
+			expect.stringContaining('"both" of strict@market: url is not supported for stdio'),
+			expect.stringContaining('"argsOnHttp" of strict@market: args is not supported for streamable HTTP'),
+			expect.stringContaining('"helper" of strict@market: it computes its headers with a helper command'),
+			expect.stringContaining('"ema" of strict@market: auth ema_auth is not supported'),
+		]);
+	});
+
+	it("takes plugin values literally and keeps launch paths inside the package", async () => {
+		const root = await install("paths@market", {
+			".codex-plugin/plugin.json": { name: "paths" },
+			".mcp.json": {
+				mcpServers: {
+					literal: { url: "https://mcp.example.test/mcp", http_headers: { "X-Run": "!touch /tmp/pwned" } },
+					upCwd: { command: "node", cwd: "../.." },
+					upCommand: { command: "../../../other/bin/server" },
+					fromPath: { command: "node", env: { MODE: "CODEX_PLUGIN_TEST_PAT" } },
+				},
+			},
+		});
+		const { byName, warnings } = await load();
+		expect([...byName.keys()].filter(name => name.startsWith("paths:")).sort()).toEqual([
+			"paths:fromPath",
+			"paths:literal",
+		]);
+		// Origin-locked headers and literal env are never resolved as variables or `!commands`.
+		expect(byName.get("paths:literal")).toMatchObject({
+			headers: { "X-Run": "!touch /tmp/pwned" },
+			headerPolicy: "origin-locked",
+		});
+		expect(byName.get("paths:fromPath")).toMatchObject({
+			command: "node",
+			cwd: root,
+			env: { MODE: "CODEX_PLUGIN_TEST_PAT" },
+			envPolicy: "literal",
+		});
+		const reasons = warnings.filter(w => w.includes("of paths@market"));
+		expect(reasons).toEqual([
+			expect.stringContaining('"upCwd" of paths@market: cwd ../.. leaves the package'),
+			expect.stringContaining('"upCommand" of paths@market: command ../../../other/bin/server leaves the package'),
+		]);
+	});
+
+	it("does not follow a skills or MCP file link out of the package", async () => {
+		const outside = temp.join("outside");
+		await writeSkill(outside, "leaked");
+		await Bun.write(path.join(outside, "servers.json"), JSON.stringify({ mcpServers: { x: { command: "node" } } }));
+		const root = await install("linked@market", {
+			".codex-plugin/plugin.json": { name: "linked", mcpServers: "./servers.json" },
+		});
+		await fs.symlink(path.join(outside, "skills"), path.join(root, "skills"), "dir");
+		await fs.symlink(path.join(outside, "servers.json"), path.join(root, "servers.json"));
+		clearFsCache();
+		expect((await skills()).map(skill => skill.name)).toEqual(["lit-review"]);
+		const { byName, warnings } = await load();
+		expect([...byName.keys()].some(name => name.startsWith("linked:"))).toBe(false);
+		expect(warnings).toContainEqual(expect.stringContaining("Ignoring mcpServers path outside linked@market"));
+	});
+
+	it("keeps two marketplaces' same-named plugins apart", async () => {
+		const server = { mcpServers: { api: { command: "node" } } };
+		await install("twin@alpha", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
+		await install("twin@beta", { ".codex-plugin/plugin.json": { name: "twin" }, ".mcp.json": server });
+		expect([...(await load()).byName.keys()].filter(name => name.startsWith("twin")).sort()).toEqual([
+			"twin.alpha:api",
+			"twin.beta:api",
+		]);
+	});
+
+	it("reads Codex's manifest precedence: a root Agent Plugins manifest, then the legacy folders", async () => {
+		await install("portable@market", {
+			"plugin.json": { $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", name: "portable" },
+			".codex-plugin/plugin.json": { name: "portable", mcpServers: { legacy: { command: "node" } } },
+			"mcp.json": {
+				$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+				mcpServers: { remote: { type: "streamable-http", url: "https://mcp.example.test/mcp" } },
+			},
+		});
+		await install("clauded@market", {
+			".claude-plugin/plugin.json": { name: "clauded" },
+			".mcp.json": { mcpServers: { tool: { command: "node" } } },
+		});
+		const { byName } = await load();
+		expect(byName.get("portable:remote")).toMatchObject({ transport: "http", headerPolicy: "origin-locked" });
+		expect(byName.has("portable:legacy")).toBe(false);
+		expect(byName.has("clauded:tool")).toBe(true);
+	});
+
+	it("ignores a CODEX_HOME that only a project's .env sets", async () => {
+		const previous = getProjectDir();
+		const decoy = temp.join("decoy-home");
+		await Bun.write(path.join(cwd, ".env"), `CODEX_HOME=${decoy}\n`);
+		await install("decoy@market", { ".codex-plugin/plugin.json": { name: "decoy" } });
+		await fs.cp(temp.join("codex-home"), decoy, { recursive: true });
+		// As if the agent had loaded the project's .env into its environment.
+		restoreEnvValue("CODEX_HOME", decoy);
+		setProjectDir(cwd);
+		try {
+			clearFsCache();
+			const decoyServers = (await load()).warnings.filter(w => w.includes(decoy));
+			expect(decoyServers).toEqual([]);
+			expect((await skills()).map(skill => skill.path).some(p => p.includes("decoy-home"))).toBe(false);
+		} finally {
+			setProjectDir(previous);
+		}
+	});
+
+	it("starts a stdio server with only the variables Codex would pass", async () => {
+		restoreEnvValue("CODEX_PLUGIN_TEST_SECRET", "must-not-leak");
+		const out = temp.join("env.json");
+		const transport = new StdioTransport({
+			type: "stdio",
+			command: process.execPath,
+			args: ["-e", `require("fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify(process.env))`],
+			env: { MODE: "set" },
+			envInherit: ["PATH", "CODEX_PLUGIN_TEST_TOKEN"],
+		});
+		// The script writes its environment and exits; the transport reports the exit.
+		const exited = Promise.withResolvers<void>();
+		transport.onClose = () => exited.resolve();
+		try {
+			await transport.connect();
+			await exited.promise;
+		} finally {
+			await transport.close();
+		}
+		const seen = JSON.parse(await Bun.file(out).text()) as Record<string, string>;
+		expect(seen.CODEX_PLUGIN_TEST_TOKEN).toBe("forwarded-value");
+		expect(seen.MODE).toBe("set");
+		expect(seen.CODEX_PLUGIN_TEST_SECRET).toBeUndefined();
+		expect(seen.CODEX_PLUGIN_TEST_PAT).toBeUndefined();
 	});
 });

@@ -36,6 +36,10 @@ export interface MCPServer {
 	envPolicy?: "literal";
 	/** Env keys whose values are final package data (expanded by the provider). */
 	envLiteralKeys?: string[];
+	// scient(SA-CODEX-PLUGINS): begin - A Codex plugin's server inherits only what Codex passes it.
+	/** When set, the stdio server inherits only these variables from the agent's environment, plus its own `env`. */
+	envInherit?: string[];
+	// scient(SA-CODEX-PLUGINS): end
 	/** Working directory for stdio transport */
 	cwd?: string;
 	/** URL (for HTTP/SSE transport) */
@@ -98,6 +102,9 @@ export function isSameMCPConnection(left: MCPServer, right: MCPServer): boolean 
 			Bun.deepEquals(left.args, right.args) &&
 			Bun.deepEquals(left.env, right.env) &&
 			Bun.deepEquals(literalKeysOf(left), literalKeysOf(right)) &&
+			// scient(SA-CODEX-PLUGINS): begin - Inheritance decides what the process sees.
+			Bun.deepEquals(left.envInherit, right.envInherit) &&
+			// scient(SA-CODEX-PLUGINS): end
 			left.cwd === right.cwd
 		);
 	}

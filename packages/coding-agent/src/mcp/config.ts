@@ -67,6 +67,9 @@ function convertToLegacyConfig(server: MCPServer): MCPServerConfig {
 		if (server.env) config.env = server.env;
 		if (server.envPolicy) config.envPolicy = server.envPolicy;
 		if (server.envLiteralKeys) config.envLiteralKeys = server.envLiteralKeys;
+		// scient(SA-CODEX-PLUGINS): begin - A Codex plugin's server inherits only what Codex passes it.
+		if (server.envInherit) config.envInherit = server.envInherit;
+		// scient(SA-CODEX-PLUGINS): end
 		if (server.cwd) config.cwd = server.cwd;
 		return config;
 	}

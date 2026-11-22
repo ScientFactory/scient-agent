@@ -520,15 +520,18 @@
 		},
 		"SA-CODEX-PLUGINS": {
 			"status": "active",
-			"contract": "The opt-in user source codex-plugins (enabledProviders or SCIENT_AGENT_ENABLE_SOURCES; codex does not imply it) loads the skills and MCP servers of Codex plugins enabled in $CODEX_HOME/config.toml (default ~/.codex), from the version Codex runs in $CODEX_HOME/plugins/cache/<marketplace>/<name>/ and its .codex-plugin/plugin.json. MCP fields map as the codex provider maps config.toml (env_vars, bearer_token_env_var, tool_timeout_sec), relative command and cwd resolve inside the package, servers are named <plugin>:<server>, and a plugin's mcp_servers.<name>.enabled = false disables one. A server whose plugin definition or mcp_servers.<name> policy sets enabled_tools or a non-empty disabled_tools is skipped with a warning, since Scient Agent's MCP servers carry no tool filter, and a server with a malformed args, env_vars, env, http_headers or env_http_headers is skipped with a warning while its siblings load. OpenAI host-only plugins (browser, chrome, codex-app-tools, computer-use, unified-computer-use from openai-bundled), servers launched by computer-use-client-launcher or signed in with Codex's ChatGPT session, app references and hooks are not loaded.",
+			"contract": "The opt-in user source codex-plugins (enabledProviders or SCIENT_AGENT_ENABLE_SOURCES; codex does not imply it) loads the skills and MCP servers of the Codex plugins enabled in $CODEX_HOME/config.toml (default ~/.codex; CODEX_HOME from the launch environment, never a project's .env), layered over /etc/codex/config.toml, a table without enabled taking [plugins._default]. It reads the version Codex runs in $CODEX_HOME/plugins/cache/<marketplace>/<name>/ with Codex's manifest precedence: a root Agent Plugins plugin.json (its skills/ and mcp.json, read under that standard), else .codex-plugin, .claude-plugin or .cursor-plugin/plugin.json, a link or non-file there rejecting the plugin. A server must declare exactly one transport with only that transport's Codex fields; package files, cwd and relative commands must stay inside the symlink-resolved package. Stdio servers inherit only Codex's variable list (HOME, PATH and the like, certificate-bundle variables, and the server's env_vars: MCPServer.envInherit), with literal env values; HTTP servers carry literal, origin-locked headers, bearer_token_env_var and env_http_headers read from the launch environment, and their OAuth client settings, scopes and oauth_resource. Servers are named <plugin>:<server>, or <plugin>.<marketplace>:<server> when two enabled plugins share a name; a plugin's mcp_servers.<name>.enabled = false disables one. Skipped with a warning while siblings load: servers whose tools Codex narrows (enabled_tools, or a non-empty disabled_tools), which Scient Agent cannot enforce, and servers with malformed or unsupported fields (http_headers_helper, auth other than oauth). OpenAI host-only plugins (browser, chrome, codex-app-tools, computer-use, unified-computer-use from openai-bundled), servers launched by computer-use-client-launcher or signed in with Codex's ChatGPT session, app references and hooks are not loaded, and nothing loads while an organization policy manages Codex (/etc/codex/requirements.toml or managed_config.toml, macOS managed preferences for com.openai.codex, %ProgramData%\\OpenAI\\Codex\\requirements.toml). Not applied: Codex profiles, project .codex/config.toml layers and cloud-delivered config.",
 			"owned": [
 				"packages/coding-agent/src/scient/codex-plugins.ts",
 				"packages/coding-agent/test/scient/codex-plugins.test.ts"
 			],
 			"upstream": [
 				"packages/coding-agent/src/capability/index.ts",
-				"packages/coding-agent/src/discovery/codex.ts",
+				"packages/coding-agent/src/capability/mcp.ts",
 				"packages/coding-agent/src/discovery/index.ts",
+				"packages/coding-agent/src/mcp/config.ts",
+				"packages/coding-agent/src/mcp/transports/stdio.ts",
+				"packages/coding-agent/src/mcp/types.ts",
 				"packages/coding-agent/CHANGELOG.md"
 			],
 			"verification": [
