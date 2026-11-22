@@ -484,6 +484,36 @@ async function readSkillRules(user: Record<string, unknown>, warnings: string[])
 	return rules;
 }
 
+/**
+ * The first field of the merged `[plugins]` table whose type Codex rejects (`PluginsConfigToml`),
+ * or undefined. Codex then reads no plugin settings at all.
+ */
+function pluginsTypeError(table: Record<string, unknown>): string | undefined {
+	for (const [id, config] of Object.entries(table)) {
+		if (!isRecord(config)) return id;
+		if (config.enabled != null && !isBoolean(config.enabled)) return `${id}.enabled`;
+		for (const key of ["remote_plugin_id", "release_id"]) {
+			if (config[key] != null && !isString(config[key])) return `${id}.${key}`;
+		}
+		if (config.apps != null && !isRecord(config.apps)) return `${id}.apps`;
+		const servers = config.mcp_servers;
+		if (servers == null) continue;
+		if (!isRecord(servers)) return `${id}.mcp_servers`;
+		for (const [name, policy] of Object.entries(servers)) {
+			const at = `${id}.mcp_servers.${name}`;
+			if (!isRecord(policy)) return at;
+			if (policy.enabled != null && !isBoolean(policy.enabled)) return `${at}.enabled`;
+			const mode = policy.default_tools_approval_mode;
+			if (mode != null && !isApprovalMode(mode)) return `${at}.default_tools_approval_mode`;
+			for (const key of ["enabled_tools", "disabled_tools"]) {
+				if (policy[key] != null && !isStringList(policy[key])) return `${at}.${key}`;
+			}
+			if (policy.tools != null && !SERVER_FIELD_TYPES.tools(policy.tools)) return `${at}.tools`;
+		}
+	}
+	return undefined;
+}
+
 /** Installed, enabled Codex plugins outside {@link HOST_PLUGINS}. */
 async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const warnings: string[] = [];
@@ -509,6 +539,12 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const system = await readToml(path.join(systemDir(), "config.toml"), warnings);
 	const merged = mergeLayers(system ?? {}, user);
 	const table = isRecord(merged.plugins) ? merged.plugins : {};
+	// Codex reads no plugin at all from a [plugins] table it cannot read.
+	const mistyped = pluginsTypeError(table);
+	if (mistyped !== undefined) {
+		warnings.push(`[codex-plugins] Codex cannot read its [plugins] settings (${mistyped}); no Codex plugins load`);
+		return { plugins: [], warnings, env, skillRules: [] };
+	}
 	const defaults = isRecord(table._default) ? table._default : {};
 	const enabledByDefault = defaults.enabled !== false;
 	const read = await Promise.all(
@@ -529,11 +565,16 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	return { plugins, warnings, env, skillRules: await readSkillRules(user, warnings) };
 }
 
-/** A manifest path's part below `./`, or null when Codex ignores the path: not `./`-relative, or holding `..`. */
+/**
+ * A manifest path's part below `./`, or null when Codex ignores the path: not `./`-relative,
+ * rooted, or holding `..`. A backslash separates path parts only on Windows, as in Codex.
+ */
 function manifestRelative(value: unknown): string | null {
 	if (typeof value !== "string" || !value.startsWith("./")) return null;
 	const relative = value.slice(2);
-	return relative && !relative.split(/[\\/]/).includes("..") ? relative : null;
+	if (!relative || relative.startsWith("/")) return null;
+	if (IS_WINDOWS && (relative.startsWith("\\") || /^[A-Za-z]:/.test(relative))) return null;
+	return relative.split(IS_WINDOWS ? /[\\/]/ : "/").includes("..") ? null : relative;
 }
 
 /** A manifest path Codex takes, symlinks resolved; null (with a warning when it resolves outside the package). */
@@ -632,7 +673,8 @@ async function scanPluginSkills(plugin: CodexPlugin, dir: string, warnings: stri
 async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
 	const { plugins, warnings, skillRules } = await listCodexPlugins(ctx);
-	const found: Skill[] = [];
+	// Each skill with the namespace Codex gives it: its plugin manifest's name.
+	const found: { skill: Skill; namespace: string }[] = [];
 	await Promise.all(
 		plugins.map(async plugin => {
 			const declared = plugin.format === "standard" ? undefined : plugin.manifest.skills;
@@ -647,28 +689,29 @@ async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 				const dir = await packagePath(plugin, relative, "skills", warnings);
 				if (dir !== null) dirs.add(dir);
 			}
+			const namespace =
+				typeof plugin.manifest.name === "string" && plugin.manifest.name ? plugin.manifest.name : plugin.name;
 			for (const dir of dirs) {
-				for (const skill of await scanPluginSkills(plugin, dir, warnings)) found.push(skill);
+				for (const skill of await scanPluginSkills(plugin, dir, warnings)) found.push({ skill, namespace });
 			}
 		}),
 	);
 	// The user's [[skills.config]] rules, in order: a path selects one SKILL.md, a name every skill
-	// so named (bare, or as Codex names plugin skills, `<plugin>:<skill>`).
-	const realPaths = await Promise.all(found.map(skill => fs.realpath(skill.path).catch(() => skill.path)));
+	// so named (bare, or as Codex names plugin skills, `<manifest name>:<skill>`).
+	const realPaths = await Promise.all(found.map(({ skill }) => fs.realpath(skill.path).catch(() => skill.path)));
 	const disabled = new Set<string>();
 	for (const rule of skillRules) {
-		found.forEach((skill, index) => {
-			const plugin = skill._source.pluginName;
+		found.forEach(({ skill, namespace }, index) => {
 			const selected =
 				"path" in rule.selector
 					? rule.selector.path === realPaths[index]
-					: rule.selector.name === skill.name || rule.selector.name === `${plugin}:${skill.name}`;
+					: rule.selector.name === skill.name || rule.selector.name === `${namespace}:${skill.name}`;
 			if (!selected) return;
 			if (rule.enabled) disabled.delete(realPaths[index]);
 			else disabled.add(realPaths[index]);
 		});
 	}
-	const items = found.filter((_, index) => !disabled.has(realPaths[index]));
+	const items = found.filter((_, index) => !disabled.has(realPaths[index])).map(({ skill }) => skill);
 	// Reads finish in any order; the list does not.
 	items.sort((a, b) => compareSkillOrder(a.name, a.path, b.name, b.path));
 	return { items, warnings };
@@ -781,7 +824,7 @@ const SERVER_FIELD_TYPES: Record<string, (value: unknown) => boolean> = {
 	environment_id: isString,
 	auth: value => value === "oauth" || value === "chatgpt" || value === "ema_auth",
 	startup_timeout_sec: isDurationSeconds,
-	startup_timeout_ms: value => Number.isInteger(value) && (value as number) >= 0,
+	startup_timeout_ms: value => Number.isInteger(value) && (value as number) >= 0 && (value as number) < 2 ** 64,
 	tool_timeout_sec: isDurationSeconds,
 	enabled: isBoolean,
 	required: isBoolean,
@@ -1042,7 +1085,7 @@ async function readStandardServers(
 async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> {
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
 	const { plugins, warnings, env } = await listCodexPlugins(ctx);
-	const found: { identity: string; server: MCPServer }[] = [];
+	const items: MCPServer[] = [];
 	for (const plugin of plugins) {
 		const policies = isRecord(plugin.config.mcp_servers) ? plugin.config.mcp_servers : {};
 		const standard = plugin.format === "standard" ? await readStandardServers(ctx, plugin, env, warnings) : null;
@@ -1084,33 +1127,15 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 				warnings.push(`${skip}: ${mapped.error} (${sourcePath})`);
 				continue;
 			}
-			found.push({
-				identity: `${plugin.id}/${serverName}`,
-				server: {
-					name: `${plugin.label}:${serverName}`,
-					...mapped.server,
-					// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`.
-					...(policy.enabled === false && { enabled: false }),
-					_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
-				},
+			items.push({
+				name: `${plugin.label}:${serverName}`,
+				...mapped.server,
+				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`.
+				...(policy.enabled === false && { enabled: false }),
+				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
 			});
 		}
 	}
-	// Tool names keep only lowercase letters, digits and `_` of a server's name (mcp/tool-bridge.ts),
-	// so `twin:alpha:api` and `twin-alpha:api` would share their tools' names; such servers take a
-	// suffix from their plugin and server instead.
-	const toolPrefix = (name: string) =>
-		name
-			.toLowerCase()
-			.replace(/[^a-z0-9_]+/g, "_")
-			.replace(/_+/g, "_")
-			.replace(/^_+|_+$/g, "");
-	const items = found.map(({ identity, server }) => {
-		const prefix = toolPrefix(server.name);
-		if (found.filter(other => toolPrefix(other.server.name) === prefix).length < 2) return server;
-		const digest = new Bun.CryptoHasher("sha256").update(identity).digest("hex").slice(0, 6);
-		return { ...server, name: `${server.name}-${digest}` };
-	});
 	return { items, warnings };
 }
 
