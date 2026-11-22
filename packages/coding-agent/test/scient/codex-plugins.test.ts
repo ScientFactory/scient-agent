@@ -9,7 +9,7 @@ import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
 import { cfgEnabledProviders } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import { StdioTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/stdio";
-import { getProjectDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
+import * as piUtils from "@oh-my-pi/pi-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
 import "@oh-my-pi/pi-coding-agent/discovery";
 
@@ -32,7 +32,7 @@ async function writeManifest(root: string, manifest: Record<string, unknown>): P
 }
 
 describe("installed Codex plugins", () => {
-	let temp: TempDir;
+	let temp: piUtils.TempDir;
 	let settings: Settings;
 	let release: () => void;
 	let saved: Record<string, string | undefined>;
@@ -46,7 +46,7 @@ describe("installed Codex plugins", () => {
 		for (const key of ENV_KEYS) restoreEnvValue(key, undefined);
 		settings = Settings.isolated();
 		release = initializeWithSettings(settings);
-		temp = TempDir.createSync("@scient-codex-plugins-");
+		temp = piUtils.TempDir.createSync("@scient-codex-plugins-");
 		const home = temp.join("home");
 		const codexHome = temp.join("codex-home");
 		cwd = temp.join("project");
@@ -56,6 +56,9 @@ describe("installed Codex plugins", () => {
 		restoreEnvValue("CODEX_HOME", codexHome);
 		restoreEnvValue("CODEX_PLUGIN_TEST_TOKEN", "forwarded-value");
 		restoreEnvValue("CODEX_PLUGIN_TEST_PAT", "pat-value");
+		// The loader reads the environment Bun started with, which a test cannot change afterwards;
+		// the test's live environment stands in for it (the real one is tested in a fresh process).
+		vi.spyOn(piUtils, "getLaunchEnv").mockImplementation(() => ({ ...process.env }) as Record<string, string>);
 
 		await Bun.write(
 			path.join(codexHome, "config.toml"),
@@ -219,6 +222,21 @@ describe("installed Codex plugins", () => {
 				'[Codex Plugins] [codex-plugins] Skipping MCP server "narrow" of limits@market: Codex restricts its tools (enabled_tools), which Scient Agent cannot enforce',
 			],
 		});
+	});
+
+	it("skips a server whose tools Codex asks about before running them", async () => {
+		await installLimits(
+			{
+				writes: { command: "node", args: ["writes.mjs"], tools: { save: { approval_mode: "writes" } } },
+				prompted: { command: "node", args: ["prompted.mjs"] },
+				approved: { command: "node", args: ["approved.mjs"], default_tools_approval_mode: "approve" },
+			},
+			['[plugins."limits@market".mcp_servers.prompted]', 'default_tools_approval_mode = "prompt"'],
+		);
+		const { names, warnings } = await limits();
+		expect(names).toEqual(["limits:approved"]);
+		expect(warnings).toContainEqual(expect.stringContaining("tools.save.approval_mode"));
+		expect(warnings).toContainEqual(expect.stringContaining("default_tools_approval_mode"));
 	});
 
 	it("skips a server whose config.toml policy narrows its tools with disabled_tools", async () => {
@@ -397,7 +415,7 @@ describe("installed Codex plugins", () => {
 		]);
 	});
 
-	it("keeps startup dotenv values out of the launch environment after the agent changes folders", async () => {
+	it("reads the launch environment only where the process can know it", async () => {
 		const first = temp.join("first-project");
 		const second = temp.join("second-project");
 		await Bun.write(path.join(first, ".env"), "CODEX_HOME=/from/dotenv\nCODEX_PLUGIN_TEST_SECRET=dotenv-secret\n");
@@ -409,24 +427,35 @@ describe("installed Codex plugins", () => {
 			`const { getLaunchEnv, setProjectDir } = await import(${JSON.stringify(utils)});`,
 			`setProjectDir(${JSON.stringify(second)});`,
 			"const env = getLaunchEnv();",
-			"console.log(JSON.stringify([Bun.env.CODEX_HOME, env.CODEX_HOME, env.CODEX_PLUGIN_TEST_SECRET, env.CODEX_PLUGIN_TEST_LOCAL, env.CODEX_PLUGIN_TEST_PAT]));",
+			"console.log(JSON.stringify([Bun.env.CODEX_HOME, env && [env.CODEX_HOME, env.CODEX_PLUGIN_TEST_SECRET, env.CODEX_PLUGIN_TEST_LOCAL, env.CODEX_PLUGIN_TEST_PAT]]));",
 		].join("\n");
-		// With --no-env-file only the agent's own loader reads .env; without it Bun autoloads
-		// .env and .env.local too, as when the agent runs from source.
-		for (const flags of [["--no-env-file"], []]) {
+		// JSON writes a missing value as null.
+		const launch = [null, null, null, "exported"];
+		// With --no-env-file only the agent's own loader reads .env, after the snapshot. Without it
+		// Bun autoloads .env and .env.local first, as when the agent runs from source; only Linux's
+		// procfs still holds the launch environment then.
+		for (const [flags, expected] of [
+			[["--no-env-file"], launch],
+			[[], process.platform === "linux" ? launch : null],
+		] as const) {
 			const run = Bun.spawnSync([process.execPath, ...flags, "-e", script], {
 				cwd: first,
 				env: { PATH: process.env.PATH, HOME: temp.join("home"), CODEX_PLUGIN_TEST_PAT: "exported" },
 			});
-			// JSON writes a missing value as null.
 			expect(JSON.parse(run.stdout.toString().trim().split("\n").at(-1) ?? "null")).toEqual([
 				"/from/dotenv",
-				null,
-				null,
-				null,
-				"exported",
+				expected,
 			]);
 		}
+	});
+
+	it("loads nothing while the launch environment is unknown", async () => {
+		restoreEnvValue("SCIENT_AGENT_ENABLE_SOURCES", "codex-plugins");
+		vi.spyOn(piUtils, "getLaunchEnv").mockReturnValue(undefined);
+		const { byName, warnings } = await load();
+		expect(byName.size).toBe(0);
+		expect(await skills()).toEqual([]);
+		expect(warnings).toContainEqual(expect.stringContaining("start it with --no-env-file"));
 	});
 
 	it("follows Codex on disabled declarations, withheld variables and linked package folders", async () => {
@@ -439,11 +468,14 @@ describe("installed Codex plugins", () => {
 						off: { command: "node", enabled: false },
 						retired: { command: "node", args: ["retired.mjs"] },
 						numeric: { command: 7, url: "https://mcp.example.test/mcp" },
-						withheld: { command: "node", env: { NODE_REPL_AUTH_TOKEN: "x", KEEP: "y" } },
+						withheld: {
+							command: "node",
+							env: { NODE_REPL_AUTH_TOKEN: "x", openai_spiffe_id: "lower", KEEP: "y" },
+						},
 					},
 				},
 			},
-			["enabled = true", '[plugins."rules@market".mcp_servers.retired]', 'auth = "ema_auth"'],
+			["enabled = true", '[plugins."rules@market".mcp_servers.retired]', "ema_auth = true"],
 		);
 		const outside = temp.join("outside-manifest");
 		await Bun.write(path.join(outside, "plugin.json"), JSON.stringify({ name: "linkedfolder" }));
@@ -459,22 +491,30 @@ describe("installed Codex plugins", () => {
 		expect(warnings).toContainEqual(expect.stringContaining('"numeric" of rules@market: invalid command'));
 		expect(byName.get("rules:withheld")?.env).toMatchObject({ KEEP: "y" });
 		expect(byName.get("rules:withheld")?.env?.NODE_REPL_AUTH_TOKEN).toBeUndefined();
+		expect(byName.get("rules:withheld")?.env?.openai_spiffe_id).toBeUndefined();
 		expect(byName.has("linkedfolder:x")).toBe(false);
 		expect(warnings).toContainEqual(
 			expect.stringContaining("Ignoring linkedfolder@market: .codex-plugin is not a folder"),
 		);
 	});
 
-	it("drops a skill linked out of a real skills folder", async () => {
+	it("contains every skill in its package and finds nested ones", async () => {
 		const outside = temp.join("outside-skill");
 		await writeSkill(outside, "escaped");
-		const root = await install("mixed@market", { ".codex-plugin/plugin.json": { name: "mixed" } });
+		const root = await fs.realpath(await install("mixed@market", { ".codex-plugin/plugin.json": { name: "mixed" } }));
 		await writeSkill(root, "inside");
+		await writeSkill(path.join(root, "skills", "group"), "nested");
 		await fs.symlink(path.join(outside, "skills", "escaped"), path.join(root, "skills", "escaped"), "dir");
+		await fs.mkdir(path.join(root, "skills", "filelink"));
+		await fs.symlink(
+			path.join(outside, "skills", "escaped", "SKILL.md"),
+			path.join(root, "skills", "filelink", "SKILL.md"),
+		);
 		clearFsCache();
-		const names = (await skills()).map(skill => skill.name);
-		expect(names).toContain("inside");
-		expect(names).not.toContain("escaped");
+		const found = (await skills()).filter(skill => skill.path.startsWith(root));
+		expect(found.map(skill => skill.name).sort()).toEqual(["inside", "nested"]);
+		// skill:// resolves the skill's other files inside the package too.
+		expect(found.every(skill => skill.containRoot === root)).toBe(true);
 	});
 
 	it("applies Codex's rules to an Agent Plugins package's mcp.json", async () => {
@@ -510,6 +550,36 @@ describe("installed Codex plugins", () => {
 		expect(warnings).toContainEqual(expect.stringContaining("linkedmcp@market: mcp.json is not a regular file"));
 	});
 
+	it("forwards a variable only from a valid .codex-plugin declaration of the same stdio server", async () => {
+		const placeholder = "$" + "{CODEX_PLUGIN_TEST_PAT}";
+		const standard = (name: string) => ({
+			"plugin.json": { $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", name },
+			"mcp.json": {
+				$schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+				mcpServers: {
+					local: { type: "stdio", command: "node", args: [name], env: { CODEX_PLUGIN_TEST_PAT: placeholder } },
+				},
+			},
+		});
+		await install("viaclaude@market", {
+			...standard("viaclaude"),
+			".claude-plugin/plugin.json": { name: "viaclaude" },
+			".mcp.json": { mcpServers: { local: { command: "node", env_vars: ["CODEX_PLUGIN_TEST_PAT"] } } },
+		});
+		await install("invalidoverlay@market", {
+			...standard("invalidoverlay"),
+			".codex-plugin/plugin.json": { name: "invalidoverlay" },
+			".mcp.json": {
+				mcpServers: {
+					local: { command: "node", url: "https://mcp.example.test/mcp", env_vars: ["CODEX_PLUGIN_TEST_PAT"] },
+				},
+			},
+		});
+		const { byName } = await load();
+		expect(byName.get("viaclaude:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+		expect(byName.get("invalidoverlay:local")?.env?.CODEX_PLUGIN_TEST_PAT).toBe(placeholder);
+	});
+
 	it("reads Codex's manifest precedence: a root Agent Plugins manifest, then the legacy folders", async () => {
 		await install("portable@market", {
 			"plugin.json": { $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", name: "portable" },
@@ -527,25 +597,6 @@ describe("installed Codex plugins", () => {
 		expect(byName.get("portable:remote")).toMatchObject({ transport: "http", headerPolicy: "origin-locked" });
 		expect(byName.has("portable:legacy")).toBe(false);
 		expect(byName.has("clauded:tool")).toBe(true);
-	});
-
-	it("ignores a CODEX_HOME that only a project's .env sets", async () => {
-		const previous = getProjectDir();
-		const decoy = temp.join("decoy-home");
-		await Bun.write(path.join(cwd, ".env"), `CODEX_HOME=${decoy}\n`);
-		await install("decoy@market", { ".codex-plugin/plugin.json": { name: "decoy" } });
-		await fs.cp(temp.join("codex-home"), decoy, { recursive: true });
-		// As if the agent had loaded the project's .env into its environment.
-		restoreEnvValue("CODEX_HOME", decoy);
-		setProjectDir(cwd);
-		try {
-			clearFsCache();
-			const decoyServers = (await load()).warnings.filter(w => w.includes(decoy));
-			expect(decoyServers).toEqual([]);
-			expect((await skills()).map(skill => skill.path).some(p => p.includes("decoy-home"))).toBe(false);
-		} finally {
-			setProjectDir(previous);
-		}
 	});
 
 	it("starts a stdio server with only the variables Codex would pass", async () => {
