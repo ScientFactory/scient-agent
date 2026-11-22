@@ -275,10 +275,12 @@ export async function selectedServer(
 	if (!entry) return discovered;
 	const expanded = expandEnvVarsDeep(entry);
 	if (transportOf(expanded) !== transportOf(selected) || urlOf(expanded) !== urlOf(selected)) return null;
+	// The raw entry keeps its placeholders for write-back; a URL-only entry (Cursor, Claude) takes
+	// the transport discovery inferred, as the sign-in needs it.
 	return {
 		filePath: source.path,
 		scope: source.level === "project" ? "project" : "user",
-		config: entry,
+		config: (entry.type ? entry : { ...entry, type: transportOf(selected) }) as MCPServerConfig,
 		discovered: false,
 	};
 }
