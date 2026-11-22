@@ -7,6 +7,7 @@ import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import * as mcpClient from "@oh-my-pi/pi-coding-agent/mcp/client";
 import { loadAllMCPConfigs } from "@oh-my-pi/pi-coding-agent/mcp/config";
 import { readDisabledServers } from "@oh-my-pi/pi-coding-agent/mcp/config-writer";
+import { MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
 import {
 	lookupMcpOAuthCredential,
 	lookupMcpOAuthCredentialForServer,
@@ -157,18 +158,59 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		expect(storage.credentials.get(oauthFlow.mcpOAuthCredentialId(SERVER_URL))).toMatchObject({ access: "native" });
 	});
 
-	it("asks for a fresh sign-in once the plugin configures another OAuth client", async () => {
+	it("asks for a fresh sign-in once the plugin configures another confidential OAuth client", async () => {
 		const storage = freshStorage();
 		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
 		const stored: oauthFlow.MCPStoredOAuthCredential = { ...token, clientId: "client-a" };
 		await storage.credentials.set(credentialId, stored);
-		const withClient = (clientId: string): MCPServerConfig => ({
+		const withClient = (clientId: string, clientSecret?: string): MCPServerConfig => ({
 			...boundConfig(),
-			oauth: { clientId, clientSecret: "s" },
+			oauth: { clientId, ...(clientSecret !== undefined && { clientSecret }) },
 		});
-		expect(lookupMcpOAuthCredential(storage, withClient("client-a"))?.credentialId).toBe(credentialId);
-		// Client A's token is neither sent nor refreshed for client B.
-		expect(lookupMcpOAuthCredential(storage, withClient("client-b"))).toBeUndefined();
+		expect(lookupMcpOAuthCredential(storage, withClient("client-a", "s"))?.credentialId).toBe(credentialId);
+		// Client A's token is neither sent nor refreshed for client B, nor for an ID that differs only in spaces.
+		expect(lookupMcpOAuthCredential(storage, withClient("client-b", "s"))).toBeUndefined();
+		expect(lookupMcpOAuthCredential(storage, withClient("client-a ", "s"))).toBeUndefined();
+		// Codex holds only a confidential client (one with a secret) to its ID.
+		expect(lookupMcpOAuthCredential(storage, withClient("client-b"))?.credentialId).toBe(credentialId);
+		// A server with no sign-in of its own is looked up as before, whatever its client settings hold.
+		const urlKeyed = oauthFlow.mcpOAuthCredentialId(SERVER_URL);
+		await storage.credentials.set(urlKeyed, {
+			...token,
+			clientId: "registered",
+		} as oauthFlow.MCPStoredOAuthCredential);
+		const ordinary = (clientId: unknown) =>
+			({ type: "http", url: SERVER_URL, oauth: { clientId, clientSecret: "s" } }) as never;
+		expect(lookupMcpOAuthCredential(storage, ordinary("configured"))?.credentialId).toBe(urlKeyed);
+		expect(lookupMcpOAuthCredential(storage, ordinary(7))?.credentialId).toBe(urlKeyed);
+	});
+
+	it("binds a definition only by the source supplied with it, never one left registered", async () => {
+		const storage = freshStorage();
+		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
+		await storage.credentials.set(credentialId, { ...token, access: "own" });
+		const probed: MCPServerConfig[] = [];
+		vi.spyOn(mcpClient, "connectToServer").mockImplementation((async (_name: string, probe: MCPServerConfig) => {
+			probed.push(probe);
+			throw new Error("unreachable");
+		}) as never);
+		using temp = TempDir.createSync("@scient-codex-plugins-provenance-");
+		const manager = new MCPManager(temp.path());
+		manager.setAuthStorage(storage);
+		const imported = {
+			provider: "codex-plugins",
+			providerName: "Codex Plugins",
+			path: "/p/.mcp.json",
+			level: "user" as const,
+		};
+		// The imported server fails to connect, which leaves its source registered under the name.
+		await manager.connectServers({ [NAME]: boundConfig() }, { [NAME]: imported });
+		// A definition arriving without a source (a config file's) names the same sign-in.
+		await manager.connectServers({ [NAME]: boundConfig() }, {});
+		expect(probed).toHaveLength(2);
+		expect(probed[0]).toMatchObject({ headers: { Authorization: "Bearer own" } });
+		expect(probed[1]).not.toMatchObject({ headers: { Authorization: expect.anything() } });
+		await manager.disconnectAll();
 	});
 
 	it("leaves a server's own token in charge, as Codex does", async () => {

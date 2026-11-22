@@ -905,10 +905,12 @@ export class MCPCommandController {
 		}
 	}
 
-	async #syncManagerConnection(name: string, config: MCPServerConfig): Promise<void> {
+	// scient(SA-CODEX-PLUGINS): begin - the definition connects with its own source, if any.
+	async #syncManagerConnection(name: string, config: MCPServerConfig, source?: SourceMeta): Promise<void> {
 		if (!this.ctx.mcpManager) return;
 		if (this.ctx.mcpManager.getConnectionStatus(name) !== "disconnected") return;
-		await this.ctx.mcpManager.connectServers({ [name]: config }, {});
+		await this.ctx.mcpManager.connectServers({ [name]: config }, source ? { [name]: source } : {});
+		// scient(SA-CODEX-PLUGINS): end
 		if (this.ctx.mcpManager.getConnectionStatus(name) === "connected") {
 			await this.ctx.session.refreshMCPTools(this.ctx.mcpManager.getTools());
 		}
@@ -1309,11 +1311,8 @@ export class MCPCommandController {
 			let resolvedConfig: MCPServerConfig;
 			// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it: the
 			// source is the selected definition's own, and a config-file definition has none that binds.
-			const testConfig = withTrustedMcpAuth(
-				name,
-				config,
-				found.discovered ? this.ctx.mcpManager?.getSource(name)?.provider : undefined,
-			);
+			const testSource = found.discovered ? this.ctx.mcpManager?.getSource(name) : undefined;
+			const testConfig = withTrustedMcpAuth(name, config, testSource?.provider);
 			if (this.ctx.mcpManager) {
 				resolvedConfig = await this.ctx.mcpManager.prepareConfig(testConfig);
 			} else {
@@ -1347,7 +1346,9 @@ export class MCPCommandController {
 			}
 
 			lines.push("");
-			await this.#syncManagerConnection(name, config);
+			// scient(SA-CODEX-PLUGINS): begin - the tested definition, with the source it was tested under.
+			await this.#syncManagerConnection(name, testConfig, testSource);
+			// scient(SA-CODEX-PLUGINS): end
 			this.#showMessage(lines.join("\n"));
 		} catch (error) {
 			if (abortController.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
