@@ -259,12 +259,13 @@ describe("which server mcp login signs in to", () => {
 it("a malformed sign-in id never stops a conversation from starting", () => {
 	const auth = new AuthStorage(new SqliteAuthCredentialStore(new Database(":memory:")));
 	try {
-		const config = {
-			type: "http",
-			url: URL_A,
-			auth: { type: "oauth", credentialId: 42 },
-		} as unknown as MCPServerConfig;
-		const { manager } = fakeManager({ broken: { config } });
+		const malformed = { type: "http", url: URL_A, auth: { type: "oauth", credentialId: 42 } };
+		// A config file's `auth: null` on an ordinary server means no auth block.
+		const nullAuth = { type: "http", url: URL_A, auth: null };
+		const { manager } = fakeManager({
+			broken: { config: malformed as unknown as MCPServerConfig },
+			plain: { config: nullAuth as unknown as MCPServerConfig },
+		});
 		expect(() => new McpSignInPickup(manager, auth, async () => {}).seed()).not.toThrow();
 	} finally {
 		auth.close();

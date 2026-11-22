@@ -9,9 +9,11 @@ import type { AuthStorage } from "../session/auth-storage";
 export function canSignIn(config: MCPServerConfig): boolean {
 	if (config.type !== "http" && config.type !== "sse") return false;
 	if (hasMcpAuthorizationHeader(config)) return false;
+	// A config file can hold `auth: null`, which means no auth block, as the credential lookup reads it.
+	const auth = config.auth ?? undefined;
 	// A server bound to its own sign-in (an imported Codex plugin server) signs in only with OAuth.
-	if (isMcpOAuthServerCredentialId(config.auth?.credentialId)) return config.auth?.type === "oauth";
-	return config.auth === undefined || config.auth.type === "oauth";
+	if (isMcpOAuthServerCredentialId(auth?.credentialId)) return auth?.type === "oauth";
+	return auth === undefined || auth.type === "oauth";
 }
 
 /**
