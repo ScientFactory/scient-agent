@@ -1984,6 +1984,12 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			}
 			if (!isCurrent()) return "cancelled";
 			if (!text.trim() && !images?.length) return "local";
+			// scient(SA-CODEX-PLUGINS): begin - a server signed in from the host since the last prompt joins this one, skills included.
+			if (mcpSignInPickup) {
+				await mcpSignInPickup.beforePrompt();
+				if (!isCurrent()) return "cancelled";
+			}
+			// scient(SA-CODEX-PLUGINS): end
 			if (command.type === "steer") {
 				await session.steer(text, images);
 				return "admitted";
@@ -2064,12 +2070,6 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				}
 			}
 			if (!isCurrent() || !ticket) return "cancelled";
-			// scient(SA-CODEX-PLUGINS): begin - a server signed in from the host since the last prompt joins this one.
-			if (mcpSignInPickup) {
-				await mcpSignInPickup.beforePrompt();
-				if (!isCurrent()) return "cancelled";
-			}
-			// scient(SA-CODEX-PLUGINS): end
 			await watchAndReportPromptResult({
 				ticket,
 				startPrompt: onPromptAdmitted =>

@@ -192,13 +192,41 @@ describe("a conversation picking up a sign-in made elsewhere", () => {
 		await pickup.beforePrompt(10);
 		expect(reconnects).toEqual([NAME]);
 		expect(refreshed).toBe(0);
-		// A second prompt joins the running pickup instead of starting another.
+		// A second prompt starts no second attempt for a server still reconnecting.
 		await pickup.beforePrompt(10);
 		expect(reconnects).toEqual([NAME]);
 
 		gate.resolve();
 		await pickup.beforePrompt();
 		expect(refreshed).toBe(1);
+	});
+
+	it("connects every newly signed-in server even while another one stalls", async () => {
+		const auth = storage();
+		const OTHER = "other@market:api";
+		const URL_B = "https://other.example.test/mcp";
+		const stalled = Promise.withResolvers<void>();
+		const { manager, reconnects } = fakeManager(
+			{
+				[NAME]: { config: bound() },
+				[OTHER]: {
+					config: bound({ type: "oauth", credentialId: mcpOAuthServerCredentialId(OTHER, URL_B) }, {
+						url: URL_B,
+					} as Partial<MCPServerConfig>),
+				},
+			},
+			name => (name === NAME ? stalled.promise : Promise.resolve()),
+		);
+		let refreshed = 0;
+		const pickup = new McpSignInPickup(manager, auth, async () => void refreshed++);
+		pickup.seed();
+		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("a"));
+		await auth.credentials.set(mcpOAuthServerCredentialId(OTHER, URL_B), token("b"));
+
+		await pickup.beforePrompt();
+		expect(reconnects.toSorted()).toEqual([NAME, OTHER].toSorted());
+		expect(refreshed).toBe(1);
+		stalled.resolve();
 	});
 
 	it("never reconnects a server a browser sign-in does not serve", async () => {
