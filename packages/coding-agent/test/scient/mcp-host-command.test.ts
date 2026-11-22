@@ -196,8 +196,10 @@ describe("a conversation picking up a sign-in made elsewhere", () => {
 		await pickup.beforePrompt(10);
 		expect(reconnects).toEqual([NAME]);
 
-		gate.resolve();
-		await pickup.beforePrompt();
+		// A later prompt joins the reconnect under way and sees its tools if it lands within its own wait.
+		setTimeout(() => gate.resolve(), 20);
+		await pickup.beforePrompt(1_000);
+		expect(reconnects).toEqual([NAME]);
 		expect(refreshed).toBe(1);
 	});
 

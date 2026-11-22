@@ -46,7 +46,8 @@ const BROKER_REREAD_MS = 10_000;
  */
 export class McpSignInPickup {
 	readonly #tried = new Map<string, string>();
-	readonly #connecting = new Set<string>();
+	/** Reconnects under way, by server, each settling once its tools are published; later prompts join them. */
+	readonly #connecting = new Map<string, Promise<void>>();
 	#reread: Promise<boolean> | undefined;
 	#lastReread = Number.NEGATIVE_INFINITY;
 	#published: Promise<void> = Promise.resolve();
@@ -89,10 +90,12 @@ export class McpSignInPickup {
 
 	/** Re-reads the sign-in store once for concurrent pickups; a broker at most every few seconds. */
 	#rereadSignIns(): Promise<boolean> {
+		// A read under way is joined, so a later prompt waits for the sign-in it may bring.
+		if (this.#reread) return this.#reread;
 		if (this.authStorage.credentials.heldByBroker && performance.now() - this.#lastReread < BROKER_REREAD_MS) {
 			return Promise.resolve(true);
 		}
-		this.#reread ??= (async () => {
+		this.#reread = (async () => {
 			this.#lastReread = performance.now();
 			try {
 				await this.authStorage.credentials.revalidate();
@@ -108,36 +111,42 @@ export class McpSignInPickup {
 	}
 
 	async #pickUp(): Promise<void> {
+		const underWay = [...this.#connecting.values()];
 		const candidates = this.manager.getAllServerNames().flatMap(name => {
 			if (this.#connecting.has(name) || this.manager.getConnectionStatus(name) !== "disconnected") return [];
 			const config = this.manager.getServerConfig(name);
 			return config && canSignIn(config) ? [{ name, config }] : [];
 		});
-		if (candidates.length === 0 || !(await this.#rereadSignIns())) return;
-		const reconnects = candidates.flatMap(({ name, config }) => {
-			if (this.#connecting.has(name)) return [];
-			const signature = this.#signature(config);
-			if (!signature || this.#tried.get(name) === signature) return [];
-			this.#tried.set(name, signature);
-			return [this.#reconnect(name)];
-		});
-		await Promise.all(reconnects);
+		const started =
+			candidates.length > 0 && (await this.#rereadSignIns())
+				? candidates.flatMap(({ name, config }) => {
+						if (this.#connecting.has(name)) return [];
+						const signature = this.#signature(config);
+						if (!signature || this.#tried.get(name) === signature) return [];
+						this.#tried.set(name, signature);
+						return [this.#reconnect(name)];
+					})
+				: [];
+		await Promise.all([...underWay, ...started]);
 	}
 
 	/** Reconnects one server and publishes its tools once it connects. Never throws. */
-	async #reconnect(name: string): Promise<void> {
-		this.#connecting.add(name);
-		try {
-			await this.manager.reconnectServer(name, { manual: true });
-			if (this.manager.getConnectionStatus(name) !== "connected") return;
-			this.#published = this.#published.then(() =>
-				this.onConnected().catch(err => logger.warn("Refreshing tools after an MCP sign-in failed", { err })),
-			);
-			await this.#published;
-		} catch (err) {
-			logger.warn("Connecting an MCP server with its new sign-in failed", { server: name, err });
-		} finally {
-			this.#connecting.delete(name);
-		}
+	#reconnect(name: string): Promise<void> {
+		const attempt = (async () => {
+			try {
+				await this.manager.reconnectServer(name, { manual: true });
+				if (this.manager.getConnectionStatus(name) !== "connected") return;
+				this.#published = this.#published.then(() =>
+					this.onConnected().catch(err => logger.warn("Refreshing tools after an MCP sign-in failed", { err })),
+				);
+				await this.#published;
+			} catch (err) {
+				logger.warn("Connecting an MCP server with its new sign-in failed", { server: name, err });
+			} finally {
+				this.#connecting.delete(name);
+			}
+		})();
+		this.#connecting.set(name, attempt);
+		return attempt;
 	}
 }
