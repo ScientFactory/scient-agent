@@ -384,27 +384,27 @@ export function withOmpOtelEnv<T>(fn: () => T): T {
 }
 
 // scient(SA-CODEX-PLUGINS): begin - Codex plugins read only the environment the agent was launched with.
-const launchProjectDir = getProjectDir();
-let launchDotenvValues: ReadonlySet<string> | undefined;
+/**
+ * The exec environment, when this process can know it: procfs or `--no-env-file` (see
+ * {@link readLaunchEnv}), or, in the compiled binary, which Bun builds with dotenv autoloading off
+ * (coding-agent `scripts/compile-binary.ts`), `Bun.env` here, before the agent's own `.env`
+ * files load below. The binary is told by its bundled module URL, which no variable can fake.
+ */
+const launchEnvSnapshot: ReadonlyMap<string, string> | undefined =
+	launchEnvValues ??
+	(/\$bunfs|~BUN|%7EBUN/.test(import.meta.url)
+		? new Map(Object.entries(Bun.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
+		: undefined);
 
 /**
- * The environment the agent was launched with, whichever folder it works in now: the exec
- * environment when it is known (procfs, `--no-env-file`), else the environment without any value
- * the launch folder's dotenv files (all those Bun autoloads) or the agent's own `.env` files
- * (agent, config root, home) define. Codex reads its home, its plugins' credentials and their
- * servers' variables from its launch environment alone; so does the agent when it runs them.
+ * The environment the agent was launched with, whichever folder it works in now, or undefined
+ * when this run cannot tell it apart from what dotenv files added (Bun autoloaded them, as when
+ * the agent runs from source without `--no-env-file`, and there is no procfs). Codex reads its
+ * home, its plugins' credentials and their servers' variables from its launch environment alone;
+ * so does the agent when it runs Codex's plugins.
  */
-export function getLaunchEnv(): Record<string, string> {
-	if (launchEnvValues) return Object.fromEntries(launchEnvValues);
-	launchDotenvValues ??= new Set(getDotenvEnvValues(launchProjectDir, Bun.env));
-	const result: Record<string, string> = {};
-	for (const key in Bun.env) {
-		const value = Bun.env[key];
-		if (value === undefined || launchDotenvValues.has(value)) continue;
-		if ([projectEnv, agentEnv, piEnv, homeEnv].some(file => file[key] === value)) continue;
-		result[key] = value;
-	}
-	return result;
+export function getLaunchEnv(): Record<string, string> | undefined {
+	return launchEnvSnapshot && Object.fromEntries(launchEnvSnapshot);
 }
 // scient(SA-CODEX-PLUGINS): end
 for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {

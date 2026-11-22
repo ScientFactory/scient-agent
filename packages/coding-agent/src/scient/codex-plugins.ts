@@ -8,22 +8,23 @@
  * here under Codex's own rules: its manifest precedence, its MCP field validation, and the
  * environment and header handling it gives a plugin's servers. App references (`.app.json`) do
  * not: a person's ChatGPT apps reach the agent through the ChatGPT sign-in (SA-CHATGPT-APPS).
- * Plugins and servers that run only inside OpenAI's own apps are left out, and so is everything
- * when an organization manages Codex, since its policy cannot be read here.
+ * Plugins and servers that run only inside OpenAI's own apps are left out, and so are servers
+ * whose tools Codex narrows or asks about. Nothing loads when an organization manages Codex, since
+ * its policy cannot be applied here, or when this run cannot tell its launch environment apart.
  */
 import type { Dirent, Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { filterChildShellEnv, getLaunchEnv, getPluginsDir, isRecord, logger } from "@oh-my-pi/pi-utils";
+import { filterProcessEnv, getLaunchEnv, getPluginsDir, isRecord, logger, parseFrontmatter } from "@oh-my-pi/pi-utils";
 import { isUserSourceEnabled, registerProvider } from "../capability";
 import { readDirEntries, readFile } from "../capability/fs";
 import { type MCPServer, mcpCapability } from "../capability/mcp";
-import { type Skill, skillCapability } from "../capability/skill";
+import { type Skill, type SkillFrontmatter, skillCapability } from "../capability/skill";
 import type { LoadContext, LoadResult } from "../capability/types";
 import { classifyAgentPluginRoot, parseAgentPluginMcp } from "../discovery/agent-plugin-format";
 import { isContainedResolved, realpathIfExists, resolveContainedPath } from "../discovery/contained-path";
-import { createSourceMeta, scanSkillsFromDir } from "../discovery/helpers";
+import { compareSkillOrder, createSourceMeta } from "../discovery/helpers";
 
 const PROVIDER_ID = "codex-plugins";
 const DISPLAY_NAME = "Codex Plugins";
@@ -104,7 +105,10 @@ const CA_BUNDLE_ENV = [
 	"npm_config_cafile",
 	"NPM_CONFIG_CAFILE",
 ];
-/** Names Codex never lets a model-reachable process have (`NON_INHERITABLE_ENV_VARS`), even from `env`. */
+/**
+ * Names Codex never lets a model-reachable process have (`NON_INHERITABLE_ENV_VARS`), even from
+ * `env`, compared without case on every platform, as Codex compares them.
+ */
 const NON_INHERITABLE_ENV = [
 	"CODEX_EXEC_SERVER_NOISE_AUTH_TOKEN",
 	"NODE_REPL_AUTH_TOKEN",
@@ -130,6 +134,10 @@ const NOT_STDIO = [
 	"auth",
 ];
 const NOT_HTTP = ["args", "env", "env_vars", "cwd", "bearer_token"];
+
+/** Codex's skill scan limits for a plugin's skill folder (codex-rs/ext/skills loader). */
+const MAX_SKILL_SCAN_DEPTH = 6;
+const MAX_SKILL_DIRS = 2000;
 
 const SEMVER =
 	/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
@@ -228,7 +236,7 @@ function stdioEnv(
 	}
 	for (const [name, value] of Object.entries(declared ?? {})) put(name, value);
 	for (const key of Object.keys(result)) {
-		if (NON_INHERITABLE_ENV.some(name => sameEnvName(name, key))) delete result[key];
+		if (NON_INHERITABLE_ENV.some(name => name.toUpperCase() === key.toUpperCase())) delete result[key];
 	}
 	return result;
 }
@@ -238,8 +246,9 @@ async function readLegacyManifest(
 	root: string,
 	id: string,
 	warnings: string[],
+	manifests: readonly string[] = LEGACY_MANIFESTS,
 ): Promise<{ manifestPath: string; manifest: Record<string, unknown> } | null> {
-	for (const relative of LEGACY_MANIFESTS) {
+	for (const relative of manifests) {
 		const manifestPath = path.join(root, relative);
 		const folder = await lstatOrNull(path.dirname(manifestPath));
 		if (folder === null) continue;
@@ -338,27 +347,54 @@ function mergeLayers(lower: Record<string, unknown>, higher: Record<string, unkn
 	return merged;
 }
 
+let programData: string | undefined;
+
+/**
+ * Windows' ProgramData known folder, which Codex resolves from the system rather than the
+ * `ProgramData` variable anyone can set; Codex's default when the system cannot say.
+ */
+function windowsProgramData(): string {
+	if (programData === undefined) {
+		const query = Bun.spawnSync(
+			[
+				"powershell.exe",
+				"-NoProfile",
+				"-NonInteractive",
+				"-Command",
+				"[Environment]::GetFolderPath('CommonApplicationData')",
+			],
+			{ stdout: "pipe", stderr: "ignore" },
+		);
+		const found = query.exitCode === 0 ? query.stdout.toString().trim() : "";
+		programData = path.win32.isAbsolute(found) ? found : "C:\\ProgramData";
+	}
+	return programData;
+}
+
 /** Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in ProgramData on Windows. */
 function systemDir(): string {
-	return IS_WINDOWS ? path.join(process.env.ProgramData || "C:\\ProgramData", "OpenAI", "Codex") : "/etc/codex";
+	return IS_WINDOWS ? path.join(windowsProgramData(), "OpenAI", "Codex") : "/etc/codex";
 }
 
 /**
- * The first organization policy Codex would enforce over the user's config (requirements, a
- * legacy managed config, macOS managed preferences, or a Windows Group Policy requirements path),
- * or undefined. Scient Agent cannot apply one, so it loads no plugins while one is present.
+ * Why Codex may be under an organization policy Scient Agent cannot apply (requirements, a
+ * managed config, macOS managed preferences, or a Windows Group Policy requirements path), or
+ * undefined when none is present. A policy location that cannot be checked counts as present,
+ * as Codex refuses to assume it absent.
  */
-async function managedPolicy(): Promise<string | undefined> {
+async function managedPolicy(home: string): Promise<string | undefined> {
 	if (IS_WINDOWS) {
 		const key = "HKLM\\SOFTWARE\\Policies\\OpenAI\\Codex";
 		const query = Bun.spawnSync(["reg", "query", key, "/v", "RequirementsPath", "/reg:64"], {
 			stdout: "ignore",
 			stderr: "ignore",
 		});
-		if (query.exitCode === 0) return `${key}\\RequirementsPath`;
+		if (query.exitCode === 0) return `Codex is managed by an organization policy (${key}\\RequirementsPath)`;
 	}
-	const files = [path.join(systemDir(), "requirements.toml")];
-	if (!IS_WINDOWS) files.push("/etc/codex/managed_config.toml");
+	const files = [
+		path.join(systemDir(), "requirements.toml"),
+		IS_WINDOWS ? path.join(home, "managed_config.toml") : "/etc/codex/managed_config.toml",
+	];
 	if (process.platform === "darwin") {
 		const managed = "/Library/Managed Preferences";
 		files.push(
@@ -366,7 +402,15 @@ async function managedPolicy(): Promise<string | undefined> {
 			path.join(managed, os.userInfo().username, "com.openai.codex.plist"),
 		);
 	}
-	for (const file of files) if ((await lstatOrNull(file)) !== null) return file;
+	for (const file of files) {
+		try {
+			await fs.stat(file);
+			return `Codex is managed by an organization policy (${file})`;
+		} catch (error) {
+			const code = (error as NodeJS.ErrnoException).code;
+			if (code !== "ENOENT") return `Codex's organization policy at ${file} cannot be checked (${code})`;
+		}
+	}
 	return undefined;
 }
 
@@ -375,16 +419,21 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const warnings: string[] = [];
 	// The environment Scient Agent was launched with: no `.env` file, from this project or one the
 	// agent worked in before, chooses Codex's home or what reaches a plugin's server.
-	const env = filterChildShellEnv(getLaunchEnv());
-	const policy = await managedPolicy();
-	if (policy !== undefined) {
+	const launch = getLaunchEnv();
+	if (launch === undefined) {
 		warnings.push(
-			`[codex-plugins] Codex is managed by an organization policy (${policy}), which Scient Agent cannot apply; no Codex plugins load`,
+			"[codex-plugins] This run cannot tell Scient Agent's launch environment from .env files (start it with --no-env-file); no Codex plugins load",
 		);
-		return { plugins: [], warnings, env };
+		return { plugins: [], warnings, env: {} };
 	}
+	const env = filterProcessEnv(launch);
 	// Codex's home: `CODEX_HOME`, else `~/.codex`.
 	const home = env.CODEX_HOME?.trim() || path.join(ctx.home, ".codex");
+	const policy = await managedPolicy(home);
+	if (policy !== undefined) {
+		warnings.push(`[codex-plugins] ${policy}, which Scient Agent cannot apply; no Codex plugins load`);
+		return { plugins: [], warnings, env };
+	}
 	const user = await readToml(path.join(home, "config.toml"), warnings);
 	if (user === null) return { plugins: [], warnings, env };
 	const system = await readToml(path.join(systemDir(), "config.toml"), warnings);
@@ -421,6 +470,89 @@ async function packagePath(plugin: CodexPlugin, value: unknown, key: string, war
 	return resolved.status === "ok" ? resolved.realPath : null;
 }
 
+/** A plugin's skill, read once its `SKILL.md` is known to stay inside the package; null when it is not a skill. */
+async function readPluginSkill(
+	plugin: CodexPlugin,
+	skillPath: string,
+	realPath: string,
+	warnings: string[],
+): Promise<Skill | null> {
+	const stat = await fs.stat(realPath).catch(() => null);
+	if (!stat?.isFile()) return null;
+	const content = await readFile(realPath);
+	if (!content) return null;
+	try {
+		const { frontmatter, body } = parseFrontmatter(content, { source: skillPath });
+		if (frontmatter.enabled === false) return null;
+		const folder = path.basename(path.dirname(skillPath));
+		const name = typeof frontmatter.name === "string" ? frontmatter.name.trim() || folder : folder;
+		// `/` is reserved for skill namespaces and skill:// paths.
+		if (/[\\/]/.test(name)) {
+			warnings.push(`[codex-plugins] Skill name "${name}" contains a path separator, skipping: ${skillPath}`);
+			return null;
+		}
+		return {
+			name,
+			path: skillPath,
+			content: body,
+			frontmatter: frontmatter as SkillFrontmatter,
+			level: "user",
+			// skill:// resolves every file of the skill inside the package too.
+			containRoot: plugin.root,
+			_source: createSourceMeta(PROVIDER_ID, skillPath, "user", undefined, plugin.label),
+		};
+	} catch {
+		warnings.push(`[codex-plugins] Failed to read skill file: ${skillPath}`);
+		return null;
+	}
+}
+
+/**
+ * Codex's scan of a plugin's skill folder: every `SKILL.md` down to its depth limit for a legacy
+ * plugin, each direct child's for an Agent Plugins package, hidden folders skipped. Each folder and
+ * `SKILL.md` must resolve inside the package before it is read.
+ */
+async function scanPluginSkills(plugin: CodexPlugin, dir: string, warnings: string[]): Promise<Skill[]> {
+	const recursive = plugin.format === "legacy";
+	// A SKILL.md sits one level below its folder, so folders go one level less deep than files.
+	const maxFolderDepth = recursive ? MAX_SKILL_SCAN_DEPTH - 1 : 1;
+	const skills: Skill[] = [];
+	const seen = new Set<string>();
+	const visit = async (folder: string, depth: number): Promise<void> => {
+		if (seen.has(folder) || seen.size >= MAX_SKILL_DIRS) return;
+		seen.add(folder);
+		if (recursive || depth === 1) {
+			const skillPath = path.join(folder, "SKILL.md");
+			const file = await resolveContainedPath(plugin.root, skillPath);
+			if (file.status === "outside")
+				warnings.push(`[codex-plugins] Ignoring skill outside ${plugin.id}: ${skillPath}`);
+			if (file.status === "ok") {
+				const skill = await readPluginSkill(plugin, skillPath, file.realPath, warnings);
+				if (skill !== null) skills.push(skill);
+			}
+		}
+		if (depth >= maxFolderDepth) return;
+		const children = (await readDirEntries(folder)).filter(
+			entry => !entry.name.startsWith(".") && (entry.isDirectory() || entry.isSymbolicLink()),
+		);
+		await Promise.all(
+			children.map(async entry => {
+				const child = await resolveContainedPath(plugin.root, path.join(folder, entry.name));
+				if (child.status === "outside") {
+					warnings.push(
+						`[codex-plugins] Ignoring skill folder outside ${plugin.id}: ${path.join(folder, entry.name)}`,
+					);
+				}
+				if (child.status !== "ok") return;
+				if ((await fs.stat(child.realPath).catch(() => null))?.isDirectory())
+					await visit(child.realPath, depth + 1);
+			}),
+		);
+	};
+	await visit(dir, 0);
+	return skills;
+}
+
 async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
 	const { plugins, warnings } = await listCodexPlugins(ctx);
@@ -434,22 +566,11 @@ async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 				const dir = await packagePath(plugin, entry, "skills", warnings);
 				if (dir !== null) dirs.add(dir);
 			}
-			for (const dir of dirs) {
-				const result = await scanSkillsFromDir(ctx, {
-					dir,
-					providerId: PROVIDER_ID,
-					level: "user",
-					pluginName: plugin.label,
-				});
-				if (result.warnings) warnings.push(...result.warnings);
-				// A skill folder or SKILL.md linked out of the package does not load, as in Codex.
-				for (const skill of result.items) {
-					if ((await resolveContainedPath(plugin.root, skill.path)).status === "ok") items.push(skill);
-					else warnings.push(`[codex-plugins] Ignoring skill outside ${plugin.id}: ${skill.path}`);
-				}
-			}
+			for (const dir of dirs) items.push(...(await scanPluginSkills(plugin, dir, warnings)));
 		}),
 	);
+	// Reads finish in any order; the list does not.
+	items.sort((a, b) => compareSkillOrder(a.name, a.path, b.name, b.path));
 	return { items, warnings };
 }
 
@@ -471,6 +592,22 @@ function toolFilterKey(table: Record<string, unknown>): string | undefined {
 	if (table.enabled_tools != null) return "enabled_tools";
 	const denied = table.disabled_tools;
 	if (denied != null && !(Array.isArray(denied) && denied.length === 0)) return "disabled_tools";
+	return undefined;
+}
+
+/**
+ * The Codex key that makes some of a server's tools ask before they run (`prompt`, `writes`, or a
+ * mode Scient Agent does not know), or undefined when Codex runs them all without asking. Scient
+ * Agent cannot carry Codex's approval modes over, so such a server would run its tools unasked.
+ */
+function approvalKey(table: Record<string, unknown>): string | undefined {
+	const unasked = (mode: unknown) => mode == null || mode === "auto" || mode === "approve";
+	if (!unasked(table.default_tools_approval_mode)) return "default_tools_approval_mode";
+	if (table.tools == null) return undefined;
+	if (!isRecord(table.tools)) return "tools";
+	for (const [tool, config] of Object.entries(table.tools)) {
+		if (!isRecord(config) || !unasked(config.approval_mode)) return `tools.${tool}.approval_mode`;
+	}
 	return undefined;
 }
 
@@ -629,8 +766,8 @@ async function readLegacyServerMap(
 /**
  * An Agent Plugins package's `mcp.json`, read under that standard and Codex's rules for it: the
  * file must be a regular file at the root, `sse` servers do not run, and a stdio server takes the
- * `env_vars` its package's legacy declaration of the same server adds (dropping the `${NAME}`
- * placeholders those variables replace).
+ * `env_vars` a valid `.codex-plugin` declaration of the same stdio server adds (dropping the
+ * `${NAME}` placeholders those variables replace).
  */
 async function readStandardServers(
 	ctx: LoadContext,
@@ -655,10 +792,11 @@ async function readStandardServers(
 		return null;
 	}
 	warnings.push(...result.warnings.map(warning => `[codex-plugins] ${plugin.id}: ${warning}`));
-	const quiet: string[] = [];
-	const legacy = await readLegacyManifest(plugin.root, plugin.id, quiet);
-	const overlay = (await readLegacyServerMap(plugin, legacy?.manifest ?? {}, legacy?.manifestPath ?? file, quiet))
-		?.servers;
+	// Codex overlays only a valid `.codex-plugin` declaration of a valid stdio server.
+	const codexManifest = await readLegacyManifest(plugin.root, plugin.id, [], LEGACY_MANIFESTS.slice(0, 1));
+	const overlay =
+		codexManifest &&
+		(await readLegacyServerMap(plugin, codexManifest.manifest, codexManifest.manifestPath, []))?.servers;
 	const servers: Record<string, Partial<MCPServer>> = {};
 	for (const { name, ...server } of result.servers) {
 		if (server.transport === "sse") {
@@ -670,7 +808,13 @@ async function readStandardServers(
 			continue;
 		}
 		const declared = overlay?.[name];
-		const forwarded = isRecord(declared) && declared.command != null ? (envVarNames(declared.env_vars) ?? []) : [];
+		let forwarded: string[] = [];
+		if (isRecord(declared)) {
+			const mapped = await mapLegacyServer(plugin, declared, env).catch(() => null);
+			if (mapped !== null && "server" in mapped && mapped.server.transport === "stdio") {
+				forwarded = envVarNames(declared.env_vars) ?? [];
+			}
+		}
 		// A `${NAME}` placeholder for a forwarded variable gives way to that variable's real value.
 		const kept = Object.entries(server.env ?? {}).filter(
 			([key, value]) =>
@@ -711,9 +855,10 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			}
 			const declaredPolicy = policies[serverName];
 			const policy: Record<string, unknown> = isRecord(declaredPolicy) ? declaredPolicy : {};
-			const filter = toolFilterKey(server) ?? toolFilterKey(policy);
-			if (filter !== undefined) {
-				warnings.push(`${skip}: Codex restricts its tools (${filter}), which Scient Agent cannot enforce`);
+			const restricted =
+				toolFilterKey(server) ?? toolFilterKey(policy) ?? approvalKey(server) ?? approvalKey(policy);
+			if (restricted !== undefined) {
+				warnings.push(`${skip}: Codex restricts its tools (${restricted}), which Scient Agent cannot enforce`);
 				continue;
 			}
 			let mapped: Mapped;
@@ -730,8 +875,8 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 				name: `${plugin.label}:${serverName}`,
 				...mapped.server,
 				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`, and
-				// with the enterprise sign-in Codex no longer supports there.
-				...((policy.enabled === false || policy.auth === "ema_auth") && { enabled: false }),
+				// with an `ema_auth` entry, the enterprise sign-in Codex no longer supports there.
+				...((policy.enabled === false || "ema_auth" in policy) && { enabled: false }),
 				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
 			});
 		}
