@@ -15,7 +15,7 @@ import type { Dirent, Stats } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { filterChildShellEnv, getPluginsDir, isRecord, logger } from "@oh-my-pi/pi-utils";
+import { filterChildShellEnv, getLaunchEnv, getPluginsDir, isRecord, logger } from "@oh-my-pi/pi-utils";
 import { isUserSourceEnabled, registerProvider } from "../capability";
 import { readDirEntries, readFile } from "../capability/fs";
 import { type MCPServer, mcpCapability } from "../capability/mcp";
@@ -35,7 +35,8 @@ const LOCAL_VERSION = "local";
 
 /**
  * Codex's legacy manifests, in its order of precedence after a root Agent Plugins `plugin.json`.
- * The first one present decides; a link or non-file there stops the search, as in Codex.
+ * The first one present decides; a link or non-file there, or a linked folder holding it, stops
+ * the search, as in Codex.
  */
 const LEGACY_MANIFESTS = [".codex-plugin/plugin.json", ".claude-plugin/plugin.json", ".cursor-plugin/plugin.json"];
 
@@ -55,52 +56,41 @@ const HOST_PLUGINS: Record<string, true> = {
 /** OpenAI's launcher for its signed Computer Use client, which serves only Codex (the Messages plugin). */
 const HOST_LAUNCHER = "computer-use-client-launcher";
 
+const IS_WINDOWS = process.platform === "win32";
+
 /**
  * The variables Codex passes a plugin's local stdio server from its own environment, besides
  * those the server names in `env_vars` (codex-rs/rmcp-client `DEFAULT_ENV_VARS`, and
- * `WINDOWS_CORE_ENV_VARS` on Windows), plus the certificate-bundle variables it always keeps
- * (`CUSTOM_CA_ENV_KEYS`). Nothing else, API keys included, reaches the server.
+ * `WINDOWS_CORE_ENV_VARS` on Windows). Nothing else, API keys included, reaches the server.
  */
-const INHERITED_ENV =
-	process.platform === "win32"
-		? [
-				"PATH",
-				"PATHEXT",
-				"SHELL",
-				"COMSPEC",
-				"SYSTEMROOT",
-				"WINDIR",
-				"SYSTEMDRIVE",
-				"USERNAME",
-				"USERDOMAIN",
-				"USERPROFILE",
-				"HOMEDRIVE",
-				"HOMEPATH",
-				"PROGRAMFILES",
-				"PROGRAMFILES(X86)",
-				"PROGRAMW6432",
-				"PROGRAMDATA",
-				"LOCALAPPDATA",
-				"APPDATA",
-				"TEMP",
-				"TMP",
-				"TMPDIR",
-				"POWERSHELL",
-				"PWSH",
-			]
-		: [
-				"HOME",
-				"LOGNAME",
-				"PATH",
-				"SHELL",
-				"USER",
-				"__CF_USER_TEXT_ENCODING",
-				"LANG",
-				"LC_ALL",
-				"TERM",
-				"TMPDIR",
-				"TZ",
-			];
+const INHERITED_ENV = IS_WINDOWS
+	? [
+			"PATH",
+			"PATHEXT",
+			"SHELL",
+			"COMSPEC",
+			"SYSTEMROOT",
+			"WINDIR",
+			"SYSTEMDRIVE",
+			"USERNAME",
+			"USERDOMAIN",
+			"USERPROFILE",
+			"HOMEDRIVE",
+			"HOMEPATH",
+			"PROGRAMFILES",
+			"PROGRAMFILES(X86)",
+			"PROGRAMW6432",
+			"PROGRAMDATA",
+			"LOCALAPPDATA",
+			"APPDATA",
+			"TEMP",
+			"TMP",
+			"TMPDIR",
+			"POWERSHELL",
+			"PWSH",
+		]
+	: ["HOME", "LOGNAME", "PATH", "SHELL", "USER", "__CF_USER_TEXT_ENCODING", "LANG", "LC_ALL", "TERM", "TMPDIR", "TZ"];
+/** Certificate bundles Codex always passes on, as absolute paths (`CUSTOM_CA_ENV_KEYS`). */
 const CA_BUNDLE_ENV = [
 	"CODEX_CA_CERTIFICATE",
 	"SSL_CERT_FILE",
@@ -113,6 +103,18 @@ const CA_BUNDLE_ENV = [
 	"BUNDLE_SSL_CA_CERT",
 	"npm_config_cafile",
 	"NPM_CONFIG_CAFILE",
+];
+/** Names Codex never lets a model-reachable process have (`NON_INHERITABLE_ENV_VARS`), even from `env`. */
+const NON_INHERITABLE_ENV = [
+	"CODEX_EXEC_SERVER_NOISE_AUTH_TOKEN",
+	"NODE_REPL_AUTH_TOKEN",
+	"CODEX_GUARDIAN_DECISIONS_API_KEY",
+	"OPENAI_FEDERATION_RULE_ID",
+	"OPENAI_IDENTITY_TOKEN_FILE",
+	"OPENAI_IDENTITY_TOKEN_SOURCE",
+	"OPENAI_SPIFFE_AUDIENCE",
+	"OPENAI_SPIFFE_ID",
+	"OPENAI_WORKLOAD_IDENTITY_CONTEXT",
 ];
 
 /** Fields Codex rejects on a stdio server, and on a streamable HTTP server. */
@@ -137,7 +139,10 @@ interface CodexPlugin {
 	id: string;
 	name: string;
 	marketplace: string;
-	/** Skill namespace and MCP server prefix: the name, or `<name>.<marketplace>` when two enabled plugins share it. */
+	/**
+	 * Skill namespace and MCP server prefix: the name, or `<name>:<marketplace>` when two enabled
+	 * plugins share it. Neither part may contain `:`, so the qualified form never meets another.
+	 */
 	label: string;
 	/** The active version's folder, symlinks resolved; every package path stays inside it. */
 	root: string;
@@ -152,7 +157,7 @@ interface CodexPlugin {
 interface PluginList {
 	plugins: CodexPlugin[];
 	warnings: string[];
-	/** Scient Agent's launch environment, without a project's `.env` values. */
+	/** Scient Agent's launch environment, without any `.env` file's values. */
 	env: Record<string, string>;
 }
 
@@ -187,6 +192,47 @@ async function lstatOrNull(file: string): Promise<Stats | null> {
 	}
 }
 
+/** Environment names compare case-insensitively on Windows, as Codex compares them there. */
+function sameEnvName(left: string, right: string): boolean {
+	return IS_WINDOWS ? left.toUpperCase() === right.toUpperCase() : left === right;
+}
+
+function envValue(env: Record<string, string>, name: string): string | undefined {
+	if (!IS_WINDOWS) return env[name];
+	const key = Object.keys(env).find(candidate => sameEnvName(candidate, name));
+	return key === undefined ? undefined : env[key];
+}
+
+/**
+ * The environment Codex gives a plugin's local stdio server: its variable list and the server's
+ * `env_vars` from the launch environment, certificate bundles as absolute paths, then the
+ * server's own `env`, never the names Codex withholds. The server inherits nothing else.
+ */
+function stdioEnv(
+	env: Record<string, string>,
+	forwarded: readonly string[],
+	declared: Record<string, string> | undefined,
+): Record<string, string> {
+	const result: Record<string, string> = {};
+	const put = (name: string, value: string) => {
+		for (const key of Object.keys(result)) if (sameEnvName(key, name)) delete result[key];
+		result[name] = value;
+	};
+	for (const name of [...INHERITED_ENV, ...forwarded]) {
+		const value = envValue(env, name);
+		if (value !== undefined) put(name, value);
+	}
+	for (const name of CA_BUNDLE_ENV) {
+		const value = envValue(env, name);
+		if (value) put(name, path.resolve(value));
+	}
+	for (const [name, value] of Object.entries(declared ?? {})) put(name, value);
+	for (const key of Object.keys(result)) {
+		if (NON_INHERITABLE_ENV.some(name => sameEnvName(name, key))) delete result[key];
+	}
+	return result;
+}
+
 /** The first legacy manifest present, read; null (with a warning) when none is usable. */
 async function readLegacyManifest(
 	root: string,
@@ -195,6 +241,12 @@ async function readLegacyManifest(
 ): Promise<{ manifestPath: string; manifest: Record<string, unknown> } | null> {
 	for (const relative of LEGACY_MANIFESTS) {
 		const manifestPath = path.join(root, relative);
+		const folder = await lstatOrNull(path.dirname(manifestPath));
+		if (folder === null) continue;
+		if (!folder.isDirectory()) {
+			warnings.push(`[codex-plugins] Ignoring ${id}: ${path.dirname(relative)} is not a folder`);
+			return null;
+		}
 		const stat = await lstatOrNull(manifestPath);
 		if (stat === null) continue;
 		if (!stat.isFile()) {
@@ -276,17 +328,37 @@ async function readToml(file: string, warnings: string[]): Promise<Record<string
 	}
 }
 
-/**
- * Where an organization's Codex policy lives (requirements, managed config, macOS managed
- * preferences). Codex enforces them over the user's config; Scient Agent cannot, so it loads no
- * plugins while one is present.
- */
-function managedPolicyFiles(): string[] {
-	if (process.platform === "win32") {
-		const programData = process.env.ProgramData || "C:\\ProgramData";
-		return [path.join(programData, "OpenAI", "Codex", "requirements.toml")];
+/** Codex's layer merge: tables merge key by key at every depth, and the higher layer's other values win. */
+function mergeLayers(lower: Record<string, unknown>, higher: Record<string, unknown>): Record<string, unknown> {
+	const merged: Record<string, unknown> = { ...lower };
+	for (const [key, value] of Object.entries(higher)) {
+		const below = merged[key];
+		merged[key] = isRecord(below) && isRecord(value) ? mergeLayers(below, value) : value;
 	}
-	const files = ["/etc/codex/requirements.toml", "/etc/codex/managed_config.toml"];
+	return merged;
+}
+
+/** Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in ProgramData on Windows. */
+function systemDir(): string {
+	return IS_WINDOWS ? path.join(process.env.ProgramData || "C:\\ProgramData", "OpenAI", "Codex") : "/etc/codex";
+}
+
+/**
+ * The first organization policy Codex would enforce over the user's config (requirements, a
+ * legacy managed config, macOS managed preferences, or a Windows Group Policy requirements path),
+ * or undefined. Scient Agent cannot apply one, so it loads no plugins while one is present.
+ */
+async function managedPolicy(): Promise<string | undefined> {
+	if (IS_WINDOWS) {
+		const key = "HKLM\\SOFTWARE\\Policies\\OpenAI\\Codex";
+		const query = Bun.spawnSync(["reg", "query", key, "/v", "RequirementsPath", "/reg:64"], {
+			stdout: "ignore",
+			stderr: "ignore",
+		});
+		if (query.exitCode === 0) return `${key}\\RequirementsPath`;
+	}
+	const files = [path.join(systemDir(), "requirements.toml")];
+	if (!IS_WINDOWS) files.push("/etc/codex/managed_config.toml");
 	if (process.platform === "darwin") {
 		const managed = "/Library/Managed Preferences";
 		files.push(
@@ -294,19 +366,20 @@ function managedPolicyFiles(): string[] {
 			path.join(managed, os.userInfo().username, "com.openai.codex.plist"),
 		);
 	}
-	return files;
+	for (const file of files) if ((await lstatOrNull(file)) !== null) return file;
+	return undefined;
 }
 
 /** Installed, enabled Codex plugins outside {@link HOST_PLUGINS}. */
 async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const warnings: string[] = [];
-	// The environment Scient Agent was launched with: a project's `.env` never chooses Codex's
-	// home or the credentials sent to a plugin's server.
-	const env = filterChildShellEnv(Bun.env);
-	for (const file of managedPolicyFiles()) {
-		if ((await lstatOrNull(file)) === null) continue;
+	// The environment Scient Agent was launched with: no `.env` file, from this project or one the
+	// agent worked in before, chooses Codex's home or what reaches a plugin's server.
+	const env = filterChildShellEnv(getLaunchEnv());
+	const policy = await managedPolicy();
+	if (policy !== undefined) {
 		warnings.push(
-			`[codex-plugins] Codex is managed by an organization policy (${file}), which Scient Agent cannot apply; no Codex plugins load`,
+			`[codex-plugins] Codex is managed by an organization policy (${policy}), which Scient Agent cannot apply; no Codex plugins load`,
 		);
 		return { plugins: [], warnings, env };
 	}
@@ -314,12 +387,9 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	const home = env.CODEX_HOME?.trim() || path.join(ctx.home, ".codex");
 	const user = await readToml(path.join(home, "config.toml"), warnings);
 	if (user === null) return { plugins: [], warnings, env };
-	// The system layer sits under the user's; per-plugin tables and `_default` merge by key.
-	const system = process.platform === "win32" ? null : await readToml("/etc/codex/config.toml", warnings);
-	const table: Record<string, unknown> = {
-		...(isRecord(system?.plugins) ? system.plugins : {}),
-		...(isRecord(user.plugins) ? user.plugins : {}),
-	};
+	const system = await readToml(path.join(systemDir(), "config.toml"), warnings);
+	const merged = mergeLayers(system ?? {}, user);
+	const table = isRecord(merged.plugins) ? merged.plugins : {};
 	const defaults = isRecord(table._default) ? table._default : {};
 	const enabledByDefault = defaults.enabled !== false;
 	const read = await Promise.all(
@@ -330,12 +400,12 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 		}),
 	);
 	const found = read.filter(plugin => plugin !== null);
-	const sharedNames = new Set(
+	const shared = new Set(
 		found.filter((plugin, index) => found.findIndex(other => other.name === plugin.name) !== index).map(p => p.name),
 	);
 	const plugins = found.map(plugin => ({
 		...plugin,
-		label: sharedNames.has(plugin.name) ? `${plugin.name}.${plugin.marketplace}` : plugin.name,
+		label: shared.has(plugin.name) ? `${plugin.name}:${plugin.marketplace}` : plugin.name,
 	}));
 	return { plugins, warnings, env };
 }
@@ -354,7 +424,8 @@ async function packagePath(plugin: CodexPlugin, value: unknown, key: string, war
 async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 	if (!isUserSourceEnabled(PROVIDER_ID, ctx)) return { items: [] };
 	const { plugins, warnings } = await listCodexPlugins(ctx);
-	const dirsByPlugin = await Promise.all(
+	const items: Skill[] = [];
+	await Promise.all(
 		plugins.map(async plugin => {
 			const declared = plugin.format === "standard" ? undefined : plugin.manifest.skills;
 			const entries = declared == null ? ["skills"] : Array.isArray(declared) ? declared : [declared];
@@ -363,19 +434,22 @@ async function loadSkills(ctx: LoadContext): Promise<LoadResult<Skill>> {
 				const dir = await packagePath(plugin, entry, "skills", warnings);
 				if (dir !== null) dirs.add(dir);
 			}
-			return { plugin, dirs: [...dirs] };
+			for (const dir of dirs) {
+				const result = await scanSkillsFromDir(ctx, {
+					dir,
+					providerId: PROVIDER_ID,
+					level: "user",
+					pluginName: plugin.label,
+				});
+				if (result.warnings) warnings.push(...result.warnings);
+				// A skill folder or SKILL.md linked out of the package does not load, as in Codex.
+				for (const skill of result.items) {
+					if ((await resolveContainedPath(plugin.root, skill.path)).status === "ok") items.push(skill);
+					else warnings.push(`[codex-plugins] Ignoring skill outside ${plugin.id}: ${skill.path}`);
+				}
+			}
 		}),
 	);
-	const scans = dirsByPlugin.flatMap(({ plugin, dirs }) =>
-		dirs.map(dir =>
-			scanSkillsFromDir(ctx, { dir, providerId: PROVIDER_ID, level: "user", pluginName: plugin.label }),
-		),
-	);
-	const items: Skill[] = [];
-	for (const result of await Promise.all(scans)) {
-		items.push(...result.items);
-		if (result.warnings) warnings.push(...result.warnings);
-	}
 	return { items, warnings };
 }
 
@@ -405,11 +479,18 @@ const isStringList = (value: unknown): value is string[] =>
 const isStringMap = (value: unknown): value is Record<string, string> =>
 	isRecord(value) && Object.values(value).every(item => typeof item === "string");
 
-/** Codex's `env_vars` entry: a name, or `{ name, source = "local" }`. */
-function envVarName(entry: unknown): string | undefined {
-	if (typeof entry === "string") return entry;
-	if (isRecord(entry) && typeof entry.name === "string" && (entry.source ?? "local") === "local") return entry.name;
-	return undefined;
+/** The names of Codex's `env_vars` entries (a name, or `{ name, source = "local" }`); null when one is malformed. */
+function envVarNames(value: unknown): string[] | null {
+	if (value == null) return [];
+	if (!Array.isArray(value)) return null;
+	const names: string[] = [];
+	for (const entry of value) {
+		if (typeof entry === "string") names.push(entry);
+		else if (isRecord(entry) && typeof entry.name === "string" && (entry.source ?? "local") === "local") {
+			names.push(entry.name);
+		} else return null;
+	}
+	return names;
 }
 
 type Mapped = { server: Partial<MCPServer> } | { error: string };
@@ -423,23 +504,27 @@ async function mapLegacyServer(
 	server: Record<string, unknown>,
 	env: Record<string, string>,
 ): Promise<Mapped> {
-	const isStdio = typeof server.command === "string";
-	if (!isStdio && typeof server.url !== "string") return { error: "it declares neither command nor url" };
+	if (server.command != null && typeof server.command !== "string") return { error: "invalid command" };
+	if (server.url != null && typeof server.url !== "string") return { error: "invalid url" };
+	const isStdio = server.command != null;
+	if (!isStdio && server.url == null) return { error: "it declares neither command nor url" };
 	const wrong = (isStdio ? NOT_STDIO : NOT_HTTP).find(key => server[key] != null);
 	if (wrong !== undefined) return { error: `${wrong} is not supported for ${isStdio ? "stdio" : "streamable HTTP"}` };
-	const timeout =
-		typeof server.tool_timeout_sec === "number" && server.tool_timeout_sec > 0
-			? { timeout: server.tool_timeout_sec * 1000 }
-			: {};
+	const common = {
+		// `enabled = false` in the declaration turns the server off in Codex.
+		...(server.enabled === false && { enabled: false }),
+		...(typeof server.tool_timeout_sec === "number" &&
+			server.tool_timeout_sec > 0 && { timeout: server.tool_timeout_sec * 1000 }),
+	};
 
 	if (isStdio) {
 		const command = (server.command as string).trim();
 		if (!command) return { error: "command is empty" };
 		if (server.args != null && !isStringList(server.args)) return { error: "invalid args" };
 		if (server.env != null && !isStringMap(server.env)) return { error: "invalid env" };
-		if (server.env_vars != null && !Array.isArray(server.env_vars)) return { error: "invalid env_vars" };
-		const forwarded = ((server.env_vars as unknown[] | undefined) ?? []).map(envVarName);
-		if (forwarded.some(name => name === undefined)) return { error: "invalid env_vars" };
+		const forwarded = envVarNames(server.env_vars);
+		if (forwarded === null) return { error: "invalid env_vars" };
+		if (server.cwd != null && typeof server.cwd !== "string") return { error: "invalid cwd" };
 		// Codex runs a server from the package unless it names a folder inside it.
 		const cwd = typeof server.cwd === "string" ? path.resolve(plugin.root, server.cwd) : plugin.root;
 		if (!(await isContainedResolved(plugin.root, cwd))) return { error: `cwd ${server.cwd} leaves the package` };
@@ -454,11 +539,11 @@ async function mapLegacyServer(
 				transport: "stdio",
 				command: resolvedCommand,
 				...(server.args != null && { args: server.args as string[] }),
-				...(server.env != null && { env: server.env as Record<string, string> }),
+				env: stdioEnv(env, forwarded, server.env as Record<string, string> | undefined),
 				envPolicy: "literal",
-				envInherit: [...new Set([...INHERITED_ENV, ...CA_BUNDLE_ENV, ...(forwarded as string[])])],
+				envInherit: [],
 				cwd,
-				...timeout,
+				...common,
 			},
 		};
 	}
@@ -478,10 +563,10 @@ async function mapLegacyServer(
 	// Static headers are data; the others name variables of the launch environment, as in Codex.
 	const headers: Record<string, string> = { ...(server.http_headers as Record<string, string> | undefined) };
 	for (const [header, name] of Object.entries((server.env_http_headers ?? {}) as Record<string, string>)) {
-		const value = env[name]?.trim();
+		const value = envValue(env, name)?.trim();
 		if (value) headers[header] = value;
 	}
-	const bearer = server.bearer_token_env_var ? env[server.bearer_token_env_var as string]?.trim() : undefined;
+	const bearer = server.bearer_token_env_var ? envValue(env, server.bearer_token_env_var as string)?.trim() : "";
 	if (bearer) headers.Authorization = `Bearer ${bearer}`;
 	// Codex's OAuth client settings, snake_case or the camelCase plugins may use.
 	const oauthTable = (server.oauth ?? {}) as Record<string, unknown>;
@@ -506,19 +591,21 @@ async function mapLegacyServer(
 			headerPolicy: "origin-locked",
 			...(Object.keys(oauth).length > 0 && { oauth }),
 			...(resource !== null && { auth: { type: "oauth" as const, resource } }),
-			...timeout,
+			...common,
 		},
 	};
 }
 
-/** The plugin's server map: the manifest's inline map, its named file, or the package's `.mcp.json`. */
+/** A legacy server map: the manifest's inline map, its named file, or the package's `.mcp.json`. */
 async function readLegacyServerMap(
 	plugin: CodexPlugin,
+	manifest: Record<string, unknown>,
+	manifestPath: string,
 	warnings: string[],
 ): Promise<{ servers: Record<string, unknown>; sourcePath: string } | null> {
-	const declared = plugin.manifest.mcpServers;
+	const declared = manifest.mcpServers;
 	let parsed: unknown = declared;
-	let sourcePath = plugin.manifestPath;
+	let sourcePath = manifestPath;
 	if (!isRecord(declared)) {
 		const file = await packagePath(plugin, declared ?? ".mcp.json", "mcpServers", warnings);
 		if (file === null) {
@@ -539,18 +626,26 @@ async function readLegacyServerMap(
 	return isRecord(servers) ? { servers, sourcePath } : null;
 }
 
-/** An Agent Plugins package's `mcp.json`, read under that standard, keyed by server name. */
+/**
+ * An Agent Plugins package's `mcp.json`, read under that standard and Codex's rules for it: the
+ * file must be a regular file at the root, `sse` servers do not run, and a stdio server takes the
+ * `env_vars` its package's legacy declaration of the same server adds (dropping the `${NAME}`
+ * placeholders those variables replace).
+ */
 async function readStandardServers(
 	ctx: LoadContext,
 	plugin: CodexPlugin,
+	env: Record<string, string>,
 	warnings: string[],
 ): Promise<{ servers: Record<string, Partial<MCPServer>>; sourcePath: string } | null> {
-	const resolved = await resolveContainedPath(plugin.root, path.join(plugin.root, "mcp.json"));
-	if (resolved.status !== "ok") {
-		if (resolved.status === "outside") warnings.push(`[codex-plugins] ${plugin.id}: mcp.json leaves the package`);
+	const file = path.join(plugin.root, "mcp.json");
+	const stat = await lstatOrNull(file);
+	if (stat === null) return null;
+	if (!stat.isFile()) {
+		warnings.push(`[codex-plugins] ${plugin.id}: mcp.json is not a regular file`);
 		return null;
 	}
-	const raw = await readFile(resolved.realPath);
+	const raw = await readFile(file);
 	if (raw === null) return null;
 	const digest = new Bun.CryptoHasher("sha256").update(`codex:${plugin.id}`).digest("hex").slice(0, 16);
 	const pluginData = path.join(getPluginsDir(ctx.home), "data", `codex-${plugin.name}-${digest}`);
@@ -560,15 +655,37 @@ async function readStandardServers(
 		return null;
 	}
 	warnings.push(...result.warnings.map(warning => `[codex-plugins] ${plugin.id}: ${warning}`));
-	if (result.servers.some(server => server.transport === "stdio")) await fs.mkdir(pluginData, { recursive: true });
+	const quiet: string[] = [];
+	const legacy = await readLegacyManifest(plugin.root, plugin.id, quiet);
+	const overlay = (await readLegacyServerMap(plugin, legacy?.manifest ?? {}, legacy?.manifestPath ?? file, quiet))
+		?.servers;
 	const servers: Record<string, Partial<MCPServer>> = {};
 	for (const { name, ...server } of result.servers) {
-		servers[name] =
-			server.transport === "stdio"
-				? { ...server, envPolicy: "literal", envInherit: [...INHERITED_ENV, ...CA_BUNDLE_ENV] }
-				: { ...server, headerPolicy: "origin-locked" };
+		if (server.transport === "sse") {
+			warnings.push(`[codex-plugins] Skipping MCP server "${name}" of ${plugin.id}: Codex does not run sse servers`);
+			continue;
+		}
+		if (server.transport !== "stdio") {
+			servers[name] = { ...server, headerPolicy: "origin-locked" };
+			continue;
+		}
+		const declared = overlay?.[name];
+		const forwarded = isRecord(declared) && declared.command != null ? (envVarNames(declared.env_vars) ?? []) : [];
+		// A `${NAME}` placeholder for a forwarded variable gives way to that variable's real value.
+		const kept = Object.entries(server.env ?? {}).filter(
+			([key, value]) =>
+				!forwarded.some(variable => sameEnvName(key, variable) && sameEnvName(value, `\${${variable}}`)),
+		);
+		servers[name] = {
+			...server,
+			env: stdioEnv(env, forwarded, Object.fromEntries(kept)),
+			envPolicy: "literal",
+			envInherit: [],
+		};
 	}
-	return { servers, sourcePath: resolved.realPath };
+	if (Object.values(servers).some(server => server.transport === "stdio"))
+		await fs.mkdir(pluginData, { recursive: true });
+	return { servers, sourcePath: file };
 }
 
 async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> {
@@ -577,8 +694,11 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 	const items: MCPServer[] = [];
 	for (const plugin of plugins) {
 		const policies = isRecord(plugin.config.mcp_servers) ? plugin.config.mcp_servers : {};
-		const standard = plugin.format === "standard" ? await readStandardServers(ctx, plugin, warnings) : null;
-		const legacy = plugin.format === "legacy" ? await readLegacyServerMap(plugin, warnings) : null;
+		const standard = plugin.format === "standard" ? await readStandardServers(ctx, plugin, env, warnings) : null;
+		const legacy =
+			plugin.format === "legacy"
+				? await readLegacyServerMap(plugin, plugin.manifest, plugin.manifestPath, warnings)
+				: null;
 		const declared: Record<string, unknown> = standard?.servers ?? legacy?.servers ?? {};
 		const sourcePath = standard?.sourcePath ?? legacy?.sourcePath ?? plugin.manifestPath;
 		for (const [serverName, server] of Object.entries(declared)) {
@@ -609,8 +729,9 @@ async function loadMCPServers(ctx: LoadContext): Promise<LoadResult<MCPServer>> 
 			items.push({
 				name: `${plugin.label}:${serverName}`,
 				...mapped.server,
-				// `[plugins."<id>".mcp_servers.<name>] enabled = false` turns the server off in Codex.
-				...(policy.enabled === false && { enabled: false }),
+				// The plugin's `mcp_servers.<name>` table turns the server off with `enabled = false`, and
+				// with the enterprise sign-in Codex no longer supports there.
+				...((policy.enabled === false || policy.auth === "ema_auth") && { enabled: false }),
 				_source: createSourceMeta(PROVIDER_ID, sourcePath, "user", undefined, plugin.label),
 			});
 		}
