@@ -203,6 +203,24 @@ describe("a conversation picking up a sign-in made elsewhere", () => {
 		expect(refreshed).toBe(1);
 	});
 
+	it("lets a prompt that arrives during the sign-in re-read wait for the reconnect that read starts", async () => {
+		const auth = storage();
+		const gate = Promise.withResolvers<void>();
+		const { manager, reconnects } = fakeManager({ [NAME]: { config: bound() } }, () => gate.promise);
+		let refreshed = 0;
+		const pickup = new McpSignInPickup(manager, auth, async () => void refreshed++);
+		pickup.seed();
+		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("new"));
+
+		const first = pickup.beforePrompt(1_000);
+		const second = pickup.beforePrompt(1_000);
+		setTimeout(() => gate.resolve(), 20);
+		await second;
+		expect(refreshed).toBe(1);
+		await first;
+		expect(reconnects).toEqual([NAME]);
+	});
+
 	it("connects every newly signed-in server even while another one stalls", async () => {
 		const auth = storage();
 		const OTHER = "other@market:api";

@@ -120,7 +120,9 @@ export class McpSignInPickup {
 		const started =
 			candidates.length > 0 && (await this.#rereadSignIns())
 				? candidates.flatMap(({ name, config }) => {
-						if (this.#connecting.has(name)) return [];
+						// Another prompt sharing this read may have started it: wait for that one.
+						const existing = this.#connecting.get(name);
+						if (existing) return [existing];
 						const signature = this.#signature(config);
 						if (!signature || this.#tried.get(name) === signature) return [];
 						this.#tried.set(name, signature);
