@@ -576,6 +576,9 @@ export async function runMcpOAuthFlow(opts: McpOAuthFlowRunOptions): Promise<OAu
 				issuerUrl: opts.issuerUrl,
 				clientId: resolvedClientId,
 				clientSecret: resolvedClientSecret,
+				// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in follows no token-endpoint redirect.
+				rejectRedirects: isMcpOAuthServerCredentialId(opts.credentialId),
+				// scient(SA-CODEX-PLUGINS): end
 				scopes: opts.scopes || undefined,
 				prompt: opts.prompt,
 				redirectUri: opts.redirectUri,

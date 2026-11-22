@@ -292,6 +292,8 @@ describe("installed Codex plugins", () => {
 			numericalias: { url: "https://mcp.example.test/j", oauth: { client_id: "id", clientSecret: 7 } },
 			// Rust trims U+0085 (NEL) as whitespace, so Codex finds this secret blank.
 			nelsecret: { url: "https://mcp.example.test/k", oauth: { client_id: "id", client_secret: "\u0085" } },
+			// Codex refuses to start a server whose name has characters outside its pattern.
+			"my server": { command: "node", args: ["spaced.mjs"] },
 		});
 		const { names, warnings } = await limits();
 		expect(names.sort()).toEqual(["limits@market:cased", "limits@market:kept", "limits@market:shown"]);
@@ -315,6 +317,7 @@ describe("installed Codex plugins", () => {
 		expect(warnings).toContainEqual(expect.stringContaining('"nullsnake" of limits@market: its OAuth client_secret'));
 		expect(warnings).toContainEqual(expect.stringContaining('"numericalias" of limits@market: invalid oauth'));
 		expect(warnings).toContainEqual(expect.stringContaining('"nelsecret" of limits@market: its OAuth client_secret'));
+		expect(warnings).toContainEqual(expect.stringContaining('"my server" of limits@market: Codex refuses its name'));
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"issuer" of limits@market: its OAuth authorization_server_issuer needs ema_auth'),
 		);
@@ -468,6 +471,49 @@ describe("installed Codex plugins", () => {
 		);
 		expect((await late.execute("call", {}, () => {}, ctx)).isError).toBe(true);
 		expect(deadlines).toHaveLength(1);
+		// A deadline already spent when the call fails starts no reconnect at all.
+		let reconnects = 0;
+		const spent = new MCPTool(
+			connection(async () => {
+				skew += 400_000;
+				throw unavailable;
+			}),
+			definition,
+			async () => {
+				reconnects++;
+				return connection(async () => ({ content: [] }));
+			},
+		);
+		expect((await spent.execute("call", {}, () => {}, ctx)).isError).toBe(true);
+		expect(reconnects).toBe(0);
+	});
+
+	it("never writes a stdio tool call whose cap ran out while it was being prepared", async () => {
+		const transport = new StdioTransport({
+			type: "stdio",
+			command: process.execPath,
+			// Stays up and never answers, so only a timer could end a call it was sent.
+			args: ["-e", "setInterval(() => {}, 1000)"],
+			toolTimeoutMs: 5_000,
+		});
+		const realNow = performance.now.bind(performance);
+		let skew = 0;
+		vi.spyOn(performance, "now").mockImplementation(() => realNow() + skew);
+		await transport.connect();
+		try {
+			// Serializing the request spends the whole cap.
+			const slow = {
+				toJSON: () => {
+					skew += 10_000;
+					return {};
+				},
+			};
+			await expect(transport.request("tools/call", { name: "slow", arguments: slow })).rejects.toThrow(
+				"Request timeout after 5000ms",
+			);
+		} finally {
+			await transport.close();
+		}
 	});
 
 	it("skips a server whose config.toml policy narrows its tools with disabled_tools", async () => {

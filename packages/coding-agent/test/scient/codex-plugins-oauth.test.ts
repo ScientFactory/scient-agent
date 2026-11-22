@@ -3,6 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "bun:test";
 import * as path from "node:path";
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
 import { initializeWithSettings } from "@oh-my-pi/pi-coding-agent/capability";
+import { refreshBrokerOAuthCredential } from "@oh-my-pi/pi-coding-agent/cli/auth-broker-cli";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import * as mcpClient from "@oh-my-pi/pi-coding-agent/mcp/client";
 import { loadAllMCPConfigs } from "@oh-my-pi/pi-coding-agent/mcp/config";
@@ -129,9 +130,9 @@ describe("an imported Codex plugin server's own sign-in", () => {
 				'HTTP 401: {"authorization_url":"https://auth.example.test/authorize","token_url":"https://auth.example.test/token"}',
 			),
 		);
-		const flows: { clientSecret?: string }[] = [];
+		const flows: { clientSecret?: string; rejectRedirects?: boolean }[] = [];
 		vi.spyOn(oauthFlow.MCPOAuthFlow.prototype, "login").mockImplementation(
-			async function (this: { config: { clientSecret?: string } }) {
+			async function (this: { config: { clientSecret?: string; rejectRedirects?: boolean } }) {
 				flows.push(this.config);
 				return { access: "fresh", refresh: "fresh-refresh", expires: Date.now() + 3_600_000 };
 			},
@@ -145,6 +146,8 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		);
 		expect(flows).toHaveLength(1);
 		expect(flows[0]?.clientSecret).toBeUndefined();
+		// Its code exchange follows no redirect, which could carry the code, verifier and secret elsewhere.
+		expect(flows[0]?.rejectRedirects).toBe(true);
 		// The new sign-in keeps no secret either.
 		expect(storage.credentials.get(credentialId)).toMatchObject({ access: "fresh", clientId: "client-a" });
 		expect(storage.credentials.get(credentialId)).not.toHaveProperty("clientSecret", expect.anything());
@@ -228,8 +231,10 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		const storage = freshStorage();
 		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
 		const sent: (string | null)[] = [];
+		const redirects: (string | undefined)[] = [];
 		vi.spyOn(globalThis, "fetch").mockImplementation((async (_url: string, init?: RequestInit) => {
 			sent.push(new URLSearchParams(String(init?.body)).get("client_secret"));
+			redirects.push(init?.redirect);
 			return Response.json({ access_token: "fresh", refresh_token: "r2", expires_in: 3600 });
 		}) as never);
 		const stored = (): oauthFlow.MCPStoredOAuthCredential => ({
@@ -249,7 +254,13 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		const { credential } = await refreshStoredManagedMcpOAuthCredential(storage, credentialId, {
 			forceRefresh: true,
 		});
-		expect(sent).toEqual(["current", null]);
+		// The broker, which has no definition, refreshes the same row without the stored secret too.
+		await refreshBrokerOAuthCredential(credentialId, stored());
+		// An ordinary server's sign-in keeps its stored secret and the default redirect handling.
+		await refreshBrokerOAuthCredential(oauthFlow.mcpOAuthCredentialId(SERVER_URL), stored());
+		expect(sent).toEqual(["current", null, null, "retired"]);
+		// A server-bound exchange follows no redirect, which could carry the token and secret elsewhere.
+		expect(redirects).toEqual(["error", "error", "error", undefined]);
 		// Nothing keeps a secret for the next refresh.
 		expect(credential?.clientSecret).toBeUndefined();
 		expect(storage.credentials.get(credentialId)).not.toHaveProperty("clientSecret", expect.anything());

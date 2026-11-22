@@ -124,6 +124,9 @@ export function refreshBrokerOAuthCredential(
 		return refreshManagedMcpOAuthCredential(credential, {
 			serverUrl: mcpOAuthServerUrlFromCredentialId(provider),
 			signal,
+			// scient(SA-CODEX-PLUGINS): begin - a server-bound row refreshes without a stored secret or redirects.
+			credentialId: provider,
+			// scient(SA-CODEX-PLUGINS): end
 		});
 	}
 	// Non-MCP rows: same per-provider path AuthStorage would take by default
