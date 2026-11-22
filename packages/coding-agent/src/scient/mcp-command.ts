@@ -99,9 +99,9 @@ export function serverStatusLine(
 	return { ...base, status: "failed", error: connectionFailure(config, failure) };
 }
 
-/** A sign-in failure in words written here. */
+/** A sign-in failure in words written here; the engine's own refusal text can quote a server's arguments. */
 export function loginFailureMessage(name: string, bound: boolean, error: unknown): string {
-	if (error instanceof McpReauthRefusalError) return error.message;
+	if (error instanceof McpReauthRefusalError) return `${name} cannot be signed in to with a browser from here.`;
 	if (error instanceof MCPOAuthCancelledError) return "The sign-in was cancelled.";
 	if (error instanceof MCPOAuthClientIdRequiredError) {
 		return bound
@@ -192,6 +192,19 @@ export default class Mcp extends Command {
 		const found = await selectedServer(name, config, source, manager, cwd);
 		if (!found) {
 			throw new McpReauthRefusalError(`"${name}" is configured somewhere Scient Agent cannot sign in to it from.`);
+		}
+		// Cases a browser sign-in cannot serve, refused here in words written here.
+		const selected = manager.getServerConfig(name) ?? config;
+		if (selected.enabled === false) throw new McpReauthRefusalError(`${name} is turned off.`);
+		if (!canSignIn(selected)) {
+			throw new McpReauthRefusalError(
+				`${name} does not sign in with a browser: it runs on this computer or uses its own key.`,
+			);
+		}
+		if (boundSignInNeedsLocalSecret(selected, authStorage)) {
+			throw new McpReauthRefusalError(
+				`${name} needs its client secret at every refresh, which the shared sign-in service cannot supply.`,
+			);
 		}
 		const bound = source?.provider === CODEX_PLUGINS_PROVIDER;
 		let withheld = false;

@@ -108,6 +108,9 @@ describe("scient-agent mcp login", () => {
 		expect(message).not.toContain(LEAKED);
 		expect(message).toContain("HTTP 400");
 		expect(loginFailureMessage(NAME, true, new Error(`boom ${LEAKED}`))).not.toContain(LEAKED);
+		// The engine's refusal for a local server quotes its expanded URL argument.
+		const refusal = new McpReauthRefusalError(`use https://remote.example.test/mcp?token=${LEAKED} instead`);
+		expect(loginFailureMessage(NAME, false, refusal)).not.toContain(LEAKED);
 	});
 
 	it("does not offer an imported sign-in a broker could not refresh", async () => {
