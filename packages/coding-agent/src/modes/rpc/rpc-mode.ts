@@ -110,7 +110,7 @@ import { isSessionSettled } from "../../session/session-settle";
 import { RpcSessionSettleWatcher, watchedScheduledTurnProbe } from "./rpc-session-settle";
 import { RpcSubagentRegistry, readRpcSubagentTranscript, resolveOwnedLiveSubagent } from "./rpc-subagents";
 // scient(SA-CODEX-PLUGINS): begin - pick up MCP sign-ins made since the last prompt.
-import { pickUpMcpSignIns } from "../../scient/mcp-sign-in-pickup";
+import { McpSignInPickup } from "../../scient/mcp-sign-in-pickup";
 // scient(SA-CODEX-PLUGINS): end
 import type {
 	RpcAbortAndRestoreQueueResult,
@@ -1952,8 +1952,14 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 	await emitAvailableCommandsUpdate();
 
 	const inputGate = new RpcUserInputGate();
-	// scient(SA-CODEX-PLUGINS): begin - the MCP sign-ins each server last reconnected with, per session.
-	const mcpSignInsTried = new Map<string, string>();
+	// scient(SA-CODEX-PLUGINS): begin - pick up MCP sign-ins made elsewhere, starting from this session's own.
+	const mcpManager = options.mcpManager;
+	const mcpSignInPickup = mcpManager
+		? new McpSignInPickup(mcpManager, session.modelRegistry.authStorage, () =>
+				session.refreshMCPTools(mcpManager.getTools()),
+			)
+		: undefined;
+	mcpSignInPickup?.seed();
 	// scient(SA-CODEX-PLUGINS): end
 	type OrderedUserInput = Extract<RpcCommand, { type: "prompt" | "steer" | "follow_up" | "abort_and_prompt" }>;
 	type OrderedInputOutcome = "local" | "cancelled" | "admitted" | "builtin-agent";
@@ -2059,11 +2065,8 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 			}
 			if (!isCurrent() || !ticket) return "cancelled";
 			// scient(SA-CODEX-PLUGINS): begin - a server signed in from the host since the last prompt joins this one.
-			if (options.mcpManager) {
-				const manager = options.mcpManager;
-				await pickUpMcpSignIns(manager, session.modelRegistry.authStorage, mcpSignInsTried, () =>
-					session.refreshMCPTools(manager.getTools()),
-				);
+			if (mcpSignInPickup) {
+				await mcpSignInPickup.beforePrompt();
 				if (!isCurrent()) return "cancelled";
 			}
 			// scient(SA-CODEX-PLUGINS): end

@@ -41,6 +41,9 @@ import {
 	mcpOAuthServerCredentialId,
 	// scient(SA-CODEX-PLUGINS): end
 } from "./oauth-flow";
+// scient(SA-CODEX-PLUGINS): begin - an imported sign-in a broker could not refresh is not offered.
+import { boundSignInNeedsLocalSecret } from "../scient/mcp-sign-in-pickup";
+// scient(SA-CODEX-PLUGINS): end
 import type { AuthStorage } from "../session/auth-storage";
 import type { MCPAuthChallenge, MCPAuthConfig, MCPServerConfig } from "./types";
 
@@ -797,6 +800,12 @@ export async function reauthorizeMcpServer(
 	if (bound && currentAuth?.type !== "oauth") {
 		throw new McpReauthRefusalError(
 			`Server "${name}" signs in with its own token, so Codex does not sign in to it with OAuth.`,
+		);
+	}
+	// A broker refreshes without the definition, so it could not send the client secret every refresh needs.
+	if (bound && boundSignInNeedsLocalSecret(found.config, authStorage)) {
+		throw new McpReauthRefusalError(
+			`Server "${name}" needs its client secret at every refresh, which the shared sign-in service cannot supply, so it cannot be signed in to here.`,
 		);
 	}
 	// scient(SA-CODEX-PLUGINS): end
