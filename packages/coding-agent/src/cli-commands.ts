@@ -24,6 +24,9 @@ import { dictateHelp } from "./scient/command-help";
 // scient(SA-CHATGPT-APPS): begin - Scient's ChatGPT apps command.
 import { appsHelp } from "./scient/command-help";
 // scient(SA-CHATGPT-APPS): end
+// scient(SA-CODEX-PLUGINS): begin - the host's MCP status and sign-in command.
+import { mcpHelp } from "./scient/command-help";
+// scient(SA-CODEX-PLUGINS): end
 
 function loadLaunchHelp(): typeof LaunchHelp.launchHelp {
 	const module: typeof LaunchHelp = require("./commands/launch-help");
@@ -299,6 +302,13 @@ export const commands: CommandEntry[] = [
 		help: appsHelp,
 	},
 	// scient(SA-CHATGPT-APPS): end
+	// scient(SA-CODEX-PLUGINS): begin - the host's MCP status and sign-in command.
+	{
+		name: "mcp",
+		load: () => import("./scient/mcp-command").then(m => m.default),
+		help: mcpHelp,
+	},
+	// scient(SA-CODEX-PLUGINS): end
 	{
 		name: "usage",
 		load: () => import("./commands/usage").then(m => m.default),
