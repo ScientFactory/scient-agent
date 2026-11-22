@@ -448,6 +448,14 @@ function getMcpAuthChallenge(result: MCPToolCallResult): MCPAuthChallenge | unde
 	return wwwAuthenticate.length > 0 ? { wwwAuthenticate } : undefined;
 }
 
+// scient(SA-CODEX-PLUGINS): begin - one deadline for a logical call to a server with a hard tool-call cap
+// (an imported Codex plugin's tool_timeout_sec), carried through reconnecting and replaying it.
+/** When a logical tool call to this connection's server must end, if its server caps tool calls. */
+function toolCallDeadline(connection: MCPServerConnection): number | undefined {
+	const capMs = connection.config.toolTimeoutMs;
+	return capMs === undefined ? undefined : Date.now() + capMs;
+}
+
 async function callToolWithAuthRetry(
 	connection: MCPServerConnection,
 	toolName: string,
@@ -455,14 +463,15 @@ async function callToolWithAuthRetry(
 	reconnect: MCPReconnect | undefined,
 	signal?: AbortSignal,
 	onProgress?: MCPRequestOptions["onProgress"],
+	deadlineAt?: number,
 ): Promise<MCPToolCallAttempt> {
-	const result = await callTool(connection, toolName, args, { signal, onProgress });
+	const result = await callTool(connection, toolName, args, { signal, onProgress, deadlineAt });
 	const authChallenge = getMcpAuthChallenge(result);
 	if (!authChallenge || !reconnect) return { connection, result };
 
 	let newConnection: MCPServerConnection | null;
 	try {
-		newConnection = await reconnectWithAbort(reconnect, signal, { authChallenge });
+		newConnection = await reconnectWithAbort(reconnect, signal, { authChallenge }, deadlineAt);
 	} catch (error) {
 		rethrowIfAborted(error, signal);
 		return { connection, error };
@@ -472,13 +481,14 @@ async function callToolWithAuthRetry(
 	try {
 		return {
 			connection: newConnection,
-			result: await callTool(newConnection, toolName, args, { signal, onProgress }),
+			result: await callTool(newConnection, toolName, args, { signal, onProgress, deadlineAt }),
 		};
 	} catch (error) {
 		rethrowIfAborted(error, signal);
 		return { connection: newConnection, error };
 	}
 }
+// scient(SA-CODEX-PLUGINS): end
 
 /** Re-throw abort-related errors so they bypass error-result handling. */
 function rethrowIfAborted(error: unknown, signal?: AbortSignal): void {
@@ -487,18 +497,31 @@ function rethrowIfAborted(error: unknown, signal?: AbortSignal): void {
 	if (signal?.aborted) throw new ToolAbortError();
 }
 
+// scient(SA-CODEX-PLUGINS): begin - a reconnect is waited on no longer than the logical call's deadline;
+// past it the call ends with its own error.
 async function reconnectWithAbort(
 	reconnect: MCPReconnect,
 	signal?: AbortSignal,
 	options?: { authChallenge?: MCPAuthChallenge },
+	deadlineAt?: number,
 ): Promise<MCPServerConnection | null> {
 	try {
-		return await untilAborted(signal, () => reconnect(options));
+		const pending = untilAborted(signal, () => reconnect(options));
+		if (deadlineAt === undefined) return await pending;
+		void pending.catch(() => {});
+		const { promise: expired, resolve } = Promise.withResolvers<null>();
+		const timer = setTimeout(() => resolve(null), Math.max(0, deadlineAt - Date.now()));
+		try {
+			return await Promise.race([pending, expired]);
+		} finally {
+			clearTimeout(timer);
+		}
 	} catch (error) {
 		rethrowIfAborted(error, signal);
 		return null;
 	}
 }
+// scient(SA-CODEX-PLUGINS): end
 
 /**
  * Create a unique tool name for an MCP tool.
@@ -861,6 +884,9 @@ export class MCPTool implements CustomTool<TSchema, MCPToolDetails> {
 		const progress = progressUpdater(onUpdate, this.connection.name, this.tool.name, provider, providerName);
 		const onProgress = progress?.onProgress;
 
+		// scient(SA-CODEX-PLUGINS): begin - one deadline for this call, its auth retry, reconnect and replay.
+		const deadlineAt = toolCallDeadline(this.connection);
+		// scient(SA-CODEX-PLUGINS): end
 		try {
 			const attempt = await callToolWithAuthRetry(
 				this.connection,
@@ -869,6 +895,9 @@ export class MCPTool implements CustomTool<TSchema, MCPToolDetails> {
 				this.reconnect,
 				signal,
 				onProgress,
+				// scient(SA-CODEX-PLUGINS): begin - the call's deadline.
+				deadlineAt,
+				// scient(SA-CODEX-PLUGINS): end
 			);
 			if (attempt.error !== undefined) {
 				return buildErrorResult(attempt.error, this.connection.name, this.tool.name, provider, providerName);
@@ -893,14 +922,18 @@ export class MCPTool implements CustomTool<TSchema, MCPToolDetails> {
 		} catch (error) {
 			rethrowIfAborted(error, signal);
 			if (this.reconnect && isRetriableConnectionError(error)) {
-				const newConn = await reconnectWithAbort(this.reconnect, signal);
+				// scient(SA-CODEX-PLUGINS): begin - the reconnect and the replay get only what is left.
+				const newConn = await reconnectWithAbort(this.reconnect, signal, undefined, deadlineAt);
+				// scient(SA-CODEX-PLUGINS): end
 				if (newConn) {
 					// Rebind so subsequent calls on this instance use the fresh connection
 					this.connection = newConn;
 					const retryProvider = newConn._source?.provider ?? provider;
 					const retryProviderName = newConn._source?.providerName ?? providerName;
 					try {
-						const result = await callTool(newConn, this.tool.name, args, { signal, onProgress });
+						// scient(SA-CODEX-PLUGINS): begin - the call's deadline.
+						const result = await callTool(newConn, this.tool.name, args, { signal, onProgress, deadlineAt });
+						// scient(SA-CODEX-PLUGINS): end
 						return buildResult(result, newConn.name, this.tool.name, retryProvider, retryProviderName);
 					} catch (retryError) {
 						rethrowIfAborted(retryError, signal);
@@ -1026,6 +1059,9 @@ export class DeferredMCPTool implements CustomTool<TSchema, MCPToolDetails> {
 		try {
 			const connection = await untilAborted(signal, () => this.getConnection());
 			throwIfAborted(signal);
+			// scient(SA-CODEX-PLUGINS): begin - one deadline for this call, its auth retry, reconnect and replay.
+			const deadlineAt = toolCallDeadline(connection);
+			// scient(SA-CODEX-PLUGINS): end
 			try {
 				const attempt = await callToolWithAuthRetry(
 					connection,
@@ -1034,6 +1070,9 @@ export class DeferredMCPTool implements CustomTool<TSchema, MCPToolDetails> {
 					this.reconnect,
 					signal,
 					onProgress,
+					// scient(SA-CODEX-PLUGINS): begin - the call's deadline.
+					deadlineAt,
+					// scient(SA-CODEX-PLUGINS): end
 				);
 				if (attempt.error !== undefined) {
 					return buildErrorResult(
@@ -1063,12 +1102,16 @@ export class DeferredMCPTool implements CustomTool<TSchema, MCPToolDetails> {
 			} catch (callError) {
 				rethrowIfAborted(callError, signal);
 				if (this.reconnect && isRetriableConnectionError(callError)) {
-					const newConn = await reconnectWithAbort(this.reconnect, signal);
+					// scient(SA-CODEX-PLUGINS): begin - the reconnect and the replay get only what is left.
+					const newConn = await reconnectWithAbort(this.reconnect, signal, undefined, deadlineAt);
+					// scient(SA-CODEX-PLUGINS): end
 					if (newConn) {
 						const retryProvider = newConn._source?.provider ?? provider;
 						const retryProviderName = newConn._source?.providerName ?? providerName;
 						try {
-							const result = await callTool(newConn, this.tool.name, args, { signal, onProgress });
+							// scient(SA-CODEX-PLUGINS): begin - the call's deadline.
+							const result = await callTool(newConn, this.tool.name, args, { signal, onProgress, deadlineAt });
+							// scient(SA-CODEX-PLUGINS): end
 							return buildResult(result, this.serverName, this.tool.name, retryProvider, retryProviderName);
 						} catch (retryError) {
 							rethrowIfAborted(retryError, signal);

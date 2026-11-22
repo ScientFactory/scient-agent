@@ -96,13 +96,15 @@ export function lookupMcpOAuthCredential(
 	}
 	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in made for another confidential client than the one
 	// it now configures is not used or refreshed: Codex compares the exact IDs and asks for a fresh sign-in.
+	// Refresh reads its client from the stored sign-in, so one stored with another secret is not used either:
+	// it would refresh with a secret the plugin no longer configures.
 	const lookup = lookupMcpOAuthCredentialForServer(authStorage, auth, config.url);
 	if (!lookup || !isMcpOAuthServerCredentialId(lookup.credentialId)) return lookup;
-	const clientId = config.oauth?.clientId;
+	const { clientId, clientSecret } = config.oauth ?? {};
 	if (
-		typeof config.oauth?.clientSecret === "string" &&
+		typeof clientSecret === "string" &&
 		typeof clientId === "string" &&
-		lookup.credential.clientId !== clientId
+		(lookup.credential.clientId !== clientId || lookup.credential.clientSecret !== clientSecret)
 	) {
 		return undefined;
 	}

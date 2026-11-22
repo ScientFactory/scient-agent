@@ -161,7 +161,7 @@ describe("an imported Codex plugin server's own sign-in", () => {
 	it("asks for a fresh sign-in once the plugin configures another confidential OAuth client", async () => {
 		const storage = freshStorage();
 		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
-		const stored: oauthFlow.MCPStoredOAuthCredential = { ...token, clientId: "client-a" };
+		const stored: oauthFlow.MCPStoredOAuthCredential = { ...token, clientId: "client-a", clientSecret: "s" };
 		await storage.credentials.set(credentialId, stored);
 		const withClient = (clientId: string, clientSecret?: string): MCPServerConfig => ({
 			...boundConfig(),
@@ -171,6 +171,8 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		// Client A's token is neither sent nor refreshed for client B, nor for an ID that differs only in spaces.
 		expect(lookupMcpOAuthCredential(storage, withClient("client-b", "s"))).toBeUndefined();
 		expect(lookupMcpOAuthCredential(storage, withClient("client-a ", "s"))).toBeUndefined();
+		// Refresh would send the stored secret, so a sign-in made with another secret is not used either.
+		expect(lookupMcpOAuthCredential(storage, withClient("client-a", "rotated"))).toBeUndefined();
 		// Codex holds only a confidential client (one with a secret) to its ID.
 		expect(lookupMcpOAuthCredential(storage, withClient("client-b"))?.credentialId).toBe(credentialId);
 		// A server with no sign-in of its own is looked up as before, whatever its client settings hold.

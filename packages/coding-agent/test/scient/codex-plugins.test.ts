@@ -8,9 +8,12 @@ import type { MCPServer } from "@oh-my-pi/pi-coding-agent/capability/mcp";
 import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
 import { cfgEnabledProviders } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { MCPTransportError } from "@oh-my-pi/pi-coding-agent/mcp/errors";
 import { resolveMCPRequestDeadline } from "@oh-my-pi/pi-coding-agent/mcp/timeout";
+import { MCPTool } from "@oh-my-pi/pi-coding-agent/mcp/tool-bridge";
 import { HttpTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/http";
 import { StdioTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/stdio";
+import type { MCPRequestOptions, MCPServerConnection, MCPTransport } from "@oh-my-pi/pi-coding-agent/mcp/types";
 import * as piUtils from "@oh-my-pi/pi-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
 import "@oh-my-pi/pi-coding-agent/discovery";
@@ -275,6 +278,11 @@ describe("installed Codex plugins", () => {
 			spacedclient: { url: "https://mcp.example.test/d", oauth: { client_id: " id ", client_secret: "s" } },
 			// Codex refuses a client secret without a client ID.
 			secretonly: { url: "https://mcp.example.test/e", oauth: { client_secret: "s" } },
+			// Codex rejects an empty secret, which must not pass as no secret at all.
+			emptysecret: { url: "https://mcp.example.test/f", oauth: { client_id: "id", client_secret: "" } },
+			spacedsecret: { url: "https://mcp.example.test/g", oauth: { client_id: "id", client_secret: " s" } },
+			// Enterprise sign-in settings Codex allows only with ema_auth.
+			issuer: { url: "https://mcp.example.test/h", oauth: { authorization_server_issuer: "https://idp.test" } },
 		});
 		const { names, warnings } = await limits();
 		expect(names.sort()).toEqual(["limits@market:cased", "limits@market:kept", "limits@market:shown"]);
@@ -286,6 +294,17 @@ describe("installed Codex plugins", () => {
 		expect(warnings).toContainEqual(expect.stringContaining('"spacedclient" of limits@market: its OAuth client_id'));
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"secretonly" of limits@market: its OAuth client_secret has no client_id'),
+		);
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"emptysecret" of limits@market: its OAuth client_secret'),
+		);
+		expect(warnings).toContainEqual(
+			expect.stringContaining(
+				'"spacedsecret" of limits@market: its OAuth client_id or client_secret has surrounding',
+			),
+		);
+		expect(warnings).toContainEqual(
+			expect.stringContaining('"issuer" of limits@market: its OAuth authorization_server_issuer needs ema_auth'),
 		);
 		expect(warnings).toContainEqual(
 			expect.stringContaining('"unsetbearer" of limits@market: its bearer_token_env_var CODEX_PLUGIN_TEST_UNSET'),
@@ -361,6 +380,59 @@ describe("installed Codex plugins", () => {
 		} finally {
 			server.stop(true);
 		}
+	});
+
+	it("replays a tool call after reconnecting only within the call's own deadline", async () => {
+		const deadlines: (number | undefined)[] = [];
+		const transport = (respond: () => Promise<unknown>): MCPTransport => ({
+			connected: true,
+			request: (async (_method: string, _params: unknown, options?: MCPRequestOptions) => {
+				deadlines.push(options?.deadlineAt);
+				return respond();
+			}) as MCPTransport["request"],
+			async notify() {},
+			async close() {},
+		});
+		const connection = (respond: () => Promise<unknown>): MCPServerConnection => ({
+			name: "tools@market:api",
+			config: { type: "http", url: "https://mcp.example.test/mcp", toolTimeoutMs: 300_000 },
+			transport: transport(respond),
+			serverInfo: { name: "api", version: "1" },
+			capabilities: { tools: {} },
+		});
+		const unavailable = new MCPTransportError({
+			transport: "http",
+			stage: "receive",
+			failure: "http_status",
+			message: "HTTP 503: busy",
+			retryable: true,
+			code: 503,
+		});
+		const definition = { name: "run", inputSchema: { type: "object" as const } };
+		const ctx = {} as Parameters<MCPTool["execute"]>[3];
+		// A 503 reconnects and replays the call: the replay keeps the first attempt's deadline.
+		const replayed = new MCPTool(
+			connection(async () => Promise.reject(unavailable)),
+			definition,
+			async () => connection(async () => ({ content: [{ type: "text", text: "ok" }] })),
+		);
+		await replayed.execute("call", {}, () => {}, ctx);
+		expect(deadlines).toHaveLength(2);
+		expect(deadlines[0]).toBeNumber();
+		expect(deadlines[1]).toBe(deadlines[0]);
+		// A reconnect still pending at the deadline ends the call with its own error, never a replay.
+		deadlines.length = 0;
+		const stalled = new MCPTool(
+			{
+				...connection(async () => Promise.reject(unavailable)),
+				config: { type: "http", url: "https://x.test/", toolTimeoutMs: 1 },
+			},
+			definition,
+			() => new Promise<never>(() => {}),
+		);
+		const result = await stalled.execute("call", {}, () => {}, ctx);
+		expect(result.isError).toBe(true);
+		expect(deadlines).toHaveLength(1);
 	});
 
 	it("skips a server whose config.toml policy narrows its tools with disabled_tools", async () => {

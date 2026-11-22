@@ -423,12 +423,18 @@ export class HttpTransport implements MCPTransport {
 		options: MCPRequestOptions | undefined,
 	): Promise<T> {
 		// scient(SA-CODEX-PLUGINS): begin - a hard tool-call cap spans the first attempt, the sign-in refresh
-		// after a 401 or 403 and the retry.
+		// after a 401 or 403 and the retry, within any deadline the caller already set.
 		const capMs = method === "tools/call" ? this.config.toolTimeoutMs : undefined;
-		const startedAt = Date.now();
+		const deadlineAt =
+			capMs === undefined
+				? undefined
+				: Math.min(options?.deadlineAt ?? Number.POSITIVE_INFINITY, Date.now() + capMs);
+		const callOptions = deadlineAt === undefined ? options : { ...options, deadlineAt };
 		// scient(SA-CODEX-PLUGINS): end
 		try {
-			return await this.#executeRequest<T>(method, params, options);
+			// scient(SA-CODEX-PLUGINS): begin - the call's deadline.
+			return await this.#executeRequest<T>(method, params, callOptions);
+			// scient(SA-CODEX-PLUGINS): end
 		} catch (error) {
 			// Retry once on auth failure if onAuthError is wired. Never replay
 			// after an SSE resume failure: the server already accepted the
@@ -438,14 +444,13 @@ export class HttpTransport implements MCPTransport {
 			if (!(error instanceof SSEResumeError) && this.onAuthError && (status === 401 || status === 403)) {
 				// scient(SA-CODEX-PLUGINS): begin - the refresh and the retry get only what is left of the cap.
 				const newHeaders =
-					capMs === undefined
+					capMs === undefined || deadlineAt === undefined
 						? await this.onAuthError()
-						: await this.#withinToolBudget(this.onAuthError(), capMs, startedAt);
+						: await this.#beforeToolDeadline(this.onAuthError(), capMs, deadlineAt);
 				if (newHeaders) {
 					// Persist refreshed headers so subsequent requests use them directly
 					this.config = { ...this.config, headers: newHeaders };
-					const leftMs = capMs === undefined ? undefined : this.#toolBudgetLeft(capMs, startedAt);
-					return this.#executeRequest<T>(method, params, options, leftMs);
+					return this.#executeRequest<T>(method, params, callOptions);
 				}
 				// scient(SA-CODEX-PLUGINS): end
 			}
@@ -453,16 +458,12 @@ export class HttpTransport implements MCPTransport {
 		}
 	}
 
-	// scient(SA-CODEX-PLUGINS): begin - what is left of a tool call's hard cap, or its timeout once spent.
-	#toolBudgetLeft(capMs: number, startedAt: number): number {
-		const leftMs = capMs - (Date.now() - startedAt);
-		if (leftMs > 0) return leftMs;
-		throw toolTimeoutError(capMs);
-	}
-
-	async #withinToolBudget<R>(work: Promise<R>, capMs: number, startedAt: number): Promise<R> {
+	// scient(SA-CODEX-PLUGINS): begin - work a capped tool call waits on, ended by the call's deadline.
+	async #beforeToolDeadline<R>(work: Promise<R>, capMs: number, deadlineAt: number): Promise<R> {
 		void work.catch(() => {});
-		const operation = createMCPTimeout(this.#toolBudgetLeft(capMs, startedAt));
+		const leftMs = deadlineAt - Date.now();
+		if (leftMs <= 0) throw toolTimeoutError(capMs);
+		const operation = createMCPTimeout(leftMs);
 		try {
 			return await untilAborted(operation.signal, work);
 		} catch (error) {
@@ -476,9 +477,6 @@ export class HttpTransport implements MCPTransport {
 		method: string,
 		params: Record<string, unknown> | undefined,
 		options: MCPRequestOptions | undefined,
-		// scient(SA-CODEX-PLUGINS): begin - what is left of a hard tool-call cap after an auth retry.
-		toolTimeoutCapMs?: number,
-		// scient(SA-CODEX-PLUGINS): end
 	): Promise<T> {
 		if (!this.#connected) {
 			throw new MCPTransportError({
@@ -522,12 +520,13 @@ export class HttpTransport implements MCPTransport {
 			}
 			callerSignal = controller.signal;
 		}
-		// scient(SA-CODEX-PLUGINS): begin - a hard tool-call cap.
+		// scient(SA-CODEX-PLUGINS): begin - a hard tool-call cap, never past the logical call's deadline.
 		const { timeoutMs: timeout, maxTotalMs } = resolveMCPRequestDeadline(
 			this.config.timeout,
 			method,
 			params,
-			toolTimeoutCapMs ?? this.config.toolTimeoutMs,
+			this.config.toolTimeoutMs,
+			options?.deadlineAt,
 		);
 		// scient(SA-CODEX-PLUGINS): end
 		const operation = createMCPTimeout(timeout, this.#operationSignal(callerSignal), maxTotalMs);

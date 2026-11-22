@@ -830,6 +830,7 @@ export class StdioTransport implements MCPTransport {
 			method,
 			params,
 			this.config.toolTimeoutMs,
+			options?.deadlineAt,
 		);
 		// scient(SA-CODEX-PLUGINS): end
 		const startedAt = Date.now();
