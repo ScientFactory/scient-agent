@@ -91,6 +91,9 @@ export class DaemonConn {
 	readonly #pending = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 	readonly #onResult: (result: unknown) => void;
 	readonly #welcome = Promise.withResolvers<void>();
+	// scient(SA-DAEMON-REJOIN): begin - Event waits are woken by the event, not by polling.
+	readonly #eventWaiters = new Set<{ match: (event: DaemonEvent) => boolean; fail: (error: Error) => void }>();
+	// scient(SA-DAEMON-REJOIN): end
 	#welcomed = false;
 	#isClosed = false;
 
@@ -107,6 +110,10 @@ export class DaemonConn {
 				if (!this.#welcomed) this.#welcome.reject(error);
 				for (const pending of this.#pending.values()) pending.reject(error);
 				this.#pending.clear();
+				// scient(SA-DAEMON-REJOIN): begin - A closed connection fails the event waits.
+				for (const waiter of this.#eventWaiters) waiter.fail(error);
+				this.#eventWaiters.clear();
+				// scient(SA-DAEMON-REJOIN): end
 				closed.resolve();
 			},
 		);
@@ -162,7 +169,30 @@ export class DaemonConn {
 		what: string,
 		timeoutMs = 10_000,
 	): Promise<E> {
-		return until(() => this.events.find(predicate), what, timeoutMs);
+		// scient(SA-DAEMON-REJOIN): begin - Resolve from the event handler when a matching event arrives, instead of polling the buffer.
+		const received = this.events.find(predicate);
+		if (received) return Promise.resolve(received);
+		if (this.#isClosed) return Promise.reject(new Error(`Daemon connection closed waiting for ${what}`));
+		const { promise, resolve, reject } = Promise.withResolvers<E>();
+		const timer = setTimeout(() => {
+			this.#eventWaiters.delete(waiter);
+			reject(new Error(`Timed out after ${timeoutMs}ms waiting for ${what}`));
+		}, timeoutMs);
+		const waiter = {
+			match: (event: DaemonEvent): boolean => {
+				if (!predicate(event)) return false;
+				clearTimeout(timer);
+				resolve(event);
+				return true;
+			},
+			fail: (error: Error): void => {
+				clearTimeout(timer);
+				reject(new Error(`${error.message} waiting for ${what}`));
+			},
+		};
+		this.#eventWaiters.add(waiter);
+		return promise;
+		// scient(SA-DAEMON-REJOIN): end
 	}
 
 	close(): Promise<void> {
@@ -181,6 +211,10 @@ export class DaemonConn {
 		}
 		if ("ev" in message) {
 			this.events.push(message as unknown as DaemonEvent);
+			// scient(SA-DAEMON-REJOIN): begin - Wake the waits this event matches.
+			const event = this.events.at(-1)!;
+			for (const waiter of this.#eventWaiters) if (waiter.match(event)) this.#eventWaiters.delete(waiter);
+			// scient(SA-DAEMON-REJOIN): end
 			return;
 		}
 		const response = message as unknown as DaemonResponse;
