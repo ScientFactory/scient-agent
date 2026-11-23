@@ -102,6 +102,12 @@ describe.skipIf(process.platform === "win32")("daemon unit lifecycle", () => {
 			await first.close();
 
 			const second = await d.connect();
+			// scient(SA-DAEMON-REJOIN): begin - The client's close settles before the daemon handles it: rejoin once the daemon has dropped the lease.
+			await until(
+				async () => ((await second.describe("rejoin")).leases === 0 ? true : undefined),
+				"the dropped lease",
+			);
+			// scient(SA-DAEMON-REJOIN): end
 			const again = await second.openProc("rejoin", proc, { policy: { idleMs: 0 } });
 
 			expect(again.created).toBe(false);
