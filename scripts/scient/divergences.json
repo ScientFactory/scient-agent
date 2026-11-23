@@ -559,14 +559,13 @@
 		},
 		"SA-DAEMON-REJOIN": {
 			"status": "active",
-			"contract": "Oh My Pi's daemon test \"a client reconnecting within the grace adopts the same process\" reopens the unit only after the daemon broadcasts that it dropped the closed connection's lease. The harness's close() settles when the client socket closes, before the daemon handles the close, so the open could be counted beside the stale lease (leases 2), which failed Scient's main on 2026-11-22. The harness's event wait resolves when a matching event arrives instead of polling its buffer. Test-only; the daemon's connection-bound lease accounting is unchanged. This inherited flake needs an upstream fix.",
+			"contract": "Oh My Pi's daemon test \"a client reconnecting within the grace adopts the same process\" reopens the unit only after describe shows the daemon dropped the closed connection's lease, as the grace test above it waits. The harness's close() settles when the client socket closes, before the daemon handles the close, so the open could be counted beside the stale lease (leases 2), which failed Scient's main on 2026-11-22. Test-only; the daemon's connection-bound lease accounting is unchanged. This inherited flake needs an upstream fix.",
 			"owned": [],
 			"upstream": [
-				"packages/coding-agent/test/daemon/unit-lifecycle.test.ts",
-				"packages/coding-agent/test/fixtures/daemon-proc-harness.ts"
+				"packages/coding-agent/test/daemon/unit-lifecycle.test.ts"
 			],
 			"verification": [
-				"bun --cwd=packages/coding-agent test test/daemon/unit-lifecycle.test.ts test/daemon/proc-units.test.ts test/daemon/board-register.test.ts"
+				"bun --cwd=packages/coding-agent test test/daemon/unit-lifecycle.test.ts"
 			]
 		}
 	}

@@ -6,9 +6,6 @@
  */
 import { afterEach, describe, expect, it } from "bun:test";
 import { DAEMON_RESUME_LEASE_GRACE_MS } from "../../src/daemon/protocol";
-// scient(SA-DAEMON-REJOIN): begin - The rejoin test waits for the daemon's lease-drop event.
-import type { DaemonEvent, DaemonUnitEvent } from "../../src/daemon/protocol";
-// scient(SA-DAEMON-REJOIN): end
 import { type DaemonConn, pidAlive, rejection, shProc, TestDaemon, until } from "../fixtures/daemon-proc-harness";
 
 const TEST_TIMEOUT_MS = 30_000;
@@ -106,15 +103,10 @@ describe.skipIf(process.platform === "win32")("daemon unit lifecycle", () => {
 
 			const second = await d.connect();
 			// scient(SA-DAEMON-REJOIN): begin - The client's close settles before the daemon handles it: rejoin once the daemon has dropped the lease.
-			// Watching first means a drop after the describe still arrives as a buffered event.
-			await second.request({ op: "watch" });
-			if ((await second.describe("rejoin")).leases !== 0) {
-				await second.event(
-					(event: DaemonEvent): event is DaemonUnitEvent =>
-						event.ev === "unit" && event.unit.key === "rejoin" && event.unit.leases === 0,
-					"the dropped lease",
-				);
-			}
+			await until(
+				async () => ((await second.describe("rejoin")).leases === 0 ? true : undefined),
+				"the dropped lease",
+			);
 			// scient(SA-DAEMON-REJOIN): end
 			const again = await second.openProc("rejoin", proc, { policy: { idleMs: 0 } });
 
