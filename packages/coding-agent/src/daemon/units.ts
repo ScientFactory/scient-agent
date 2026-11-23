@@ -588,6 +588,16 @@ export class UnitTable {
 		entry.lastUsed = Date.now();
 		let lease: string | undefined;
 		if (request.lease !== false) lease = this.#addLease(entry, connection);
+		// scient(SA-DAEMON-OPEN-LEASE): begin - A connection that closed while this open awaited the unit was already disconnected without this lease: drop it as `disconnected` would.
+		if (lease !== undefined && connection.closed) {
+			entry.idleNotBefore = Math.max(entry.idleNotBefore ?? 0, Date.now() + DAEMON_RESUME_LEASE_GRACE_MS);
+			this.#dropLease(lease);
+			lease = undefined;
+			// `#addLease` recreated the closed connection's lease set; `disconnected` will not run again to remove it.
+			const connectionId = connection.client.connectionId;
+			if (this.#connectionLeases.get(connectionId)?.size === 0) this.#connectionLeases.delete(connectionId);
+		}
+		// scient(SA-DAEMON-OPEN-LEASE): end
 		if (request.awaitReady !== false) {
 			try {
 				if (entry.procRuntime && entry.proc?.ready) {
