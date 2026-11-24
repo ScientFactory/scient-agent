@@ -502,6 +502,10 @@ export interface SessionState {
 	sessionId: string;
 	model?: ModelInfo;
 	thinkingLevel?: ThinkingLevel;
+	/** The user's thinking selector: `auto` while auto mode picks the effort, else `thinkingLevel`. */
+	configuredThinkingLevel?: ConfiguredThinkingLevel;
+	/** Selectors the active model accepts, as Scient Agent's thinking selector lists them: `off`, `auto`, then its efforts. */
+	thinkingLevels?: ConfiguredThinkingLevel[];
 	isStreaming?: boolean;
 	isCompacting?: boolean;
 	steeringMode?: QueueMode;
@@ -596,6 +600,42 @@ export interface CompactionResult {
 	details?: unknown;
 	preserveData?: Record<string, unknown>;
 	providerReplayThroughEntryId?: string;
+}
+
+/** A role a model holds, as picker rows chip it. */
+export interface ModelPickerRole {
+	role: string;
+	/** The role's display tag. */
+	label: string;
+	/** Auto-selected: the role has no configured model. */
+	auto?: boolean;
+}
+
+/** One row of Scient Agent's session model picker. */
+export interface ModelPickerRow {
+	provider: string;
+	id: string;
+	name: string;
+	/** The quick role this row applies (`@` search); pass it to `set_model`. */
+	role?: string;
+	/** Visible roles the model holds, built-in order first. */
+	roles?: ModelPickerRole[];
+	/** Steps of the model's thinking slider, low to high: `auto`, `off`, then its efforts. Absent when it has no effort to pick. */
+	thinking?: ConfiguredThinkingLevel[];
+	/** Model rows: the session's level as this model would run it (the untouched slider). Quick-role rows: the role's explicit level, which `set_model` should carry. */
+	thinkingLevel?: ConfiguredThinkingLevel;
+	/** The session's context exceeds the model's window. */
+	overContext?: boolean;
+	/** The session runs this row: its model, or under `@` its active quick role. */
+	current?: boolean;
+}
+
+export interface ModelPickerResult {
+	rows: ModelPickerRow[];
+	/** Leading rows that are recently used or role-held (the picker's Recent block); 0 when there is no such split. */
+	recent: number;
+	/** Matching rows before `limit`. */
+	total: number;
 }
 
 export interface ModelCycleResult {
@@ -1411,7 +1451,7 @@ export interface AskUiRequest {
 	timeout?: number;
 }
 
-/** The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`. */
+/** The HTML `<form>` of one `ui.formDialog` call (the `ask` tool or an extension); no opt-in is required. */
 export interface FormUiRequest {
 	type: "extension_ui_request";
 	id: string;
@@ -1501,7 +1541,7 @@ export interface ConfirmUiResponse {
 	confirmed: boolean;
 }
 
-/** Dismisses a dialog; `timedOut` reports the host's own deadline (an `ask` dialog then takes its recommended answers). */
+/** Dismisses a dialog; `timedOut` reports the host's own deadline (an `ask` dialog then takes its recommended answers, a `form` its defaults). */
 export interface CancelUiResponse {
 	type: "extension_ui_response";
 	id: string;
@@ -1516,15 +1556,16 @@ export interface AnswersUiResponse {
 	answers: AskAnswer[];
 }
 
-/** Answers a `form` request with the form's data by control name: text, a number, or a group's checked values. */
-export interface FormUiResponse {
+/** Answers a `form` request with the submitted form data. */
+export interface DataUiResponse {
 	type: "extension_ui_response";
 	id: string;
-	data: Record<string, string | number | string[]>;
+	/** Submitted values by control `name`: a string, a number, or a string array. */
+	data: Record<string, unknown>;
 }
 
 /** Host reply to an extension UI request; variants share `type` and differ by their payload key. */
-export type ExtensionUiResponse = ValueUiResponse | ConfirmUiResponse | CancelUiResponse | AnswersUiResponse | FormUiResponse;
+export type ExtensionUiResponse = ValueUiResponse | ConfirmUiResponse | CancelUiResponse | AnswersUiResponse | DataUiResponse;
 
 export interface HostToolCallRequest {
 	type: "host_tool_call";
@@ -1682,6 +1723,10 @@ export interface AbortAndPromptParams {
 	images?: ImageContent[];
 }
 
+export interface AbortAndDeliverQueueResult {
+	aborted: boolean;
+}
+
 export interface NewSessionParams {
 	parentSession?: string;
 }
@@ -1715,14 +1760,6 @@ export interface SetAskDialogParams {
 }
 
 export interface SetAskDialogResult {
-	enabled: boolean;
-}
-
-export interface SetFormDialogParams {
-	enabled: boolean;
-}
-
-export interface SetFormDialogResult {
 	enabled: boolean;
 }
 
@@ -1844,14 +1881,26 @@ export interface DictationStopResult {
 export interface SetModelParams {
 	provider: string;
 	modelId: string;
+	/** Thinking level to run the model at, clamped to it; omitted re-applies the session's level. */
+	thinkingLevel?: ConfiguredThinkingLevel;
+	/** Model role the switch records (a quick-role pick passes its role); default `default`. Nothing is persisted. */
+	role?: string;
 }
 
 export interface GetAvailableModelsResult {
 	models: ModelInfo[];
 }
 
+export interface GetModelPickerParams {
+	/** Search text; blank browses every model, `provider/` limits matches to a provider. */
+	query?: string;
+	/** Most rows to return; default 100. */
+	limit?: number;
+}
+
 export interface SetThinkingLevelParams {
-	level: ThinkingLevel;
+	/** `auto` lets Scient Agent pick the effort per turn. */
+	level: ConfiguredThinkingLevel;
 }
 
 export interface GetAvailableThinkingLevelsResult {
@@ -2050,6 +2099,8 @@ export interface RpcWireCommands {
 	abort: { params: undefined; result: undefined };
 	abort_and_prompt: { params: AbortAndPromptParams; result: undefined };
 	abort_and_restore_queue: { params: undefined; result: AbortAndRestoreQueueResult };
+	abort_and_deliver_queue: { params: undefined; result: AbortAndDeliverQueueResult };
+	resume: { params: undefined; result: undefined };
 	new_session: { params: NewSessionParams; result: CancellationResult };
 	open_session: { params: OpenSessionParams; result: OpenSessionResult };
 	get_state: { params: undefined; result: SessionState };
@@ -2057,7 +2108,6 @@ export interface RpcWireCommands {
 	set_slow_mode: { params: SetSlowModeParams; result: SetSlowModeResult };
 	goal: { params: GoalParams; result: GoalResult };
 	set_ask_dialog: { params: SetAskDialogParams; result: SetAskDialogResult };
-	set_form_dialog: { params: SetFormDialogParams; result: SetFormDialogResult };
 	get_available_commands: { params: undefined; result: GetAvailableCommandsResult };
 	get_entries: { params: GetEntriesParams; result: SessionEntries };
 	get_tree: { params: undefined; result: SessionTree };
@@ -2080,6 +2130,7 @@ export interface RpcWireCommands {
 	set_model: { params: SetModelParams; result: ModelInfo };
 	cycle_model: { params: undefined; result: ModelCycleResult | null };
 	get_available_models: { params: undefined; result: GetAvailableModelsResult };
+	get_model_picker: { params: GetModelPickerParams; result: ModelPickerResult };
 	set_thinking_level: { params: SetThinkingLevelParams; result: undefined };
 	cycle_thinking_level: { params: undefined; result: ThinkingLevelCycleResult | null };
 	get_available_thinking_levels: { params: undefined; result: GetAvailableThinkingLevelsResult };

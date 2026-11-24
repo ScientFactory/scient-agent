@@ -1,5 +1,32 @@
 import { describe, expect, it } from "bun:test";
-import { missingKept, researchWording } from "./rename-wording";
+import { coverSecurityScanStart, missingKept, researchWording } from "./rename-wording";
+
+describe("prompt perturbation coverage", () => {
+	const source = "`start`: plan → background Scient Agent job.";
+	const prompt = `# Actions\n${source}\n`;
+	const original = { source: "Other line", origin: "other.md", variants: ["Another line"] };
+
+	it("adds a match for the lengthened prompt once and preserves an upstream pool entry if one arrives", () => {
+		const result = coverSecurityScanStart(JSON.stringify({ entries: [original] }), prompt);
+		const [other, added] = JSON.parse(result).entries;
+		expect(other).toEqual(original);
+		expect(added.source).toBe(source);
+		expect(added.origin).toBe("tools/security-scan.md");
+		expect(new Set(added.variants).size).toBeGreaterThan(1);
+		expect(coverSecurityScanStart(result, prompt)).toBe(result);
+
+		const upstream = JSON.stringify({ entries: [{ ...added, variants: ["An upstream paraphrase."] }] });
+		expect(coverSecurityScanStart(upstream, prompt)).toBe(upstream);
+	});
+
+	it("reports the prompt and stale line before adding a pool entry", () => {
+		for (const changed of [undefined, `${source} More text.`]) {
+			expect(() => coverSecurityScanStart('{"entries":[]}', changed)).toThrow(
+				`tools/security-scan.md: missing ${source}`,
+			);
+		}
+	});
+});
 
 describe("kept sentences", () => {
 	const KEPT = {

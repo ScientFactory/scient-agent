@@ -11,10 +11,21 @@ import type { OAuthController, OAuthCredentials } from "@oh-my-pi/pi-ai/oauth/ty
 import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
 import { getActiveProfile } from "@oh-my-pi/pi-utils/dirs";
 import type { OAuthCredential } from "../session/auth-storage";
-import { buildWellKnownUrls } from "./oauth-discovery";
-// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
-import type { MCPAuthConfig, MCPServerConfig } from "./types";
+// scient(SA-CODEX-PLUGINS): begin - Recognize and expose server-bound plugin credentials.
+import {
+	isMcpOAuthServerCredentialId,
+	serverCredentialProfile,
+	serverCredentialUrl,
+} from "../scient/mcp-server-credential";
+export {
+	isMcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialIdMatchesUrl,
+	trustedMcpAuth,
+	withTrustedMcpAuth,
+} from "../scient/mcp-server-credential";
 // scient(SA-CODEX-PLUGINS): end
+import { buildWellKnownUrls } from "./oauth-discovery";
 
 /** Credential-id prefix for OMP-managed MCP OAuth credentials keyed by profile and server URL. */
 const MCP_OAUTH_URL_CREDENTIAL_PREFIX = "mcp_oauth:";
@@ -36,72 +47,6 @@ export function mcpOAuthCredentialId(serverUrl: string, profile: string | undefi
 	return `${MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX}${profile ?? "default"}:${serverUrl}`;
 }
 
-// scient(SA-CODEX-PLUGINS): begin - a sign-in bound to one server, as Codex keys MCP sign-ins by server name and URL.
-/** Credential-id prefix for one server's own sign-in (`mcp_oauth:server:<profile>:<encoded name>:<serverUrl>`). */
-const MCP_OAUTH_SERVER_CREDENTIAL_PREFIX = `${MCP_OAUTH_URL_CREDENTIAL_PREFIX}server:`;
-
-/**
- * Credential id for one server's own sign-in, under its profile. Lookups find it only through the
- * server's `auth.credentialId`, never by URL, so no other server at that URL shares it.
- */
-export function mcpOAuthServerCredentialId(
-	serverName: string,
-	serverUrl: string,
-	profile: string | undefined = getActiveProfile(),
-): string {
-	return `${MCP_OAUTH_SERVER_CREDENTIAL_PREFIX}${profile ?? "default"}:${encodeURIComponent(serverName)}:${serverUrl}`;
-}
-
-/** Whether a credential id is one server's own sign-in ({@link mcpOAuthServerCredentialId}). */
-export function isMcpOAuthServerCredentialId(credentialId: unknown): boolean {
-	return typeof credentialId === "string" && credentialId.startsWith(MCP_OAUTH_SERVER_CREDENTIAL_PREFIX);
-}
-
-/**
- * The auth block a server definition may use. A server-bound credential id stays only on the
- * server the codex-plugins source imported under it (the id its name and URL give); any other
- * definition drops it and finds its sign-in as a native server does.
- */
-export function trustedMcpAuth(
-	name: string,
-	auth: MCPAuthConfig | undefined,
-	url: string | undefined,
-	provider: string | undefined,
-): MCPAuthConfig | undefined {
-	if (!auth || !isMcpOAuthServerCredentialId(auth.credentialId)) return auth;
-	if (
-		provider === "codex-plugins" &&
-		url !== undefined &&
-		auth.credentialId === mcpOAuthServerCredentialId(name, url)
-	) {
-		return auth;
-	}
-	return { ...auth, credentialId: undefined };
-}
-
-/** {@link trustedMcpAuth} applied to a server definition from the source `provider`. */
-export function withTrustedMcpAuth(
-	name: string,
-	config: MCPServerConfig,
-	provider: string | undefined,
-): MCPServerConfig {
-	const url = config.type === "http" || config.type === "sse" ? config.url : undefined;
-	const auth = trustedMcpAuth(name, config.auth, url, provider);
-	return auth === config.auth ? config : { ...config, auth };
-}
-
-/**
- * Whether a server's own sign-in id belongs to this server URL under the active profile: a
- * definition naming another server's id, or one moved to another URL, gets nothing from it.
- */
-export function mcpOAuthServerCredentialIdMatchesUrl(credentialId: string, serverUrl: string | undefined): boolean {
-	return (
-		serverUrl !== undefined &&
-		mcpOAuthCredentialProfile(credentialId) === (getActiveProfile() ?? "default") &&
-		mcpOAuthServerUrlFromCredentialId(credentialId) === serverUrl
-	);
-}
-// scient(SA-CODEX-PLUGINS): end
 /** Whether a credential id was minted by OMP's MCP OAuth flows (either era). */
 export function isManagedMCPOAuthCredentialId(credentialId: string | undefined): credentialId is string {
 	return (
@@ -118,14 +63,12 @@ export function isManagedMCPOAuthCredentialId(credentialId: string | undefined):
  * is the profile; everything after it is the URL.
  */
 export function mcpOAuthCredentialProfile(credentialId: string): string | undefined {
-	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in carries its profile in the same place.
-	const prefix = [MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX, MCP_OAUTH_SERVER_CREDENTIAL_PREFIX].find(candidate =>
-		credentialId.startsWith(candidate),
-	);
-	if (prefix === undefined) return undefined;
-	const separator = credentialId.indexOf(":", prefix.length);
-	return separator === -1 ? undefined : credentialId.slice(prefix.length, separator);
+	// scient(SA-CODEX-PLUGINS): begin - Read a server-bound credential.
+	if (isMcpOAuthServerCredentialId(credentialId)) return serverCredentialProfile(credentialId);
 	// scient(SA-CODEX-PLUGINS): end
+	if (!credentialId.startsWith(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX)) return undefined;
+	const separator = credentialId.indexOf(":", MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length);
+	return separator === -1 ? undefined : credentialId.slice(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length, separator);
 }
 
 /**
@@ -139,12 +82,8 @@ export function mcpOAuthCredentialProfile(credentialId: string): string | undefi
  * config — recover the server URL for the RFC 8707 fallback resource on refresh.
  */
 export function mcpOAuthServerUrlFromCredentialId(credentialId: string): string | undefined {
-	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in: the URL follows its profile and server name.
-	if (credentialId.startsWith(MCP_OAUTH_SERVER_CREDENTIAL_PREFIX)) {
-		const profileEnd = credentialId.indexOf(":", MCP_OAUTH_SERVER_CREDENTIAL_PREFIX.length);
-		const nameEnd = profileEnd === -1 ? -1 : credentialId.indexOf(":", profileEnd + 1);
-		return nameEnd === -1 ? undefined : credentialId.slice(nameEnd + 1) || undefined;
-	}
+	// scient(SA-CODEX-PLUGINS): begin - Read a server-bound credential.
+	if (isMcpOAuthServerCredentialId(credentialId)) return serverCredentialUrl(credentialId);
 	// scient(SA-CODEX-PLUGINS): end
 	if (credentialId.startsWith(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX)) {
 		const separator = credentialId.indexOf(":", MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length);
@@ -173,6 +112,15 @@ export interface MCPStoredOAuthCredential extends OAuthCredential {
 	 * Unset on legacy credentials minted before issue #3502's fix.
 	 */
 	authorizationUrl?: string;
+	/**
+	 * Scope the grant holds (space-separated): the token response's `scope`
+	 * (RFC 6749 §5.1), else the authorization request's. Sent again on refresh,
+	 * and updated from the refresh response: Microsoft Entra v2 refuses a
+	 * refresh that names no scope when the client is also the resource
+	 * (AADSTS90009), and §6 forbids asking for more than was granted. Unset on
+	 * credentials minted before it was kept.
+	 */
+	scope?: string;
 }
 
 const DEFAULT_PORT = 3000;
@@ -381,6 +329,9 @@ function filterResourceIndicator(
 }
 
 export interface MCPOAuthConfig {
+	// scient(SA-CODEX-PLUGINS): begin - Refuse token endpoint redirects for a server-bound sign-in.
+	rejectRedirects?: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 	/** Authorization endpoint URL */
 	authorizationUrl: string;
 	/** Token endpoint URL */
@@ -393,10 +344,6 @@ export interface MCPOAuthConfig {
 	clientId?: string;
 	/** Client secret (optional for PKCE flows) */
 	clientSecret?: string;
-	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in follows no token-endpoint redirect.
-	/** Fail the token exchange on a redirect instead of following it with the code, verifier and secret. */
-	rejectRedirects?: boolean;
-	// scient(SA-CODEX-PLUGINS): end
 	/** OAuth scopes (space-separated) */
 	scopes?: string;
 	/**
@@ -446,6 +393,8 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 	#codeVerifier?: string;
 	#fetch: FetchImpl;
 	#resource?: string;
+	#requestedScope?: string;
+	#grantedScope?: string;
 	/**
 	 * Details of a rejected dynamic client-registration attempt. Populated by
 	 * {@link #tryRegisterClient} when the provider advertises a registration
@@ -506,6 +455,14 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 	get authorizationUrl(): string {
 		return this.config.authorizationUrl;
 	}
+	/**
+	 * Scope to persist for refresh: what the token response says was granted
+	 * (RFC 6749 §5.1), else what the authorization request asked for. A refresh
+	 * must not ask for more than was granted (§6).
+	 */
+	get grantedScope(): string | undefined {
+		return this.#grantedScope ?? this.#requestedScope;
+	}
 
 	async generateAuthUrl(state: string, redirectUri: string): Promise<{ url: string; instructions?: string }> {
 		if (!this.#resolvedClientId) {
@@ -536,6 +493,7 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 		if (this.config.scopes && !params.get("scope")) {
 			params.set("scope", this.config.scopes);
 		}
+		this.#requestedScope = params.get("scope")?.trim() || undefined;
 		const prompt = this.config.prompt ?? (hasOAuthScope(params.get("scope"), "offline_access") ? "consent" : "");
 		if (prompt && !params.get("prompt")) {
 			params.set("prompt", prompt);
@@ -620,7 +578,7 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 			},
 			body: params.toString(),
 			signal: this.ctrl.signal,
-			// scient(SA-CODEX-PLUGINS): begin - as Codex's OAuth client, never forward the exchange elsewhere.
+			// scient(SA-CODEX-PLUGINS): begin - Keep token exchange credentials on the requested endpoint.
 			...(this.config.rejectRedirects && { redirect: "error" as const }),
 			// scient(SA-CODEX-PLUGINS): end
 		});
@@ -637,6 +595,7 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 			token_type?: string;
 			error?: string;
 			error_description?: string;
+			scope?: string;
 		};
 
 		// Some providers (e.g. the Slack Web API) signal failure with HTTP 200 and
@@ -650,6 +609,7 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 		// Calculate expiry timestamp
 		const expiresIn = data.expires_in ?? 3600; // Default to 1 hour
 		const expires = Date.now() + expiresIn * 1000;
+		this.#grantedScope = typeof data.scope === "string" ? data.scope.trim() || undefined : undefined;
 
 		return {
 			access: data.access_token,
@@ -879,6 +839,9 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
  * so positional callers keep working.
  */
 export interface RefreshMCPOAuthTokenOptions {
+	// scient(SA-CODEX-PLUGINS): begin - Refuse token endpoint redirects for a server-bound sign-in.
+	rejectRedirects?: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 	fetch?: FetchImpl;
 	signal?: AbortSignal;
 	/**
@@ -893,10 +856,8 @@ export interface RefreshMCPOAuthTokenOptions {
 	 * Preserved advertised resources leave this false/undefined.
 	 */
 	stripSameOriginResource?: boolean;
-	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in follows no token-endpoint redirect.
-	/** Fail the refresh on a redirect instead of following it with the refresh token and secret. */
-	rejectRedirects?: boolean;
-	// scient(SA-CODEX-PLUGINS): end
+	/** Scopes to request on refresh (the original grant's). Omitted when unset. */
+	scope?: string;
 }
 
 /**
@@ -910,11 +871,10 @@ export async function refreshMCPOAuthToken(
 	clientSecret?: string,
 	resourceOrOpts?: string | RefreshMCPOAuthTokenOptions,
 	opts?: RefreshMCPOAuthTokenOptions,
-): Promise<OAuthCredentials> {
-	// scient(SA-CODEX-PLUGINS): begin - an undefined resource still reads the trailing options (redirect refusal,
-	// signal, authorization URL), which keying on a string resource alone dropped.
+): Promise<OAuthCredentials & { scope?: string }> {
+	// Only an object in the fifth position is the options; a positional
+	// `undefined` resource keeps the trailing options.
 	const optsFromTrailing = typeof resourceOrOpts === "object" ? resourceOrOpts : opts;
-	// scient(SA-CODEX-PLUGINS): end
 	const fetchImpl: FetchImpl = optsFromTrailing?.fetch ?? fetch;
 	const resource = typeof resourceOrOpts === "string" ? resourceOrOpts : undefined;
 	// Filter against the authorization-server origin when known (RFC 8414
@@ -935,13 +895,15 @@ export async function refreshMCPOAuthToken(
 	});
 	if (resolvedResource) params.set("resource", resolvedResource);
 	if (clientSecret) params.set("client_secret", clientSecret);
+	const scope = optsFromTrailing?.scope?.trim();
+	if (scope) params.set("scope", scope);
 
 	const response = await fetchImpl(tokenUrl, {
 		method: "POST",
 		headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
 		body: params.toString(),
 		signal: optsFromTrailing?.signal,
-		// scient(SA-CODEX-PLUGINS): begin - as Codex's OAuth client, never forward the refresh elsewhere.
+		// scient(SA-CODEX-PLUGINS): begin - Keep token exchange credentials on the requested endpoint.
 		...(optsFromTrailing?.rejectRedirects && { redirect: "error" as const }),
 		// scient(SA-CODEX-PLUGINS): end
 	});
@@ -955,11 +917,14 @@ export async function refreshMCPOAuthToken(
 		access_token: string;
 		refresh_token?: string;
 		expires_in?: number;
+		scope?: string;
 	};
 	const expiresIn = data.expires_in ?? 3600;
+	const grantedScope = typeof data.scope === "string" ? data.scope.trim() : "";
 	return {
 		access: data.access_token,
 		refresh: data.refresh_token ?? refreshToken,
 		expires: Date.now() + expiresIn * 1000,
+		...(grantedScope ? { scope: grantedScope } : {}),
 	};
 }

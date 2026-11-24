@@ -2,14 +2,16 @@ import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
 import type { SourceMeta } from "@oh-my-pi/pi-coding-agent/capability/types";
-import type { MCPLoadResult, MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
+import { type MCPLoadResult, MCPManager } from "@oh-my-pi/pi-coding-agent/mcp/manager";
+import { MCP_PROTOCOL_VERSION } from "@oh-my-pi/pi-coding-agent/mcp/protocol";
 import { mcpOAuthServerCredentialId } from "@oh-my-pi/pi-coding-agent/mcp/oauth-flow";
 import { McpReauthRefusalError, reauthorizeMcpServer } from "@oh-my-pi/pi-coding-agent/mcp/oauth-reauth";
-import type { MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
+import type { JsonRpcRequest, MCPServerConfig } from "@oh-my-pi/pi-coding-agent/mcp/types";
 import * as path from "node:path";
 import { TempDir } from "@oh-my-pi/pi-utils";
 import {
 	authorizationUrlIsPublic,
+	listHostMcpServers,
 	loginFailureMessage,
 	selectedServer,
 	serverStatusLine,
@@ -44,7 +46,7 @@ function fakeManager(
 			reconnects.push(name);
 			await reconnect(name);
 			connected.add(name);
-			return null;
+			return {};
 		},
 	};
 	// Structural fake: only the members above are called by the code under test.
@@ -170,6 +172,134 @@ describe("a conversation picking up a sign-in made elsewhere", () => {
 		expect(reconnects).toEqual([NAME, NAME]);
 	});
 
+	it("revalidates a warm paginated catalog, releases the probe, and picks up an external sign-in on the next prompt", async () => {
+		using temp = TempDir.createSync("@scient-mcp-warm-");
+		const db = path.join(temp.path(), "auth.db");
+		const sessionAuth = new AuthStorage(new SqliteAuthCredentialStore(new Database(db)));
+		const externalAuth = new AuthStorage(new SqliteAuthCredentialStore(new Database(db)));
+		let revoked = false;
+		let stall = false;
+		let discoveries = 0;
+		let refusals = 0;
+		let refreshes = 0;
+		const http = Bun.serve({
+			hostname: "127.0.0.1",
+			port: 0,
+			async fetch(request) {
+				if (request.method !== "POST") return new Response(null, { status: 405 });
+				if (new URL(request.url).pathname === "/token") {
+					refreshes++;
+					return Response.json({ access_token: "replacement", token_type: "Bearer", expires_in: 3600 });
+				}
+				const { id, method, params } = (await request.json()) as JsonRpcRequest;
+				const signedIn = request.headers.get("authorization") === "Bearer replacement";
+				const result = { resultType: "complete", ttlMs: 60_000, cacheScope: "public" };
+				if (method === "server/discover") {
+					discoveries++;
+					return Response.json({
+						jsonrpc: "2.0",
+						id,
+						result: {
+							...result,
+							supportedVersions: [MCP_PROTOCOL_VERSION],
+							capabilities: { tools: {} },
+						},
+					});
+				}
+				if (method !== "tools/list") return new Response(null, { status: 405 });
+				const secondPage = params?.cursor === "next";
+				if (secondPage && revoked && !signedIn) {
+					refusals++;
+					return new Response(LEAKED, { status: 401, headers: { "WWW-Authenticate": "Bearer" } });
+				}
+				if (secondPage && stall) return new Promise<Response>(() => {});
+				const name = secondPage ? (signedIn ? "after_login" : "before_login") : "first";
+				return Response.json({
+					jsonrpc: "2.0",
+					id,
+					result: {
+						...result,
+						tools: [{ name, inputSchema: { type: "object" } }],
+						...(!secondPage && { nextCursor: "next" }),
+					},
+				});
+			},
+		});
+		const url = http.url.href;
+		const id = mcpOAuthServerCredentialId(NAME, url);
+		const configs = { [NAME]: bound({ type: "oauth", credentialId: id }, { url }) };
+		const sources = {
+			[NAME]: {
+				provider: "codex-plugins",
+				providerName: "Codex",
+				level: "user",
+				path: db,
+				pluginName: "tools@market",
+			},
+		} satisfies Record<string, SourceMeta>;
+		const session = new MCPManager(temp.path());
+		session.setAuthStorage(sessionAuth);
+		const list = (windowMs?: number) => listHostMcpServers(temp.path(), 0, configs, sources, externalAuth, windowMs);
+		try {
+			// Seed a public catalog on a separate attachment. The session can start wholly from it after revocation.
+			const warm = new MCPManager(temp.path());
+			try {
+				expect((await warm.connectServers(configs, sources)).connectedServers).toEqual([NAME]);
+			} finally {
+				await warm.disconnectAll();
+			}
+			revoked = true;
+			const before = discoveries;
+			expect((await session.connectServers(configs, sources)).connectedServers).toEqual([NAME]);
+			expect(discoveries).toBe(before);
+			expect(refusals).toBe(0);
+			let published: string[] = [];
+			const pickup = new McpSignInPickup(session, sessionAuth, async () => {
+				published = session
+					.getTools()
+					.map(tool => tool.mcpToolName ?? tool.name)
+					.sort();
+			});
+			pickup.seed();
+			expect(await list()).toEqual([
+				{
+					name: NAME,
+					scope: "user",
+					pluginId: "tools@market",
+					status: "needs-auth",
+					error: "Sign-in needed.",
+					canStartSignIn: true,
+				},
+			]);
+			expect(discoveries).toBeGreaterThan(before);
+			expect(refusals).toBeGreaterThan(0);
+			expect(session.getConnectionStatus(NAME)).toBe("connected");
+
+			await externalAuth.credentials.set(id, token("replacement"));
+			await pickup.beforePrompt();
+			expect(published).toEqual(["after_login", "first"]);
+			expect(await list()).toEqual([
+				{ name: NAME, scope: "user", pluginId: "tools@market", status: "connected", toolCount: 2 },
+			]);
+
+			stall = true;
+			expect(await list(100)).toEqual([{ name: NAME, scope: "user", pluginId: "tools@market", status: "pending" }]);
+			expect(session.getServerRuntime(NAME)?.links).toBe(1);
+
+			// The first live 401 is provisional when the stored grant can refresh.
+			stall = false;
+			const staleGrant = { ...token("old"), tokenUrl: new URL("/token", url).href, clientId: "cli" };
+			await externalAuth.credentials.set(id, staleGrant);
+			expect(await list()).toMatchObject([{ status: "connected", toolCount: 2 }]);
+			expect(refreshes).toBe(1);
+		} finally {
+			await session.disconnectAll();
+			http.stop(true);
+			externalAuth.close();
+			sessionAuth.close();
+		}
+	});
+
 	it("does not retry the sign-in the session started with", async () => {
 		const auth = storage();
 		await auth.credentials.set(mcpOAuthServerCredentialId(NAME, URL_A), token("startup"));
@@ -263,6 +393,7 @@ describe("a conversation picking up a sign-in made elsewhere", () => {
 
 describe("which server mcp login signs in to", () => {
 	it("never shows a sign-in page whose resource carries the server's own key", () => {
+		expect(authorizationUrlIsPublic("javascript:alert(1)")).toBe(false);
 		const page = (resource: string) =>
 			`https://auth.example.test/authorize?client_id=c&resource=${encodeURIComponent(resource)}`;
 		expect(authorizationUrlIsPublic(page("https://mcp.example.test/mcp"))).toBe(true);

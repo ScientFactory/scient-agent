@@ -2,7 +2,7 @@ import { logger } from "@oh-my-pi/pi-utils";
 import type { MCPManager } from "../mcp/manager";
 import { hasMcpAuthorizationHeader, lookupMcpOAuthCredential } from "../mcp/oauth-credentials";
 import { isMcpOAuthServerCredentialId } from "../mcp/oauth-flow";
-import type { MCPServerConfig } from "../mcp/types";
+import type { MCPServerConfig, MCPServerConnection } from "../mcp/types";
 import type { AuthStorage } from "../session/auth-storage";
 
 /** Whether a browser sign-in can serve this server: http/sse, no token of its own. */
@@ -29,6 +29,22 @@ export function boundSignInNeedsLocalSecret(config: MCPServerConfig, authStorage
 	);
 }
 
+/** A retained link uses the upstream no-store policy for the duration of its sign-in check. */
+export async function withMcpCatalogPolicy<T>(
+	connection: MCPServerConnection,
+	live: boolean | undefined,
+	read: () => Promise<T>,
+): Promise<T> {
+	if (!live) return read();
+	const previous = connection.live;
+	connection.live = true;
+	try {
+		return await read();
+	} finally {
+		connection.live = previous;
+	}
+}
+
 /** How long a prompt waits for a pickup; the rest finishes in the background. */
 const PROMPT_BUDGET_MS = 1_500;
 /** A broker's sign-ins are re-read at most this often, since each read is a request to it. */
@@ -39,7 +55,7 @@ const BROKER_REREAD_MS = 10_000;
  * now serves. A session reads sign-ins once, so a server that needed one stays disconnected until
  * something reconnects it; a host calls {@link beforePrompt} before each prompt.
  *
- * Only a disconnected server that signs in with a browser is considered, and only when its stored
+ * A cached attachment can still be ready after the host saw a live auth failure. Include it when its stored
  * sign-in differs from the one it started with or last tried here, so a refused sign-in is not
  * retried every prompt. Each server reconnects on its own and its tools are published as soon as it
  * connects, so a stalled server holds up no other; a prompt waits for a pickup only briefly.
@@ -113,7 +129,7 @@ export class McpSignInPickup {
 	async #pickUp(): Promise<void> {
 		const underWay = [...this.#connecting.values()];
 		const candidates = this.manager.getAllServerNames().flatMap(name => {
-			if (this.#connecting.has(name) || this.manager.getConnectionStatus(name) !== "disconnected") return [];
+			if (this.#connecting.has(name) || this.manager.getConnectionStatus(name) === "connecting") return [];
 			const config = this.manager.getServerConfig(name);
 			return config && canSignIn(config) ? [{ name, config }] : [];
 		});
@@ -123,6 +139,11 @@ export class McpSignInPickup {
 						// Another prompt sharing this read may have started it: wait for that one.
 						const existing = this.#connecting.get(name);
 						if (existing) return [existing];
+						if (
+							this.manager.getServerConfig(name) !== config ||
+							this.manager.getConnectionStatus(name) === "connecting"
+						)
+							return [];
 						const signature = this.#signature(config);
 						if (!signature || this.#tried.get(name) === signature) return [];
 						this.#tried.set(name, signature);
@@ -136,8 +157,8 @@ export class McpSignInPickup {
 	#reconnect(name: string): Promise<void> {
 		const attempt = (async () => {
 			try {
-				await this.manager.reconnectServer(name, { manual: true });
-				if (this.manager.getConnectionStatus(name) !== "connected") return;
+				const connection = await this.manager.reconnectServer(name, { live: true });
+				if (!connection || this.manager.getConnectionStatus(name) !== "connected") return;
 				this.#published = this.#published.then(() =>
 					this.onConnected().catch(err => logger.warn("Refreshing tools after an MCP sign-in failed", { err })),
 				);

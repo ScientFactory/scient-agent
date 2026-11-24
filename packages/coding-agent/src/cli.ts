@@ -31,6 +31,7 @@ import {
 import { PRODUCT_VERSION as VERSION } from "@oh-my-pi/pi-utils/scient/product";
 // scient(SA-PRODUCT): end
 
+import { materializeDatalessFiles } from "@oh-my-pi/pi-utils/dataless-files";
 import { raiseInteractiveQos } from "@oh-my-pi/pi-utils/process-qos";
 import {
 	declareWorkerHostEntry,
@@ -47,6 +48,7 @@ import {
 	PARENT_WATCHDOG_WORKER_ARG,
 	STATS_ACTIVITY_WORKER_ARG,
 	SUBAGENT_WORKER_ARG,
+	TRANSCRIPT_INDEX_WORKER_ARG,
 } from "./cli/worker-selectors";
 import { DAEMON_WORKER_ARG } from "./daemon/protocol";
 import { MNEMOPI_EMBED_WORKER_ARG } from "./mnemopi/embed-protocol";
@@ -159,6 +161,7 @@ async function runSmokeTest(): Promise<void> {
 	const { smokeTestTtsWorker } = await import("./tts/tts-client");
 	const { smokeTestMnemopiEmbedWorker } = await import("./mnemopi/embed-client");
 	const { smokeTestStatsActivityWorker } = await import("./stats/activity-client");
+	const { smokeTestTranscriptIndexWorker } = await import("./session/transcript-index-client");
 	const { smokeTestJsEvalWorker } = await import("./eval/js/context-manager");
 	// Other smoke dependencies stay lazy so normal CLI startup does not load their worker clients.
 	const { isolateDaemonForSmokeTest, smokeTestDaemon } = await import("./daemon/client");
@@ -169,6 +172,7 @@ async function runSmokeTest(): Promise<void> {
 		await smokeTestSyncWorker();
 		await smokeTestSpotlightWorker();
 		await smokeTestStatsActivityWorker();
+		await smokeTestTranscriptIndexWorker();
 
 		const statsServer = await startServer(0);
 		try {
@@ -299,6 +303,12 @@ async function runWorkerEntrypoint(arg: string | undefined): Promise<boolean> {
 		const parentPort = getWorkerParentPort();
 		if (parentPort) installWorkerInbox(parentPort);
 		await import("./stats/activity-worker");
+		return true;
+	}
+	if (arg === TRANSCRIPT_INDEX_WORKER_ARG) {
+		const parentPort = getWorkerParentPort();
+		if (parentPort) installWorkerInbox(parentPort);
+		await import("./session/transcript-index-worker");
 		return true;
 	}
 	if (arg === PARENT_WATCHDOG_WORKER_ARG) {
@@ -529,6 +539,9 @@ export async function runCli(argv: string[]): Promise<void> {
 	// workers: on macOS its main thread runs above the default class a busy
 	// machine's builds compete in.
 	if (isProcessEntry) raiseInteractiveQos();
+	// Before anything is spawned: worker subprocesses, shells and tools
+	// inherit the policy, so reads of cloud-only files download everywhere.
+	if (isProcessEntry) materializeDatalessFiles();
 
 	if (resolvedArgv[0] === "--license") {
 		// Command boundary: bundled notices are read only when requested.

@@ -57,7 +57,7 @@ describe("resolveBrowserKind with Scient Agent's WebKit host", () => {
 		expect(
 			resolveBrowserKind({ action: "open" }, child, {
 				PI_BROWSER_WEBKIT_PATH: engineDir,
-				PI_BROWSER_RELAY: "1",
+				SCIENT_AGENT_BROWSER_RELAY: "1",
 				PI_BROWSER_TERN: "1",
 				PI_BROWSER_CMUX: "1",
 				TERN_PANE_SOCKET: "/tmp/tern.sock",

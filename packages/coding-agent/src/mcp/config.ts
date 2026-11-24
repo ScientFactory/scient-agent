@@ -12,7 +12,8 @@ import { loadCapability } from "../discovery";
 import { readMCPConfigFile } from "./config-writer";
 import { builtinDropFor, type MCPDroppedServer, type MCPTransformContext } from "./transforms";
 import type { MCPConfigFile, MCPServerConfig } from "./types";
-// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+// scient(SA-CODEX-PLUGINS): begin - local hosting and server-bound sign-ins for imported servers.
+import { codexPluginServer } from "../scient/codex-plugin-host";
 import { trustedMcpAuth } from "./oauth-flow";
 // scient(SA-CODEX-PLUGINS): end
 
@@ -56,10 +57,10 @@ function convertToLegacyConfig(server: MCPServer): MCPServerConfig {
 		timeout: server.timeout,
 		requestIdFormat: server.requestIdFormat,
 		instructions: server.instructions,
-		// scient(SA-CODEX-PLUGINS): begin - only the codex-plugins source binds a server to its own sign-in,
-		// and only under the id its name and URL give: any other definition naming one is not bound to it.
+		// scient(SA-CODEX-PLUGINS): begin - the selected source determines local hosting and which sign-in the server may use.
 		auth: trustedMcpAuth(server.name, server.auth, server.url, server._source.provider),
 		toolTimeoutMs: server.toolTimeoutMs,
+		...(server._source.provider === "codex-plugins" && { [codexPluginServer]: true }),
 		// scient(SA-CODEX-PLUGINS): end
 		oauth: server.oauth,
 	};

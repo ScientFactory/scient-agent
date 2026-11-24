@@ -4,8 +4,7 @@ import type {
 	ExtensionAskDialogResult,
 	ExtensionUIDialogOptions,
 } from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
-import type { RpcExtensionUIResponse } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-types";
-import { askFormOnAskCard, type RpcFormDialogRequest, rpcFormDialog } from "@oh-my-pi/pi-coding-agent/scient/rpc-form";
+import { askFormOnAskCard } from "@oh-my-pi/pi-coding-agent/scient/rpc-form";
 
 const FORM = `<form>
   <p>Two of the 40 samples failed quality control.</p>
@@ -131,53 +130,5 @@ describe("the ask tool's form on a host's ask card", () => {
 			data: { failed: "drop", plots: ["pca"], email: "", notes: "" },
 			timedOut: true,
 		});
-	});
-});
-
-describe("the RPC context's form dialog", () => {
-	const sent: Record<string, unknown>[] = [];
-	const answering =
-		(response: RpcExtensionUIResponse): RpcFormDialogRequest =>
-		async (_opts, request, parse) => {
-			sent.push(request);
-			return parse(response);
-		};
-	const html = `<form><label><input type="radio" name="go" value="yes" checked> Yes</label><label><input type="radio" name="go" value="no"> No</label></form>`;
-
-	it("sends the whole form to a host that draws forms", async () => {
-		const formDialog = rpcFormDialog(
-			{ formDialogEnabled: true, askDialog: undefined },
-			answering({ type: "extension_ui_response", id: "1", data: { go: "no" } }),
-		);
-		expect(await formDialog!(html, { timeout: 5000 })).toEqual({ data: { go: "no" } });
-		expect(sent.at(-1)).toEqual({ method: "form", html, timeout: 5000 });
-		const withHidden = html.replace("</form>", '<input type="hidden" name="step" value="2"></form>');
-		expect(await formDialog!(withHidden)).toEqual({ data: { step: "2", go: "no" } });
-	});
-
-	it("refuses data for a field the form does not have", async () => {
-		const formDialog = rpcFormDialog(
-			{ formDialogEnabled: true, askDialog: undefined },
-			answering({ type: "extension_ui_response", id: "1", data: { other: "x" } }),
-		);
-		await expect(formDialog!(html)).rejects.toThrow('unknown field "other"');
-	});
-
-	it("submits the form's current values when the host's deadline passes", async () => {
-		const formDialog = rpcFormDialog(
-			{ formDialogEnabled: true, askDialog: undefined },
-			answering({ type: "extension_ui_response", id: "1", cancelled: true, timedOut: true }),
-		);
-		expect(await formDialog!(html)).toEqual({ data: { go: "yes" }, timedOut: true });
-	});
-
-	it("uses the ask card for a host that only has one, and nothing for a host with neither", async () => {
-		const host = card(() => submit({ go: { selectedOptions: ["No"] } }));
-		const formDialog = rpcFormDialog(
-			{ formDialogEnabled: false, askDialog: host.ui.askDialog },
-			answering(undefined!),
-		);
-		expect(await formDialog!(html)).toEqual({ data: { go: "no" } });
-		expect(rpcFormDialog({ formDialogEnabled: false, askDialog: undefined }, answering(undefined!))).toBeUndefined();
 	});
 });
