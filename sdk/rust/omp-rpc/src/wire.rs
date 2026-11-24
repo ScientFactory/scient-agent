@@ -2782,6 +2782,36 @@ impl TodoStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PlanOp {
+	#[serde(rename = "get")]
+	Get,
+	#[serde(rename = "enter")]
+	Enter,
+	#[serde(rename = "exit")]
+	Exit,
+}
+
+impl PlanOp {
+	/// Wire value.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Get => "get",
+			Self::Enter => "enter",
+			Self::Exit => "exit",
+		}
+	}
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanResult {
+	/// Plan mode is on: the agent plans and changes nothing until a plan is approved.
+	pub enabled: bool,
+	/// The plan file the agent drafts, while plan mode is on.
+	#[serde(rename = "planFilePath", default, skip_serializing_if = "Option::is_none")]
+	pub plan_file_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum GoalOp {
 	#[serde(rename = "get")]
 	Get,
@@ -3107,7 +3137,7 @@ pub struct SessionState {
 	/// The user's thinking selector: `auto` while auto mode picks the effort, else `thinkingLevel`.
 	#[serde(rename = "configuredThinkingLevel", default, skip_serializing_if = "Option::is_none")]
 	pub configured_thinking_level: Option<ConfiguredThinkingLevel>,
-	/// Selectors the active model accepts, as omp's thinking selector lists them: `off`, `auto`, then its efforts.
+	/// Selectors the active model accepts, as Scient Agent's thinking selector lists them: `off`, `auto`, then its efforts.
 	#[serde(rename = "thinkingLevels", default, skip_serializing_if = "Option::is_none")]
 	pub thinking_levels: Option<Vec<ConfiguredThinkingLevel>>,
 	#[serde(rename = "isStreaming", default = "default_session_state_is_streaming")]
@@ -3273,7 +3303,7 @@ pub struct ModelPickerRole {
 	pub auto: Option<bool>,
 }
 
-/// One row of omp's session model picker.
+/// One row of Scient Agent's session model picker.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelPickerRow {
 	pub provider: String,
@@ -3492,7 +3522,7 @@ pub struct AvailableSlashCommand {
 	pub subcommands: Option<Vec<SlashSubcommand>>,
 }
 
-/// OMP-native session entries in append order.
+/// Scient Agent-native session entries in append order.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionEntries {
 	pub entries: Vec<Map<String, Value>>,
@@ -3622,6 +3652,11 @@ pub struct LoginProvider {
 	pub name: String,
 	pub available: bool,
 	pub authenticated: bool,
+	pub kind: LoginProviderKind,
+	pub stored: bool,
+	pub store: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub emails: Option<Vec<String>>,
 }
 
 /// A stored credential `logout` can remove; `active` marks credentials the session may be using.
@@ -3844,6 +3879,21 @@ pub struct MessageEndEvent {
 	/// Shared by the start, updates, and end of one message; unique per process.
 	#[serde(rename = "messageId", default, skip_serializing_if = "Option::is_none")]
 	pub message_id: Option<String>,
+	/// On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires.
+	#[serde(rename = "promptCache", default, skip_serializing_if = "Option::is_none")]
+	pub prompt_cache: Option<PromptCacheEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PromptCacheEntry {
+	/// Retention tier the provider wrote the entry under: minutes or about an hour.
+	pub tier: PromptCacheEntryTier,
+	/// Epoch ms when a request last wrote or read the entry (its send time).
+	#[serde(rename = "touchedAt")]
+	pub touched_at: i64,
+	/// How long the provider keeps the entry after `touchedAt`.
+	#[serde(rename = "ttlMs")]
+	pub ttl_ms: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -3985,6 +4035,19 @@ pub struct CacheWarmingEndEvent {
 	pub warming_stop_reason: Option<String>,
 }
 
+/// Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CacheWarmingStoppedEvent {
+	/// Why warming stopped.
+	pub reason: String,
+	/// Epoch ms when warming stopped, which may be well before a host reads the frame.
+	#[serde(rename = "stoppedAt")]
+	pub stopped_at: i64,
+	/// The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change.
+	#[serde(rename = "promptCache", default, skip_serializing_if = "Option::is_none")]
+	pub prompt_cache: Option<PromptCacheEntry>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RetryFallbackAppliedEvent {
 	pub from: String,
@@ -4101,6 +4164,8 @@ pub enum RpcAgentEvent {
 	CacheWarmingStart(CacheWarmingStartEvent),
 	/// Outcome of the refresh announced by the matching `cache_warming_start`.
 	CacheWarmingEnd(CacheWarmingEndEvent),
+	/// Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm.
+	CacheWarmingStopped(CacheWarmingStoppedEvent),
 	RetryFallbackApplied(RetryFallbackAppliedEvent),
 	RetryFallbackSucceeded(RetryFallbackSucceededEvent),
 	ModelChanged(ModelChangedEvent),
@@ -4144,6 +4209,7 @@ impl RpcAgentEvent {
 			Some("auto_retry_end") => |value| serde_json::from_value(value).map(Self::AutoRetryEnd),
 			Some("cache_warming_start") => |value| serde_json::from_value(value).map(Self::CacheWarmingStart),
 			Some("cache_warming_end") => |value| serde_json::from_value(value).map(Self::CacheWarmingEnd),
+			Some("cache_warming_stopped") => |value| serde_json::from_value(value).map(Self::CacheWarmingStopped),
 			Some("retry_fallback_applied") => |value| serde_json::from_value(value).map(Self::RetryFallbackApplied),
 			Some("retry_fallback_succeeded") => |value| serde_json::from_value(value).map(Self::RetryFallbackSucceeded),
 			Some("model_changed") => |value| serde_json::from_value(value).map(Self::ModelChanged),
@@ -4188,6 +4254,7 @@ impl Serialize for RpcAgentEvent {
 			Self::AutoRetryEnd(member) => serialize_tagged(member, &[("type", "auto_retry_end")], serializer),
 			Self::CacheWarmingStart(member) => serialize_tagged(member, &[("type", "cache_warming_start")], serializer),
 			Self::CacheWarmingEnd(member) => serialize_tagged(member, &[("type", "cache_warming_end")], serializer),
+			Self::CacheWarmingStopped(member) => serialize_tagged(member, &[("type", "cache_warming_stopped")], serializer),
 			Self::RetryFallbackApplied(member) => serialize_tagged(member, &[("type", "retry_fallback_applied")], serializer),
 			Self::RetryFallbackSucceeded(member) => serialize_tagged(member, &[("type", "retry_fallback_succeeded")], serializer),
 			Self::ModelChanged(member) => serialize_tagged(member, &[("type", "model_changed")], serializer),
@@ -4253,7 +4320,7 @@ impl PromptStatus {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PromptError {
 	pub message: String,
-	/// Transient: resubmitting later may succeed (omp's own retries are exhausted).
+	/// Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted).
 	pub retryable: bool,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub provider: Option<String>,
@@ -4261,9 +4328,15 @@ pub struct PromptError {
 	pub model: Option<String>,
 	#[serde(rename = "httpStatus", default, skip_serializing_if = "Option::is_none")]
 	pub http_status: Option<i64>,
-	/// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request.
+	/// `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub code: Option<LitCostCap>,
+	/// Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say.
+	#[serde(rename = "resetAt", default, skip_serializing_if = "Option::is_none")]
+	pub reset_at: Option<i64>,
+	/// The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub kinds: Option<Vec<String>>,
 }
 
 /// Terminal outcome of one accepted `prompt` / `abort_and_prompt`, keyed by request `id`.
@@ -4459,6 +4532,29 @@ pub struct LiveTranscriptEvent {
 pub struct LiveEndEvent {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
+}
+
+/// A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LiveDelegationEvent {
+	pub text: String,
+}
+
+/// The plan the agent proposed in plan mode, sent just before the select request that asks to approve it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanProposedEvent {
+	pub title: String,
+	#[serde(rename = "planFilePath")]
+	pub plan_file_path: String,
+	pub markdown: String,
+}
+
+/// Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanUpdatedEvent {
+	pub enabled: bool,
+	#[serde(rename = "planFilePath", default, skip_serializing_if = "Option::is_none")]
+	pub plan_file_path: Option<String>,
 }
 
 /// State of one draft-only microphone capture.
@@ -5199,6 +5295,12 @@ pub enum RpcNotification {
 	LiveTranscript(LiveTranscriptEvent),
 	/// Sent exactly once when a live session ends; `error` carries the failure cause.
 	LiveEnd(LiveEndEvent),
+	/// A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`.
+	LiveDelegation(LiveDelegationEvent),
+	/// The plan the agent proposed in plan mode, sent just before the select request that asks to approve it.
+	PlanProposed(PlanProposedEvent),
+	/// Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation.
+	PlanUpdated(PlanUpdatedEvent),
 	/// State of one draft-only microphone capture.
 	DictationState(DictationStateEvent),
 	/// Full accumulated draft preview; replaces the previous preview for this capture.
@@ -5240,6 +5342,9 @@ impl RpcNotification {
 			Some("live_levels") => |value| serde_json::from_value(value).map(Self::LiveLevels),
 			Some("live_transcript") => |value| serde_json::from_value(value).map(Self::LiveTranscript),
 			Some("live_end") => |value| serde_json::from_value(value).map(Self::LiveEnd),
+			Some("live_delegation") => |value| serde_json::from_value(value).map(Self::LiveDelegation),
+			Some("plan_proposed") => |value| serde_json::from_value(value).map(Self::PlanProposed),
+			Some("plan_updated") => |value| serde_json::from_value(value).map(Self::PlanUpdated),
 			Some("dictation_state") => |value| serde_json::from_value(value).map(Self::DictationState),
 			Some("dictation_transcript") => |value| serde_json::from_value(value).map(Self::DictationTranscript),
 			Some("dictation_end") => |value| serde_json::from_value(value).map(Self::DictationEnd),
@@ -5249,7 +5354,7 @@ impl RpcNotification {
 			Some("session_info_update") => |value| serde_json::from_value(value).map(Self::SessionInfoUpdate),
 			Some("config_update") => |value| serde_json::from_value(value).map(Self::ConfigUpdate),
 			Some("rpc_frame_error") => |value| serde_json::from_value(value).map(Self::RpcFrameError),
-			Some("agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcAgentEvent),
+			Some("agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "cache_warming_stopped" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcAgentEvent),
 			_ => |value| Ok(Self::Unknown(value)),
 		};
 		decode(value)
@@ -5272,6 +5377,9 @@ impl Serialize for RpcNotification {
 			Self::LiveLevels(member) => serialize_tagged(member, &[("type", "live_levels")], serializer),
 			Self::LiveTranscript(member) => serialize_tagged(member, &[("type", "live_transcript")], serializer),
 			Self::LiveEnd(member) => serialize_tagged(member, &[("type", "live_end")], serializer),
+			Self::LiveDelegation(member) => serialize_tagged(member, &[("type", "live_delegation")], serializer),
+			Self::PlanProposed(member) => serialize_tagged(member, &[("type", "plan_proposed")], serializer),
+			Self::PlanUpdated(member) => serialize_tagged(member, &[("type", "plan_updated")], serializer),
 			Self::DictationState(member) => serialize_tagged(member, &[("type", "dictation_state")], serializer),
 			Self::DictationTranscript(member) => serialize_tagged(member, &[("type", "dictation_transcript")], serializer),
 			Self::DictationEnd(member) => serialize_tagged(member, &[("type", "dictation_end")], serializer),
@@ -5312,7 +5420,7 @@ impl RpcServerFrame {
 		let decode: fn(Value) -> Result<Self, serde_json::Error> = match value.get("type").and_then(Value::as_str) {
 			Some("response") => |value| serde_json::from_value(value).map(Self::Response),
 			Some("host_tool_call" | "host_tool_cancel" | "host_uri_request" | "host_uri_cancel") => |value| serde_json::from_value(value).map(Self::RpcHostRequest),
-			Some("ready" | "prompt_result" | "session_settled" | "extension_error" | "extension_ui_request" | "available_commands_update" | "subagent_lifecycle" | "subagent_progress" | "subagent_event" | "live_phase" | "live_levels" | "live_transcript" | "live_end" | "dictation_state" | "dictation_transcript" | "dictation_end" | "btw_delta" | "btw_record" | "command_output" | "session_info_update" | "config_update" | "rpc_frame_error" | "agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcNotification),
+			Some("ready" | "prompt_result" | "session_settled" | "extension_error" | "extension_ui_request" | "available_commands_update" | "subagent_lifecycle" | "subagent_progress" | "subagent_event" | "live_phase" | "live_levels" | "live_transcript" | "live_end" | "live_delegation" | "plan_proposed" | "plan_updated" | "dictation_state" | "dictation_transcript" | "dictation_end" | "btw_delta" | "btw_record" | "command_output" | "session_info_update" | "config_update" | "rpc_frame_error" | "agent_start" | "agent_end" | "turn_start" | "turn_end" | "message_start" | "message_update" | "message_end" | "tool_execution_start" | "tool_execution_update" | "tool_stream_update" | "tool_execution_end" | "auto_compaction_start" | "auto_compaction_end" | "manual_compaction_start" | "manual_compaction_end" | "auto_retry_start" | "auto_retry_end" | "cache_warming_start" | "cache_warming_end" | "cache_warming_stopped" | "retry_fallback_applied" | "retry_fallback_succeeded" | "model_changed" | "config_warnings_changed" | "advisor_cost_changed" | "advisor_yielded" | "ttsr_triggered" | "todo_reminder" | "todo_auto_clear" | "irc_message" | "notice" | "thinking_level_changed" | "goal_updated" | "queue_update") => |value| serde_json::from_value(value).map(Self::RpcNotification),
 			_ => |value| Ok(Self::Unknown(value)),
 		};
 		decode(value)
@@ -5571,6 +5679,8 @@ pub struct LiveConnectParams {
 	pub voice: Option<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub instructions: Option<String>,
+	#[serde(rename = "hostDelegation", default, skip_serializing_if = "Option::is_none")]
+	pub host_delegation: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5578,6 +5688,13 @@ pub struct LiveConnectResult {
 	pub voice: String,
 	#[serde(rename = "sdpAnswer")]
 	pub sdp_answer: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LiveReportParams {
+	pub text: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub r#final: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5632,7 +5749,7 @@ pub struct GetModelPickerParams {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SetThinkingLevelParams {
-	/// `auto` lets omp pick the effort per turn.
+	/// `auto` lets Scient Agent pick the effort per turn.
 	pub level: ConfiguredThinkingLevel,
 }
 
@@ -5821,14 +5938,16 @@ pub struct GetLogoutAccountsResult {
 pub struct LogoutParams {
 	#[serde(rename = "providerId")]
 	pub provider_id: String,
-	#[serde(rename = "credentialId")]
-	pub credential_id: i64,
+	#[serde(rename = "credentialId", default, skip_serializing_if = "Option::is_none")]
+	pub credential_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogoutResult {
 	#[serde(rename = "remainingSource", default, skip_serializing_if = "Option::is_none")]
 	pub remaining_source: Option<String>,
+	#[serde(rename = "providerId", default, skip_serializing_if = "Option::is_none")]
+	pub provider_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -5877,6 +5996,17 @@ pub struct BtwCancelResult {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GetBtwHistoryResult {
 	pub records: Vec<BtwHistoryRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PredictNextMessageResult {
+	#[serde(deserialize_with = "Deserialize::deserialize")]
+	pub text: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanParams {
+	pub op: PlanOp,
 }
 
 /// The constant `"image"`.
@@ -6105,6 +6235,24 @@ impl<'de> Deserialize<'de> for LitCompleted {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LoginProviderKind {
+	#[serde(rename = "account")]
+	Account,
+	#[serde(rename = "key")]
+	Key,
+}
+
+impl LoginProviderKind {
+	/// Wire value.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Account => "account",
+			Self::Key => "key",
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LogoutAccountType {
 	#[serde(rename = "api_key")]
 	ApiKey,
@@ -6118,6 +6266,24 @@ impl LogoutAccountType {
 		match self {
 			Self::ApiKey => "api_key",
 			Self::Oauth => "oauth",
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PromptCacheEntryTier {
+	#[serde(rename = "short")]
+	Short,
+	#[serde(rename = "long")]
+	Long,
+}
+
+impl PromptCacheEntryTier {
+	/// Wire value.
+	pub fn as_str(self) -> &'static str {
+		match self {
+			Self::Short => "short",
+			Self::Long => "long",
 		}
 	}
 }
@@ -6864,6 +7030,8 @@ pub struct LiveConnectCommand {
 	pub voice: Option<String>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub instructions: Option<String>,
+	#[serde(rename = "hostDelegation", default, skip_serializing_if = "Option::is_none")]
+	pub host_delegation: Option<bool>,
 }
 
 impl Command for LiveConnectCommand {
@@ -6873,6 +7041,25 @@ impl Command for LiveConnectCommand {
 
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		serde_json::from_value::<LiveConnectResult>(data.unwrap_or_else(|| Value::Object(Map::new())))
+	}
+}
+
+/// Report the delegated request's progress, or with `final` its answer, to the live voice session.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LiveReportCommand {
+	pub text: String,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub r#final: Option<bool>,
+}
+
+impl Command for LiveReportCommand {
+	const NAME: &'static str = "live_report";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = ();
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		let _ = data;
+		Ok(())
 	}
 }
 
@@ -6995,7 +7182,7 @@ impl Command for GetAvailableModelsCommand {
 	}
 }
 
-/// Model picker rows ordered and ranked as omp's session model picker shows them; a query starting with `@` lists quick roles.
+/// Model picker rows ordered and ranked as Scient Agent's session model picker shows them; a query starting with `@` lists quick roles.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct GetModelPickerCommand {
 	/// Search text; blank browses every model, `provider/` limits matches to a provider.
@@ -7019,7 +7206,7 @@ impl Command for GetModelPickerCommand {
 /// Set the thinking level.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SetThinkingLevelCommand {
-	/// `auto` lets omp pick the effort per turn.
+	/// `auto` lets Scient Agent pick the effort per turn.
 	pub level: ConfiguredThinkingLevel,
 }
 
@@ -7538,13 +7725,13 @@ impl Command for GetLogoutAccountsCommand {
 	}
 }
 
-/// Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.
+/// Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogoutCommand {
 	#[serde(rename = "providerId")]
 	pub provider_id: String,
-	#[serde(rename = "credentialId")]
-	pub credential_id: i64,
+	#[serde(rename = "credentialId", default, skip_serializing_if = "Option::is_none")]
+	pub credential_id: Option<i64>,
 }
 
 impl Command for LogoutCommand {
@@ -7640,5 +7827,35 @@ impl Command for GetBtwHistoryCommand {
 
 	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
 		serde_json::from_value::<GetBtwHistoryResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.records)
+	}
+}
+
+/// The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct PredictNextMessageCommand {}
+
+impl Command for PredictNextMessageCommand {
+	const NAME: &'static str = "predict_next_message";
+	const TIMEOUT_MS: Option<u64> = Some(30000);
+	type Output = Option<String>;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<PredictNextMessageResult>(data.unwrap_or_else(|| Value::Object(Map::new()))).map(|result| result.text)
+	}
+}
+
+/// Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanCommand {
+	pub op: PlanOp,
+}
+
+impl Command for PlanCommand {
+	const NAME: &'static str = "plan";
+	const TIMEOUT_MS: Option<u64> = None;
+	type Output = PlanResult;
+
+	fn decode(data: Option<Value>) -> Result<Self::Output, serde_json::Error> {
+		serde_json::from_value::<PlanResult>(data.unwrap_or_else(|| Value::Object(Map::new())))
 	}
 }

@@ -364,6 +364,17 @@
 				"clientOmit": []
 			},
 			{
+				"name": "live_report",
+				"doc": "Report the delegated request's progress, or with `final` its answer, to the live voice session.",
+				"params": "LiveReportParams",
+				"result": null,
+				"nullable": false,
+				"unwrap": null,
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
 				"name": "live_stop",
 				"doc": "Stop the live voice session, if any.",
 				"params": null,
@@ -794,7 +805,7 @@
 			},
 			{
 				"name": "logout",
-				"doc": "Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies.",
+				"doc": "Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out.",
 				"params": "LogoutParams",
 				"result": "LogoutResult",
 				"nullable": false,
@@ -854,6 +865,28 @@
 				"result": "GetBtwHistoryResult",
 				"nullable": false,
 				"unwrap": "records",
+				"timeoutMs": null,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
+				"name": "predict_next_message",
+				"doc": "The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one.",
+				"params": null,
+				"result": "PredictNextMessageResult",
+				"nullable": false,
+				"unwrap": "text",
+				"timeoutMs": 30000,
+				"completion": null,
+				"clientOmit": []
+			},
+			{
+				"name": "plan",
+				"doc": "Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request).",
+				"params": "PlanParams",
+				"result": "PlanResult",
+				"nullable": false,
+				"unwrap": null,
 				"timeoutMs": null,
 				"completion": null,
 				"clientOmit": []
@@ -2336,6 +2369,30 @@
 			],
 			"type": "string"
 		},
+		"PlanOp": {
+			"enum": [
+				"get",
+				"enter",
+				"exit"
+			],
+			"type": "string"
+		},
+		"PlanResult": {
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"type": "boolean",
+					"description": "Plan mode is on: the agent plans and changes nothing until a plan is approved."
+				},
+				"planFilePath": {
+					"type": "string",
+					"description": "The plan file the agent drafts, while plan mode is on."
+				}
+			},
+			"required": [
+				"enabled"
+			]
+		},
 		"GoalOp": {
 			"enum": [
 				"get",
@@ -3753,13 +3810,35 @@
 				},
 				"authenticated": {
 					"type": "boolean"
+				},
+				"kind": {
+					"enum": [
+						"account",
+						"key"
+					],
+					"type": "string"
+				},
+				"stored": {
+					"type": "boolean"
+				},
+				"store": {
+					"type": "string"
+				},
+				"emails": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
 				}
 			},
 			"required": [
 				"id",
 				"name",
 				"available",
-				"authenticated"
+				"authenticated",
+				"kind",
+				"stored",
+				"store"
 			]
 		},
 		"LogoutAccount": {
@@ -4015,11 +4094,41 @@
 				"messageId": {
 					"type": "string",
 					"description": "Shared by the start, updates, and end of one message; unique per process."
+				},
+				"promptCache": {
+					"$ref": "#/$defs/PromptCacheEntry",
+					"description": "On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires."
 				}
 			},
 			"required": [
 				"type",
 				"message"
+			]
+		},
+		"PromptCacheEntry": {
+			"type": "object",
+			"properties": {
+				"tier": {
+					"enum": [
+						"short",
+						"long"
+					],
+					"type": "string",
+					"description": "Retention tier the provider wrote the entry under: minutes or about an hour."
+				},
+				"touchedAt": {
+					"type": "integer",
+					"description": "Epoch ms when a request last wrote or read the entry (its send time)."
+				},
+				"ttlMs": {
+					"type": "integer",
+					"description": "How long the provider keeps the entry after `touchedAt`."
+				}
+			},
+			"required": [
+				"tier",
+				"touchedAt",
+				"ttlMs"
 			]
 		},
 		"ToolExecutionStartEvent": {
@@ -4334,6 +4443,32 @@
 				"outcome"
 			],
 			"description": "Outcome of the refresh announced by the matching `cache_warming_start`."
+		},
+		"CacheWarmingStoppedEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "cache_warming_stopped"
+				},
+				"reason": {
+					"type": "string",
+					"description": "Why warming stopped."
+				},
+				"stoppedAt": {
+					"type": "integer",
+					"description": "Epoch ms when warming stopped, which may be well before a host reads the frame."
+				},
+				"promptCache": {
+					"$ref": "#/$defs/PromptCacheEntry",
+					"description": "The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change."
+				}
+			},
+			"required": [
+				"type",
+				"reason",
+				"stoppedAt"
+			],
+			"description": "Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm."
 		},
 		"RetryFallbackAppliedEvent": {
 			"type": "object",
@@ -4659,6 +4794,9 @@
 					"$ref": "#/$defs/CacheWarmingEndEvent"
 				},
 				{
+					"$ref": "#/$defs/CacheWarmingStoppedEvent"
+				},
+				{
 					"$ref": "#/$defs/RetryFallbackAppliedEvent"
 				},
 				{
@@ -4764,6 +4902,17 @@
 				"code": {
 					"const": "cost_cap",
 					"description": "`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request."
+				},
+				"resetAt": {
+					"type": "integer",
+					"description": "Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say."
+				},
+				"kinds": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none."
 				}
 			},
 			"required": [
@@ -5107,6 +5256,65 @@
 				"type"
 			],
 			"description": "Sent exactly once when a live session ends; `error` carries the failure cause."
+		},
+		"LiveDelegationEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "live_delegation"
+				},
+				"text": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"text"
+			],
+			"description": "A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."
+		},
+		"PlanProposedEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "plan_proposed"
+				},
+				"title": {
+					"type": "string"
+				},
+				"planFilePath": {
+					"type": "string"
+				},
+				"markdown": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"title",
+				"planFilePath",
+				"markdown"
+			],
+			"description": "The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."
+		},
+		"PlanUpdatedEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"const": "plan_updated"
+				},
+				"enabled": {
+					"type": "boolean"
+				},
+				"planFilePath": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"enabled"
+			],
+			"description": "Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation."
 		},
 		"DictationStateEvent": {
 			"type": "object",
@@ -6326,6 +6534,15 @@
 					"$ref": "#/$defs/LiveEndEvent"
 				},
 				{
+					"$ref": "#/$defs/LiveDelegationEvent"
+				},
+				{
+					"$ref": "#/$defs/PlanProposedEvent"
+				},
+				{
+					"$ref": "#/$defs/PlanUpdatedEvent"
+				},
+				{
 					"$ref": "#/$defs/DictationStateEvent"
 				},
 				{
@@ -6877,6 +7094,9 @@
 				},
 				"instructions": {
 					"type": "string"
+				},
+				"hostDelegation": {
+					"type": "boolean"
 				}
 			},
 			"required": [
@@ -6896,6 +7116,20 @@
 			"required": [
 				"voice",
 				"sdpAnswer"
+			]
+		},
+		"LiveReportParams": {
+			"type": "object",
+			"properties": {
+				"text": {
+					"type": "string"
+				},
+				"final": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"text"
 			]
 		},
 		"LiveMuteParams": {
@@ -7385,14 +7619,16 @@
 				}
 			},
 			"required": [
-				"providerId",
-				"credentialId"
+				"providerId"
 			]
 		},
 		"LogoutResult": {
 			"type": "object",
 			"properties": {
 				"remainingSource": {
+					"type": "string"
+				},
+				"providerId": {
 					"type": "string"
 				}
 			}
@@ -7509,6 +7745,35 @@
 			},
 			"required": [
 				"records"
+			]
+		},
+		"PredictNextMessageResult": {
+			"type": "object",
+			"properties": {
+				"text": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "null"
+						}
+					]
+				}
+			},
+			"required": [
+				"text"
+			]
+		},
+		"PlanParams": {
+			"type": "object",
+			"properties": {
+				"op": {
+					"$ref": "#/$defs/PlanOp"
+				}
+			},
+			"required": [
+				"op"
 			]
 		}
 	}

@@ -393,6 +393,15 @@ export type MessageUpdates = "full" | "delta";
 
 export type TodoStatus = "pending" | "in_progress" | "completed" | "abandoned";
 
+export type PlanOp = "get" | "enter" | "exit";
+
+export interface PlanResult {
+	/** Plan mode is on: the agent plans and changes nothing until a plan is approved. */
+	enabled: boolean;
+	/** The plan file the agent drafts, while plan mode is on. */
+	planFilePath?: string;
+}
+
 export type GoalOp = "get" | "create" | "resume" | "pause" | "drop";
 
 export type GoalStatus = "active" | "paused" | "budget-limited" | "complete" | "dropped";
@@ -495,7 +504,7 @@ export interface SessionState {
 	thinkingLevel?: ThinkingLevel;
 	/** The user's thinking selector: `auto` while auto mode picks the effort, else `thinkingLevel`. */
 	configuredThinkingLevel?: ConfiguredThinkingLevel;
-	/** Selectors the active model accepts, as omp's thinking selector lists them: `off`, `auto`, then its efforts. */
+	/** Selectors the active model accepts, as Scient Agent's thinking selector lists them: `off`, `auto`, then its efforts. */
 	thinkingLevels?: ConfiguredThinkingLevel[];
 	isStreaming?: boolean;
 	isCompacting?: boolean;
@@ -602,7 +611,7 @@ export interface ModelPickerRole {
 	auto?: boolean;
 }
 
-/** One row of omp's session model picker. */
+/** One row of Scient Agent's session model picker. */
 export interface ModelPickerRow {
 	provider: string;
 	id: string;
@@ -756,7 +765,7 @@ export interface AvailableSlashCommand {
 	subcommands?: SlashSubcommand[];
 }
 
-/** OMP-native session entries in append order. */
+/** Scient Agent-native session entries in append order. */
 export interface SessionEntries {
 	entries: Record<string, unknown>[];
 	leafId: string | null;
@@ -831,6 +840,10 @@ export interface LoginProvider {
 	name: string;
 	available: boolean;
 	authenticated: boolean;
+	kind: "account" | "key";
+	stored: boolean;
+	store: string;
+	emails?: string[];
 }
 
 /** A stored credential `logout` can remove; `active` marks credentials the session may be using. */
@@ -916,6 +929,17 @@ export interface MessageEndEvent {
 	message: AgentMessage;
 	/** Shared by the start, updates, and end of one message; unique per process. */
 	messageId?: string;
+	/** On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires. */
+	promptCache?: PromptCacheEntry;
+}
+
+export interface PromptCacheEntry {
+	/** Retention tier the provider wrote the entry under: minutes or about an hour. */
+	tier: "short" | "long";
+	/** Epoch ms when a request last wrote or read the entry (its send time). */
+	touchedAt: number;
+	/** How long the provider keeps the entry after `touchedAt`. */
+	ttlMs: number;
 }
 
 export interface ToolExecutionStartEvent {
@@ -1026,6 +1050,17 @@ export interface CacheWarmingEndEvent {
 	warmingStopReason?: string;
 }
 
+/** Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm. */
+export interface CacheWarmingStoppedEvent {
+	type: "cache_warming_stopped";
+	/** Why warming stopped. */
+	reason: string;
+	/** Epoch ms when warming stopped, which may be well before a host reads the frame. */
+	stoppedAt: number;
+	/** The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change. */
+	promptCache?: PromptCacheEntry;
+}
+
 export interface RetryFallbackAppliedEvent {
 	type: "retry_fallback_applied";
 	from: string;
@@ -1112,7 +1147,7 @@ export interface QueueUpdateEvent {
 }
 
 /** A session event, discriminated by `type`; `set_event_filter` selects which are sent. */
-export type RpcAgentEvent = AgentStartEvent | AgentEndEvent | TurnStartEvent | TurnEndEvent | MessageStartEvent | MessageUpdateEvent | MessageEndEvent | ToolExecutionStartEvent | ToolExecutionUpdateEvent | ToolStreamUpdateEvent | ToolExecutionEndEvent | AutoCompactionStartEvent | AutoCompactionEndEvent | ManualCompactionStartEvent | ManualCompactionEndEvent | AutoRetryStartEvent | AutoRetryEndEvent | CacheWarmingStartEvent | CacheWarmingEndEvent | RetryFallbackAppliedEvent | RetryFallbackSucceededEvent | ModelChangedEvent | ConfigWarningsChangedEvent | AdvisorCostChangedEvent | AdvisorYieldedEvent | TtsrTriggeredEvent | TodoReminderEvent | TodoAutoClearEvent | IrcMessageEvent | NoticeEvent | ThinkingLevelChangedEvent | GoalUpdatedEvent | QueueUpdateEvent;
+export type RpcAgentEvent = AgentStartEvent | AgentEndEvent | TurnStartEvent | TurnEndEvent | MessageStartEvent | MessageUpdateEvent | MessageEndEvent | ToolExecutionStartEvent | ToolExecutionUpdateEvent | ToolStreamUpdateEvent | ToolExecutionEndEvent | AutoCompactionStartEvent | AutoCompactionEndEvent | ManualCompactionStartEvent | ManualCompactionEndEvent | AutoRetryStartEvent | AutoRetryEndEvent | CacheWarmingStartEvent | CacheWarmingEndEvent | CacheWarmingStoppedEvent | RetryFallbackAppliedEvent | RetryFallbackSucceededEvent | ModelChangedEvent | ConfigWarningsChangedEvent | AdvisorCostChangedEvent | AdvisorYieldedEvent | TtsrTriggeredEvent | TodoReminderEvent | TodoAutoClearEvent | IrcMessageEvent | NoticeEvent | ThinkingLevelChangedEvent | GoalUpdatedEvent | QueueUpdateEvent;
 
 /** First frame after startup; transport fields are absent on servers without protocol v2. */
 export interface ReadyEvent {
@@ -1130,13 +1165,17 @@ export type PromptStatus = "completed" | "aborted" | "error";
 /** Failure detail of a `prompt_result` with `status: "error"`. */
 export interface PromptError {
 	message: string;
-	/** Transient: resubmitting later may succeed (omp's own retries are exhausted). */
+	/** Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted). */
 	retryable: boolean;
 	provider?: string;
 	model?: string;
 	httpStatus?: number;
-	/** `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request. */
+	/** `cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request. */
 	code?: "cost_cap";
+	/** Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say. */
+	resetAt?: number;
+	/** The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none. */
+	kinds?: string[];
 }
 
 /** Terminal outcome of one accepted `prompt` / `abort_and_prompt`, keyed by request `id`. */
@@ -1248,6 +1287,27 @@ export interface LiveTranscriptEvent {
 export interface LiveEndEvent {
 	type: "live_end";
 	error?: string;
+}
+
+/** A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`. */
+export interface LiveDelegationEvent {
+	type: "live_delegation";
+	text: string;
+}
+
+/** The plan the agent proposed in plan mode, sent just before the select request that asks to approve it. */
+export interface PlanProposedEvent {
+	type: "plan_proposed";
+	title: string;
+	planFilePath: string;
+	markdown: string;
+}
+
+/** Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation. */
+export interface PlanUpdatedEvent {
+	type: "plan_updated";
+	enabled: boolean;
+	planFilePath?: string;
 }
 
 /** State of one draft-only microphone capture. */
@@ -1616,7 +1676,7 @@ export interface HostUriSchemeDefinition {
 }
 
 /** Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`. */
-export type RpcNotification = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent;
+export type RpcNotification = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | PlanProposedEvent | PlanUpdatedEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent;
 
 /** Any frame the server writes to stdout (after reassembling `rpc_chunk` sequences), discriminated by `type`. */
 export type RpcServerFrame = RpcResponse | RpcHostRequest | RpcNotification;
@@ -1789,11 +1849,17 @@ export interface LiveConnectParams {
 	sdpOffer: string;
 	voice?: string;
 	instructions?: string;
+	hostDelegation?: boolean;
 }
 
 export interface LiveConnectResult {
 	voice: string;
 	sdpAnswer: string;
+}
+
+export interface LiveReportParams {
+	text: string;
+	final?: boolean;
 }
 
 export interface LiveMuteParams {
@@ -1833,7 +1899,7 @@ export interface GetModelPickerParams {
 }
 
 export interface SetThinkingLevelParams {
-	/** `auto` lets omp pick the effort per turn. */
+	/** `auto` lets Scient Agent pick the effort per turn. */
 	level: ConfiguredThinkingLevel;
 }
 
@@ -1969,11 +2035,12 @@ export interface GetLogoutAccountsResult {
 
 export interface LogoutParams {
 	providerId: string;
-	credentialId: number;
+	credentialId?: number;
 }
 
 export interface LogoutResult {
 	remainingSource?: string;
+	providerId?: string;
 }
 
 export interface PredictWordParams {
@@ -2013,6 +2080,14 @@ export interface GetBtwHistoryResult {
 	records: BtwHistoryRecord[];
 }
 
+export interface PredictNextMessageResult {
+	text: string | null;
+}
+
+export interface PlanParams {
+	op: PlanOp;
+}
+
 /** Every RPC command's parameters and successful response `data`. */
 export interface RpcWireCommands {
 	negotiate_protocol: { params: NegotiateProtocolParams; result: NegotiateProtocolResult };
@@ -2047,6 +2122,7 @@ export interface RpcWireCommands {
 	steer_subagent: { params: SteerSubagentParams; result: undefined };
 	live_start: { params: LiveStartParams; result: LiveStartResult };
 	live_connect: { params: LiveConnectParams; result: LiveConnectResult };
+	live_report: { params: LiveReportParams; result: undefined };
 	live_stop: { params: undefined; result: undefined };
 	live_mute: { params: LiveMuteParams; result: LiveMuteResult };
 	dictation_start: { params: DictationStartParams; result: undefined };
@@ -2092,4 +2168,6 @@ export interface RpcWireCommands {
 	btw: { params: BtwParams; result: BtwResult };
 	btw_cancel: { params: BtwCancelParams; result: BtwCancelResult };
 	get_btw_history: { params: undefined; result: GetBtwHistoryResult };
+	predict_next_message: { params: undefined; result: PredictNextMessageResult };
+	plan: { params: PlanParams; result: PlanResult };
 }

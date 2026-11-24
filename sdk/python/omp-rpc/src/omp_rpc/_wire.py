@@ -98,6 +98,11 @@ _TODO_STATUS_VALUES: Final[frozenset[str]] = frozenset({"pending", "in_progress"
 _decode_todo_status = cast("Decoder[TodoStatus]", literal(_TODO_STATUS_VALUES))
 
 
+PlanOp: TypeAlias = Literal["get", "enter", "exit"]
+_PLAN_OP_VALUES: Final[frozenset[str]] = frozenset({"get", "enter", "exit"})
+_decode_plan_op = cast("Decoder[PlanOp]", literal(_PLAN_OP_VALUES))
+
+
 GoalOp: TypeAlias = Literal["get", "create", "resume", "pause", "drop"]
 _GOAL_OP_VALUES: Final[frozenset[str]] = frozenset({"get", "create", "resume", "pause", "drop"})
 _decode_goal_op = cast("Decoder[GoalOp]", literal(_GOAL_OP_VALUES))
@@ -560,6 +565,14 @@ class ModelInfo:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class PlanResult:
+    enabled: bool
+    """Plan mode is on: the agent plans and changes nothing until a plan is approved."""
+    plan_file_path: str | None = None
+    """The plan file the agent drafts, while plan mode is on."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class TodoItem:
     content: str
     status: TodoStatus
@@ -654,7 +667,7 @@ class SessionState:
     configured_thinking_level: ConfiguredThinkingLevel | None = None
     """The user's thinking selector: `auto` while auto mode picks the effort, else `thinkingLevel`."""
     thinking_levels: tuple[ConfiguredThinkingLevel, ...] | None = None
-    """Selectors the active model accepts, as omp's thinking selector lists them: `off`, `auto`, then its efforts."""
+    """Selectors the active model accepts, as Scient Agent's thinking selector lists them: `off`, `auto`, then its efforts."""
     is_streaming: bool = False
     is_compacting: bool = False
     steering_mode: QueueMode = "one-at-a-time"
@@ -768,7 +781,7 @@ class ModelPickerRole:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class ModelPickerRow:
-    """One row of omp's session model picker."""
+    """One row of Scient Agent's session model picker."""
     provider: str
     id: str
     name: str
@@ -942,7 +955,7 @@ class AvailableSlashCommand:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class SessionEntries:
-    """OMP-native session entries in append order."""
+    """Scient Agent-native session entries in append order."""
     entries: tuple[JsonObject, ...]
     leaf_id: str | None
 
@@ -1019,6 +1032,10 @@ class LoginProvider:
     name: str
     available: bool
     authenticated: bool
+    kind: Literal["account", "key"]
+    stored: bool
+    store: str
+    emails: tuple[str, ...] | None = None
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1102,6 +1119,18 @@ class MessageEndEvent:
     message: AgentMessage
     message_id: str | None = None
     """Shared by the start, updates, and end of one message; unique per process."""
+    prompt_cache: PromptCacheEntry | None = None
+    """On an assistant reply: the prompt-cache entry its response confirmed, while the next request would still read it. Absent for a cache that never expires."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class PromptCacheEntry:
+    tier: Literal["short", "long"]
+    """Retention tier the provider wrote the entry under: minutes or about an hour."""
+    touched_at: int
+    """Epoch ms when a request last wrote or read the entry (its send time)."""
+    ttl_ms: int
+    """How long the provider keeps the entry after `touchedAt`."""
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1225,6 +1254,18 @@ class CacheWarmingEndEvent:
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class CacheWarmingStoppedEvent:
+    """Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm."""
+    type: Literal["cache_warming_stopped"] = "cache_warming_stopped"
+    reason: str
+    """Why warming stopped."""
+    stopped_at: int
+    """Epoch ms when warming stopped, which may be well before a host reads the frame."""
+    prompt_cache: PromptCacheEntry | None = None
+    """The confirmed entry the next request would still read, as warming left it; absent when none is, such as after a context change."""
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class RetryFallbackAppliedEvent:
     type: Literal["retry_fallback_applied"] = "retry_fallback_applied"
     from_model: str
@@ -1340,12 +1381,16 @@ class PromptError:
     """Failure detail of a `prompt_result` with `status: "error"`."""
     message: str
     retryable: bool
-    """Transient: resubmitting later may succeed (omp's own retries are exhausted)."""
+    """Transient: resubmitting later may succeed (Scient Agent's own retries are exhausted)."""
     provider: str | None = None
     model: str | None = None
     http_status: int | None = None
     code: Literal["cost_cap"] | None = None
-    """`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and omp did not send the next request."""
+    """`cost_cap`: the session reached `session.maxCost` (`--max-cost`) and Scient Agent did not send the next request."""
+    reset_at: int | None = None
+    """Epoch ms at which the provider said the usage limit behind this failure resets; absent when it did not say."""
+    kinds: tuple[str, ...] | None = None
+    """The error classifier's labels for this failure (`auth-failed`, `context-overflow`, `transient`, ...); absent when it recognized none."""
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1465,6 +1510,30 @@ class LiveEndEvent:
     """Sent exactly once when a live session ends; `error` carries the failure cause."""
     type: Literal["live_end"] = "live_end"
     error: str | None = None
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class LiveDelegationEvent:
+    """A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."""
+    type: Literal["live_delegation"] = "live_delegation"
+    text: str
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class PlanProposedEvent:
+    """The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."""
+    type: Literal["plan_proposed"] = "plan_proposed"
+    title: str
+    plan_file_path: str
+    markdown: str
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class PlanUpdatedEvent:
+    """Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation."""
+    type: Literal["plan_updated"] = "plan_updated"
+    enabled: bool
+    plan_file_path: str | None = None
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -1782,6 +1851,7 @@ class GetSessionLeaseResult:
 @dataclass(slots=True, frozen=True, kw_only=True)
 class LogoutResult:
     remaining_source: str | None = None
+    provider_id: str | None = None
 
 
 UserContent: TypeAlias = TextContent | ImageContent
@@ -1802,11 +1872,11 @@ UsageLimitState: TypeAlias = UsageLimitLowPriority | UsageLimitWrapUp
 """Provider-neutral state of an account past its usage limit, discriminated by `stage`."""
 
 
-RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | TurnEndEvent | MessageStartEvent | MessageUpdateEvent | MessageEndEvent | ToolExecutionStartEvent | ToolExecutionUpdateEvent | ToolStreamUpdateEvent | ToolExecutionEndEvent | AutoCompactionStartEvent | AutoCompactionEndEvent | ManualCompactionStartEvent | ManualCompactionEndEvent | AutoRetryStartEvent | AutoRetryEndEvent | CacheWarmingStartEvent | CacheWarmingEndEvent | RetryFallbackAppliedEvent | RetryFallbackSucceededEvent | ModelChangedEvent | ConfigWarningsChangedEvent | AdvisorCostChangedEvent | AdvisorYieldedEvent | TtsrTriggeredEvent | TodoReminderEvent | TodoAutoClearEvent | IrcMessageEvent | NoticeEvent | ThinkingLevelChangedEvent | GoalUpdatedEvent | QueueUpdateEvent
+RpcAgentEvent: TypeAlias = AgentStartEvent | AgentEndEvent | TurnStartEvent | TurnEndEvent | MessageStartEvent | MessageUpdateEvent | MessageEndEvent | ToolExecutionStartEvent | ToolExecutionUpdateEvent | ToolStreamUpdateEvent | ToolExecutionEndEvent | AutoCompactionStartEvent | AutoCompactionEndEvent | ManualCompactionStartEvent | ManualCompactionEndEvent | AutoRetryStartEvent | AutoRetryEndEvent | CacheWarmingStartEvent | CacheWarmingEndEvent | CacheWarmingStoppedEvent | RetryFallbackAppliedEvent | RetryFallbackSucceededEvent | ModelChangedEvent | ConfigWarningsChangedEvent | AdvisorCostChangedEvent | AdvisorYieldedEvent | TtsrTriggeredEvent | TodoReminderEvent | TodoAutoClearEvent | IrcMessageEvent | NoticeEvent | ThinkingLevelChangedEvent | GoalUpdatedEvent | QueueUpdateEvent
 """A session event, discriminated by `type`; `set_event_filter` selects which are sent."""
 
 
-RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
+RpcNotification: TypeAlias = ReadyEvent | PromptResultEvent | SessionSettledEvent | ExtensionError | ExtensionUiRequest | AvailableCommandsUpdateEvent | SubagentLifecycleEvent | SubagentProgressEvent | SubagentEvent | LivePhaseEvent | LiveLevelsEvent | LiveTranscriptEvent | LiveEndEvent | LiveDelegationEvent | PlanProposedEvent | PlanUpdatedEvent | DictationStateEvent | DictationTranscriptEvent | DictationEndEvent | BtwDeltaEvent | BtwRecordEvent | CommandOutputEvent | SessionInfoUpdateEvent | ConfigUpdateEvent | RpcFrameErrorEvent | RpcAgentEvent | UnknownNotification
 """Unsolicited outbound frame (everything except responses and host tool/URI requests), discriminated by `type`."""
 
 
@@ -2020,6 +2090,14 @@ def parse_model_info(value: object, path: str = "ModelInfo") -> ModelInfo:
         priority=optional(payload, "priority", decode_int, path),
         thinking=optional(payload, "thinking", parse_thinking_config, path),
         compat=optional(payload, "compat", decode_json_object, path),
+    )
+
+
+def parse_plan_result(value: object, path: str = "PlanResult") -> PlanResult:
+    payload = expect_object(value, path)
+    return PlanResult(
+        enabled=required(payload, "enabled", decode_bool, path),
+        plan_file_path=optional(payload, "planFilePath", decode_str, path),
     )
 
 
@@ -2506,6 +2584,10 @@ def parse_login_provider(value: object, path: str = "LoginProvider") -> LoginPro
         name=required(payload, "name", decode_str, path),
         available=required(payload, "available", decode_bool, path),
         authenticated=required(payload, "authenticated", decode_bool, path),
+        kind=required(payload, "kind", cast('Decoder[Literal["account", "key"]]', literal(frozenset({"account", "key"}))), path),
+        stored=required(payload, "stored", decode_bool, path),
+        store=required(payload, "store", decode_str, path),
+        emails=optional(payload, "emails", array(decode_str), path),
     )
 
 
@@ -2598,6 +2680,16 @@ def parse_message_end_event(value: object, path: str = "MessageEndEvent") -> Mes
     return MessageEndEvent(
         message=required(payload, "message", parse_agent_message, path),
         message_id=optional(payload, "messageId", decode_str, path),
+        prompt_cache=optional(payload, "promptCache", parse_prompt_cache_entry, path),
+    )
+
+
+def parse_prompt_cache_entry(value: object, path: str = "PromptCacheEntry") -> PromptCacheEntry:
+    payload = expect_object(value, path)
+    return PromptCacheEntry(
+        tier=required(payload, "tier", cast('Decoder[Literal["short", "long"]]', literal(frozenset({"short", "long"}))), path),
+        touched_at=required(payload, "touchedAt", decode_int, path),
+        ttl_ms=required(payload, "ttlMs", decode_int, path),
     )
 
 
@@ -2730,6 +2822,16 @@ def parse_cache_warming_end_event(value: object, path: str = "CacheWarmingEndEve
         outcome=required(payload, "outcome", _decode_cache_warming_outcome, path),
         usage=optional(payload, "usage", parse_usage, path),
         warming_stop_reason=optional(payload, "warmingStopReason", decode_str, path),
+    )
+
+
+def parse_cache_warming_stopped_event(value: object, path: str = "CacheWarmingStoppedEvent") -> CacheWarmingStoppedEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["cache_warming_stopped"]]', literal(frozenset({"cache_warming_stopped"}))), path)
+    return CacheWarmingStoppedEvent(
+        reason=required(payload, "reason", decode_str, path),
+        stopped_at=required(payload, "stoppedAt", decode_int, path),
+        prompt_cache=optional(payload, "promptCache", parse_prompt_cache_entry, path),
     )
 
 
@@ -2874,6 +2976,8 @@ def parse_prompt_error(value: object, path: str = "PromptError") -> PromptError:
         model=optional(payload, "model", decode_str, path),
         http_status=optional(payload, "httpStatus", decode_int, path),
         code=optional(payload, "code", cast('Decoder[Literal["cost_cap"]]', literal(frozenset({"cost_cap"}))), path),
+        reset_at=optional(payload, "resetAt", decode_int, path),
+        kinds=optional(payload, "kinds", array(decode_str), path),
     )
 
 
@@ -3009,6 +3113,33 @@ def parse_live_end_event(value: object, path: str = "LiveEndEvent") -> LiveEndEv
     required(payload, "type", cast('Decoder[Literal["live_end"]]', literal(frozenset({"live_end"}))), path)
     return LiveEndEvent(
         error=optional(payload, "error", decode_str, path),
+    )
+
+
+def parse_live_delegation_event(value: object, path: str = "LiveDelegationEvent") -> LiveDelegationEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["live_delegation"]]', literal(frozenset({"live_delegation"}))), path)
+    return LiveDelegationEvent(
+        text=required(payload, "text", decode_str, path),
+    )
+
+
+def parse_plan_proposed_event(value: object, path: str = "PlanProposedEvent") -> PlanProposedEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["plan_proposed"]]', literal(frozenset({"plan_proposed"}))), path)
+    return PlanProposedEvent(
+        title=required(payload, "title", decode_str, path),
+        plan_file_path=required(payload, "planFilePath", decode_str, path),
+        markdown=required(payload, "markdown", decode_str, path),
+    )
+
+
+def parse_plan_updated_event(value: object, path: str = "PlanUpdatedEvent") -> PlanUpdatedEvent:
+    payload = expect_object(value, path)
+    required(payload, "type", cast('Decoder[Literal["plan_updated"]]', literal(frozenset({"plan_updated"}))), path)
+    return PlanUpdatedEvent(
+        enabled=required(payload, "enabled", decode_bool, path),
+        plan_file_path=optional(payload, "planFilePath", decode_str, path),
     )
 
 
@@ -3366,6 +3497,7 @@ def parse_logout_result(value: object, path: str = "LogoutResult") -> LogoutResu
     payload = expect_object(value, path)
     return LogoutResult(
         remaining_source=optional(payload, "remainingSource", decode_str, path),
+        provider_id=optional(payload, "providerId", decode_str, path),
     )
 
 
@@ -3412,6 +3544,7 @@ _RPC_AGENT_EVENT_CASES: Final[dict[str, Decoder[RpcAgentEvent]]] = {
         "auto_retry_end": parse_auto_retry_end_event,
         "cache_warming_start": parse_cache_warming_start_event,
         "cache_warming_end": parse_cache_warming_end_event,
+        "cache_warming_stopped": parse_cache_warming_stopped_event,
         "retry_fallback_applied": parse_retry_fallback_applied_event,
         "retry_fallback_succeeded": parse_retry_fallback_succeeded_event,
         "model_changed": parse_model_changed_event,
@@ -3443,6 +3576,9 @@ _RPC_NOTIFICATION_CASES: Final[dict[str, Decoder[RpcNotification]]] = {
         "live_levels": parse_live_levels_event,
         "live_transcript": parse_live_transcript_event,
         "live_end": parse_live_end_event,
+        "live_delegation": parse_live_delegation_event,
+        "plan_proposed": parse_plan_proposed_event,
+        "plan_updated": parse_plan_updated_event,
         "dictation_state": parse_dictation_state_event,
         "dictation_transcript": parse_dictation_transcript_event,
         "dictation_end": parse_dictation_end_event,
@@ -3471,6 +3607,7 @@ _RPC_NOTIFICATION_CASES: Final[dict[str, Decoder[RpcNotification]]] = {
         "auto_retry_end": parse_rpc_agent_event,
         "cache_warming_start": parse_rpc_agent_event,
         "cache_warming_end": parse_rpc_agent_event,
+        "cache_warming_stopped": parse_rpc_agent_event,
         "retry_fallback_applied": parse_rpc_agent_event,
         "retry_fallback_succeeded": parse_rpc_agent_event,
         "model_changed": parse_rpc_agent_event,
@@ -3665,7 +3802,7 @@ class WireClient:
             params["instructions"] = instructions
         return required(expect_object(self._command("live_start", params), "live_start"), "voice", decode_str, "live_start")
 
-    def live_connect(self, sdp_offer: str, *, voice: str | None = None, instructions: str | None = None) -> LiveConnectResult:
+    def live_connect(self, sdp_offer: str, *, voice: str | None = None, instructions: str | None = None, host_delegation: bool | None = None) -> LiveConnectResult:
         """Start a live voice session whose audio runs on a caller-owned WebRTC peer: send its SDP offer, apply the returned answer."""
         params: dict[str, object] = {}
         params["sdpOffer"] = sdp_offer
@@ -3673,7 +3810,17 @@ class WireClient:
             params["voice"] = voice
         if instructions is not None:
             params["instructions"] = instructions
+        if host_delegation is not None:
+            params["hostDelegation"] = host_delegation
         return parse_live_connect_result(self._command("live_connect", params), "live_connect")
+
+    def live_report(self, text: str, *, final: bool | None = None) -> None:
+        """Report the delegated request's progress, or with `final` its answer, to the live voice session."""
+        params: dict[str, object] = {}
+        params["text"] = text
+        if final is not None:
+            params["final"] = final
+        self._command("live_report", params)
 
     def live_stop(self) -> None:
         """Stop the live voice session, if any."""
@@ -3721,7 +3868,7 @@ class WireClient:
         return required(expect_object(self._command("get_available_models", params), "get_available_models"), "models", array(parse_model_info), "get_available_models")
 
     def get_model_picker(self, *, query: str | None = None, limit: int | None = None) -> ModelPickerResult:
-        """Model picker rows ordered and ranked as omp's session model picker shows them; a query starting with `@` lists quick roles."""
+        """Model picker rows ordered and ranked as Scient Agent's session model picker shows them; a query starting with `@` lists quick roles."""
         params: dict[str, object] = {}
         if query is not None:
             params["query"] = query
@@ -3921,11 +4068,12 @@ class WireClient:
         params["providerId"] = provider_id
         return required(expect_object(self._command("get_logout_accounts", params), "get_logout_accounts"), "accounts", array(parse_logout_account), "get_logout_accounts")
 
-    def logout(self, provider_id: str, credential_id: int) -> LogoutResult:
-        """Remove one stored credential; fails when it is no longer stored. `remainingSource` names auth that still applies."""
+    def logout(self, provider_id: str, *, credential_id: int | None = None) -> LogoutResult:
+        """Remove one stored credential, or all stored provider sign-ins when credentialId is omitted. `remainingSource` names auth that still applies after account-specific sign-out."""
         params: dict[str, object] = {}
         params["providerId"] = provider_id
-        params["credentialId"] = credential_id
+        if credential_id is not None:
+            params["credentialId"] = credential_id
         return parse_logout_result(self._command("logout", params), "logout")
 
     def predict_word(self, text: str, cursor: int) -> str | None:
@@ -3963,6 +4111,17 @@ class WireClient:
         """List the session's side-question records, newest first."""
         params: dict[str, object] = {}
         return required(expect_object(self._command("get_btw_history", params), "get_btw_history"), "records", array(parse_btw_history_record), "get_btw_history")
+
+    def predict_next_message(self) -> str | None:
+        """The user's likely next message after the latest turn, as the composer predicts it; null when there is no confident guess, a turn is running, or a newer request replaced this one."""
+        params: dict[str, object] = {}
+        return required(expect_object(self._command("predict_next_message", params, timeout=30), "predict_next_message"), "text", nullable(decode_str), "predict_next_message")
+
+    def plan(self, op: PlanOp) -> PlanResult:
+        """Read, enter or leave plan mode: the agent plans without changing anything until the host approves the plan it proposes (`plan_proposed`, then a select request)."""
+        params: dict[str, object] = {}
+        params["op"] = op
+        return parse_plan_result(self._command("plan", params), "plan")
 
     def on_ready(self, listener: Callable[[ReadyEvent], None]) -> Callable[[], None]:
         """Subscribe to `ready`: First frame after startup; transport fields are absent on servers without protocol v2."""
@@ -4015,6 +4174,18 @@ class WireClient:
     def on_live_end(self, listener: Callable[[LiveEndEvent], None]) -> Callable[[], None]:
         """Subscribe to `live_end`: Sent exactly once when a live session ends; `error` carries the failure cause."""
         return self._listen("live_end", listener)
+
+    def on_live_delegation(self, listener: Callable[[LiveDelegationEvent], None]) -> Callable[[], None]:
+        """Subscribe to `live_delegation`: A spoken request for the host to send as the user's message; sent only to a `live_connect` with `hostDelegation`."""
+        return self._listen("live_delegation", listener)
+
+    def on_plan_proposed(self, listener: Callable[[PlanProposedEvent], None]) -> Callable[[], None]:
+        """Subscribe to `plan_proposed`: The plan the agent proposed in plan mode, sent just before the select request that asks to approve it."""
+        return self._listen("plan_proposed", listener)
+
+    def on_plan_updated(self, listener: Callable[[PlanUpdatedEvent], None]) -> Callable[[], None]:
+        """Subscribe to `plan_updated`: Plan mode turned on or off: by the `plan` command, by approving a plan, or by a change of conversation."""
+        return self._listen("plan_updated", listener)
 
     def on_dictation_state(self, listener: Callable[[DictationStateEvent], None]) -> Callable[[], None]:
         """Subscribe to `dictation_state`: State of one draft-only microphone capture."""
@@ -4128,6 +4299,10 @@ class WireClient:
         """Subscribe to `cache_warming_end`: Outcome of the refresh announced by the matching `cache_warming_start`."""
         return self._listen("cache_warming_end", listener)
 
+    def on_cache_warming_stopped(self, listener: Callable[[CacheWarmingStoppedEvent], None]) -> Callable[[], None]:
+        """Subscribe to `cache_warming_stopped`: Prompt-cache warming stopped, by any cause. A host compacts an idle conversation now, while the entry is warm."""
+        return self._listen("cache_warming_stopped", listener)
+
     def on_retry_fallback_applied(self, listener: Callable[[RetryFallbackAppliedEvent], None]) -> Callable[[], None]:
         """Subscribe to `retry_fallback_applied` frames."""
         return self._listen("retry_fallback_applied", listener)
@@ -4240,6 +4415,7 @@ __all__ = [
     "CacheWarmingOutcome",
     "CacheWarmingPhase",
     "CacheWarmingStartEvent",
+    "CacheWarmingStoppedEvent",
     "CancelUiRequest",
     "CancellationResult",
     "CommandOutputEvent",
@@ -4282,6 +4458,7 @@ __all__ = [
     "IrcMessageEvent",
     "LineRange",
     "LiveConnectResult",
+    "LiveDelegationEvent",
     "LiveEndEvent",
     "LiveLevelsEvent",
     "LivePhase",
@@ -4314,8 +4491,13 @@ __all__ = [
     "OpenSessionResult",
     "OpenUrlUiRequest",
     "ParentIrc",
+    "PlanOp",
+    "PlanProposedEvent",
+    "PlanResult",
+    "PlanUpdatedEvent",
     "PromoteQueuedMessageResult",
     "PromptAck",
+    "PromptCacheEntry",
     "PromptError",
     "PromptResultEvent",
     "PromptStatus",
@@ -4440,6 +4622,7 @@ __all__ = [
     "parse_btw_record_event",
     "parse_cache_warming_end_event",
     "parse_cache_warming_start_event",
+    "parse_cache_warming_stopped_event",
     "parse_cancel_ui_request",
     "parse_cancellation_result",
     "parse_command_output_event",
@@ -4476,6 +4659,7 @@ __all__ = [
     "parse_irc_message_event",
     "parse_line_range",
     "parse_live_connect_result",
+    "parse_live_delegation_event",
     "parse_live_end_event",
     "parse_live_levels_event",
     "parse_live_phase_event",
@@ -4504,8 +4688,12 @@ __all__ = [
     "parse_open_session_result",
     "parse_open_url_ui_request",
     "parse_parent_irc",
+    "parse_plan_proposed_event",
+    "parse_plan_result",
+    "parse_plan_updated_event",
     "parse_promote_queued_message_result",
     "parse_prompt_ack",
+    "parse_prompt_cache_entry",
     "parse_prompt_error",
     "parse_prompt_result_event",
     "parse_python_execution_message",
