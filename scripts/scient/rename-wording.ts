@@ -351,6 +351,25 @@ function rewriteCode(file: string, source: string): string {
 	return result + source.slice(cursor);
 }
 
+type WordingPair = [from: string, to: string];
+
+const OPENER: WordingPair = [
+	`You are ${PRODUCT}'s trusted coding assistant.`,
+	"You are Scient's trusted research and coding assistant.",
+];
+const DEFAULT_READER: WordingPair = [
+	"- Assume technical reader; don't narrate obvious steps or over-explain basics.",
+	"- Match the reader's expertise; explain unfamiliar concepts when needed.",
+];
+const FRIENDLY_READER: WordingPair = [
+	"- MUST assume reader technical; warmth NEVER means dumbing down.",
+	"- Match the reader's expertise; warmth NEVER means sacrificing precision.",
+];
+const CFG_SETTINGS: WordingPair = [`cfg://: ${COMMAND} settings;`, "cfg://: agent settings;"];
+const BROWSER_PROFILE: WordingPair = ["an omp-owned profile", "an agent-owned profile"];
+const BROWSER_RELAY: WordingPair = [`the ${PRODUCT} relay`, "the browser relay"];
+const POOL = "packages/ai/src/prompts/perturbation-pool.json.txt";
+
 /**
  * Words the rules above cannot reach or would get wrong: a string that is only
  * `omp` (a window title, a notification's sender), messages in the native code,
@@ -363,7 +382,12 @@ function rewriteCode(file: string, source: string): string {
  * service (`originator`, `User-Agent`, the terminal handshake, Warp's agent
  * name), ids of built-in images and icons, and names of stored things.
  */
-const LABELS: Record<string, [from: string, to: string][]> = {
+const LABELS: Record<string, WordingPair[]> = {
+	// Chrome shows the extension by these: two products' extensions side by side must differ.
+	"packages/browser-relay/extension/manifest.json": [
+		['"name": "omp"', `"name": "${PRODUCT}"`],
+		['"default_title": "omp"', `"default_title": "${PRODUCT}"`],
+	],
 	// An escaped newline hides this word from the rules; the test's other strings are rewritten.
 	"packages/ai/test/cursor-system-prompt-history.test.ts": [
 		["<rules>\\nomp base prompt", `<rules>\\n${PRODUCT} base prompt`],
@@ -413,13 +437,38 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 	"crates/natives/src/applefm/mod.rs": [["This omp build", `This ${PRODUCT} build`]],
 	"crates/voice/src/device/linux.rs": [['c"omp"', `c"${COMMAND}"`]],
 	// Prompts, where things are the agent's rather than the product's.
-	"packages/coding-agent/src/prompts/internal-urls/cfg.md": [
-		[`cfg://: ${COMMAND} settings;`, "cfg://: agent settings;"],
+	"packages/coding-agent/src/prompts/internal-urls/cfg.md": [CFG_SETTINGS],
+	"packages/coding-agent/src/prompts/tools/browser.md": [BROWSER_PROFILE, BROWSER_RELAY],
+	// Perturbation matches the source verbatim and may send any of its variants to the model.
+	[POOL]: [
+		OPENER,
+		DEFAULT_READER,
+		FRIENDLY_READER,
+		CFG_SETTINGS,
+		BROWSER_PROFILE,
+		BROWSER_RELAY,
+		[
+			"Shutting down frees the managed tab and closes omp-opened pages",
+			`Shutting down frees the managed tab and closes pages ${PRODUCT} opened`,
+		],
+		[
+			"- Write for a technical audience: no narrating evident steps, no over-explaining basics.",
+			"- Write for the reader's level of expertise. Explain unfamiliar ideas as needed.",
+		],
+		[
+			"- Presume technical expertise; do not spell out obvious steps or belabor basics.",
+			"- Adapt to what the reader knows and explain concepts that may be new to them.",
+		],
+		[
+			"- MUST treat the reader as technical; warmth NEVER implies dumbing down.",
+			"- Adapt to the reader's expertise and stay precise even when writing warmly.",
+		],
+		[
+			"- MUST assume a technical reader; warmth NEVER equals dumbing down.",
+			"- Write at the reader's level and keep the explanation both warm and precise.",
+		],
 	],
-	"packages/coding-agent/src/prompts/tools/browser.md": [
-		["use an omp-owned profile", "use an agent-owned profile"],
-		[`through the ${PRODUCT} relay`, "through the browser relay"],
-	],
+	"packages/ai/test/prompt-perturbation.test.ts": [OPENER],
 	// The Python client's README, which names the command the client starts.
 	"sdk/python/omp-rpc/README.md": [["omp --mode rpc", `${COMMAND} --mode rpc`]],
 };
@@ -428,18 +477,18 @@ const LABELS: Record<string, [from: string, to: string][]> = {
 const RESEARCH_WORDING = [
 	{
 		file: "packages/coding-agent/src/prompts/system/system-prompt.md",
-		from: [`You are ${PRODUCT}'s trusted coding assistant.`, "You are Scient's trusted coding assistant."],
-		to: "You are Scient's trusted research and coding assistant.",
+		from: [OPENER[0], "You are Scient's trusted coding assistant."],
+		to: OPENER[1],
 	},
 	{
 		file: "packages/coding-agent/src/prompts/system/personalities/default.md",
-		from: ["- Assume technical reader; don't narrate obvious steps or over-explain basics."],
-		to: "- Match the reader's expertise; explain unfamiliar concepts when needed.",
+		from: [DEFAULT_READER[0]],
+		to: DEFAULT_READER[1],
 	},
 	{
 		file: "packages/coding-agent/src/prompts/system/personalities/friendly.md",
-		from: ["- MUST assume reader technical; warmth NEVER means dumbing down."],
-		to: "- Match the reader's expertise; warmth NEVER means sacrificing precision.",
+		from: [FRIENDLY_READER[0]],
+		to: FRIENDLY_READER[1],
 	},
 	{
 		file: "packages/coding-agent/src/prompts/system/personalities/pragmatic.md",
@@ -469,6 +518,25 @@ export function researchWording(read: (file: string) => string | undefined): Map
 }
 
 const isCommentLine = (line: string): boolean => /^\s*(?:\/\/|\/\*|\*)/.test(line);
+
+const SECURITY_SCAN = "packages/coding-agent/src/prompts/tools/security-scan.md";
+
+/** The product rename takes this line past upstream's 40-character threshold for pooling. */
+export function coverSecurityScanStart(poolText: string, prompt: string | undefined): string {
+	const source = `\`start\`: plan → background ${PRODUCT} job.`;
+	if (!prompt?.split(/\r?\n/).includes(source)) throw new Error(`${SECURITY_SCAN}: missing ${source}`);
+	const pool = JSON.parse(poolText) as { entries: { source: string; origin: string; variants: string[] }[] };
+	if (pool.entries.some(entry => entry.source === source)) return poolText;
+	pool.entries.push({
+		source,
+		origin: "tools/security-scan.md",
+		variants: [
+			`\`start\`: run plan as a background ${PRODUCT} job.`,
+			`\`start\`: plan → ${PRODUCT} job in the background.`,
+		],
+	});
+	return `${JSON.stringify(pool, null, "\t")}\n`;
+}
 
 /** Applies a file's listed labels. `missing` collects the ones found in neither form. */
 function applyLabels(file: string, source: string, missing: string[]): string {
@@ -549,6 +617,9 @@ if (import.meta.main) {
 	for (const [file, next] of researchWording(file => results.get(file)?.next ?? read(file))) {
 		results.set(file, { source: results.get(file)?.source ?? read(file)!, next });
 	}
+
+	const pool = results.get(POOL)!;
+	pool.next = coverSecurityScanStart(pool.next, results.get(SECURITY_SCAN)?.next);
 
 	const changedFiles = [...results].filter(([, result]) => result.next !== result.source).map(([file]) => file);
 	if (check) {

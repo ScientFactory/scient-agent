@@ -60,7 +60,13 @@ async function startTable(): Promise<Harness> {
 			};
 		},
 	};
-	const table = new UnitTable({ store, modules: [module], resumed: false, onLivenessChange() {} });
+	const table = new UnitTable({
+		store,
+		modules: [module],
+		resumed: false,
+		leaseGraceMs: LEASE_GRACE_MS,
+		onLivenessChange() {},
+	});
 	await table.start();
 	cleanups.push(() => fs.rmSync(dir, { recursive: true, force: true }));
 	cleanups.push(() => store.close());

@@ -82,7 +82,7 @@ selectors: CSS, or Puppeteer aria/… text/… xpath/… pierce/… label/… pl
 Browser choice:
 
 - No `app` → the first that applies:
-  1. the user's Chrome through the relay (`browser.relay` setting; `PI_BROWSER_RELAY=1`/`=0` overrides it)
+  1. the user's Chrome through the relay (`browser.relay` setting; `SCIENT_AGENT_BROWSER_RELAY=1`/`=0` overrides it)
   2. `browser.cdpUrl`
   3. Tern inside a Tern pane
   4. cmux

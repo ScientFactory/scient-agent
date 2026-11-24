@@ -175,7 +175,7 @@ Because bundled parsing uses `level: "fatal"`, unrecoverable YAML errors or inva
 
 The Scient Agent extension-package surface is disabled when the `omp-plugins` capability provider is disabled. Marketplace roots are excluded from `listOmpExtensionRoots` and enter only through the separately gated Claude-plugin path.
 
-Claude-dialect plugin agents discard their frontmatter `model` so Claude aliases are not misread as Scient Agent selectors. This applies to foreign Claude roots and packages whose manifest declares the Claude format, including Scient Agent installs or `--plugin-dir` roots. Scient Agent-native and Agent-Plugins-standard packages retain their model selectors.
+Claude-dialect plugin agents discard their frontmatter `model` so Claude aliases are not misread as Scient Agent selectors, and translate their `tools` from Claude Code names (`Read`, `WebFetch`, `TodoWrite`, `AskUserQuestion`, `MultiEdit`, `Agent`, …) into Scient Agent built-ins, leaving names with no equivalent such as `ExitPlanMode` untouched. This applies to foreign Claude roots and packages whose manifest declares the Claude format, including Scient Agent installs or `--plugin-dir` roots. Scient Agent-native and Agent-Plugins-standard packages retain their model selectors and Scient Agent tool names.
 
 ## Merge and collision rules
 

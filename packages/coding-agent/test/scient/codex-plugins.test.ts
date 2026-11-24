@@ -8,14 +8,32 @@ import type { MCPServer } from "@oh-my-pi/pi-coding-agent/capability/mcp";
 import type { Skill } from "@oh-my-pi/pi-coding-agent/capability/skill";
 import { cfgEnabledProviders } from "@oh-my-pi/pi-coding-agent/config/model-settings";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { daemonClient } from "@oh-my-pi/pi-coding-agent/daemon/client";
+import { buildServerSpec, callTool, connectToServer, disconnectServer } from "@oh-my-pi/pi-coding-agent/mcp/client";
+import { loadAllMCPConfigs } from "@oh-my-pi/pi-coding-agent/mcp/config";
 import { MCPTransportError } from "@oh-my-pi/pi-coding-agent/mcp/errors";
+import { holdSharedMcp } from "@oh-my-pi/pi-coding-agent/mcp/host/access";
+import { mcpIdentity, mcpPublicIdentity } from "@oh-my-pi/pi-coding-agent/mcp/host/contract";
+import { localMcpHost } from "@oh-my-pi/pi-coding-agent/mcp/host/local";
+import { StdioUpstream } from "@oh-my-pi/pi-coding-agent/mcp/host/stdio-upstream";
+import { HostLink } from "@oh-my-pi/pi-coding-agent/mcp/link";
+import { mcpOAuthServerCredentialId } from "@oh-my-pi/pi-coding-agent/mcp/oauth-flow";
+import { MCP_PROTOCOL_VERSION } from "@oh-my-pi/pi-coding-agent/mcp/protocol";
 import { resolveMCPRequestDeadline } from "@oh-my-pi/pi-coding-agent/mcp/timeout";
 import { MCPTool } from "@oh-my-pi/pi-coding-agent/mcp/tool-bridge";
-import { HttpTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/http";
-import { StdioTransport } from "@oh-my-pi/pi-coding-agent/mcp/transports/stdio";
-import type { MCPRequestOptions, MCPServerConnection, MCPTransport } from "@oh-my-pi/pi-coding-agent/mcp/types";
+import type {
+	JsonRpcRequest,
+	MCPRequestOptions,
+	MCPServerConnection,
+	MCPTransport,
+} from "@oh-my-pi/pi-coding-agent/mcp/types";
+import { McpToolDeadline } from "@oh-my-pi/pi-coding-agent/scient/mcp-tool-deadline";
+import * as worker from "@oh-my-pi/pi-coding-agent/subprocess/worker-client";
 import * as piUtils from "@oh-my-pi/pi-utils";
+import { IsolatedDaemon } from "../fixtures/daemon-harness";
 import { restoreEnvValue } from "../helpers/settings-test-state";
+import { FakeHost, metaOf, REMOTE_SPEC } from "../mcp-host/link-fake-host";
+import { realDeps, stdioSpec } from "../mcp-host/upstream-support";
 import "@oh-my-pi/pi-coding-agent/discovery";
 
 const ENV_KEYS = [
@@ -349,38 +367,53 @@ describe("installed Codex plugins", () => {
 		expect(resolveMCPRequestDeadline(undefined, "tools/list", undefined, 2_000).timeoutMs).not.toBe(2_000);
 	});
 
-	// The cap is the transport's own timer on a live socket, which fake timers do not drive: the test
-	// waits on no fixed delay, only on that cap (300 ms at most) firing.
 	it("keeps a tool call's cap across an HTTP sign-in refresh and retry", async () => {
 		let posts = 0;
 		const server = Bun.serve({
 			port: 0,
+			hostname: "127.0.0.1",
 			async fetch(req) {
-				await req.json();
-				posts++;
-				// The first attempt is refused; the retry is never answered.
-				return posts === 1 ? new Response("expired", { status: 401 }) : new Promise<Response>(() => {});
+				if (req.method !== "POST") return new Response(null, { status: 405 });
+				const { id, method } = (await req.json()) as JsonRpcRequest;
+				if (method === "tools/call") {
+					posts++;
+					// The first attempt is refused and the retry is never answered.
+					return posts === 1 ? new Response("expired", { status: 401 }) : new Promise<Response>(() => {});
+				}
+				const result =
+					method === "server/discover"
+						? { supportedVersions: [MCP_PROTOCOL_VERSION], capabilities: { tools: {} } }
+						: { tools: [{ name: "slow", inputSchema: { type: "object" } }] };
+				return Response.json({ jsonrpc: "2.0", id, result: { resultType: "complete", ...result } });
 			},
 		});
-		const call = async (refresh: () => Promise<Record<string, string> | null>) => {
+		const call = async (
+			refresh: () => Promise<Record<string, string> | null>,
+			signal = AbortSignal.timeout(2_000),
+		) => {
 			posts = 0;
-			const transport = new HttpTransport({
-				type: "http",
-				url: `http://127.0.0.1:${server.port}/mcp`,
-				toolTimeoutMs: 300,
-			});
-			await transport.connect();
-			transport.onAuthError = refresh;
+			const connection = await connectToServer(
+				"tools@market:api",
+				{ type: "http", url: `http://127.0.0.1:${server.port}/mcp`, toolTimeoutMs: 300 },
+				{ cwd, access: localMcpHost(), onAuthError: refresh },
+			);
 			try {
-				return await transport.request("tools/call", { name: "slow", arguments: {} }).then(
+				return await callTool(connection, "slow", {}, { signal }).then(
 					() => "resolved",
 					(error: Error) => error.message,
 				);
 			} finally {
-				await transport.close();
+				await disconnectServer(connection);
 			}
 		};
 		try {
+			const caller = new AbortController();
+			const reason = await call(async () => {
+				caller.abort(new Error("caller cancelled the refresh wait"));
+				return null;
+			}, caller.signal);
+			expect(reason).toBe("caller cancelled the refresh wait");
+			expect(posts).toBe(1);
 			// A refresh that never ends still ends the call at the cap.
 			expect(await call(() => new Promise(() => {}))).toBe("Request timeout after 300ms");
 			// A refresh that takes 200 ms of the cap leaves the retry the rest, not a fresh 300 ms.
@@ -392,6 +425,7 @@ describe("installed Codex plugins", () => {
 				return { Authorization: "Bearer refreshed" };
 			});
 			expect(Number(/Request timeout after (\d+)ms/.exec(message)?.[1])).toBeLessThanOrEqual(100);
+			expect(posts).toBe(2);
 			// A refresh that ends past the deadline sends no retry at all.
 			skew = 0;
 			const late = await call(async () => {
@@ -405,12 +439,106 @@ describe("installed Codex plugins", () => {
 		}
 	});
 
+	it("withdraws a timed-out call from a blocked tunnel and rejects a late reply after progress and wall-clock rollback", async () => {
+		const host = new FakeHost();
+		const link = new HostLink({
+			name: "capped",
+			spec: REMOTE_SPEC,
+			instance: "fixture",
+			roots: () => [],
+			idleMs: 0,
+			access: host,
+			timeout: 500,
+			toolTimeoutMs: 5_000,
+		});
+		await link.connect();
+		try {
+			const realNow = performance.now.bind(performance);
+			const wallNow = Date.now.bind(Date);
+			let elapsed = 0;
+			vi.spyOn(performance, "now").mockImplementation(() => realNow() + elapsed);
+			vi.spyOn(Date, "now").mockImplementation(() => wallNow() - elapsed);
+			host.tunnel.full = true;
+			await link.notify("notifications/test");
+			const queued = link.request("tools/call", { name: "run", arguments: { wait_seconds: 30 } });
+			elapsed += 600;
+			await expect(queued).rejects.toMatchObject({ failure: "timeout", retryable: false });
+			host.tunnel.drain();
+			await Promise.resolve();
+			expect(host.tunnel.sent.filter(message => message.method === "tools/call")).toHaveLength(0);
+
+			const progress: number[] = [];
+			const calling = link.request("tools/call", { name: "run" }, { onProgress: p => progress.push(p.progress) });
+			const request = await host.tunnel.next("tools/call");
+			elapsed += 400;
+			host.tunnel.push({
+				method: "notifications/progress",
+				params: { progress: 1, progressToken: metaOf(request).progressToken },
+			});
+			expect(progress).toEqual([1]);
+			elapsed += 200;
+			host.tunnel.push({ id: request.id, result: { content: [] } });
+			await expect(calling).rejects.toMatchObject({ failure: "timeout", retryable: false });
+		} finally {
+			await link.close();
+		}
+	});
+
+	it("does not POST a tool call after learning its HTTP headers past the deadline", async () => {
+		const realNow = performance.now.bind(performance);
+		let skew = 0;
+		let lists = 0;
+		let posts = 0;
+		vi.spyOn(performance, "now").mockImplementation(() => realNow() + skew);
+		const server = Bun.serve({
+			port: 0,
+			hostname: "127.0.0.1",
+			async fetch(req) {
+				if (req.method !== "POST") return new Response(null, { status: 405 });
+				const { id, method } = (await req.json()) as JsonRpcRequest;
+				let result: Record<string, unknown> = { content: [] };
+				if (method === "server/discover") {
+					result = { supportedVersions: [MCP_PROTOCOL_VERSION], capabilities: { tools: {} } };
+				} else if (method === "tools/list") {
+					lists++;
+					skew += 10_000;
+					result = { tools: [{ name: "run", inputSchema: { type: "object" } }] };
+				} else if (method === "tools/call") posts++;
+				return Response.json({ jsonrpc: "2.0", id, result: { resultType: "complete", ...result } });
+			},
+		});
+		try {
+			const connection = await connectToServer(
+				"tools@market:headers",
+				{
+					type: "http",
+					url: `http://127.0.0.1:${server.port}/mcp`,
+					toolTimeoutMs: 5_000,
+				},
+				{ cwd, access: localMcpHost() },
+			);
+			try {
+				await expect(callTool(connection, "run")).rejects.toMatchObject({ failure: "timeout", retryable: false });
+				expect(lists).toBe(1);
+				expect(posts).toBe(0);
+				await callTool(connection, "run");
+				expect(posts).toBe(1);
+			} finally {
+				await disconnectServer(connection);
+			}
+		} finally {
+			server.stop(true);
+		}
+	});
+
 	it("replays a tool call after reconnecting only within the call's own deadline", async () => {
 		const deadlines: (number | undefined)[] = [];
+		const signals: (AbortSignal | undefined)[] = [];
 		const transport = (respond: () => Promise<unknown>): MCPTransport => ({
 			connected: true,
 			request: (async (_method: string, _params: unknown, options?: MCPRequestOptions) => {
 				deadlines.push(options?.deadlineAt);
+				signals.push(options?.signal);
 				return respond();
 			}) as MCPTransport["request"],
 			async notify() {},
@@ -443,6 +571,8 @@ describe("installed Codex plugins", () => {
 		expect(deadlines).toHaveLength(2);
 		expect(deadlines[0]).toBeNumber();
 		expect(deadlines[1]).toBe(deadlines[0]);
+		expect(signals[0]).toBeInstanceOf(AbortSignal);
+		expect(signals[1]).toBe(signals[0]);
 		// A reconnect still pending at the deadline ends the call with its own error, never a replay.
 		deadlines.length = 0;
 		const stalled = new MCPTool(
@@ -488,29 +618,116 @@ describe("installed Codex plugins", () => {
 		expect(reconnects).toBe(0);
 	});
 
+	it("does not send another input round when preparing roots spends the deadline", async () => {
+		const realNow = performance.now.bind(performance);
+		let elapsed = 0;
+		let calls = 0;
+		vi.spyOn(performance, "now").mockImplementation(() => realNow() + elapsed);
+		const connection: MCPServerConnection = {
+			name: "input",
+			config: { type: "http", url: "https://example.test/", toolTimeoutMs: 500 },
+			capabilities: {},
+			serverInfo: { name: "input", version: "1" },
+			roots: () => {
+				elapsed += 600;
+				return [];
+			},
+			transport: {
+				connected: true,
+				request: (async () => {
+					calls++;
+					return { resultType: "input_required", inputRequests: { roots: { method: "roots/list" } } };
+				}) as MCPTransport["request"],
+				async notify() {},
+				async close() {},
+			},
+		};
+		await expect(callTool(connection, "ask")).rejects.toMatchObject({ failure: "timeout", retryable: false });
+		expect(calls).toBe(1);
+	});
+
 	it("never writes a stdio tool call whose cap ran out while it was being prepared", async () => {
-		const transport = new StdioTransport({
-			type: "stdio",
-			command: process.execPath,
-			// Stays up and never answers, so only a timer could end a call it was sent.
-			args: ["-e", "setInterval(() => {}, 1000)"],
-			toolTimeoutMs: 5_000,
-		});
+		const effects = temp.join("effects.txt");
+		await Bun.write(effects, "");
+		const connection = await connectToServer(
+			"tools@market:stdio",
+			{
+				type: "stdio",
+				command: process.execPath,
+				args: [path.join(import.meta.dir, "../fixtures/side-effect-mcp.ts"), effects],
+				toolTimeoutMs: 5_000,
+			},
+			{ cwd, access: localMcpHost() },
+		);
 		const realNow = performance.now.bind(performance);
 		let skew = 0;
 		vi.spyOn(performance, "now").mockImplementation(() => realNow() + skew);
-		await transport.connect();
 		try {
-			// Serializing the request spends the whole cap.
+			// Serializing the request spends the whole cap before the child can receive it.
 			const slow = {
 				toJSON: () => {
 					skew += 10_000;
 					return {};
 				},
 			};
-			await expect(transport.request("tools/call", { name: "slow", arguments: slow })).rejects.toThrow(
-				"Request timeout after 5000ms",
-			);
+			await expect(callTool(connection, "record_effect", slow)).rejects.toThrow("Request timeout after 5000ms");
+			const caller = new AbortController();
+			await expect(
+				callTool(
+					connection,
+					"record_effect",
+					{},
+					{
+						signal: caller.signal,
+						onRequestId: () => caller.abort(new Error("cancelled before send")),
+					},
+				),
+			).rejects.toThrow("cancelled before send");
+			// Now let the line leave the session on time, and expire before the local pipe delivers it.
+			await expect(
+				callTool(
+					connection,
+					"record_effect",
+					{},
+					{
+						onRequestId: () =>
+							queueMicrotask(() => {
+								skew += 10_000;
+							}),
+					},
+				),
+			).rejects.toMatchObject({ failure: "timeout", retryable: false });
+			// The following call completes after the child has handled any preceding write.
+			await callTool(connection, "record_effect");
+			expect(await Bun.file(effects).text()).toBe("record_effect\n");
+		} finally {
+			await disconnectServer(connection);
+		}
+	});
+
+	it("checks the real stdio writer after frame serialization", async () => {
+		const effects = temp.join("writer-effects.txt");
+		await Bun.write(effects, "");
+		const transport = new StdioUpstream(stdioSpec("side-effect-mcp.ts", [effects]));
+		await transport.connect(realDeps().spawn);
+		try {
+			const now = performance.now.bind(performance);
+			let elapsed = 0;
+			vi.spyOn(performance, "now").mockImplementation(() => now() + elapsed);
+			const deadline = new McpToolDeadline(now() + 5_000, 5_000, "stdio");
+			const args = {
+				toJSON() {
+					elapsed += 10_000;
+					return {};
+				},
+			};
+			await expect(
+				deadline.run(undefined, signal =>
+					transport.request("tools/call", { name: "record_effect", arguments: args }, { signal }),
+				),
+			).rejects.toMatchObject({ failure: "timeout", retryable: false });
+			await transport.request("tools/call", { name: "record_effect" });
+			expect(await Bun.file(effects).text()).toBe("record_effect\n");
 		} finally {
 			await transport.close();
 		}
@@ -1081,25 +1298,161 @@ describe("installed Codex plugins", () => {
 		expect(byName.has("clauded@market:tool")).toBe(true);
 	});
 
+	it.skipIf(process.platform === "win32")(
+		"hosts an imported server locally while an ordinary server uses the shared daemon",
+		async () => {
+			const name = "tools@market:stdio";
+			const observed = temp.join("parent.json");
+			const preload = temp.join("observe-parent.ts");
+			await Bun.write(
+				preload,
+				`await Bun.write(${JSON.stringify(observed)}, JSON.stringify({parent: process.ppid, extra: process.env.CODEX_PLUGIN_TEST_SECRET}));`,
+			);
+			const args = ["--preload", preload, path.join(import.meta.dir, "../fixtures/modern-mcp.ts")];
+			await install("tools@market", {
+				".codex-plugin/plugin.json": { name: "tools" },
+				".mcp.json": { mcpServers: { stdio: { command: process.execPath, args } } },
+			});
+			const { configs } = await loadAllMCPConfigs(cwd);
+			const imported = configs[name];
+			if (!imported) throw new Error("Fixture plugin server was not discovered");
+			restoreEnvValue("CODEX_PLUGIN_TEST_SECRET", "ordinary-only");
+
+			const daemon = await IsolatedDaemon.create();
+			const shared = holdSharedMcp(true);
+			try {
+				const daemonPid = (await daemonClient()).welcome.daemon.pid;
+				daemon.track(daemonPid);
+				const ordinary = await connectToServer(name, { command: process.execPath, args }, { cwd, live: true });
+				try {
+					expect(await Bun.file(observed).json()).toEqual({ parent: daemonPid, extra: "ordinary-only" });
+					const local = await connectToServer(name, imported, { cwd, live: true });
+					try {
+						expect(await Bun.file(observed).json()).toEqual({ parent: process.pid });
+					} finally {
+						await disconnectServer(local);
+					}
+				} finally {
+					await disconnectServer(ordinary);
+				}
+			} finally {
+				shared.release();
+				await daemon.dispose();
+			}
+		},
+		60_000,
+	);
+
+	it("keeps a restricted child separate from an ordinary child on the same local host", async () => {
+		const observed = temp.join("child.json");
+		const preload = temp.join("observe.ts");
+		await Bun.write(
+			preload,
+			`await Bun.write(${JSON.stringify(observed)}, JSON.stringify({pid: process.pid, cookie: process.env.TEST_COOKIE}));`,
+		);
+		const args = ["--preload", preload, path.join(import.meta.dir, "../fixtures/modern-mcp.ts")];
+		await install("tools@market", {
+			".codex-plugin/plugin.json": { name: "tools" },
+			".mcp.json": { mcpServers: { stdio: { command: process.execPath, args } } },
+		});
+		const { configs } = await loadAllMCPConfigs(cwd);
+		const imported = configs["tools@market:stdio"];
+		if (imported?.type !== "stdio") throw new Error("Expected an imported stdio server");
+		// The only difference in the two spawn environments is outside upstream's credential-name filter.
+		vi.spyOn(worker, "workerEnvFromParent").mockImplementation(env => ({ ...env, TEST_COOKIE: "ordinary" }));
+		const servingChild = async (connection: MCPServerConnection) => {
+			const { content } = await callTool(connection, "whoami");
+			if (content[0]?.type !== "text") throw new Error("Missing fixture process identity");
+			const child = await Bun.file(observed).json();
+			expect(child.pid).toBe(JSON.parse(content[0].text).pid);
+			return child;
+		};
+		const options = { cwd, access: localMcpHost(), live: true };
+		const ordinary = await connectToServer(
+			"ordinary",
+			{
+				command: imported.command,
+				args: imported.args,
+				cwd: imported.cwd,
+				env: imported.env,
+			},
+			options,
+		);
+		try {
+			const first = await servingChild(ordinary);
+			expect(first.cookie).toBe("ordinary");
+			const restricted = await connectToServer("tools@market:stdio", imported, options);
+			try {
+				const second = await servingChild(restricted);
+				expect(second.pid).toBeNumber();
+				expect(second.pid).not.toBe(first.pid);
+				expect(second.cookie).toBeUndefined();
+			} finally {
+				await disconnectServer(restricted);
+			}
+		} finally {
+			await disconnectServer(ordinary);
+		}
+	});
+
+	it("keys imported probes and units by the full inherited env and bound sign-in", async () => {
+		restoreEnvValue("SCIENT_AGENT_ENABLE_SOURCES", "codex-plugins");
+		const { configs } = await loadAllMCPConfigs(cwd);
+		const stdio = configs["research@market:papers"];
+		const remote = configs["research@market:tracker"];
+		if (stdio?.type !== "stdio" || remote?.type !== "http") throw new Error("Expected imported fixtures");
+		const config = { ...stdio, envInherit: ["USER_COLOR"] };
+		const launch = vi.spyOn(piUtils, "getLaunchEnv").mockReturnValue({ USER_COLOR: "red" });
+		const red = buildServerSpec(config, cwd);
+		const same = buildServerSpec(config, cwd);
+		launch.mockReturnValue({ USER_COLOR: "blue" });
+		const blue = buildServerSpec(config, cwd);
+		const signed = buildServerSpec(remote, cwd);
+		const otherSignIn = buildServerSpec(
+			{
+				...remote,
+				auth: { ...remote.auth!, credentialId: mcpOAuthServerCredentialId("other@market:tracker", remote.url) },
+			},
+			cwd,
+		);
+		const unbound = buildServerSpec({ ...remote, auth: undefined }, cwd);
+		const ordinary = buildServerSpec(
+			{ type: "http", url: remote.url, headers: remote.headers, headerPolicy: remote.headerPolicy },
+			cwd,
+		);
+		for (const identity of [mcpIdentity, mcpPublicIdentity]) {
+			expect(identity(red)).toBe(identity(same));
+			expect(identity(red)).not.toBe(identity(blue));
+			expect(identity(signed)).not.toBe(identity(otherSignIn));
+			expect(identity(signed)).not.toBe(identity(unbound));
+			expect(identity(unbound)).not.toBe(identity(ordinary));
+		}
+	});
+
 	it("starts a stdio server with only the variables Codex would pass", async () => {
 		restoreEnvValue("CODEX_PLUGIN_TEST_SECRET", "must-not-leak");
+		const launch = { ...piUtils.getLaunchEnv(), MODE: "from-launch" };
+		vi.spyOn(piUtils, "getLaunchEnv").mockReturnValue(launch);
+		restoreEnvValue("CODEX_PLUGIN_TEST_TOKEN", "changed-after-launch");
 		const out = temp.join("env.json");
-		const transport = new StdioTransport({
-			type: "stdio",
-			command: process.execPath,
-			args: ["-e", `require("fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify(process.env))`],
-			env: { MODE: "set" },
-			envInherit: ["PATH", "CODEX_PLUGIN_TEST_TOKEN"],
-		});
-		// The script writes its environment and exits; the transport reports the exit.
-		const exited = Promise.withResolvers<void>();
-		transport.onClose = () => exited.resolve();
-		try {
-			await transport.connect();
-			await exited.promise;
-		} finally {
-			await transport.close();
-		}
+		const preload = temp.join("observe-env.ts");
+		// Capture only fixture variables, from inside the real MCP process.
+		await Bun.write(
+			preload,
+			`await Bun.write(${JSON.stringify(out)}, JSON.stringify(process.env, ["MODE", "CODEX_PLUGIN_TEST_TOKEN", "CODEX_PLUGIN_TEST_SECRET", "CODEX_PLUGIN_TEST_PAT"]));`,
+		);
+		const connection = await connectToServer(
+			"tools@market:stdio",
+			{
+				type: "stdio",
+				command: process.execPath,
+				args: ["--preload", preload, path.join(import.meta.dir, "../fixtures/modern-mcp.ts")],
+				env: { MODE: "set" },
+				envInherit: ["PATH", "MODE", "CODEX_PLUGIN_TEST_TOKEN"],
+			},
+			{ cwd, live: true },
+		);
+		await disconnectServer(connection);
 		const seen = JSON.parse(await Bun.file(out).text()) as Record<string, string>;
 		expect(seen.CODEX_PLUGIN_TEST_TOKEN).toBe("forwarded-value");
 		expect(seen.MODE).toBe("set");

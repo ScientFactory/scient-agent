@@ -15,7 +15,7 @@ import { createFakeHost, type FakeHost, type FakeHostMode, isProcessAlive } from
 const ENV_KEYS = [
 	"PI_BROWSER_WEBKIT",
 	"PI_BROWSER_WEBKIT_PATH",
-	"PI_BROWSER_RELAY",
+	"SCIENT_AGENT_BROWSER_RELAY",
 	"PI_BROWSER_TERN",
 	"PI_BROWSER_CMUX",
 	"TERN_PANE_SOCKET",

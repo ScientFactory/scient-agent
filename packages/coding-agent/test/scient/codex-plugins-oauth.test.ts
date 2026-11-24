@@ -25,6 +25,7 @@ import { MCPCommandController } from "@oh-my-pi/pi-coding-agent/modes/controller
 import { initTheme } from "@oh-my-pi/pi-tui/theme";
 import { getAgentDir, getMCPConfigPath, getProjectDir, setAgentDir, setProjectDir, TempDir } from "@oh-my-pi/pi-utils";
 import { createInteractiveModeContext, createMcpManagerStub } from "../helpers/interactive-mode-context";
+import { createMockConnection, createMockTransport } from "../mcp-test-utils";
 import { restoreEnvValue } from "../helpers/settings-test-state";
 
 const SERVER_URL = "https://mcp.example.test/mcp";
@@ -53,6 +54,22 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		while (stores.length > 0) stores.pop()?.close();
 		vi.restoreAllMocks();
 		restoreEnvValue("CODEX_PLUGIN_OAUTH_TEST", saved);
+	});
+
+	it("recovers the profile and full URL from server-bound and legacy credential IDs", () => {
+		const url = "https://mcp.example.test:8443/mcp?tenant=a:b";
+		const bound = oauthFlow.mcpOAuthServerCredentialId("tools@market:papers/v1", url, "research");
+		expect(bound).toBe(`mcp_oauth:server:research:tools%40market%3Apapers%2Fv1:${url}`);
+		for (const [id, profile, serverUrl] of [
+			[bound, "research", url],
+			[oauthFlow.mcpOAuthCredentialId(url, "research"), "research", url],
+			[`mcp_oauth:${url}`, undefined, url],
+			["mcp_oauth_random", undefined, undefined],
+			["mcp_oauth:server:research:missing-url", "research", undefined],
+		] as const) {
+			expect(oauthFlow.mcpOAuthCredentialProfile(id)).toBe(profile);
+			expect(oauthFlow.mcpOAuthServerUrlFromCredentialId(id)).toBe(serverUrl);
+		}
 	});
 
 	it("never takes another server's sign-in at the same URL", async () => {
@@ -158,7 +175,7 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		const manager = createMcpManagerStub({
 			getServerConfig: vi.fn(() => boundConfig()),
 			updateServerConfig,
-			reconnectServer: vi.fn(async () => null),
+			reconnectServer: vi.fn(async () => createMockConnection({}, createMockTransport(new Map()))),
 			getConnectionStatus: vi.fn(() => "connected" as const),
 		});
 		expect(await reconnectMcpManagerServer(manager, NAME, boundConfig())).toBe("connected");
@@ -244,11 +261,15 @@ describe("an imported Codex plugin server's own sign-in", () => {
 			// A row an earlier build kept with the secret the plugin has since retired.
 			clientSecret: "retired",
 		});
-		await storage.credentials.set(credentialId, stored());
-		await refreshStoredManagedMcpOAuthCredential(storage, credentialId, {
-			clientSecret: "current",
-			forceRefresh: true,
+		await storage.credentials.set(credentialId, { ...stored(), expires: Date.now() - 60_000 });
+		using temp = TempDir.createSync("@scient-codex-plugins-refresh-");
+		const manager = new MCPManager(temp.path());
+		manager.setAuthStorage(storage);
+		const prepared = await manager.prepareConfig({
+			...boundConfig(),
+			oauth: { clientId: "client-a", clientSecret: "current" },
 		});
+		expect(prepared).toMatchObject({ headers: { Authorization: "Bearer fresh" } });
 		// The plugin no longer configures a secret: none is sent, as in Codex.
 		await storage.credentials.set(credentialId, stored());
 		const { credential } = await refreshStoredManagedMcpOAuthCredential(storage, credentialId, {
@@ -271,10 +292,12 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		const credentialId = oauthFlow.mcpOAuthServerCredentialId(NAME, SERVER_URL);
 		await storage.credentials.set(credentialId, { ...token, access: "own" });
 		const probed: MCPServerConfig[] = [];
-		vi.spyOn(mcpClient, "connectToServer").mockImplementation((async (_name: string, probe: MCPServerConfig) => {
+		const refreshes: mcpClient.MCPConnectOptions["onAuthError"][] = [];
+		vi.spyOn(mcpClient, "connectToServer").mockImplementation(async (_name, probe, options) => {
 			probed.push(probe);
+			refreshes.push(options?.onAuthError);
 			throw new Error("unreachable");
-		}) as never);
+		});
 		using temp = TempDir.createSync("@scient-codex-plugins-provenance-");
 		const manager = new MCPManager(temp.path());
 		manager.setAuthStorage(storage);
@@ -291,6 +314,17 @@ describe("an imported Codex plugin server's own sign-in", () => {
 		expect(probed).toHaveLength(2);
 		expect(probed[0]).toMatchObject({ headers: { Authorization: "Bearer own" } });
 		expect(probed[1]).not.toMatchObject({ headers: { Authorization: expect.anything() } });
+		expect(manager.getSource(NAME)).toBeUndefined();
+		expect(await refreshes[0]?.()).toBeNull();
+		// A sourced update reconnects with its sign-in. A later replacement cannot inherit it.
+		manager.updateServerConfig(NAME, boundConfig(), imported);
+		await manager.reconnectServer(NAME);
+		expect(probed[2]).toMatchObject({ headers: { Authorization: "Bearer own" } });
+		manager.updateServerConfig(NAME, boundConfig());
+		await manager.reconnectServer(NAME);
+		expect(probed).toHaveLength(4);
+		expect(probed[3]).not.toMatchObject({ headers: { Authorization: expect.anything() } });
+		expect(await refreshes[2]?.()).toBeNull();
 		await manager.disconnectAll();
 	});
 

@@ -70,6 +70,13 @@ const RENAMES: ReadonlyArray<readonly [RegExp, string]> = [
 	[/\bfilenamePrefix: "omp"/g, `filenamePrefix: "${COMMAND}"`],
 	// The browser relay's port: two relays on one port would adopt each other's browser.
 	[/(?<=DEFAULT_PORT = |127\.0\.0\.1:)9224\b/g, "9324"],
+	// The Chrome native-messaging host the relay extension connects to: one registration per
+	// name (a manifest on macOS and Linux, a registry key on Windows), so two products under one
+	// name overwrite each other's launcher and allowed extensions.
+	[/\bsh\.omp\.browser\b/g, "com.scientfactory.agent.browser"],
+	// What the native host hands the session it starts: the panel's relay, a Chrome-only browser
+	// and the session's origin. Inherited by the other product, they would steer it.
+	[/\bPI_(PANEL_RELAY_URL|BROWSER_RELAY|SESSION_ORIGIN)\b/g, "SCIENT_AGENT_$1"],
 ];
 
 /**
@@ -265,10 +272,46 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 		['get("http-referer")).toBe("https://omp.sh/")', 'get("http-referer")).toBe("https://scientfactory.com/")'],
 		['get("x-openrouter-title")).toBe("omp")', `get("x-openrouter-title")).toBe("${COMMAND}")`],
 	],
-	"packages/coding-agent/src/mcp/oauth-flow.ts": [['client_name: "oh-my-pi"', `client_name: "${PRODUCT}"`]],
-	"packages/coding-agent/test/oauth-flow.test.ts": [
-		['client_name).toBe("oh-my-pi")', `client_name).toBe("${PRODUCT}")`],
+	// Dynamic client registration names the client on the person's consent screen: Scient Agent, not
+	// the "Codex" Oh My Pi 19.1 registers as.
+	// Chrome's profile backups the relay writes before registering, the overlay element the
+	// extension mounts in a page and removes by tag, the command the side panel copies to resume
+	// its session in a terminal, image temp files named by content, and the Binary Ninja runner's
+	// staging folder: two products sharing one would overwrite or remove the other's.
+	"packages/coding-agent/src/tools/browser/relay/chrome/secure-store.ts": [
+		["`${file}.omp-backup`", `\`\${file}.${COMMAND}-backup\``],
 	],
+	"packages/coding-agent/test/tools/browser-relay-chrome-prefs.test.ts": [
+		// Chrome hashed this exact extension path when it wrote the recorded authenticator.
+		[`"/Users/can/.${COMMAND}/browser-relay/extension"`, '"/Users/can/.omp/browser-relay/extension"'],
+		["`${secureFile}.omp-backup`", `\`\${secureFile}.${COMMAND}-backup\``],
+	],
+	"packages/coding-agent/src/tools/browser/relay/protocol.ts": [
+		['OVERLAY_HOST_TAG = "omp-overlay"', `OVERLAY_HOST_TAG = "${COMMAND}-overlay"`],
+	],
+	"packages/coding-agent/test/tools/browser-interactions.test.ts": [
+		["<omp-overlay></omp-overlay>", `<${COMMAND}-overlay></${COMMAND}-overlay>`],
+		['document.querySelector("omp-overlay")', `document.querySelector("${COMMAND}-overlay")`],
+		['document.createElement("OMP-OVERLAY")', `document.createElement("${COMMAND.toUpperCase()}-OVERLAY")`],
+	],
+	"packages/browser-relay/extension/panel/app.tsx": [
+		["`omp --resume ${sessionId}`", `\`${COMMAND} --resume \${sessionId}\``],
+	],
+	"packages/coding-agent/src/utils/image-temp.ts": [["`omp-image-${", `\`${COMMAND}-image-\${`]],
+	"packages/coding-agent/src/disasm/backend.ts": [
+		['workerStageDir: "omp-binja-worker"', `workerStageDir: "${COMMAND}-binja-worker"`],
+	],
+	// The Codex client version record lives under the XDG cache folder the app names.
+	"packages/catalog/test/codex-client-version-xdg.test.ts": [
+		['path.join(xdgCache, "omp")', `path.join(xdgCache, "${COMMAND}")`],
+		[
+			'process.env.XDG_CACHE_HOME!, "omp", "codex-client-version.json"',
+			`process.env.XDG_CACHE_HOME!, "${COMMAND}", "codex-client-version.json"`,
+		],
+		["$XDG_CACHE_HOME/omp", `$XDG_CACHE_HOME/${COMMAND}`],
+	],
+	"packages/coding-agent/src/mcp/oauth-flow.ts": [['client_name: "Codex"', `client_name: "${PRODUCT}"`]],
+	"packages/coding-agent/test/oauth-flow.test.ts": [['client_name).toBe("Codex")', `client_name).toBe("${PRODUCT}")`]],
 	"packages/coding-agent/src/telemetry-export-otlp.ts": [
 		['const SERVICE_NAME = "oh-my-pi";', `const SERVICE_NAME = "${COMMAND}";`],
 	],
@@ -458,6 +501,7 @@ if (import.meta.main) {
 			else if (!after.includes(to)) missing.push(`${file}: ${from}`);
 		}
 		if (after !== before) contents.set(file, { before, after });
+		else contents.delete(file); // A file-local rule can undo a global rename.
 	}
 	if (missing.length > 0) {
 		console.error(`Listed names that are no longer in the source:\n  ${missing.join("\n  ")}`);

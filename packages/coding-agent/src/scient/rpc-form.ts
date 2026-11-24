@@ -1,14 +1,6 @@
 /**
- * The `ask` tool's HTML form over RPC (SA-ASK-FORM).
- *
- * Since Oh My Pi 18.18.3 the `ask` tool sends one HTML form, and a host
- * without a form surface (RPC included) is asked one field at a time.
- * - A host that sends `set_form_dialog` receives the whole form
- *   (`method: "form"`) and answers with its data.
- * - A host that only sends `set_ask_dialog`, such as Scient Desktop before
- *   forms, gets every field on its one ask card: choices as options, text
- *   fields as free-text questions, and the form's other content in the
- *   question text. An answer the card cannot check is asked again on its own.
+ * Presents the ask tool's HTML form on an RPC host's ask card (SA-ASK-FORM).
+ * The RPC context selects this conversion when the host enables ask dialogs.
  */
 import {
 	choiceValue,
@@ -29,72 +21,12 @@ import {
 	type TextField,
 } from "@oh-my-pi/pi-tui/html-form/parse";
 import { disambiguateDisplayLabels } from "@oh-my-pi/pi-tui/render/render-utils";
-import { isRecord } from "@oh-my-pi/pi-utils";
 import type {
 	ExtensionAskDialogQuestion,
 	ExtensionFormDialogResult,
 	ExtensionUIContext,
 	ExtensionUIDialogOptions,
 } from "../extensibility/extensions";
-import type { RpcExtensionUIResponse } from "../modes/rpc/rpc-types";
-
-/** Sends one extension UI request and parses its answer, as `requestRpcDialog` does. */
-export type RpcFormDialogRequest = (
-	opts: ExtensionUIDialogOptions,
-	request: Record<string, unknown>,
-	parse: (response: RpcExtensionUIResponse) => ExtensionFormDialogResult | undefined,
-) => Promise<ExtensionFormDialogResult | undefined>;
-
-/**
- * Sends the whole form to a host that draws forms. The answer is the form's
- * data; a deadline, the agent's or the host's, submits the form's current
- * values, as the terminal's form does.
- */
-export async function requestRpcFormDialog(
-	request: RpcFormDialogRequest,
-	html: string,
-	dialogOptions?: ExtensionUIDialogOptions,
-): Promise<ExtensionFormDialogResult | undefined> {
-	const form = parseHtmlForm(html);
-	let timedOut = false;
-	const opts: ExtensionUIDialogOptions = {
-		...dialogOptions,
-		onTimeout: () => {
-			timedOut = true;
-			dialogOptions?.onTimeout?.();
-		},
-	};
-	const result = await request(opts, { method: "form", html, timeout: dialogOptions?.timeout }, response =>
-		parseFormResponse(response, form, opts),
-	);
-	return timedOut ? { data: defaultFormData(form), timedOut: true } : result;
-}
-
-function parseFormResponse(
-	response: RpcExtensionUIResponse,
-	form: HtmlForm,
-	opts: ExtensionUIDialogOptions,
-): ExtensionFormDialogResult | undefined {
-	if ("cancelled" in response && response.cancelled) {
-		if (response.timedOut) opts.onTimeout?.();
-		return undefined;
-	}
-	const data: unknown = "data" in response ? response.data : undefined;
-	if (!isRecord(data)) throw new Error("Form response must carry a data object");
-	const names = new Set([...form.fields.map(field => field.name), ...form.hidden.map(([name]) => name)]);
-	// Hidden inputs submit as written, whether or not the host returns them.
-	const submitted: HtmlFormData = Object.fromEntries(form.hidden);
-	for (const [name, value] of Object.entries(data)) {
-		if (!names.has(name)) throw new Error(`Form response names unknown field ${JSON.stringify(name)}`);
-		const valid =
-			typeof value === "string" ||
-			(typeof value === "number" && Number.isFinite(value)) ||
-			(Array.isArray(value) && value.every(item => typeof item === "string"));
-		if (!valid) throw new Error(`Form field ${JSON.stringify(name)} must be text, a number or a list of text`);
-		submitted[name] = value;
-	}
-	return { data: submitted };
-}
 
 type AskCardUI = Required<Pick<ExtensionUIContext, "askDialog">>;
 
@@ -270,19 +202,4 @@ function blockText(block: Exclude<FormBlock, { kind: "field" }>): string {
 		case "svg":
 			return block.alt ? `[Diagram: ${block.alt}]` : "";
 	}
-}
-
-/**
- * The RPC context's `formDialog`: the host's own form when it sent
- * `set_form_dialog`, else its ask card when it sent `set_ask_dialog`, else
- * none, and the `ask` tool asks one field at a time as upstream does.
- */
-export function rpcFormDialog(
-	host: { readonly formDialogEnabled: boolean; readonly askDialog: ExtensionUIContext["askDialog"] },
-	request: RpcFormDialogRequest,
-): ExtensionUIContext["formDialog"] {
-	if (host.formDialogEnabled) return (html, opts) => requestRpcFormDialog(request, html, opts);
-	const askDialog = host.askDialog;
-	if (askDialog) return (html, opts) => askFormOnAskCard({ askDialog }, html, opts);
-	return undefined;
 }

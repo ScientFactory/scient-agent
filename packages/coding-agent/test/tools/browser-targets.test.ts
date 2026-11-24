@@ -20,7 +20,7 @@ const BLOCKS = [
 	{ block: 7, url: "https://docs.example/c", title: "Docs C", owner: null, shown: true, driven: false },
 ];
 
-const ENV_KEYS = ["TERN_PANE_SOCKET", "TERN_PANE", "PI_BROWSER_TERN", "PI_BROWSER_RELAY"] as const;
+const ENV_KEYS = ["TERN_PANE_SOCKET", "TERN_PANE", "PI_BROWSER_TERN", "SCIENT_AGENT_BROWSER_RELAY"] as const;
 let savedEnv: Map<string, string | undefined>;
 
 let daemon: FakeDaemon | undefined;

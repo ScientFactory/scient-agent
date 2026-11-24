@@ -160,6 +160,7 @@ export function refreshManagedMcpOAuthCredential(
 	return refreshMCPOAuthToken(tokenUrl, credential.refresh, material?.clientId, material?.clientSecret, resource, {
 		authorizationUrl,
 		stripSameOriginResource: resourceIsFallback,
+		scope: credential.scope,
 		signal: opts.signal,
 		// scient(SA-CODEX-PLUGINS): begin - a server-bound refresh follows no redirect; others are unchanged.
 		...(bound && { rejectRedirects: true }),

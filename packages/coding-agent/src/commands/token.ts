@@ -78,7 +78,7 @@ export default class Token extends Command {
 	static examples = [
 		"# Get API key for Anthropic\n  scient-agent token anthropic",
 		"# Get raw Copilot credential JSON\n  scient-agent token github-copilot --raw",
-		"# Force refresh and get Gemini CLI token\n  scient-agent token google-gemini-cli --force-refresh",
+		"# Force refresh and get an Antigravity token\n  scient-agent token google-antigravity --force-refresh",
 		"# List Anthropic OAuth accounts\n  scient-agent token anthropic --list",
 		"# Get the 2nd Anthropic OAuth account's token\n  scient-agent token anthropic --account 2",
 	];

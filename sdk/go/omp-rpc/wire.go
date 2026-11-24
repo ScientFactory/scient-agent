@@ -2577,19 +2577,23 @@ func (v *UsageLimitState) decodeFrom(raw map[string]json.RawMessage) error {
 }
 
 type SessionState struct {
-	SessionID             string         `json:"sessionId"`
-	Model                 *ModelInfo     `json:"model,omitempty"`
-	ThinkingLevel         *ThinkingLevel `json:"thinkingLevel,omitempty"`
-	IsStreaming           bool           `json:"isStreaming"`
-	IsCompacting          bool           `json:"isCompacting"`
-	SteeringMode          QueueMode      `json:"steeringMode"`
-	FollowUpMode          QueueMode      `json:"followUpMode"`
-	InterruptMode         InterruptMode  `json:"interruptMode"`
-	SessionFile           *string        `json:"sessionFile,omitempty"`
-	SessionName           *string        `json:"sessionName,omitempty"`
-	AutoCompactionEnabled bool           `json:"autoCompactionEnabled"`
-	FastModeEnabled       bool           `json:"fastModeEnabled"`
-	FastModeActive        bool           `json:"fastModeActive"`
+	SessionID     string         `json:"sessionId"`
+	Model         *ModelInfo     `json:"model,omitempty"`
+	ThinkingLevel *ThinkingLevel `json:"thinkingLevel,omitempty"`
+	// The user's thinking selector: `auto` while auto mode picks the effort, else `thinkingLevel`.
+	ConfiguredThinkingLevel *ConfiguredThinkingLevel `json:"configuredThinkingLevel,omitempty"`
+	// Selectors the active model accepts, as Scient Agent's thinking selector lists them: `off`, `auto`, then its efforts.
+	ThinkingLevels        []ConfiguredThinkingLevel `json:"thinkingLevels,omitempty"`
+	IsStreaming           bool                      `json:"isStreaming"`
+	IsCompacting          bool                      `json:"isCompacting"`
+	SteeringMode          QueueMode                 `json:"steeringMode"`
+	FollowUpMode          QueueMode                 `json:"followUpMode"`
+	InterruptMode         InterruptMode             `json:"interruptMode"`
+	SessionFile           *string                   `json:"sessionFile,omitempty"`
+	SessionName           *string                   `json:"sessionName,omitempty"`
+	AutoCompactionEnabled bool                      `json:"autoCompactionEnabled"`
+	FastModeEnabled       bool                      `json:"fastModeEnabled"`
+	FastModeActive        bool                      `json:"fastModeActive"`
 	// `/slow` applies to the active model.
 	SlowModeSupported bool `json:"slowModeSupported"`
 	// `/slow` is on for the active model; always `false` when `slowModeSupported` is `false`.
@@ -2625,6 +2629,8 @@ func (v *SessionState) decodeFrom(raw map[string]json.RawMessage) error {
 	d.required("sessionId", &out.SessionID)
 	d.optional("model", &out.Model)
 	d.optional("thinkingLevel", &out.ThinkingLevel)
+	d.optional("configuredThinkingLevel", &out.ConfiguredThinkingLevel)
+	d.optional("thinkingLevels", &out.ThinkingLevels)
 	d.defaulted("isStreaming", &out.IsStreaming, `false`)
 	d.defaulted("isCompacting", &out.IsCompacting, `false`)
 	d.defaulted("steeringMode", &out.SteeringMode, `"one-at-a-time"`)
@@ -2818,6 +2824,99 @@ func (v *CompactionResult) decodeFrom(raw map[string]json.RawMessage) error {
 	d.optional("details", &out.Details)
 	d.optional("preserveData", &out.PreserveData)
 	d.optional("providerReplayThroughEntryId", &out.ProviderReplayThroughEntryID)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+// A role a model holds, as picker rows chip it.
+type ModelPickerRole struct {
+	Role string `json:"role"`
+	// The role's display tag.
+	Label string `json:"label"`
+	// Auto-selected: the role has no configured model.
+	Auto *bool `json:"auto,omitempty"`
+}
+
+func (v *ModelPickerRole) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "ModelPickerRole", v.decodeFrom)
+}
+
+func (v *ModelPickerRole) decodeFrom(raw map[string]json.RawMessage) error {
+	var out ModelPickerRole
+	d := fieldDecoder{raw: raw, owner: "ModelPickerRole"}
+	d.required("role", &out.Role)
+	d.required("label", &out.Label)
+	d.optional("auto", &out.Auto)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+// One row of Scient Agent's session model picker.
+type ModelPickerRow struct {
+	Provider string `json:"provider"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	// The quick role this row applies (`@` search); pass it to `set_model`.
+	Role *string `json:"role,omitempty"`
+	// Visible roles the model holds, built-in order first.
+	Roles []ModelPickerRole `json:"roles,omitempty"`
+	// Steps of the model's thinking slider, low to high: `auto`, `off`, then its efforts. Absent when it has no effort to pick.
+	Thinking []ConfiguredThinkingLevel `json:"thinking,omitempty"`
+	// Model rows: the session's level as this model would run it (the untouched slider). Quick-role rows: the role's explicit level, which `set_model` should carry.
+	ThinkingLevel *ConfiguredThinkingLevel `json:"thinkingLevel,omitempty"`
+	// The session's context exceeds the model's window.
+	OverContext *bool `json:"overContext,omitempty"`
+	// The session runs this row: its model, or under `@` its active quick role.
+	Current *bool `json:"current,omitempty"`
+}
+
+func (v *ModelPickerRow) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "ModelPickerRow", v.decodeFrom)
+}
+
+func (v *ModelPickerRow) decodeFrom(raw map[string]json.RawMessage) error {
+	var out ModelPickerRow
+	d := fieldDecoder{raw: raw, owner: "ModelPickerRow"}
+	d.required("provider", &out.Provider)
+	d.required("id", &out.ID)
+	d.required("name", &out.Name)
+	d.optional("role", &out.Role)
+	d.optional("roles", &out.Roles)
+	d.optional("thinking", &out.Thinking)
+	d.optional("thinkingLevel", &out.ThinkingLevel)
+	d.optional("overContext", &out.OverContext)
+	d.optional("current", &out.Current)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
+type ModelPickerResult struct {
+	Rows []ModelPickerRow `json:"rows"`
+	// Leading rows that are recently used or role-held (the picker's Recent block); 0 when there is no such split.
+	Recent int64 `json:"recent"`
+	// Matching rows before `limit`.
+	Total int64 `json:"total"`
+}
+
+func (v *ModelPickerResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "ModelPickerResult", v.decodeFrom)
+}
+
+func (v *ModelPickerResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out ModelPickerResult
+	d := fieldDecoder{raw: raw, owner: "ModelPickerResult"}
+	d.required("rows", &out.Rows)
+	d.required("recent", &out.Recent)
+	d.required("total", &out.Total)
 	if d.err != nil {
 		return d.err
 	}
@@ -6159,7 +6258,7 @@ func (v AskUiRequest) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_request","method":"ask"`, nil)
 }
 
-// The `ask` tool's HTML form; sent only after `set_form_dialog` enables it. Answer with `FormUiResponse`.
+// The HTML `<form>` of one `ui.formDialog` call (the `ask` tool or an extension); no opt-in is required.
 type FormUiRequest struct {
 	ID      string `json:"id"`
 	HTML    string `json:"html"`
@@ -6556,7 +6655,7 @@ func (v ConfirmUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
 }
 
-// Dismisses a dialog; `timedOut` reports the host's own deadline (an `ask` dialog then takes its recommended answers).
+// Dismisses a dialog; `timedOut` reports the host's own deadline (an `ask` dialog then takes its recommended answers, a `form` its defaults).
 type CancelUiResponse struct {
 	ID       string `json:"id"`
 	TimedOut *bool  `json:"timedOut,omitempty"`
@@ -6613,19 +6712,20 @@ func (v AnswersUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
 }
 
-// Answers a `form` request with the form's data by control name: text, a number, or a group's checked values.
-type FormUiResponse struct {
-	ID   string                                 `json:"id"`
-	Data map[string]StringOrNumberOrStringArray `json:"data"`
+// Answers a `form` request with the submitted form data.
+type DataUiResponse struct {
+	ID string `json:"id"`
+	// Submitted values by control `name`: a string, a number, or a string array.
+	Data map[string]json.RawMessage `json:"data"`
 }
 
-func (v *FormUiResponse) UnmarshalJSON(data []byte) error {
-	return decodeWith(data, "FormUiResponse", v.decodeFrom)
+func (v *DataUiResponse) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "DataUiResponse", v.decodeFrom)
 }
 
-func (v *FormUiResponse) decodeFrom(raw map[string]json.RawMessage) error {
-	var out FormUiResponse
-	d := fieldDecoder{raw: raw, owner: "FormUiResponse"}
+func (v *DataUiResponse) decodeFrom(raw map[string]json.RawMessage) error {
+	var out DataUiResponse
+	d := fieldDecoder{raw: raw, owner: "DataUiResponse"}
 	d.constant("type", "extension_ui_response")
 	d.required("id", &out.ID)
 	d.required("data", &out.Data)
@@ -6636,48 +6736,9 @@ func (v *FormUiResponse) decodeFrom(raw map[string]json.RawMessage) error {
 	return nil
 }
 
-func (v FormUiResponse) MarshalJSON() ([]byte, error) {
-	type plain FormUiResponse
+func (v DataUiResponse) MarshalJSON() ([]byte, error) {
+	type plain DataUiResponse
 	return encodeObject(plain(v), `"type":"extension_ui_response"`, nil)
-}
-
-// StringOrNumberOrStringArray holds exactly one of its fields, chosen by the JSON kind of the value.
-type StringOrNumberOrStringArray struct {
-	String *string
-	Number *float64
-	Array  []string
-}
-
-func (v StringOrNumberOrStringArray) MarshalJSON() ([]byte, error) {
-	switch {
-	case v.String != nil:
-		return json.Marshal(*v.String)
-	case v.Number != nil:
-		return json.Marshal(*v.Number)
-	case v.Array != nil:
-		return json.Marshal(v.Array)
-	}
-	return nil, emptyUnion("StringOrNumberOrStringArray")
-}
-
-func (v *StringOrNumberOrStringArray) UnmarshalJSON(data []byte) error {
-	var out StringOrNumberOrStringArray
-	var err error
-	switch jsonKind(data) {
-	case '"':
-		err = json.Unmarshal(data, &out.String)
-	case '0':
-		err = json.Unmarshal(data, &out.Number)
-	case '[':
-		err = json.Unmarshal(data, &out.Array)
-	default:
-		return unexpectedKind("StringOrNumberOrStringArray", data)
-	}
-	if err != nil {
-		return err
-	}
-	*v = out
-	return nil
 }
 
 // Host reply to an extension UI request; variants share `type` and differ by their payload key.
@@ -6695,7 +6756,7 @@ func (ValueUiResponse) isExtensionUiResponse()   {}
 func (ConfirmUiResponse) isExtensionUiResponse() {}
 func (CancelUiResponse) isExtensionUiResponse()  {}
 func (AnswersUiResponse) isExtensionUiResponse() {}
-func (FormUiResponse) isExtensionUiResponse()    {}
+func (DataUiResponse) isExtensionUiResponse()    {}
 
 func (v ExtensionUiResponse) MarshalJSON() ([]byte, error) {
 	return encodeVariant("ExtensionUiResponse", v.Value)
@@ -7048,7 +7109,7 @@ func (ValueUiResponse) isRpcInbound()   {}
 func (ConfirmUiResponse) isRpcInbound() {}
 func (CancelUiResponse) isRpcInbound()  {}
 func (AnswersUiResponse) isRpcInbound() {}
-func (FormUiResponse) isRpcInbound()    {}
+func (DataUiResponse) isRpcInbound()    {}
 func (HostToolUpdate) isRpcInbound()    {}
 func (HostToolResult) isRpcInbound()    {}
 func (HostUriResult) isRpcInbound()     {}
@@ -7631,6 +7692,25 @@ func (v *NegotiateProtocolResult) decodeFrom(raw map[string]json.RawMessage) err
 	return nil
 }
 
+type AbortAndDeliverQueueResult struct {
+	Aborted bool `json:"aborted"`
+}
+
+func (v *AbortAndDeliverQueueResult) UnmarshalJSON(data []byte) error {
+	return decodeWith(data, "AbortAndDeliverQueueResult", v.decodeFrom)
+}
+
+func (v *AbortAndDeliverQueueResult) decodeFrom(raw map[string]json.RawMessage) error {
+	var out AbortAndDeliverQueueResult
+	d := fieldDecoder{raw: raw, owner: "AbortAndDeliverQueueResult"}
+	d.required("aborted", &out.Aborted)
+	if d.err != nil {
+		return d.err
+	}
+	*v = out
+	return nil
+}
+
 type SetSlowModeResult struct {
 	Enabled bool `json:"enabled"`
 }
@@ -7661,25 +7741,6 @@ func (v *SetAskDialogResult) UnmarshalJSON(data []byte) error {
 func (v *SetAskDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
 	var out SetAskDialogResult
 	d := fieldDecoder{raw: raw, owner: "SetAskDialogResult"}
-	d.required("enabled", &out.Enabled)
-	if d.err != nil {
-		return d.err
-	}
-	*v = out
-	return nil
-}
-
-type SetFormDialogResult struct {
-	Enabled bool `json:"enabled"`
-}
-
-func (v *SetFormDialogResult) UnmarshalJSON(data []byte) error {
-	return decodeWith(data, "SetFormDialogResult", v.decodeFrom)
-}
-
-func (v *SetFormDialogResult) decodeFrom(raw map[string]json.RawMessage) error {
-	var out SetFormDialogResult
-	d := fieldDecoder{raw: raw, owner: "SetFormDialogResult"}
 	d.required("enabled", &out.Enabled)
 	if d.err != nil {
 		return d.err
@@ -8349,6 +8410,18 @@ func (c Commands) AbortAndRestoreQueue(ctx context.Context) (AbortAndRestoreQueu
 	return out, err
 }
 
+// AbortAndDeliverQueue sends "abort_and_deliver_queue": Abort the current run and continue it with the queued user input (the TUI's empty Enter); `aborted` is false when no run was streaming with queued input.
+func (c Commands) AbortAndDeliverQueue(ctx context.Context) (AbortAndDeliverQueueResult, error) {
+	var out AbortAndDeliverQueueResult
+	err := c.call(ctx, "abort_and_deliver_queue", nil, 0, &out)
+	return out, err
+}
+
+// Resume sends "resume": Continue the agent (the TUI's `.`/`c` shortcut), interrupting a running turn first; queued input continues the run in place of the continue directive. Acknowledged once the continuation is under way.
+func (c Commands) Resume(ctx context.Context) error {
+	return c.call(ctx, "resume", nil, 0, nil)
+}
+
 // NewSessionCommand holds the parameters of "new_session".
 type NewSessionCommand struct {
 	ParentSession *string `json:"parentSession,omitempty"`
@@ -8429,18 +8502,6 @@ type SetAskDialogCommand struct {
 func (c Commands) SetAskDialog(ctx context.Context, p SetAskDialogCommand) (bool, error) {
 	var out SetAskDialogResult
 	err := c.call(ctx, "set_ask_dialog", p, 0, &out)
-	return out.Enabled, err
-}
-
-// SetFormDialogCommand holds the parameters of "set_form_dialog".
-type SetFormDialogCommand struct {
-	Enabled bool `json:"enabled"`
-}
-
-// SetFormDialog sends "set_form_dialog": Opt in to receiving the `ask` tool's whole HTML form (`form` UI requests); returns the applied setting.
-func (c Commands) SetFormDialog(ctx context.Context, p SetFormDialogCommand) (bool, error) {
-	var out SetFormDialogResult
-	err := c.call(ctx, "set_form_dialog", p, 0, &out)
 	return out.Enabled, err
 }
 
@@ -8651,6 +8712,10 @@ func (c Commands) DictationStop(ctx context.Context) (string, error) {
 type SetModelCommand struct {
 	Provider string `json:"provider"`
 	ModelID  string `json:"modelId"`
+	// Thinking level to run the model at, clamped to it; omitted re-applies the session's level.
+	ThinkingLevel *ConfiguredThinkingLevel `json:"thinkingLevel,omitempty"`
+	// Model role the switch records (a quick-role pick passes its role); default `default`. Nothing is persisted.
+	Role *string `json:"role,omitempty"`
 }
 
 // SetModel sends "set_model": Select a model by provider and id.
@@ -8674,9 +8739,25 @@ func (c Commands) GetAvailableModels(ctx context.Context) ([]ModelInfo, error) {
 	return out.Models, err
 }
 
+// GetModelPickerCommand holds the parameters of "get_model_picker".
+type GetModelPickerCommand struct {
+	// Search text; blank browses every model, `provider/` limits matches to a provider.
+	Query *string `json:"query,omitempty"`
+	// Most rows to return; default 100.
+	Limit *int64 `json:"limit,omitempty"`
+}
+
+// GetModelPicker sends "get_model_picker": Model picker rows ordered and ranked as Scient Agent's session model picker shows them; a query starting with `@` lists quick roles.
+func (c Commands) GetModelPicker(ctx context.Context, p GetModelPickerCommand) (ModelPickerResult, error) {
+	var out ModelPickerResult
+	err := c.call(ctx, "get_model_picker", p, 0, &out)
+	return out, err
+}
+
 // SetThinkingLevelCommand holds the parameters of "set_thinking_level".
 type SetThinkingLevelCommand struct {
-	Level ThinkingLevel `json:"level"`
+	// `auto` lets Scient Agent pick the effort per turn.
+	Level ConfiguredThinkingLevel `json:"level"`
 }
 
 // SetThinkingLevel sends "set_thinking_level": Set the thinking level.

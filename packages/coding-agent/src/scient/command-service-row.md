@@ -1,0 +1,1 @@
+- {{service}} — {{description}} ({{count}}){{#if names}}: {{names}}{{/if}}. Read help://{{path}}.

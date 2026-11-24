@@ -15,12 +15,15 @@
  */
 import { getMCPConfigPath } from "@oh-my-pi/pi-utils";
 import { Args, Command, Flags } from "@oh-my-pi/pi-utils/cli";
-import { initializeWithSettings } from "../capability";
+import { initializeWithSettings } from "../discovery";
 import type { SourceMeta } from "../capability/types";
 import { Settings } from "../config/settings";
+import { cfgExtensions } from "../extensibility/settings";
+import { closeDaemonClient } from "../daemon/client";
 import { expandEnvVarsDeep } from "../discovery/helpers";
-import { loadAllMCPConfigs } from "../mcp/config";
+import { loadAllMCPConfigs, shouldFilterBrowserMCPForPrelude } from "../mcp/config";
 import { readMCPConfigFile } from "../mcp/config-writer";
+import { holdSharedMcp } from "../mcp/host/access";
 import { type MCPLoadResult, MCPManager } from "../mcp/manager";
 import { analyzeAuthError } from "../mcp/oauth-discovery";
 import { MCPOAuthClientIdRequiredError } from "../mcp/oauth-flow";
@@ -30,7 +33,10 @@ import {
 	McpReauthRefusalError,
 	reauthorizeMcpServer,
 } from "../mcp/oauth-reauth";
-import { cfgMcpEnableProjectConfig } from "../mcp/settings";
+import { resolveBuiltinToolPlan } from "../tools";
+import { cfgBrowserEnabled } from "../tools/browser/settings";
+import { resolveMCPTransformContext } from "../mcp/transforms";
+import { cfgMcpEnableProjectConfig, cfgMcpIdleStopMinutes, cfgMcpShared } from "../mcp/settings";
 import type { MCPServerConfig } from "../mcp/types";
 import type { AuthStorage } from "../session/auth-storage";
 import { discoverAuthStorage } from "../sdk";
@@ -100,7 +106,7 @@ export function serverStatusLine(
 	const failure = loaded.errors.get(name);
 	if (failure === undefined) return base;
 	const url = config && (config.type === "http" || config.type === "sse") ? config.url : undefined;
-	if (url && config && analyzeAuthError(new Error(failure), url).requiresAuth) {
+	if (url && config && /^HTTP (401|403)\b/.test(failure) && analyzeAuthError(new Error(failure), url).requiresAuth) {
 		const signIn =
 			canSignIn(config) &&
 			addressIsPublic(url) &&
@@ -131,6 +137,36 @@ export function loginFailureMessage(name: string, bound: boolean, error: unknown
 	return `Signing in to ${name} did not complete. Try again.`;
 }
 
+async function withHostMcpManager<T>(
+	cwd: string,
+	idleMs: number,
+	authStorage: AuthStorage,
+	run: (manager: MCPManager) => Promise<T>,
+): Promise<T> {
+	const manager = new MCPManager(cwd, undefined, idleMs);
+	manager.setAuthStorage(authStorage);
+	try {
+		return await run(manager);
+	} finally {
+		await manager.disconnectAll();
+	}
+}
+
+/** Read live catalogs on new attachments, then release every lease, including servers still starting. */
+export function listHostMcpServers(
+	cwd: string,
+	idleMs: number,
+	configs: Record<string, MCPServerConfig>,
+	sources: Record<string, SourceMeta>,
+	authStorage: AuthStorage,
+	windowMs = LIST_WAIT_MS,
+): Promise<McpServerStatusLine[]> {
+	return withHostMcpManager(cwd, idleMs, authStorage, async manager => {
+		const loaded = await manager.connectServers(configs, sources, undefined, windowMs, { live: true });
+		return Object.keys(configs).map(name => serverStatusLine(manager, name, loaded, authStorage));
+	});
+}
+
 export default class Mcp extends Command {
 	static description = mcpHelp.description;
 	static args = {
@@ -145,26 +181,58 @@ export default class Mcp extends Command {
 	async run(): Promise<void> {
 		const { args, flags } = await this.parse(Mcp);
 		const cwd = process.cwd();
-		const settings = await Settings.loadReadOnly();
-		// Discovery honours the user's provider switches, as a conversation's does.
-		const releaseSettings = initializeWithSettings(settings);
-		const authStorage = await discoverAuthStorage(undefined, { settings });
-		const manager = new MCPManager(cwd, null);
-		manager.setAuthStorage(authStorage);
 		const abort = new AbortController();
 		const onSignal = (): void => abort.abort();
 		process.once("SIGTERM", onSignal);
 		process.once("SIGINT", onSignal);
+		const cleanup = new DisposableStack();
 		try {
+			const settings = await Settings.loadReadOnly({ cwd });
+			cleanup.defer(initializeWithSettings(settings));
+			cleanup.defer(holdSharedMcp(cfgMcpShared.get(settings)).release);
+			const authStorage = await discoverAuthStorage(undefined, { settings });
+			cleanup.defer(() => authStorage.close());
+			const idleMs = cfgMcpIdleStopMinutes.get(settings) * 60_000;
 			const only = args.action === "login" ? args.server : flags.server;
 			if (args.action === "login" && !only) throw new McpReauthRefusalError("Name the server to sign in to.");
-			const loaded = await loadAllMCPConfigs(cwd, { enableProjectConfig: cfgMcpEnableProjectConfig.get(settings) });
+			const plan = await resolveBuiltinToolPlan(
+				{
+					cwd,
+					settings,
+					hasUI: false,
+					getSessionFile: () => null,
+					getSessionSpawns: () => null,
+				},
+				["eval"],
+			);
+			const evalActive = plan.names.includes("eval");
+			const loaded = await loadAllMCPConfigs(cwd, {
+				enableProjectConfig: cfgMcpEnableProjectConfig.get(settings),
+				filterExa: true,
+				filterBrowser: shouldFilterBrowserMCPForPrelude({
+					restrictToolNames: false,
+					browserEnabled: cfgBrowserEnabled.get(settings),
+					evalRegistered: evalActive,
+					evalActive,
+				}),
+				extensionRoots: {
+					explicit: [],
+					mode: "merge",
+					configured: cfgExtensions.get(settings),
+					configuredLevel: settings.extensionsSourceLevel(),
+				},
+				builtinTransforms: resolveMCPTransformContext(settings, { evalActive }),
+			});
 			const configs = only
 				? Object.fromEntries(Object.entries(loaded.configs).filter(([name]) => name === only))
 				: loaded.configs;
-			if (args.action === "login")
-				await this.#login(only!, configs, loaded.sources, manager, authStorage, abort, cwd);
-			else await this.#list(configs, loaded.sources, manager, authStorage);
+			if (args.action === "login") {
+				await withHostMcpManager(cwd, idleMs, authStorage, manager =>
+					this.#login(only!, configs, loaded.sources, manager, authStorage, abort, cwd),
+				);
+			} else {
+				print({ servers: await listHostMcpServers(cwd, idleMs, configs, loaded.sources, authStorage) });
+			}
 		} catch (error) {
 			const message =
 				error instanceof McpReauthRefusalError ? error.message : "Scient Agent could not read its MCP servers.";
@@ -173,23 +241,12 @@ export default class Mcp extends Command {
 		} finally {
 			process.off("SIGTERM", onSignal);
 			process.off("SIGINT", onSignal);
-			await manager.disconnectAll().catch(() => {});
-			authStorage.close();
-			releaseSettings();
+			cleanup.dispose();
+			await closeDaemonClient();
 		}
 		// The startup window's timer outlives a startup that settled sooner; once the output is out, nothing is left to do.
 		await flushStdout();
 		process.exit();
-	}
-
-	async #list(
-		configs: Record<string, MCPServerConfig>,
-		sources: Record<string, SourceMeta>,
-		manager: MCPManager,
-		authStorage: AuthStorage,
-	): Promise<void> {
-		const loaded = await manager.connectServers(configs, sources, undefined, LIST_WAIT_MS);
-		print({ servers: Object.keys(configs).map(name => serverStatusLine(manager, name, loaded, authStorage)) });
 	}
 
 	async #login(
@@ -222,8 +279,8 @@ export default class Mcp extends Command {
 				`${name}'s address carries values of its own, which Scient Agent does not send to a sign-in page.`,
 			);
 		}
-		// Registers the definition the way a conversation does, so the sign-in uses the one it selected.
-		await manager.connectServers(configs, sources, undefined, LIST_WAIT_MS);
+		// Register the selected definition and source without contacting the server. Reauth makes the live probe.
+		manager.updateServerConfig(name, config, source);
 		const found = await selectedServer(name, config, source, manager, cwd);
 		if (!found) {
 			throw new McpReauthRefusalError(`"${name}" is configured somewhere Scient Agent cannot sign in to it from.`);
@@ -231,6 +288,7 @@ export default class Mcp extends Command {
 		const bound = source?.provider === CODEX_PLUGINS_PROVIDER;
 		let withheld = false;
 		try {
+			if (abort.signal.aborted) throw new MCPOAuthCancelledError();
 			await reauthorizeMcpServer(name, found, {
 				authStorage,
 				signal: abort.signal,
@@ -265,7 +323,13 @@ function addressIsPublic(address: string | undefined): boolean {
 	if (address === undefined) return true;
 	try {
 		const url = new URL(address);
-		return !url.username && !url.password && !url.search;
+		return (
+			(url.protocol === "https:" || url.protocol === "http:") &&
+			!url.username &&
+			!url.password &&
+			!url.search &&
+			!url.hash
+		);
 	} catch {
 		return false;
 	}
@@ -279,7 +343,8 @@ function addressIsPublic(address: string | undefined): boolean {
 export function authorizationUrlIsPublic(authorizationUrl: string): boolean {
 	try {
 		const page = new URL(authorizationUrl);
-		if (page.username || page.password) return false;
+		if ((page.protocol !== "https:" && page.protocol !== "http:") || page.username || page.password || page.hash)
+			return false;
 		return page.searchParams.getAll("resource").every(resource => addressIsPublic(resource));
 	} catch {
 		return false;

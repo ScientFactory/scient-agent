@@ -17,8 +17,8 @@ import {
 	reauthorizeMcpServer,
 } from "../../mcp/oauth-reauth";
 import type { MCPServerConfig, MCPServerConnection } from "../../mcp/types";
-// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
-import { withTrustedMcpAuth } from "../../mcp/oauth-flow";
+// scient(SA-CODEX-PLUGINS): begin - file-only probes cannot claim an imported server's sign-in.
+import { withTrustedMcpAuth } from "../../scient/mcp-server-credential";
 // scient(SA-CODEX-PLUGINS): end
 import { parseCommandArgs } from "../../utils/command-args";
 import { openPath } from "../../utils/open";
@@ -153,11 +153,11 @@ async function withPreparedMcpConnection<T>(
 		// Without this, `/mcp test|resources|prompts` silently fails for any
 		// server saved by the TUI/reauth path.
 		manager.setAuthStorage(runtime.session.modelRegistry.authStorage);
-		// scient(SA-CODEX-PLUGINS): begin - these definitions come from config files, which never hold an
-		// imported server's own sign-in: a server-bound id there is dropped.
+		// scient(SA-CODEX-PLUGINS): begin - scrub a file definition before resolving credentials.
 		const resolvedConfig = await manager.prepareConfig(withTrustedMcpAuth(name, config, undefined));
 		// scient(SA-CODEX-PLUGINS): end
-		connection = await connectToServer(name, resolvedConfig);
+		// Live: these commands report what the server says now, not what the host's store remembers.
+		connection = await connectToServer(name, resolvedConfig, { live: true });
 		return await fn(connection);
 	} finally {
 		if (connection) {
@@ -439,7 +439,7 @@ async function handleReauthCommand(rest: string, runtime: SlashCommandRuntime): 
 					: state === "connecting"
 						? " Server reconnecting…"
 						: state === "disconnected"
-							? " Server still disconnected; no background retry is armed for a server that never connected — restart the session (or reconnect it interactively) to use the fresh credential."
+							? " Server still disconnected; restart the session (or reconnect it interactively) to use the fresh credential."
 							: " Credentials apply on the next connection; restart the session if the server stays disconnected.";
 			emit(`✓ Reauthorized "${name}" (${found.scope} config).${suffix}`);
 			return commandConsumed();
