@@ -49,6 +49,9 @@ import {
 	removeManagedMcpOAuthCredentials,
 } from "../../mcp/oauth-credentials";
 import type { MCPAuthChallenge, MCPConfigFile, MCPServerConfig, MCPServerConnection } from "../../mcp/types";
+// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+import { isMcpOAuthServerCredentialId, mcpOAuthServerCredentialId, withTrustedMcpAuth } from "../../mcp/oauth-flow";
+// scient(SA-CODEX-PLUGINS): end
 import { shortenPath } from "@oh-my-pi/pi-tui/render/render-utils";
 import { urlHyperlinkAlways } from "@oh-my-pi/pi-tui/render";
 import { copyToClipboard } from "../../utils/clipboard";
@@ -913,10 +916,12 @@ export class MCPCommandController {
 		}
 	}
 
-	async #syncManagerConnection(name: string, config: MCPServerConfig): Promise<void> {
+	// scient(SA-CODEX-PLUGINS): begin - the definition connects with its own source, if any.
+	async #syncManagerConnection(name: string, config: MCPServerConfig, source?: SourceMeta): Promise<void> {
 		if (!this.ctx.mcpManager) return;
 		if (this.ctx.mcpManager.getConnectionStatus(name) !== "disconnected") return;
-		await this.ctx.mcpManager.connectServers({ [name]: config }, {});
+		await this.ctx.mcpManager.connectServers({ [name]: config }, source ? { [name]: source } : {});
+		// scient(SA-CODEX-PLUGINS): end
 		if (this.ctx.mcpManager.getConnectionStatus(name) === "connected") {
 			await this.ctx.session.refreshMCPTools(this.ctx.mcpManager.getTools());
 		}
@@ -1321,13 +1326,18 @@ export class MCPCommandController {
 
 			// Resolve auth config if needed
 			let resolvedConfig: MCPServerConfig;
+			// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in only for the server imported under it: the
+			// source is the selected definition's own, and a config-file definition has none that binds.
+			const testSource = found.discovered ? this.ctx.mcpManager?.getSource(name) : undefined;
+			const testConfig = withTrustedMcpAuth(name, config, testSource?.provider);
 			if (this.ctx.mcpManager) {
-				resolvedConfig = await this.ctx.mcpManager.prepareConfig(config);
+				resolvedConfig = await this.ctx.mcpManager.prepareConfig(testConfig);
 			} else {
 				const tempManager = new MCPManager(getProjectDir());
 				tempManager.setAuthStorage(this.ctx.session.modelRegistry.authStorage);
-				resolvedConfig = await tempManager.prepareConfig(config);
+				resolvedConfig = await tempManager.prepareConfig(testConfig);
 			}
+			// scient(SA-CODEX-PLUGINS): end
 
 			// Create temporary connection
 			// Live: a test answered from the host's store would pass for a server that is down.
@@ -1354,7 +1364,9 @@ export class MCPCommandController {
 			}
 
 			lines.push("");
-			await this.#syncManagerConnection(name, config);
+			// scient(SA-CODEX-PLUGINS): begin - the tested definition, with the source it was tested under.
+			await this.#syncManagerConnection(name, testConfig, testSource);
+			// scient(SA-CODEX-PLUGINS): end
 			this.#showMessage(lines.join("\n"));
 		} catch (error) {
 			if (abortController.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
@@ -1423,7 +1435,12 @@ export class MCPCommandController {
 			const found = await findMcpServerForAuth(name, getProjectDir(), this.ctx.mcpManager, {
 				enableProjectConfig: cfgMcpEnableProjectConfig.get(this.ctx.settings),
 			});
-			if (!found) {
+			// scient(SA-CODEX-PLUGINS): begin - an imported Codex plugin server lives in no config file: its
+			// toggle is the disabledServers list, as for any third-party discovered server.
+			const imported =
+				found?.discovered === true && this.ctx.mcpManager?.getSource(name)?.provider === "codex-plugins";
+			if (!found || imported) {
+				// scient(SA-CODEX-PLUGINS): end
 				// Check if this is a discovered server from a third-party config
 				const userConfigPath = getMCPConfigPath("user", getProjectDir());
 				const disabledServers = new Set(await readDisabledServers(userConfigPath));
@@ -1534,6 +1551,24 @@ export class MCPCommandController {
 
 			const currentAuth = found.config.auth;
 			const authStorage = this.ctx.session.modelRegistry.authStorage;
+			// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in signs out of that one alone: no
+			// other server's url-keyed sign-in goes with it, and its definition lives in no config file to rewrite.
+			if (isMcpOAuthServerCredentialId(currentAuth?.credentialId)) {
+				// Only a discovered server holds its own sign-in, under the id its name and URL give.
+				const own =
+					found.discovered &&
+					(found.config.type === "http" || found.config.type === "sse") &&
+					currentAuth?.credentialId === mcpOAuthServerCredentialId(name, found.config.url);
+				if (!own) {
+					this.ctx.showError(`Server "${name}" names a sign-in that belongs to another server.`);
+					return;
+				}
+				await removeManagedMcpOAuthCredential(authStorage, currentAuth?.credentialId);
+				await this.reloadServers();
+				this.#showMessage(["", theme.fg("success", `- Cleared auth for "${name}"`), ""].join("\n"));
+				return;
+			}
+			// scient(SA-CODEX-PLUGINS): end
 			if (currentAuth?.type === "oauth") {
 				await removeManagedMcpOAuthCredential(authStorage, currentAuth.credentialId);
 			}
@@ -1590,9 +1625,23 @@ export class MCPCommandController {
 		}
 
 		try {
-			const found = await findMcpServerForAuth(name, getProjectDir(), this.ctx.mcpManager, {
-				enableProjectConfig: cfgMcpEnableProjectConfig.get(this.ctx.settings),
-			});
+			// scient(SA-CODEX-PLUGINS): begin - a challenge from a live imported server is answered for that live
+			// definition, never a same-named config-file entry.
+			const live =
+				options.authChallenge !== undefined && this.ctx.mcpManager?.getSource(name)?.provider === "codex-plugins"
+					? this.ctx.mcpManager.getServerConfig(name)
+					: undefined;
+			const found = live
+				? {
+						filePath: getMCPConfigPath("user", getProjectDir()),
+						scope: "user" as const,
+						config: live,
+						discovered: true,
+					}
+				: await findMcpServerForAuth(name, getProjectDir(), this.ctx.mcpManager, {
+						enableProjectConfig: cfgMcpEnableProjectConfig.get(this.ctx.settings),
+					});
+			// scient(SA-CODEX-PLUGINS): end
 			if (!found) {
 				if (!options.silent) this.ctx.showError(`Server "${name}" not found.`);
 				return;

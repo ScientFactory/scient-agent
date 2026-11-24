@@ -4,6 +4,9 @@
  * the endpoint that stream announces. Handshake-era only; nothing modern
  * speaks it.
  */
+// scient(SA-CODEX-PLUGINS): begin - Keep the local call deadline on the composed fetch signal.
+import { toolDeadline } from "../../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import { isRecord, logger, postmortem, readSseEvents } from "@oh-my-pi/pi-utils";
 import {
 	createMCPJsonRpcError,
@@ -253,6 +256,9 @@ export class SseUpstream implements MCPTransport {
 		const id = this.#requestIds.next(this.#spec.requestIdFormat);
 		options?.onRequestId?.(id);
 		const signal = this.#operationSignal(options?.signal);
+		// scient(SA-CODEX-PLUGINS): begin - Retain the originating deadline through POST preparation and redirects.
+		toolDeadline(options?.signal)?.bind(signal);
+		// scient(SA-CODEX-PLUGINS): end
 		const deferred = Promise.withResolvers<unknown>();
 		// A stream-close rejection may land while the POST below is still
 		// awaited; observe it now so it is never flagged as unhandled.

@@ -6,6 +6,10 @@ import { expandEnvVarsDeep } from "../discovery/helpers";
 import type { AuthStorage } from "../session/auth-storage";
 import {
 	isManagedMCPOAuthCredentialId,
+	// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+	isMcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialIdMatchesUrl,
+	// scient(SA-CODEX-PLUGINS): end
 	type MCPStoredOAuthCredential,
 	mcpOAuthCredentialId,
 	mcpOAuthCredentialProfile,
@@ -45,6 +49,14 @@ export function lookupMcpOAuthCredentialForServer(
 	if (!authStorage) return undefined;
 	if (auth && auth.type !== "oauth") return undefined;
 	const urlKeyedCredentialIds = mcpOAuthCredentialIdsForServerUrl(serverUrl);
+	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in answers only the URL it was made for.
+	if (
+		isMcpOAuthServerCredentialId(auth?.credentialId) &&
+		!mcpOAuthServerCredentialIdMatchesUrl(auth?.credentialId ?? "", serverUrl)
+	) {
+		return undefined;
+	}
+	// scient(SA-CODEX-PLUGINS): end
 	if (
 		auth?.credentialId &&
 		(!auth.credentialId.startsWith("mcp_oauth:profile:") || urlKeyedCredentialIds.includes(auth.credentialId))
@@ -54,6 +66,9 @@ export function lookupMcpOAuthCredentialForServer(
 			return { credentialId: auth.credentialId, credential };
 		}
 	}
+	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in never takes another server's by URL.
+	if (isMcpOAuthServerCredentialId(auth?.credentialId)) return undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	if (options.allowUrlKeyedFallback === false) return undefined;
 	for (const credentialId of urlKeyedCredentialIds) {
 		const credential = authStorage.credentials.get(credentialId);
@@ -73,9 +88,23 @@ export function lookupMcpOAuthCredential(
 		return lookupMcpOAuthCredentialForServer(authStorage, auth, undefined);
 	}
 	if (hasMcpAuthorizationHeader(config)) {
+		// scient(SA-CODEX-PLUGINS): begin - for a server bound to its own sign-in, the configured
+		// Authorization header (an imported Codex plugin's bearer) wins over a stored sign-in, as in Codex.
+		if (isMcpOAuthServerCredentialId(auth?.credentialId)) return undefined;
+		// scient(SA-CODEX-PLUGINS): end
 		return lookupMcpOAuthCredentialForServer(authStorage, auth, config.url, { allowUrlKeyedFallback: false });
 	}
-	return lookupMcpOAuthCredentialForServer(authStorage, auth, config.url);
+	// scient(SA-CODEX-PLUGINS): begin - a server's own sign-in made for another confidential client than the one
+	// it now configures is not used or refreshed: Codex compares the exact IDs and asks for a fresh sign-in.
+	// Its secret is never stored: refresh sends the one the definition configures now.
+	const lookup = lookupMcpOAuthCredentialForServer(authStorage, auth, config.url);
+	if (!lookup || !isMcpOAuthServerCredentialId(lookup.credentialId)) return lookup;
+	const { clientId, clientSecret } = config.oauth ?? {};
+	if (typeof clientSecret === "string" && typeof clientId === "string" && lookup.credential.clientId !== clientId) {
+		return undefined;
+	}
+	return lookup;
+	// scient(SA-CODEX-PLUGINS): end
 }
 
 export function selectMcpOAuthRefreshMaterial(
@@ -104,9 +133,23 @@ export function selectMcpOAuthRefreshMaterial(
  */
 export function refreshManagedMcpOAuthCredential(
 	credential: MCPStoredOAuthCredential,
-	opts: { serverUrl?: string; auth?: MCPAuthConfig; signal?: AbortSignal } = {},
+	// scient(SA-CODEX-PLUGINS): begin - every refresh path (manager, broker, `omp token`) names the row, so a
+	// server-bound sign-in refreshes as Codex does: with the stored client ID and only the secret its current
+	// definition configures (none when the caller has no definition), and following no redirect.
+	opts: {
+		serverUrl?: string;
+		auth?: MCPAuthConfig;
+		signal?: AbortSignal;
+		credentialId?: string;
+		clientSecret?: string;
+	} = {},
 ): Promise<OAuthCredentials> {
-	const material = selectMcpOAuthRefreshMaterial(credential, opts.auth);
+	const bound = isMcpOAuthServerCredentialId(opts.credentialId);
+	const material = selectMcpOAuthRefreshMaterial(
+		bound ? { ...credential, clientSecret: opts.clientSecret } : credential,
+		opts.auth,
+	);
+	// scient(SA-CODEX-PLUGINS): end
 	const tokenUrl = material?.tokenUrl;
 	if (!credential.refresh || !tokenUrl) {
 		throw new Error("MCP OAuth credential is missing refresh material");
@@ -119,6 +162,9 @@ export function refreshManagedMcpOAuthCredential(
 		stripSameOriginResource: resourceIsFallback,
 		scope: credential.scope,
 		signal: opts.signal,
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound refresh follows no redirect; others are unchanged.
+		...(bound && { rejectRedirects: true }),
+		// scient(SA-CODEX-PLUGINS): end
 	});
 }
 
@@ -168,6 +214,10 @@ export async function refreshStoredManagedMcpOAuthCredential(
 		forceRefresh?: boolean;
 		keepCredentialOnRefreshFailure?: boolean;
 		onRefreshFailure?: (error: unknown) => void;
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in's secret comes from its current definition.
+		/** For a server-bound sign-in, the client secret its definition configures now; a stored one is never sent. */
+		clientSecret?: string;
+		// scient(SA-CODEX-PLUGINS): end
 	} = {},
 ): Promise<StoredOAuthRefreshResult<MCPStoredOAuthCredential>> {
 	const row = authStorage.credentials
@@ -179,7 +229,11 @@ export async function refreshStoredManagedMcpOAuthCredential(
 	if (row?.credential.type !== "oauth") {
 		return { credential: undefined, refreshed: false, removed: false };
 	}
+	// scient(SA-CODEX-PLUGINS): begin - like Codex, a server-bound sign-in refreshes with the stored client ID and
+	// the secret configured now, or none; it never sends or keeps a stored secret.
+	const bound = isMcpOAuthServerCredentialId(provider);
 	const observedCredential: MCPStoredOAuthCredential = row.credential;
+	// scient(SA-CODEX-PLUGINS): end
 	const serverUrl =
 		opts.serverUrl ??
 		(opts.recoverServerUrlFromCredentialId ? mcpOAuthServerUrlFromCredentialId(provider) : undefined);
@@ -193,6 +247,7 @@ export async function refreshStoredManagedMcpOAuthCredential(
 			const material = selectMcpOAuthRefreshMaterial(current, opts.auth);
 			return Boolean(current.refresh && material?.tokenUrl);
 		},
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in refreshes with the secret configured now.
 		refresh: (current, signal) =>
 			current.refresh === REMOTE_REFRESH_SENTINEL
 				? refreshBrokeredMcpOAuthCredential(authStorage, row.id, provider, signal)
@@ -200,7 +255,10 @@ export async function refreshStoredManagedMcpOAuthCredential(
 						serverUrl,
 						auth: opts.auth,
 						signal,
+						credentialId: provider,
+						clientSecret: opts.clientSecret,
 					}),
+		// scient(SA-CODEX-PLUGINS): end
 		mergeRefreshedCredential: (current, refreshed) => {
 			const material = selectMcpOAuthRefreshMaterial(current, opts.auth);
 			const resourceIsFallback = !material?.resource && Boolean(serverUrl);
@@ -209,7 +267,9 @@ export async function refreshStoredManagedMcpOAuthCredential(
 				...refreshed,
 				tokenUrl: material?.tokenUrl,
 				clientId: material?.clientId,
-				clientSecret: material?.clientSecret,
+				// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in keeps no secret.
+				clientSecret: bound ? undefined : material?.clientSecret,
+				// scient(SA-CODEX-PLUGINS): end
 				resource: resourceIsFallback ? undefined : material?.resource,
 				authorizationUrl: material && "authorizationUrl" in material ? material.authorizationUrl : undefined,
 			};

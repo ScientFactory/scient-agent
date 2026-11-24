@@ -17,6 +17,9 @@ import {
 	reauthorizeMcpServer,
 } from "../../mcp/oauth-reauth";
 import type { MCPServerConfig, MCPServerConnection } from "../../mcp/types";
+// scient(SA-CODEX-PLUGINS): begin - file-only probes cannot claim an imported server's sign-in.
+import { withTrustedMcpAuth } from "../../scient/mcp-server-credential";
+// scient(SA-CODEX-PLUGINS): end
 import { parseCommandArgs } from "../../utils/command-args";
 import { openPath } from "../../utils/open";
 import type { ParsedSlashCommand, SlashCommandResult, SlashCommandRuntime } from "../types";
@@ -150,7 +153,9 @@ async function withPreparedMcpConnection<T>(
 		// Without this, `/mcp test|resources|prompts` silently fails for any
 		// server saved by the TUI/reauth path.
 		manager.setAuthStorage(runtime.session.modelRegistry.authStorage);
-		const resolvedConfig = await manager.prepareConfig(config);
+		// scient(SA-CODEX-PLUGINS): begin - scrub a file definition before resolving credentials.
+		const resolvedConfig = await manager.prepareConfig(withTrustedMcpAuth(name, config, undefined));
+		// scient(SA-CODEX-PLUGINS): end
 		// Live: these commands report what the server says now, not what the host's store remembers.
 		connection = await connectToServer(name, resolvedConfig, { live: true });
 		return await fn(connection);

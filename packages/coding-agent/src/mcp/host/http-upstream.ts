@@ -13,6 +13,9 @@
  * session bounds its requests and, on a 401/403, re-resolves its headers and
  * attaches to the unit those headers identify.
  */
+// scient(SA-CODEX-PLUGINS): begin - Keep the local call deadline on the composed fetch signal.
+import { toolDeadline } from "../../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import { isRecord, logger, postmortem, readSseEvents, readSseJson } from "@oh-my-pi/pi-utils";
 import {
 	createMCPJsonRpcError,
@@ -462,6 +465,9 @@ export class HttpUpstream implements MCPTransport {
 			callerSignal = controller.signal;
 		}
 		const signal = this.#operationSignal(callerSignal);
+		// scient(SA-CODEX-PLUGINS): begin - Retain the originating deadline through POST preparation and redirects.
+		toolDeadline(options?.signal)?.bind(signal);
+		// scient(SA-CODEX-PLUGINS): end
 		const sentSession = this.#sessionId;
 		let sessionExpired = false;
 		let stage: MCPFailureStage = "send";

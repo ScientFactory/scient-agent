@@ -23,6 +23,9 @@
 import { type } from "@oh-my-pi/omptype";
 import type { UnitPolicy } from "@oh-my-pi/pi-tui/tools/daemon";
 import { stableStringifyJson } from "@oh-my-pi/pi-utils";
+// scient(SA-CODEX-PLUGINS): begin - Imported specs stay in-process and retain their source across retargets.
+import { codexPluginServer } from "../../scient/codex-plugin-host";
+// scient(SA-CODEX-PLUGINS): end
 import { MCPTransportError } from "../errors";
 import type { JsonRpcError, MCPRequestIdFormat } from "../types";
 
@@ -41,6 +44,9 @@ export const MCP_RESOLVE_METHOD = "resolve";
 export type McpEra = "modern" | "legacy";
 
 interface McpSpecBase {
+	// scient(SA-CODEX-PLUGINS): begin - Present only on imported specs, even without a bound sign-in.
+	[codexPluginServer]?: string | null;
+	// scient(SA-CODEX-PLUGINS): end
 	/** JSON-RPC id type the upstream expects; integers unless a server needs strings. */
 	requestIdFormat?: MCPRequestIdFormat;
 	/** Bound in milliseconds on host-side start, probe and handshake steps; 0 disables it. */
@@ -132,6 +138,19 @@ function lowercaseKeys(headers: Record<string, string>): Record<string, string> 
  * Hashed because unit keys reach the board and logs.
  */
 export function mcpIdentity(spec: McpServerSpec): string {
+	// scient(SA-CODEX-PLUGINS): begin - Partition the upstream key by the complete launch env and bound credential.
+	const identity = upstreamIdentity(spec);
+	if (!(codexPluginServer in spec)) return identity;
+	return sha256([
+		"codex-plugins",
+		identity,
+		spec[codexPluginServer],
+		spec.transport === "stdio" ? spec.spawnEnv : null,
+	]);
+}
+
+function upstreamIdentity(spec: McpServerSpec): string {
+	// scient(SA-CODEX-PLUGINS): end
 	if (spec.transport !== "stdio") {
 		return sha256([
 			spec.transport,
@@ -155,6 +174,9 @@ export function mcpIdentity(spec: McpServerSpec): string {
  * {@link mcpIdentity}.
  */
 export function mcpPublicIdentity(spec: McpServerSpec): string {
+	// scient(SA-CODEX-PLUGINS): begin - Era probes and public catalogs have the same isolation as local units.
+	if (codexPluginServer in spec) return mcpIdentity(spec);
+	// scient(SA-CODEX-PLUGINS): end
 	return spec.transport === "stdio" ? mcpIdentity(spec) : sha256([spec.transport, spec.url]);
 }
 

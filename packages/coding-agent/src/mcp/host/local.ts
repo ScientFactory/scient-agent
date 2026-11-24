@@ -141,6 +141,9 @@ export class LocalMcpHost implements McpHostAccess {
 		let unit = this.#units.get(key);
 		if (!unit) {
 			const endpoint = new McpEndpoint({
+				// scient(SA-CODEX-PLUGINS): begin - The local endpoint uses the session’s monotonic clock.
+				localToolDeadlines: true,
+				// scient(SA-CODEX-PLUGINS): end
 				unitId: `local:${key}`,
 				spec: request.spec,
 				era: request.era,

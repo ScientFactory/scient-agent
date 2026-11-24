@@ -42,6 +42,9 @@ import "./ssh";
 import "./ssh-config";
 import "./vscode";
 import "./windsurf";
+// scient(SA-CODEX-PLUGINS): begin - Installed, enabled Codex plugins.
+import "../scient/codex-plugins";
+// scient(SA-CODEX-PLUGINS): end
 
 // Re-export the main API from capability registry
 export {

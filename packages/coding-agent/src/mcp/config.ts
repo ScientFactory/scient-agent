@@ -12,6 +12,10 @@ import { loadCapability } from "../discovery";
 import { readMCPConfigFile } from "./config-writer";
 import { builtinDropFor, type MCPDroppedServer, type MCPTransformContext } from "./transforms";
 import type { MCPConfigFile, MCPServerConfig } from "./types";
+// scient(SA-CODEX-PLUGINS): begin - local hosting and server-bound sign-ins for imported servers.
+import { codexPluginServer } from "../scient/codex-plugin-host";
+import { trustedMcpAuth } from "./oauth-flow";
+// scient(SA-CODEX-PLUGINS): end
 
 /** Options for loading MCP configs */
 export interface LoadMCPConfigsOptions {
@@ -53,7 +57,11 @@ function convertToLegacyConfig(server: MCPServer): MCPServerConfig {
 		timeout: server.timeout,
 		requestIdFormat: server.requestIdFormat,
 		instructions: server.instructions,
-		auth: server.auth,
+		// scient(SA-CODEX-PLUGINS): begin - the selected source determines local hosting and which sign-in the server may use.
+		auth: trustedMcpAuth(server.name, server.auth, server.url, server._source.provider),
+		toolTimeoutMs: server.toolTimeoutMs,
+		...(server._source.provider === "codex-plugins" && { [codexPluginServer]: true }),
+		// scient(SA-CODEX-PLUGINS): end
 		oauth: server.oauth,
 	};
 
@@ -67,6 +75,9 @@ function convertToLegacyConfig(server: MCPServer): MCPServerConfig {
 		if (server.env) config.env = server.env;
 		if (server.envPolicy) config.envPolicy = server.envPolicy;
 		if (server.envLiteralKeys) config.envLiteralKeys = server.envLiteralKeys;
+		// scient(SA-CODEX-PLUGINS): begin - A Codex plugin's server inherits only what Codex passes it.
+		if (server.envInherit) config.envInherit = server.envInherit;
+		// scient(SA-CODEX-PLUGINS): end
 		if (server.cwd) config.cwd = server.cwd;
 		return config;
 	}

@@ -1,3 +1,6 @@
+// scient(SA-CODEX-PLUGINS): begin - Arm one deadline for this logical call.
+import { McpToolDeadline, toolDeadline } from "../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import {
 	formatMCPProgress,
 	MCP_TOOL_NAME_PREFIX,
@@ -521,6 +524,9 @@ async function reconnectWithAbort(
 	signal?: AbortSignal,
 	options?: MCPReconnectOptions,
 ): Promise<MCPServerConnection | null> {
+	// scient(SA-CODEX-PLUGINS): begin - Only start shared reconnect work within the call’s budget.
+	toolDeadline(signal)?.check(signal);
+	// scient(SA-CODEX-PLUGINS): end
 	try {
 		return await untilAborted(signal, () => reconnect(options));
 	} catch (error) {
@@ -883,6 +889,34 @@ export class MCPTool implements CustomTool<TSchema, MCPToolDetails> {
 		_ctx: CustomToolContext,
 		signal?: AbortSignal,
 	): Promise<CustomToolResult<MCPToolDetails>> {
+		// scient(SA-CODEX-PLUGINS): begin - Start the logical deadline before preparing arguments.
+		const deadline = McpToolDeadline.forCall(this.connection.config);
+		if (deadline) {
+			try {
+				return await deadline.run(signal, bounded => this.#dispatch(params, onUpdate, _ctx, bounded));
+			} catch (error) {
+				rethrowIfAborted(error, signal);
+				if (!(error instanceof MCPTransportError && error.failure === "timeout")) throw error;
+				const source = this.connection._source;
+				return buildErrorResult(
+					error,
+					this.connection.name,
+					this.tool.name,
+					source?.provider,
+					source?.providerName,
+				);
+			}
+		}
+		return this.#dispatch(params, onUpdate, _ctx, signal);
+	}
+
+	async #dispatch(
+		params: unknown,
+		onUpdate: AgentToolUpdateCallback<MCPToolDetails> | undefined,
+		_ctx: CustomToolContext,
+		signal?: AbortSignal,
+	): Promise<CustomToolResult<MCPToolDetails>> {
+		// scient(SA-CODEX-PLUGINS): end
 		throwIfAborted(signal);
 		const args = await prepareOutboundArgs(params, this.tool.inputSchema, _ctx);
 		const provider = this.connection._source?.provider;

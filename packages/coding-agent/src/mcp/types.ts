@@ -76,6 +76,13 @@ interface MCPServerConfigBase {
 	enabled?: boolean;
 	/** MCP request timeout in milliseconds (default: 30000, 0 to disable) */
 	timeout?: number;
+	// scient(SA-CODEX-PLUGINS): begin - a hard cap on tool calls.
+	/**
+	 * Hard limit on a `tools/call`, in milliseconds, which a call's own wait arguments never extend
+	 * (an imported Codex plugin's `tool_timeout_sec`).
+	 */
+	toolTimeoutMs?: number;
+	// scient(SA-CODEX-PLUGINS): end
 	/**
 	 * Encoding for outgoing JSON-RPC request ids (default: `"number"`).
 	 *
@@ -124,6 +131,10 @@ export interface MCPStdioServerConfig extends MCPServerConfigBase {
 	envPolicy?: "literal";
 	/** Env keys whose values are final package data; auth resolution keeps them verbatim. */
 	envLiteralKeys?: string[];
+	// scient(SA-CODEX-PLUGINS): begin - A Codex plugin's server inherits only what Codex passes it.
+	/** When set, only these variables are inherited from the agent's environment; `env` still applies on top. */
+	envInherit?: string[];
+	// scient(SA-CODEX-PLUGINS): end
 	cwd?: string;
 }
 
@@ -293,6 +304,13 @@ export interface MCPRequestOptions {
 	 * `notifications/progress` while pending; each one restarts a default tool-call deadline (never a configured one).
 	 */
 	onProgress?: (progress: MCPProgress) => void;
+	// scient(SA-CODEX-PLUGINS): begin - one deadline for a logical tool call across reconnects and retries.
+	/**
+	 * Monotonic time (`performance.now()` milliseconds) a capped `tools/call` (a server's `toolTimeoutMs`)
+	 * must end by, so a retry or a replay after reconnecting gets only what is left of the cap.
+	 */
+	deadlineAt?: number;
+	// scient(SA-CODEX-PLUGINS): end
 	/**
 	 * Receives the JSON-RPC id the transport allocated, before the request is
 	 * written. A `subscriptions/listen` caller needs it: the stream's

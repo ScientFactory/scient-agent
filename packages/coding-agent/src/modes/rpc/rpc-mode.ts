@@ -122,6 +122,9 @@ import { RpcSessionEventForwarder } from "./rpc-session-events";
 import { isSessionSettled } from "../../session/session-settle";
 import { RpcSessionSettleWatcher, watchedScheduledTurnProbe } from "./rpc-session-settle";
 import { RpcSubagentRegistry, readRpcSubagentTranscript, resolveOwnedLiveSubagent } from "./rpc-subagents";
+// scient(SA-CODEX-PLUGINS): begin - pick up MCP sign-ins made since the last prompt.
+import { McpSignInPickup } from "../../scient/mcp-sign-in-pickup";
+// scient(SA-CODEX-PLUGINS): end
 import type {
 	RpcAbortAndRestoreQueueResult,
 	RpcCommand,
@@ -2133,6 +2136,15 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 	await emitAvailableCommandsUpdate();
 
 	const inputGate = new RpcUserInputGate();
+	// scient(SA-CODEX-PLUGINS): begin - pick up MCP sign-ins made elsewhere, starting from this session's own.
+	const mcpManager = options.mcpManager;
+	const mcpSignInPickup = mcpManager
+		? new McpSignInPickup(mcpManager, session.modelRegistry.authStorage, () =>
+				session.refreshMCPTools(mcpManager.getTools()),
+			)
+		: undefined;
+	mcpSignInPickup?.seed();
+	// scient(SA-CODEX-PLUGINS): end
 	type OrderedUserInput = Extract<RpcCommand, { type: "prompt" | "steer" | "follow_up" | "abort_and_prompt" }>;
 	type OrderedInputOutcome = "local" | "cancelled" | "admitted" | "builtin-agent";
 	const dispatchOrderedUserInput = (
@@ -2164,6 +2176,12 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 				await session.followUp(text, images);
 				return "admitted";
 			}
+			// scient(SA-CODEX-PLUGINS): begin - a server signed in from the host since the last prompt joins this one, skills included.
+			if (mcpSignInPickup) {
+				await mcpSignInPickup.beforePrompt();
+				if (!isCurrent()) return "cancelled";
+			}
+			// scient(SA-CODEX-PLUGINS): end
 			if (command.type === "prompt") {
 				if (!ticket) return "cancelled";
 				const skillResult = await dispatchRpcSkillPrompt({

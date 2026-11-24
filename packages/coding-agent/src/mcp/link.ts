@@ -7,6 +7,9 @@
  * keeps itself attached: when the tunnel drops it takes a new one and tells
  * its owner, so nothing above it deals with processes, sockets or handshakes.
  */
+// scient(SA-CODEX-PLUGINS): begin - Carry one bounded signal through every exchange.
+import { LOCAL_TOOL_DEADLINE, McpToolDeadline, toolDeadline } from "../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import { type } from "@oh-my-pi/omptype";
 import { isRecord, logger } from "@oh-my-pi/pi-utils";
 import { createMCPJsonRpcError, MCPTransportError, type MCPTransportKind } from "./errors";
@@ -60,6 +63,9 @@ export interface HostLinkOptions {
 	idleMs: number;
 	/** The server's configured request timeout in milliseconds; absent selects the default deadlines. */
 	timeout?: number;
+	// scient(SA-CODEX-PLUGINS): begin - Optional hard cap for calls to an imported server.
+	toolTimeoutMs?: number;
+	// scient(SA-CODEX-PLUGINS): end
 	/** Where the units live; the process-wide host by default. */
 	access?: McpHostAccess;
 }
@@ -114,6 +120,9 @@ export class HostLink implements MCPTransport {
 	readonly #roots: () => MCPRoot[];
 	readonly #idleMs: number;
 	readonly #timeout: number | undefined;
+	// scient(SA-CODEX-PLUGINS): begin - Keep the server cap for direct requests and auth retries.
+	readonly #toolTimeoutMs: number | undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	readonly #injectedAccess: McpHostAccess | undefined;
 	readonly #pending = new Map<string | number, PendingRequest>();
 	#spec: McpServerSpec;
@@ -171,6 +180,9 @@ export class HostLink implements MCPTransport {
 		this.#roots = options.roots;
 		this.#idleMs = options.idleMs;
 		this.#timeout = options.timeout;
+		// scient(SA-CODEX-PLUGINS): begin - Keep the server cap.
+		this.#toolTimeoutMs = options.toolTimeoutMs;
+		// scient(SA-CODEX-PLUGINS): end
 		this.#injectedAccess = options.access;
 	}
 
@@ -216,12 +228,25 @@ export class HostLink implements MCPTransport {
 		params?: Record<string, unknown>,
 		options?: MCPRequestOptions,
 	): Promise<T> {
-		const deadline = resolveMCPRequestDeadline(this.#timeout, method, params);
+		// scient(SA-CODEX-PLUGINS): begin - A direct link request owns the timer only when no caller has armed it.
+		const active = method === "tools/call" ? toolDeadline(options?.signal) : undefined;
+		if (method === "tools/call" && !active) {
+			const config = { type: this.#spec.transport, timeout: this.#timeout, toolTimeoutMs: this.#toolTimeoutMs };
+			const cap = McpToolDeadline.forCall(config, options?.deadlineAt);
+			if (cap) return cap.run(options?.signal, signal => this.request<T>(method, params, { ...options, signal }));
+		}
+		const deadline = active
+			? { timeoutMs: 0, maxTotalMs: 0 }
+			: resolveMCPRequestDeadline(this.#timeout, method, params);
+		// scient(SA-CODEX-PLUGINS): end
 		const ran = { generation: this.#generation };
 		try {
 			return await this.#exchange<T>(method, params, options, deadline, ran);
 		} catch (error) {
 			if (!isUnauthorized(error)) throw error;
+			// scient(SA-CODEX-PLUGINS): begin - Do not initiate shared refresh after expiry.
+			active?.check(options?.signal);
+			// scient(SA-CODEX-PLUGINS): end
 			const refreshed = await this.#awaitShared(
 				this.#refreshAuth(ran.generation),
 				options?.signal,
@@ -229,6 +254,9 @@ export class HostLink implements MCPTransport {
 				Date.now(),
 			);
 			if (!refreshed) throw error;
+			// scient(SA-CODEX-PLUGINS): begin - The retry gets the time still available on the same signal.
+			active?.retry(options?.signal);
+			// scient(SA-CODEX-PLUGINS): end
 			return await this.#exchange<T>(method, params, options, deadline, ran);
 		}
 	}
@@ -715,6 +743,10 @@ export class HostLink implements MCPTransport {
 				jsonrpc: "2.0",
 				id,
 				method,
+				// scient(SA-CODEX-PLUGINS): begin - Only the local host shares the session clock.
+				...(method === "tools/call" &&
+					this.#access?.shared === false && { [LOCAL_TOOL_DEADLINE]: toolDeadline(signal)?.at }),
+				// scient(SA-CODEX-PLUGINS): end
 				params: withRequestMeta(progressSink ? withProgressToken(params, id) : params),
 			});
 		} catch (error) {
@@ -729,6 +761,9 @@ export class HostLink implements MCPTransport {
 			});
 		}
 
+		// scient(SA-CODEX-PLUGINS): begin - Argument serialization may spend the call cap before its timer fires.
+		toolDeadline(signal)?.check(signal);
+		// scient(SA-CODEX-PLUGINS): end
 		const { promise, resolve, reject } = Promise.withResolvers<T>();
 		let timer: NodeJS.Timeout | undefined;
 		let expiresAt = Number.POSITIVE_INFINITY;
@@ -805,6 +840,9 @@ export class HostLink implements MCPTransport {
 
 		try {
 			options?.onRequestId?.(id);
+			// scient(SA-CODEX-PLUGINS): begin - The ID callback can cancel the call before it enters the tunnel.
+			if (settled && toolDeadline(signal)) return promise;
+			// scient(SA-CODEX-PLUGINS): end
 			this.#writeLine(attached, line, id);
 			sent = true;
 		} catch (error) {

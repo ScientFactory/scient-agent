@@ -7,9 +7,16 @@
  * from the host's shared store when it has them, so a known server answers
  * without its process running.
  */
+// scient(SA-CODEX-PLUGINS): begin - Enforce the imported server's tool-call deadline.
+import { McpToolDeadline, toolDeadline } from "../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import * as path from "node:path";
 import * as url from "node:url";
 import { getProjectDir, isRecord, logger, untilAborted, withTimeout } from "@oh-my-pi/pi-utils";
+// scient(SA-CODEX-PLUGINS): begin - host and launch environment for imported servers.
+import { codexPluginServer, codexStdioSpawnEnv } from "../scient/codex-plugin-host";
+import { localMcpHost } from "./host/local";
+// scient(SA-CODEX-PLUGINS): end
 import { workerEnvFromParent } from "../subprocess/worker-client";
 import { MCPTransportError } from "./errors";
 import {
@@ -72,6 +79,14 @@ export function projectRoots(cwd: string): MCPRoot[] {
  * @throws on a server type omp does not know.
  */
 export function buildServerSpec(config: MCPServerConfig, cwd?: string): McpServerSpec {
+	// scient(SA-CODEX-PLUGINS): begin - Keep imported unit and probe identities local to their launch and sign-in.
+	const spec = resolvedServerSpec(config, cwd);
+	if (codexPluginServer in config) spec[codexPluginServer] = config.auth?.credentialId ?? null;
+	return spec;
+}
+
+function resolvedServerSpec(config: MCPServerConfig, cwd?: string): McpServerSpec {
+	// scient(SA-CODEX-PLUGINS): end
 	const timeoutMs = resolveMCPTimeoutMs(config.timeout);
 	const { requestIdFormat } = config;
 	switch (config.type) {
@@ -84,7 +99,9 @@ export function buildServerSpec(config: MCPServerConfig, cwd?: string): McpServe
 				args: config.args ?? [],
 				cwd: path.resolve(cwd ?? getProjectDir(), config.cwd ?? ""),
 				env,
-				spawnEnv: workerEnvFromParent(env),
+				// scient(SA-CODEX-PLUGINS): begin - restrict the child to its selected launch environment.
+				spawnEnv: codexStdioSpawnEnv(config.envInherit, env) ?? workerEnvFromParent(env),
+				// scient(SA-CODEX-PLUGINS): end
 				requestIdFormat,
 				timeoutMs,
 			};
@@ -463,7 +480,12 @@ export async function connectToServer(
 		roots,
 		idleMs: options?.idleMs ?? MCP_DEFAULT_IDLE_MS,
 		timeout: config.timeout,
-		access: options?.access,
+		// scient(SA-CODEX-PLUGINS): begin - The link also bounds calls made directly on its transport.
+		toolTimeoutMs: config.toolTimeoutMs,
+		// scient(SA-CODEX-PLUGINS): end
+		// scient(SA-CODEX-PLUGINS): begin - keep imported servers in the session process for the lifetime of the link.
+		access: codexPluginServer in config ? localMcpHost() : options?.access,
+		// scient(SA-CODEX-PLUGINS): end
 	});
 	const listens = new ConnectionListens(name, link);
 	const connection: HostedMCPConnection & ListeningConnection = {
@@ -553,6 +575,9 @@ async function requestWithInput<T>(
 ): Promise<T> {
 	let attempt = params;
 	for (let round = 0; round < MCP_MAX_ROUND_TRIPS; round++) {
+		// scient(SA-CODEX-PLUGINS): begin - Recheck before each input-required round.
+		toolDeadline(options?.signal)?.check(options?.signal);
+		// scient(SA-CODEX-PLUGINS): end
 		const result = await connection.transport.request<T | MCPInputRequiredResult>(method, attempt, options);
 		if (resultTypeOf(result) === "complete") return result as T;
 		const { inputRequests, requestState } = result as MCPInputRequiredResult;
@@ -608,6 +633,15 @@ export async function callTool(
 	args: Record<string, unknown> = {},
 	options?: MCPRequestOptions,
 ): Promise<MCPToolCallResult> {
+	// scient(SA-CODEX-PLUGINS): begin - Use the outer signal, or arm the cap here for a direct caller.
+	const active = toolDeadline(options?.signal);
+	if (active) options = { ...options, deadlineAt: active.at };
+	else {
+		const deadline = McpToolDeadline.forCall(connection.config, options?.deadlineAt);
+		if (deadline)
+			return deadline.run(options?.signal, signal => callTool(connection, toolName, args, { ...options, signal }));
+	}
+	// scient(SA-CODEX-PLUGINS): end
 	return requestWithInput<MCPToolCallResult>(connection, "tools/call", { name: toolName, arguments: args }, options);
 }
 

@@ -8,6 +8,9 @@
  * host's own environment or working directory: the command is resolved
  * against the spec's.
  */
+// scient(SA-CODEX-PLUGINS): begin - Enforce the imported server's tool-call deadline.
+import { toolDeadline } from "../../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { isRecord, logger, Snowflake } from "@oh-my-pi/pi-utils";
@@ -509,14 +512,21 @@ export class StdioUpstream implements MCPTransport {
 		signal?.addEventListener("abort", onAbort, { once: true });
 		// The child queues what the pipe cannot take yet; a child that died in
 		// the meantime fails this request through its exit.
-		child.write(
-			encodeJsonLine({
+		// scient(SA-CODEX-PLUGINS): begin - Recheck after serializing, immediately before writing to the child.
+		try {
+			const line = encodeJsonLine({
 				jsonrpc: "2.0",
 				id,
 				method,
 				params: options?.onProgress ? withProgressToken(params, id) : (params ?? {}),
-			}),
-		);
+			});
+			toolDeadline(signal)?.check(signal);
+			child.write(line);
+		} catch (error) {
+			settle();
+			reject(error);
+		}
+		// scient(SA-CODEX-PLUGINS): end
 		return promise;
 	}
 

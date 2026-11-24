@@ -12,6 +12,9 @@
  *    configured headers are attached only when the hop targets the configured
  *    origin. Method-changing redirects of non-GET requests are refused.
  */
+// scient(SA-CODEX-PLUGINS): begin - Enforce the imported server's tool-call deadline.
+import { toolDeadline } from "../../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import { resolveExtraCa, withExtraCaInit } from "@oh-my-pi/pi-utils";
 
 /** Header buckets for one MCP HTTP request. */
@@ -111,6 +114,9 @@ export async function mcpFetch(
 	const extraCa = resolveExtraCa();
 	if (!originLocked) {
 		const options = { ...init, headers: mergeMCPHeaders(sources), timeout: false };
+		// scient(SA-CODEX-PLUGINS): begin - Check after preparing headers, immediately before sending.
+		toolDeadline(init.signal)?.check(init.signal);
+		// scient(SA-CODEX-PLUGINS): end
 		return fetch(url, extraCa ? withExtraCaInit(options, extraCa) : options);
 	}
 
@@ -120,6 +126,9 @@ export async function mcpFetch(
 		const attachConfigured = new URL(currentUrl).origin === configuredOrigin;
 		const headers = mergeMCPHeaders(attachConfigured ? sources : { generated: sources.generated });
 		const options: RequestInit & { timeout: false } = { ...init, headers, redirect: "manual", timeout: false };
+		// scient(SA-CODEX-PLUGINS): begin - Check after preparing headers, immediately before sending.
+		toolDeadline(init.signal)?.check(init.signal);
+		// scient(SA-CODEX-PLUGINS): end
 		const response = await fetch(currentUrl, extraCa ? withExtraCaInit(options, extraCa) : options);
 		if (!REDIRECT_STATUSES[response.status]) return response;
 

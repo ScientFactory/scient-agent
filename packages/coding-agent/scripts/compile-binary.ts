@@ -69,6 +69,9 @@ export async function compileCodingAgent(options: CodingAgentCompileOptions): Pr
 				// scient(SA-EXPORT): begin - exports from a binary carry Scient's viewer.
 				"process.env.SCIENT_EXPORT_VIEWER": JSON.stringify(await exportViewerSource(options.repoRoot)),
 				// scient(SA-EXPORT): end
+				// scient(SA-CODEX-PLUGINS): begin - tells utils env.ts that Bun loaded no dotenv file (autoloadDotenv below).
+				__SCIENT_AGENT_NO_DOTENV__: "true",
+				// scient(SA-CODEX-PLUGINS): end
 			},
 			// Precompiled bytecode skips parsing the ~20 MB bundle at boot:
 			// `omp --version` 256 ms -> 30 ms on M4 Max (+52 MB binary).

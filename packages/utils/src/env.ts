@@ -383,6 +383,38 @@ export function withOmpOtelEnv<T>(fn: () => T): T {
 	}
 }
 
+// scient(SA-CODEX-PLUGINS): begin - Codex plugins read only the environment the agent was launched with.
+/** Defined `true` only by the compiled binary's build (coding-agent `scripts/compile-binary.ts`), which turns Bun's dotenv loading off. */
+declare const __SCIENT_AGENT_NO_DOTENV__: boolean | undefined;
+
+/** Bun loads a dotenv file it is told to (`--env-file`, directly or through `BUN_OPTIONS`) even with `--no-env-file`. */
+const explicitEnvFile = [...process.execArgv, ...(Bun.env.BUN_OPTIONS?.split(/\s+/) ?? [])].some(
+	arg => arg === "--env-file" || arg.startsWith("--env-file="),
+);
+
+/**
+ * The exec environment, when this process can know it: procfs or `--no-env-file` (see
+ * {@link readLaunchEnv}) without an explicit env file, or, in the compiled binary, `Bun.env`
+ * here, before the agent's own `.env` files load below.
+ */
+const launchEnvSnapshot: ReadonlyMap<string, string> | undefined = explicitEnvFile
+	? undefined
+	: (launchEnvValues ??
+		(typeof __SCIENT_AGENT_NO_DOTENV__ !== "undefined" && __SCIENT_AGENT_NO_DOTENV__ === true
+			? new Map(Object.entries(Bun.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
+			: undefined));
+
+/**
+ * The environment the agent was launched with, whichever folder it works in now, or undefined
+ * when this run cannot tell it apart from what dotenv files added (Bun autoloaded them, as when
+ * the agent runs from source without `--no-env-file`, and there is no procfs). Codex reads its
+ * home, its plugins' credentials and their servers' variables from its launch environment alone;
+ * so does the agent when it runs Codex's plugins.
+ */
+export function getLaunchEnv(): Record<string, string> | undefined {
+	return launchEnvSnapshot && Object.fromEntries(launchEnvSnapshot);
+}
+// scient(SA-CODEX-PLUGINS): end
 for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {
 	for (const key in file) {
 		// scient(SA-ROOT): begin - A host-assigned root owns the agent's own variables.

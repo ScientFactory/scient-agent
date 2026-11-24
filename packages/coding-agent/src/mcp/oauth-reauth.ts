@@ -36,7 +36,14 @@ import {
 	MCPOAuthFlow,
 	type MCPStoredOAuthCredential,
 	mcpOAuthCredentialId,
+	// scient(SA-CODEX-PLUGINS): begin - server-bound sign-ins.
+	isMcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialId,
+	// scient(SA-CODEX-PLUGINS): end
 } from "./oauth-flow";
+// scient(SA-CODEX-PLUGINS): begin - an imported sign-in a broker could not refresh is not offered.
+import { boundSignInNeedsLocalSecret } from "../scient/mcp-sign-in-pickup";
+// scient(SA-CODEX-PLUGINS): end
 import type { AuthStorage } from "../session/auth-storage";
 import type { MCPAuthChallenge, MCPAuthConfig, MCPServerConfig } from "./types";
 
@@ -316,6 +323,10 @@ export function matchingManagerServerConfig(
 	const managerConfig = manager?.getServerConfig(name);
 	if (!managerConfig || managerConfig.type !== selected.type) return undefined;
 	const urls = [expandEnvVarsDeep(selected.url), selected.url];
+	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in matches only the entry holding that sign-in.
+	const boundIds = [selected.auth?.credentialId, managerConfig.auth?.credentialId];
+	if (boundIds.some(isMcpOAuthServerCredentialId) && boundIds[0] !== boundIds[1]) return undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	return urls.includes(managerConfig.url) ? managerConfig : undefined;
 }
 
@@ -339,7 +350,11 @@ export async function reconnectMcpManagerServer(
 	if (!manager) return undefined;
 	const managerConfig = matchingManagerServerConfig(manager, name, selected);
 	if (!managerConfig) return undefined;
-	const pending = manager.updateServerConfig(name, clearMcpClientAuthSurface(managerConfig));
+	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in keeps its auth block and headers:
+	// without them it would reconnect on another server's url-keyed sign-in.
+	const bound = isMcpOAuthServerCredentialId(managerConfig.auth?.credentialId);
+	const pending = manager.updateServerConfig(name, bound ? managerConfig : clearMcpClientAuthSurface(managerConfig));
+	// scient(SA-CODEX-PLUGINS): end
 	if (pending) await pending;
 	const connection = await manager.reconnectServer(name, { manual: true });
 	const state = manager.getConnectionStatus(name);
@@ -479,6 +494,10 @@ export interface McpOAuthFlowRunOptions extends McpOAuthFlowPresentation {
 	registrationUrl?: string;
 	issuerUrl?: string;
 	resource?: string;
+	// scient(SA-CODEX-PLUGINS): begin - store the sign-in under a server-bound id.
+	/** Where to store the credential, instead of the server URL's own row. */
+	credentialId?: string;
+	// scient(SA-CODEX-PLUGINS): end
 	stripSameOriginResource?: boolean;
 	callbackPort?: number;
 	callbackPath?: string;
@@ -563,6 +582,9 @@ export async function runMcpOAuthFlow(opts: McpOAuthFlowRunOptions): Promise<OAu
 				issuerUrl: opts.issuerUrl,
 				clientId: resolvedClientId,
 				clientSecret: resolvedClientSecret,
+				// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in follows no token-endpoint redirect.
+				rejectRedirects: isMcpOAuthServerCredentialId(opts.credentialId),
+				// scient(SA-CODEX-PLUGINS): end
 				scopes: opts.scopes || undefined,
 				prompt: opts.prompt,
 				redirectUri: opts.redirectUri,
@@ -599,9 +621,13 @@ export async function runMcpOAuthFlow(opts: McpOAuthFlowRunOptions): Promise<OAu
 		// Deterministic per-URL id: every profile resolves its own credential row
 		// under the same key, so shared project configs stay profile-isolated.
 		// Random fallback only for flows that never knew the server URL.
-		const credentialId = opts.serverUrl
-			? mcpOAuthCredentialId(opts.serverUrl)
-			: `mcp_oauth_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in keeps its own id.
+		const credentialId =
+			opts.credentialId ??
+			(opts.serverUrl
+				? mcpOAuthCredentialId(opts.serverUrl)
+				: `mcp_oauth_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`);
+		// scient(SA-CODEX-PLUGINS): end
 
 		// Embed refresh material so the credential is self-contained: token
 		// refresh must work for configs that carry no auth block at all.
@@ -610,7 +636,12 @@ export async function runMcpOAuthFlow(opts: McpOAuthFlowRunOptions): Promise<OAu
 			...credentials,
 			tokenUrl: opts.tokenUrl,
 			clientId: flow.resolvedClientId?.trim() || resolvedClientId,
-			clientSecret: flow.registeredClientSecret ?? resolvedClientSecret,
+			// scient(SA-CODEX-PLUGINS): begin - like Codex, a server-bound sign-in keeps no client secret: each
+			// refresh sends the one its definition configures then, never a retired one.
+			clientSecret: isMcpOAuthServerCredentialId(credentialId)
+				? undefined
+				: (flow.registeredClientSecret ?? resolvedClientSecret),
+			// scient(SA-CODEX-PLUGINS): end
 			resource: flow.resource,
 			authorizationUrl: flow.authorizationUrl,
 			scope: flow.grantedScope,
@@ -754,7 +785,34 @@ export async function reauthorizeMcpServer(
 
 	const currentAuth = found.config.auth;
 	const baseConfig = stripMcpOAuthAuth(found.config);
-	const runtimeBaseConfig = expandEnvVarsDeep(baseConfig);
+	// scient(SA-CODEX-PLUGINS): begin - a server bound to its own sign-in (an imported Codex plugin server)
+	// takes its values literally, as Codex does, and keeps its configured scope and resource below.
+	const bound = isMcpOAuthServerCredentialId(currentAuth?.credentialId);
+	// Only a discovered server holds its own sign-in, under the id its name and URL give.
+	if (
+		bound &&
+		!(
+			found.discovered &&
+			(found.config.type === "http" || found.config.type === "sse") &&
+			currentAuth?.credentialId === mcpOAuthServerCredentialId(name, found.config.url)
+		)
+	) {
+		throw new McpReauthRefusalError(`Server "${name}" names a sign-in that belongs to another server.`);
+	}
+	const runtimeBaseConfig = bound ? baseConfig : expandEnvVarsDeep(baseConfig);
+	// Codex never signs in with OAuth to a server that names its own token (`bearer_token_env_var`).
+	if (bound && currentAuth?.type !== "oauth") {
+		throw new McpReauthRefusalError(
+			`Server "${name}" signs in with its own token, so Codex does not sign in to it with OAuth.`,
+		);
+	}
+	// A broker refreshes without the definition, so it could not send the client secret every refresh needs.
+	if (bound && boundSignInNeedsLocalSecret(found.config, authStorage)) {
+		throw new McpReauthRefusalError(
+			`Server "${name}" needs its client secret at every refresh, which the shared sign-in service cannot supply, so it cannot be signed in to here.`,
+		);
+	}
+	// scient(SA-CODEX-PLUGINS): end
 	// Resolve endpoints first: this fails fast for stdio transports and
 	// probes http/sse with { oauth: false }, so nothing destructive has
 	// happened yet if the server turns out not to need (or support) OAuth.
@@ -780,7 +838,9 @@ export async function reauthorizeMcpServer(
 	// `${...}` placeholders (the wizard writes the secret to auth.clientSecret).
 	// DCR secrets are embedded in the stored credential and never echoed back
 	// into config files.
-	const runtimeAuth = currentAuth ? expandEnvVarsDeep(currentAuth) : undefined;
+	// scient(SA-CODEX-PLUGINS): begin - literal for a server-bound sign-in.
+	const runtimeAuth = currentAuth ? (bound ? currentAuth : expandEnvVarsDeep(currentAuth)) : undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	const configuredClientId = runtimeBaseConfig.oauth?.clientId?.trim() || undefined;
 	const configuredClientSecret = runtimeBaseConfig.oauth?.clientSecret;
 	const existingCredential = lookupMcpOAuthCredentialForServer(authStorage, currentAuth, serverUrl)?.credential;
@@ -796,7 +856,9 @@ export async function reauthorizeMcpServer(
 		storedClientId ??
 		(oauth.registrationUrl ? undefined : discoveredClientId) ??
 		"";
-	const storedClientSecret = storedClientId === flowClientId ? existingCredential?.clientSecret : undefined;
+	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in takes its secret from the current definition only.
+	const storedClientSecret = !bound && storedClientId === flowClientId ? existingCredential?.clientSecret : undefined;
+	// scient(SA-CODEX-PLUGINS): end
 	const flowClientSecret =
 		(configuredClientId === flowClientId ? configuredClientSecret : undefined) ??
 		(persistedClientId === flowClientId ? runtimeAuth?.clientSecret : undefined) ??
@@ -811,17 +873,35 @@ export async function reauthorizeMcpServer(
 
 	if (!opts.silent) opts.onReauthorizing?.();
 
-	const currentAuthResource = currentAuth?.resource ? expandEnvVarsDeep(currentAuth.resource) : undefined;
-	const oauthResource =
-		oauth.resource ?? currentAuthResource ?? ("url" in runtimeBaseConfig ? runtimeBaseConfig.url : undefined);
-	const oauthResourceIsFallback = !oauth.resource && !currentAuthResource;
+	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in asks for its configured resource first, as Codex
+	// passes `oauth_resource` to login, and its configured scopes even when empty or when discovery
+	// advertises others (the discovered authorization URL's own `scope` dropped).
+	const currentAuthResource = currentAuth?.resource
+		? bound
+			? currentAuth.resource
+			: expandEnvVarsDeep(currentAuth.resource)
+		: undefined;
+	const preferredResource = bound ? (currentAuthResource ?? oauth.resource) : (oauth.resource ?? currentAuthResource);
+	const oauthResource = preferredResource ?? ("url" in runtimeBaseConfig ? runtimeBaseConfig.url : undefined);
+	const oauthResourceIsFallback = preferredResource === undefined;
+	const configuredScope = bound ? runtimeBaseConfig.oauth?.scope : undefined;
+	// A URL that does not parse is left for the flow's own validation to report.
+	let authUrl = oauth.authorizationUrl;
+	if (configuredScope !== undefined && URL.canParse(authUrl)) {
+		const parsed = new URL(authUrl);
+		parsed.searchParams.delete("scope");
+		authUrl = parsed.toString();
+	}
+	// scient(SA-CODEX-PLUGINS): end
 
 	const oauthResult = await runMcpOAuthFlow({
-		authUrl: oauth.authorizationUrl,
+		// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in asks for its configured scopes.
+		authUrl,
 		tokenUrl: oauth.tokenUrl,
 		clientId: flowClientId,
 		clientSecret: flowClientSecret,
-		scopes: oauth.scopes || runtimeBaseConfig.oauth?.scope || "",
+		scopes: configuredScope ?? (oauth.scopes || runtimeBaseConfig.oauth?.scope || ""),
+		// scient(SA-CODEX-PLUGINS): end
 		callbackPort: found.config.oauth?.callbackPort,
 		callbackPath: found.config.oauth?.callbackPath,
 		redirectUri: found.config.oauth?.redirectUri,
@@ -830,6 +910,9 @@ export async function reauthorizeMcpServer(
 		issuerUrl: oauth.issuerUrl,
 		serverUrl,
 		resource: oauthResource,
+		// scient(SA-CODEX-PLUGINS): begin - server-bound id.
+		credentialId: bound ? currentAuth?.credentialId : undefined,
+		// scient(SA-CODEX-PLUGINS): end
 		stripSameOriginResource: oauthResourceIsFallback,
 		authStorage,
 		signal: opts.signal,
@@ -867,7 +950,10 @@ export async function reauthorizeMcpServer(
 	// authStorage is the binding, and the live reconnect applies it now.
 	const hadClientBearerHeader = hasMcpAuthorizationHeader(found.config);
 	const urlKeyedId = serverUrl ? mcpOAuthCredentialId(serverUrl) : undefined;
+	// scient(SA-CODEX-PLUGINS): begin - a server-bound sign-in is found by its fixed id: nothing to write back,
+	// and the server keeps the auth block that names it.
 	const shouldPersist =
+		!bound &&
 		found.acpOwned !== true &&
 		(currentAuth !== undefined || hadClientBearerHeader || oauthResult.credentialId !== urlKeyedId);
 	const updatedConfig = shouldPersist
@@ -884,7 +970,10 @@ export async function reauthorizeMcpServer(
 				resource: oauthResource,
 				stripSameOriginResource: oauthResourceIsFallback,
 			})
-		: baseConfig;
+		: bound
+			? found.config
+			: baseConfig;
+	// scient(SA-CODEX-PLUGINS): end
 	if (shouldPersist) {
 		await updateMCPServer(found.filePath, name, updatedConfig);
 	}

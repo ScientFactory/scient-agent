@@ -46,6 +46,15 @@ import {
 	refreshStoredManagedMcpOAuthCredential,
 } from "./oauth-credentials";
 import type { MCPStoredOAuthCredential } from "./oauth-flow";
+// scient(SA-CODEX-PLUGINS): begin - bind OAuth to the definition and source selected together.
+import { withMcpCatalogPolicy } from "../scient/mcp-sign-in-pickup";
+import {
+	refreshForMcpDefinition,
+	setMcpDefinitionSource,
+	sourceForMcpUpdate,
+	withTrustedMcpAuth,
+} from "../scient/mcp-server-credential";
+// scient(SA-CODEX-PLUGINS): end
 import type { McpConnectionStatusEvent } from "./startup-events";
 import { resolveMCPStartupTimeoutMs } from "./timeout";
 
@@ -902,6 +911,9 @@ export class MCPManager implements MCPManagerApi {
 		sources: Record<string, SourceMeta>,
 		onStatus?: (event: McpConnectionStatusEvent) => void,
 		startupTimeoutMs?: number,
+		// scient(SA-CODEX-PLUGINS): begin - one-shot host status asks each server directly.
+		probe?: { live: true },
+		// scient(SA-CODEX-PLUGINS): end
 	): Promise<MCPLoadResult> {
 		const notify = (event: McpConnectionStatusEvent) => {
 			onStatus?.(event);
@@ -925,17 +937,16 @@ export class MCPManager implements MCPManagerApi {
 		// Prepare connection tasks
 		const connectionTasks: ConnectionTask[] = [];
 
-		for (const [name, config] of Object.entries(configs)) {
+		// scient(SA-CODEX-PLUGINS): begin - only the supplied source may bind this definition to a server's sign-in.
+		for (const [name, declared] of Object.entries(configs)) {
+			const source = sources[name];
+			const config = withTrustedMcpAuth(name, declared, source?.provider);
+			// scient(SA-CODEX-PLUGINS): end
 			this.#startupServers.add(name);
 			// Connecting a server by name (`/mcp enable`) ends its built-in drop.
 			this.#builtinDrops.delete(name);
-			if (sources[name]) {
-				this.#sources.set(name, sources[name]);
-				const existing = this.#connections.get(name);
-				if (existing) {
-					existing._source = sources[name];
-				}
-			}
+			// scient(SA-CODEX-PLUGINS): begin - record the source below only if this definition is selected.
+			// scient(SA-CODEX-PLUGINS): end
 
 			// Skip if already connected
 			if (this.#connections.has(name)) {
@@ -955,6 +966,11 @@ export class MCPManager implements MCPManagerApi {
 
 			// Validate config
 			const validationErrors = validateServerConfig(name, config);
+			// scient(SA-CODEX-PLUGINS): begin - a rejected or skipped replacement cannot change the source of a retained definition.
+			if (!validationErrors.length || !this.#serverConfigs.has(name)) {
+				setMcpDefinitionSource(this.#sources, name, source);
+			}
+			// scient(SA-CODEX-PLUGINS): end
 			if (validationErrors.length > 0) {
 				const message = validationErrors.join("; ");
 				errors.set(name, message);
@@ -972,17 +988,26 @@ export class MCPManager implements MCPManagerApi {
 			// Resolve auth config before connecting, but do so per-server in parallel.
 			const connectionPromise = (async () => {
 				const resolvedConfig = await this.#resolveAuthConfig(config, { signal: connectSignal });
-				return this.#connect(name, config, resolvedConfig, scope);
+				// scient(SA-CODEX-PLUGINS): begin - bypass the catalog on a host status probe.
+				return this.#connect(name, config, resolvedConfig, scope, probe?.live);
+				// scient(SA-CODEX-PLUGINS): end
 			})().then(
 				async connection => {
 					// Store original config (without resolved tokens) to keep
 					// cache keys stable and avoid leaking rotating credentials.
 					connection.config = config;
-					if (sources[name]) {
-						connection._source = sources[name];
-					}
+					// scient(SA-CODEX-PLUGINS): begin - keep the source captured with the selected definition.
+					if (source) connection._source = source;
+					// scient(SA-CODEX-PLUGINS): end
 
-					if (this.#epoch !== connectionEpoch || this.#pendingConnections.get(name) !== connectionPromise) {
+					// scient(SA-CODEX-PLUGINS): begin - an update during the handshake supersedes its old definition.
+					if (
+						this.#epoch !== connectionEpoch ||
+						this.#pendingConnections.get(name) !== connectionPromise ||
+						this.#serverConfigs.get(name) !== config
+					) {
+						if (this.#pendingConnections.get(name) === connectionPromise) this.#pendingConnections.delete(name);
+						// scient(SA-CODEX-PLUGINS): end
 						this.#detachConnection(name, connection);
 						void disconnectServer(connection).catch(() => {});
 						throw new Error(`Server "${name}" was disconnected during initial connection`);
@@ -1075,7 +1100,10 @@ export class MCPManager implements MCPManagerApi {
 
 		if (connectionTasks.length > 0) {
 			const initialLoads = Promise.allSettled(connectionTasks.map(task => task.tracked.promise));
-			const windowMs = resolveMCPStartupTimeoutMs(startupTimeoutMs);
+			// scient(SA-CODEX-PLUGINS): begin - the host status window also bounds servers configured to wait indefinitely.
+			const windowMs =
+				probe && startupTimeoutMs !== undefined ? startupTimeoutMs : resolveMCPStartupTimeoutMs(startupTimeoutMs);
+			// scient(SA-CODEX-PLUGINS): end
 			if (windowMs === 0) await initialLoads;
 			else await Promise.race([initialLoads, Bun.sleep(windowMs)]);
 
@@ -1414,7 +1442,15 @@ export class MCPManager implements MCPManagerApi {
 	 * {@link reconnectServer} merely joins the dying attempt instead of
 	 * starting a fresh one against the new definition.
 	 */
-	updateServerConfig(name: string, config: MCPServerConfig): Promise<MCPServerConnection | null> | undefined {
+	// scient(SA-CODEX-PLUGINS): begin - a replacement needs its own source to claim a plugin sign-in.
+	updateServerConfig(
+		name: string,
+		config: MCPServerConfig,
+		source = sourceForMcpUpdate(this.#serverConfigs.get(name), config, this.#sources.get(name)),
+	): Promise<MCPServerConnection | null> | undefined {
+		config = withTrustedMcpAuth(name, config, source?.provider);
+		setMcpDefinitionSource(this.#sources, name, source, this.#connections.get(name));
+		// scient(SA-CODEX-PLUGINS): end
 		this.#serverConfigs.set(name, config);
 		const connection = this.#connections.get(name);
 		if (connection) connection.config = config;
@@ -1633,7 +1669,9 @@ export class MCPManager implements MCPManagerApi {
 	 */
 	async reconnectServer(
 		name: string,
-		options?: MCPReconnectOptions & { manual?: boolean },
+		// scient(SA-CODEX-PLUGINS): begin - external sign-in validates its tools on the new credentials.
+		options?: MCPReconnectOptions & { manual?: boolean; live?: boolean },
+		// scient(SA-CODEX-PLUGINS): end
 	): Promise<MCPServerConnection | null> {
 		const pending = this.#pendingReconnections.get(name);
 		if (pending) return pending;
@@ -1648,11 +1686,15 @@ export class MCPManager implements MCPManagerApi {
 
 	async #doReconnect(
 		name: string,
-		options: MCPReconnectOptions & { manual?: boolean },
+		// scient(SA-CODEX-PLUGINS): begin - preserve the live catalog request through reconnect.
+		options: MCPReconnectOptions & { manual?: boolean; live?: boolean },
+		// scient(SA-CODEX-PLUGINS): end
 	): Promise<MCPServerConnection | null> {
 		const connection = this.#connections.get(name);
 		let config = connection?.config ?? this.#serverConfigs.get(name);
-		const source = this.#sources.get(name) ?? connection?._source;
+		// scient(SA-CODEX-PLUGINS): begin - keep the source paired with any definition the auth handler returns.
+		let source = this.#sources.get(name) ?? connection?._source;
+		// scient(SA-CODEX-PLUGINS): end
 		if (!config) return null;
 
 		if (options.authChallenge) {
@@ -1665,7 +1707,12 @@ export class MCPManager implements MCPManagerApi {
 			try {
 				const refreshedConfig = await this.#authHandler(name, options.authChallenge);
 				if (!refreshedConfig) return null;
-				config = refreshedConfig;
+				// scient(SA-CODEX-PLUGINS): begin - discard a superseded challenge and never lend its source to a new definition.
+				if (this.#serverConfigs.get(name) !== config) return null;
+				source = sourceForMcpUpdate(config, refreshedConfig, source);
+				config = withTrustedMcpAuth(name, refreshedConfig, source?.provider);
+				setMcpDefinitionSource(this.#sources, name, source, connection);
+				// scient(SA-CODEX-PLUGINS): end
 				this.#serverConfigs.set(name, config);
 				if (connection) connection.config = config;
 			} catch (error) {
@@ -1688,7 +1735,9 @@ export class MCPManager implements MCPManagerApi {
 				await this.#relinkServer(name, connection, config, options);
 				live = connection;
 			} else {
-				live = await this.#connectAndWireServer(name, config, source, reconnectEpoch);
+				// scient(SA-CODEX-PLUGINS): begin - a newly signed-in server supplies its own tools.
+				live = await this.#connectAndWireServer(name, config, source, reconnectEpoch, options.live);
+				// scient(SA-CODEX-PLUGINS): end
 			}
 			logger.debug("MCP reconnected", { path: `mcp:${name}`, tools: live.tools?.length ?? 0 });
 			this.#emitConnectionStatus({ type: "connected", serverName: name });
@@ -1716,25 +1765,37 @@ export class MCPManager implements MCPManagerApi {
 		name: string,
 		connection: HostedMCPConnection,
 		config: MCPServerConfig,
-		options: MCPReconnectOptions & { manual?: boolean },
+		// scient(SA-CODEX-PLUGINS): begin - preserve the live catalog request through reconnect.
+		options: MCPReconnectOptions & { manual?: boolean; live?: boolean },
+		// scient(SA-CODEX-PLUGINS): end
 	): Promise<void> {
 		this.#ready.delete(name);
 		const signal = this.#serverScopes.get(name)?.signal ?? this.#connectAbort.signal;
 		const link = connection.transport;
 		// The config may have gained or lost refreshable credentials since the link was wired (`/mcp reauth`).
-		link.onAuthError = this.#authRefreshHook(config);
+		// scient(SA-CODEX-PLUGINS): begin - install the new callback with the retargeted spec below.
+		// scient(SA-CODEX-PLUGINS): end
 		const resolvedConfig = await this.#resolveAuthConfig(config, { signal });
 		const spec = buildServerSpec(resolvedConfig, this.cwd);
 		const elsewhere =
 			!link.connected ||
 			mcpIdentity(spec) !== mcpIdentity(link.spec) ||
 			(options.manual === true && (await link.hostMoved()));
+		// scient(SA-CODEX-PLUGINS): begin - a replacement supersedes a relink waiting on credentials or the host.
+		if (this.#serverConfigs.get(name) !== config) throw new Error(`Server "${name}" changed during reconnection`);
+		link.onAuthError = refreshForMcpDefinition(
+			() => this.#serverConfigs.get(name) === config,
+			this.#authRefreshHook(config),
+		);
+		// scient(SA-CODEX-PLUGINS): end
 		if (elsewhere) {
 			await link.retarget(spec, signal);
 		} else if (options.manual || (options.staleSession && link.status?.era === "legacy")) {
 			await link.restart();
 		}
-		await this.#reloadServer(name, connection, signal);
+		// scient(SA-CODEX-PLUGINS): begin - revalidate a retained attachment under its new credentials.
+		await withMcpCatalogPolicy(connection, options.live, () => this.#reloadServer(name, connection, signal));
+		// scient(SA-CODEX-PLUGINS): end
 	}
 
 	/**
@@ -1782,9 +1843,20 @@ export class MCPManager implements MCPManagerApi {
 		config: MCPServerConfig,
 		resolvedConfig: MCPServerConfig,
 		scope: ServerScope,
+		// scient(SA-CODEX-PLUGINS): begin - use the upstream live discovery and listing policy for this connection.
+		live?: boolean,
+		// scient(SA-CODEX-PLUGINS): end
 	): Promise<HostedMCPConnection> {
+		// scient(SA-CODEX-PLUGINS): begin - discard a connection whose definition changed during auth resolution.
+		if (this.#serverConfigs.get(name) !== config) {
+			return Promise.reject(new Error(`Server "${name}" changed during connection`));
+		}
+		// scient(SA-CODEX-PLUGINS): end
 		return connectToServer(name, resolvedConfig, {
 			signal: scope.signal,
+			// scient(SA-CODEX-PLUGINS): begin - forward the live catalog policy to the client.
+			live,
+			// scient(SA-CODEX-PLUGINS): end
 			cwd: this.cwd,
 			instance: this.#owner,
 			idleMs: this.idleMs,
@@ -1799,7 +1871,12 @@ export class MCPManager implements MCPManagerApi {
 			},
 			onReattach: change => this.#linkReattached(name, change),
 			// From the first attach on: the era probe is where a stale token is refused first.
-			onAuthError: this.#authRefreshHook(config),
+			// scient(SA-CODEX-PLUGINS): begin - tie link refreshes to the selected definition.
+			onAuthError: refreshForMcpDefinition(
+				() => this.#serverConfigs.get(name) === config,
+				this.#authRefreshHook(config),
+			),
+			// scient(SA-CODEX-PLUGINS): end
 		});
 	}
 
@@ -1859,11 +1936,16 @@ export class MCPManager implements MCPManagerApi {
 		config: MCPServerConfig,
 		source: SourceMeta | undefined,
 		reconnectEpoch: number,
+		// scient(SA-CODEX-PLUGINS): begin - a fresh pickup also bypasses the host catalog.
+		live?: boolean,
+		// scient(SA-CODEX-PLUGINS): end
 	): Promise<MCPServerConnection> {
 		// Opened before resolving credentials: a disconnect during that wait must abort this connect too.
 		const scope = this.#beginConnect(name);
 		const resolvedConfig = await this.#resolveAuthConfig(config, { signal: scope.signal });
-		const connection = await this.#connect(name, config, resolvedConfig, scope);
+		// scient(SA-CODEX-PLUGINS): begin - reconnect using live discovery if sign-in changed.
+		const connection = await this.#connect(name, config, resolvedConfig, scope, live);
+		// scient(SA-CODEX-PLUGINS): end
 
 		connection.config = config;
 		if (source) connection._source = source;
@@ -1880,6 +1962,9 @@ export class MCPManager implements MCPManagerApi {
 		this.#wireLink(name, connection);
 		try {
 			const serverTools = await listTools(connection, { signal: scope.signal });
+			// scient(SA-CODEX-PLUGINS): begin - resume normal catalog policy after validating the sign-in.
+			if (live) connection.live = undefined;
+			// scient(SA-CODEX-PLUGINS): end
 			this.#publishServerTools(name, connection, serverTools);
 			this.#notifyOwnerToolsChanged().catch(error => logger.debug("MCP tools-changed handler failed", { error }));
 			void this.#loadServerResourcesAndPrompts(name, connection);
@@ -2243,6 +2328,9 @@ export class MCPManager implements MCPManagerApi {
 					refreshStoredManagedMcpOAuthCredential(authStorage, credentialId, {
 						serverUrl: config.type === "http" || config.type === "sse" ? config.url : undefined,
 						auth,
+						// scient(SA-CODEX-PLUGINS): begin - a bound refresh uses only the currently configured client secret.
+						clientSecret: typeof config.oauth?.clientSecret === "string" ? config.oauth.clientSecret : undefined,
+						// scient(SA-CODEX-PLUGINS): end
 						forceRefresh: opts?.forceRefresh,
 						keepCredentialOnRefreshFailure: true,
 						onRefreshFailure: refreshError => {

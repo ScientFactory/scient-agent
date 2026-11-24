@@ -17,6 +17,9 @@
  * request or a forwarded resource subscription reached it, it carries session
  * state and stays up until the unit stops. A restarted upstream starts clean.
  */
+// scient(SA-CODEX-PLUGINS): begin - Enforce the imported server's tool-call deadline.
+import { LOCAL_TOOL_DEADLINE, McpToolDeadline, toolDeadline } from "../../scient/mcp-tool-deadline";
+// scient(SA-CODEX-PLUGINS): end
 import { isRecord, logger, stableStringifyJson } from "@oh-my-pi/pi-utils";
 import type { ChildSpawn, ManagedChild, ManagedChildState, ModuleTunnel, ModuleUnit } from "../../daemon/module";
 import { type MCPTransportKind, MCPTransportError, normalizeMCPTransportError } from "../errors";
@@ -413,6 +416,9 @@ export interface McpEndpointRestore {
 
 /** Construction parameters of {@link McpEndpoint}. */
 export interface McpEndpointOptions {
+	// scient(SA-CODEX-PLUGINS): begin - The in-process host shares the session clock.
+	localToolDeadlines?: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 	unitId: string;
 	spec: McpServerSpec;
 	era: McpEra;
@@ -462,6 +468,9 @@ export class McpEndpoint implements ModuleUnit {
 	readonly #changed: (unitId: string) => void;
 	readonly #identity: string;
 	readonly #publicIdentity: string;
+	// scient(SA-CODEX-PLUGINS): begin - Only interpret the session clock on the local host.
+	readonly #localToolDeadlines: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 	readonly #transport: MCPTransportKind;
 	readonly #exit = Promise.withResolvers<{ exitCode?: number; reason?: string }>();
 
@@ -497,6 +506,9 @@ export class McpEndpoint implements ModuleUnit {
 	#lastFailure = "";
 
 	constructor(options: McpEndpointOptions) {
+		// scient(SA-CODEX-PLUGINS): begin - Only interpret the session clock on the local host.
+		this.#localToolDeadlines = options.localToolDeadlines === true;
+		// scient(SA-CODEX-PLUGINS): end
 		this.#unitId = options.unitId;
 		this.#spec = options.spec;
 		this.era = options.era;
@@ -639,7 +651,20 @@ export class McpEndpoint implements ModuleUnit {
 		const { id, method } = message;
 		const params = isRecord(message.params) ? message.params : undefined;
 		if (typeof id === "string" || typeof id === "number") {
-			void this.#serve(link, id, method, params);
+			// scient(SA-CODEX-PLUGINS): begin - Private deadlines belong to this process and never enter server params.
+			let deadline: McpToolDeadline | undefined;
+			if (this.#localToolDeadlines && Object.hasOwn(message, LOCAL_TOOL_DEADLINE)) {
+				const at = message[LOCAL_TOOL_DEADLINE];
+				if (method !== "tools/call" || typeof at !== "number" || !Number.isFinite(at) || at < 0) {
+					link.send(
+						errorResponse(id, { code: MCPErrorCode.InvalidParams, message: "Invalid local tool deadline" }),
+					);
+					return;
+				}
+				deadline = McpToolDeadline.remaining(at, this.#transport);
+			}
+			void this.#serve(link, id, method, params, deadline);
+			// scient(SA-CODEX-PLUGINS): end
 			return;
 		}
 		switch (method) {
@@ -671,7 +696,15 @@ export class McpEndpoint implements ModuleUnit {
 
 	// ── requests ─────────────────────────────────────────────────────────────
 
-	async #serve(link: Link, id: RequestId, method: string, params: Record<string, unknown> | undefined): Promise<void> {
+	// scient(SA-CODEX-PLUGINS): begin - Keep the deadline across lazy upstream startup.
+	async #serve(
+		link: Link,
+		id: RequestId,
+		method: string,
+		params: Record<string, unknown> | undefined,
+		deadline?: McpToolDeadline,
+	): Promise<void> {
+		// scient(SA-CODEX-PLUGINS): end
 		const meta = params && isRecord(params._meta) ? params._meta : undefined;
 		const version = meta?.[MCPMeta.protocolVersion];
 		if (!params || !meta || typeof version !== "string" || !isRecord(meta[MCPMeta.clientCapabilities])) {
@@ -715,6 +748,10 @@ export class McpEndpoint implements ModuleUnit {
 				: undefined;
 		let response: unknown;
 		try {
+			// scient(SA-CODEX-PLUGINS): begin - The session owns the timer. Tunnel cancellation reaches this request controller.
+			deadline?.check();
+			deadline?.bind(controller.signal);
+			// scient(SA-CODEX-PLUGINS): end
 			const result = await this.#answer(link, method, forwarded, meta[OmpMeta.cache], controller.signal, onProgress);
 			response = { jsonrpc: "2.0", id, result };
 		} catch (error) {
@@ -790,6 +827,9 @@ export class McpEndpoint implements ModuleUnit {
 		try {
 			record = await this.#awaitPeer(options.signal);
 			options.signal.throwIfAborted();
+			// scient(SA-CODEX-PLUGINS): begin - Lazy startup can outlast the cap before the timer gets a turn.
+			toolDeadline(options.signal)?.check(options.signal);
+			// scient(SA-CODEX-PLUGINS): end
 			if (!isCacheableMethod(method)) record.sessionBearing = true;
 			return await record.peer.request(method, params, options);
 		} catch (error) {

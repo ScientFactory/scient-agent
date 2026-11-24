@@ -11,6 +11,20 @@ import type { OAuthController, OAuthCredentials } from "@oh-my-pi/pi-ai/oauth/ty
 import type { FetchImpl } from "@oh-my-pi/pi-ai/types";
 import { getActiveProfile } from "@oh-my-pi/pi-utils/dirs";
 import type { OAuthCredential } from "../session/auth-storage";
+// scient(SA-CODEX-PLUGINS): begin - Recognize and expose server-bound plugin credentials.
+import {
+	isMcpOAuthServerCredentialId,
+	serverCredentialProfile,
+	serverCredentialUrl,
+} from "../scient/mcp-server-credential";
+export {
+	isMcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialId,
+	mcpOAuthServerCredentialIdMatchesUrl,
+	trustedMcpAuth,
+	withTrustedMcpAuth,
+} from "../scient/mcp-server-credential";
+// scient(SA-CODEX-PLUGINS): end
 import { buildWellKnownUrls } from "./oauth-discovery";
 
 /** Credential-id prefix for OMP-managed MCP OAuth credentials keyed by profile and server URL. */
@@ -49,6 +63,9 @@ export function isManagedMCPOAuthCredentialId(credentialId: string | undefined):
  * is the profile; everything after it is the URL.
  */
 export function mcpOAuthCredentialProfile(credentialId: string): string | undefined {
+	// scient(SA-CODEX-PLUGINS): begin - Read a server-bound credential.
+	if (isMcpOAuthServerCredentialId(credentialId)) return serverCredentialProfile(credentialId);
+	// scient(SA-CODEX-PLUGINS): end
 	if (!credentialId.startsWith(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX)) return undefined;
 	const separator = credentialId.indexOf(":", MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length);
 	return separator === -1 ? undefined : credentialId.slice(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length, separator);
@@ -65,6 +82,9 @@ export function mcpOAuthCredentialProfile(credentialId: string): string | undefi
  * config — recover the server URL for the RFC 8707 fallback resource on refresh.
  */
 export function mcpOAuthServerUrlFromCredentialId(credentialId: string): string | undefined {
+	// scient(SA-CODEX-PLUGINS): begin - Read a server-bound credential.
+	if (isMcpOAuthServerCredentialId(credentialId)) return serverCredentialUrl(credentialId);
+	// scient(SA-CODEX-PLUGINS): end
 	if (credentialId.startsWith(MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX)) {
 		const separator = credentialId.indexOf(":", MCP_OAUTH_PROFILE_CREDENTIAL_PREFIX.length);
 		return separator === -1 ? undefined : credentialId.slice(separator + 1) || undefined;
@@ -309,6 +329,9 @@ function filterResourceIndicator(
 }
 
 export interface MCPOAuthConfig {
+	// scient(SA-CODEX-PLUGINS): begin - Refuse token endpoint redirects for a server-bound sign-in.
+	rejectRedirects?: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 	/** Authorization endpoint URL */
 	authorizationUrl: string;
 	/** Token endpoint URL */
@@ -555,6 +578,9 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
 			},
 			body: params.toString(),
 			signal: this.ctrl.signal,
+			// scient(SA-CODEX-PLUGINS): begin - Keep token exchange credentials on the requested endpoint.
+			...(this.config.rejectRedirects && { redirect: "error" as const }),
+			// scient(SA-CODEX-PLUGINS): end
 		});
 
 		if (!response.ok) {
@@ -813,6 +839,9 @@ export class MCPOAuthFlow extends OAuthCallbackFlow {
  * so positional callers keep working.
  */
 export interface RefreshMCPOAuthTokenOptions {
+	// scient(SA-CODEX-PLUGINS): begin - Refuse token endpoint redirects for a server-bound sign-in.
+	rejectRedirects?: boolean;
+	// scient(SA-CODEX-PLUGINS): end
 	fetch?: FetchImpl;
 	signal?: AbortSignal;
 	/**
@@ -874,6 +903,9 @@ export async function refreshMCPOAuthToken(
 		headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
 		body: params.toString(),
 		signal: optsFromTrailing?.signal,
+		// scient(SA-CODEX-PLUGINS): begin - Keep token exchange credentials on the requested endpoint.
+		...(optsFromTrailing?.rejectRedirects && { redirect: "error" as const }),
+		// scient(SA-CODEX-PLUGINS): end
 	});
 
 	if (!response.ok) {
