@@ -32,6 +32,9 @@ import {
 import type { LspJsonRpcId, LspJsonRpcNotification, LspJsonRpcRequest, LspJsonRpcResponse } from "../../lsp/types";
 import { uriToFile } from "../../lsp/utils";
 import { advertisesWatchedFiles, WATCHED_FILES_METHOD, WatchedFilesForwarder } from "../../lsp/watched-files";
+// scient(SA-LSP-ACQUIRE-DISCONNECT): begin - Track LSP requests while their working directory resolves.
+import { cancelLspAcquires, trackLspAcquire } from "../../scient/lsp-acquire";
+// scient(SA-LSP-ACQUIRE-DISCONNECT): end
 import type {
 	DaemonModule,
 	ManagedChild,
@@ -823,7 +826,17 @@ class LspServerUnit implements ModuleUnit {
 async function acquire(context: ModuleContext, params: unknown, client: ModuleClient): Promise<LspAcquireResult> {
 	const server = ServerParams(params);
 	if (server instanceof type.errors) throw new Error(`invalid lsp acquire params: ${server.summary}`);
-	const scope = projectScope(await canonicalDir(server.cwd));
+	// scient(SA-LSP-ACQUIRE-DISCONNECT): begin - A client that disconnected while its cwd resolved gets no reservation: it would hold the key until it expires.
+	const pending = trackLspAcquire(client.connectionId);
+	let dir: string;
+	try {
+		dir = await canonicalDir(server.cwd);
+	} finally {
+		pending.finish();
+	}
+	pending.assertConnected();
+	const scope = projectScope(dir);
+	// scient(SA-LSP-ACQUIRE-DISCONNECT): end
 	const identity = muxServerKey(server);
 	// Synchronous from here: concurrent acquires each see the previous one's reservation.
 	for (let index = 0; ; index++) {
@@ -889,6 +902,9 @@ export const lspModule: DaemonModule = {
 		return new LspServerUnit({ child, slot: restored.slot, cwd: restored.cwd, label: restored.label, restored });
 	},
 	disconnected(client) {
+		// scient(SA-LSP-ACQUIRE-DISCONNECT): begin - Acquires of this client still resolving their cwd reserve nothing.
+		cancelLspAcquires(client.connectionId);
+		// scient(SA-LSP-ACQUIRE-DISCONNECT): end
 		for (const [slot, reservation] of reservations) {
 			if (reservation.connectionId === client.connectionId) releaseReservation(slot);
 		}

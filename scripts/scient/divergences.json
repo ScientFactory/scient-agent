@@ -563,6 +563,20 @@
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/daemon-open-lease.test.ts"
 			]
+		},
+		"SA-LSP-ACQUIRE-DISCONNECT": {
+			"status": "active",
+			"contract": "A client that disconnects while an LSP acquire resolves its working directory leaves the first free instance key available for the next client. Offered to Oh My Pi as https://github.com/can1357/oh-my-pi/pull/20277. At the next alignment, retire this contract as upstreamed if Oh My Pi merged the fix, or replace it with Oh My Pi's own fix if it fixed this differently.",
+			"owned": [
+				"packages/coding-agent/src/scient/lsp-acquire.ts",
+				"packages/coding-agent/test/scient/lsp-acquire-disconnect.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/daemon/modules/lsp.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/lsp-acquire-disconnect.test.ts test/daemon/lsp-module.test.ts"
+			]
 		}
 	}
 }
