@@ -21,7 +21,7 @@ describe("nested project roots", () => {
 	async function project(): Promise<string> {
 		tempDir = TempDir.createSync("@omp-lsp-nested-root-");
 		const root = tempDir.path();
-		await Bun.write(path.join(root, ".omp", "lsp.json"), JSON.stringify({ servers: { "xyz-ls": SERVER } }));
+		await Bun.write(path.join(root, ".scient-agent", "lsp.json"), JSON.stringify({ servers: { "xyz-ls": SERVER } }));
 		await Bun.write(path.join(root, "apps", "web", "xyz.project"), "");
 		await Bun.write(path.join(root, "apps", "web", "src", "main.xyz"), "");
 		await Bun.write(path.join(root, "scripts", "loose.xyz"), "");

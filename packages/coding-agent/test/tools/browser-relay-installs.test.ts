@@ -28,7 +28,7 @@ import { type RelayServer, startRelayServer } from "../../src/tools/browser/rela
 
 const OLD = "1.2.3";
 const NEWER = "999.0.0";
-const MANIFEST = "sh.omp.browser.json";
+const MANIFEST = "com.scientfactory.agent.browser.json";
 
 let home: TempDir;
 let registryFile: string;
@@ -256,11 +256,11 @@ describe("Chrome native host install", () => {
 				"BraveSoftware/Brave-Browser",
 			].map(browser => `.config/${browser}/NativeMessagingHosts`),
 		},
-		{ platform: "win32", roots: [".omp/browser-relay"] },
+		{ platform: "win32", roots: [".scient-agent/browser-relay"] },
 	];
 	for (const { platform, roots } of pathCases) {
 		it(`writes a native host manifest admitting every install's ID to every ${platform} browser location`, async () => {
-			const dir = home.join(".omp/browser-relay");
+			const dir = home.join(".scient-agent/browser-relay");
 			const ids = [
 				"pppppppppppppppppppppppppppppppp",
 				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -275,7 +275,7 @@ describe("Chrome native host install", () => {
 			expect(targets).toEqual(roots.map(root => home.join(root, MANIFEST)));
 			for (const target of targets) {
 				expect(await Bun.file(target).json()).toEqual({
-					name: "sh.omp.browser",
+					name: "com.scientfactory.agent.browser",
 					description: "omp browser native messaging host",
 					path: path.join(dir, platform === "win32" ? "native-host.cmd" : "native-host"),
 					type: "stdio",

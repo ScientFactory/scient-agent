@@ -61,7 +61,7 @@ function urlStart(text: string): number | undefined {
 /** Whether `word` names the `omp` program, by any path. */
 function isOmp(word: string): boolean {
 	const name = word.slice(Math.max(word.lastIndexOf("/"), word.lastIndexOf("\\")) + 1).toLowerCase();
-	return name === "omp" || name === "omp.exe";
+	return name === "scient-agent" || name === "scient-agent.exe";
 }
 
 /** `text` as one literal shell word. */

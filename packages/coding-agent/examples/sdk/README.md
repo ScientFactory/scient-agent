@@ -132,7 +132,7 @@ await resolveTool.execute("call-1", {
 | `authStorage`              | `discoverAuthStorage()`       | Credential storage                         |
 | `modelRegistry`            | From `<agentDir>/models.yml`  | Model registry                             |
 | `cwd`                      | `process.cwd()`               | Working directory                          |
-| `agentDir`                 | `~/.omp/agent`                | Config directory                           |
+| `agentDir`                 | `~/.scient-agent/agent`                | Config directory                           |
 | `model`                    | From settings/first available | Model to use                               |
 | `thinkingLevel`            | From settings/"off"           | off, low, medium, high                     |
 | `systemPrompt`             | Discovered                    | Strings or `(default) => modified strings` |

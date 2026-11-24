@@ -59,7 +59,7 @@ async function withTemplateSession<T>(
 
 describe("SDK per-model system prompt templates", () => {
 	// User-level SYSTEM.md / SYSTEM_TEMPLATE.md come from the global agent dir and would outrank the
-	// model template, so a developer's real ~/.omp/agent must not leak in.
+	// model template, so a developer's real ~/.scient-agent/agent must not leak in.
 	let originalAgentDir: string;
 	let agentDir: TempDir;
 	beforeEach(() => {

@@ -32,19 +32,19 @@ describe("resolveRelayKind", () => {
 		});
 	});
 
-	it("PI_BROWSER_RELAY=0 disables the relay even when the setting enables it", () => {
-		expect(resolveRelayKind({ settingEnabled: true }, { PI_BROWSER_RELAY: "0" })).toBeNull();
+	it("SCIENT_AGENT_BROWSER_RELAY=0 disables the relay even when the setting enables it", () => {
+		expect(resolveRelayKind({ settingEnabled: true }, { SCIENT_AGENT_BROWSER_RELAY: "0" })).toBeNull();
 	});
 
-	it("PI_BROWSER_RELAY=only enables the relay when the setting is off", () => {
-		expect(resolveRelayKind({ settingEnabled: false }, { PI_BROWSER_RELAY: "only" })).toEqual({
+	it("SCIENT_AGENT_BROWSER_RELAY=only enables the relay when the setting is off", () => {
+		expect(resolveRelayKind({ settingEnabled: false }, { SCIENT_AGENT_BROWSER_RELAY: "only" })).toEqual({
 			kind: "relay",
 			cdpUrl: discoverRelayEndpoints()[0] ?? "",
 		});
 	});
 
-	it("PI_BROWSER_RELAY=1 enables the relay when the setting is off", () => {
-		expect(resolveRelayKind({ settingEnabled: false }, { PI_BROWSER_RELAY: "1" })).toEqual({
+	it("SCIENT_AGENT_BROWSER_RELAY=1 enables the relay when the setting is off", () => {
+		expect(resolveRelayKind({ settingEnabled: false }, { SCIENT_AGENT_BROWSER_RELAY: "1" })).toEqual({
 			kind: "relay",
 			cdpUrl: discoverRelayEndpoints()[0] ?? "",
 		});
@@ -53,7 +53,7 @@ describe("resolveRelayKind", () => {
 
 describe("browser prelude relay guidance", () => {
 	const ENV_KEYS = [
-		"PI_BROWSER_RELAY",
+		"SCIENT_AGENT_BROWSER_RELAY",
 		"PI_BROWSER_TERN",
 		"PI_BROWSER_CMUX",
 		"TERN_PANE_SOCKET",
@@ -89,8 +89,8 @@ describe("browser prelude relay guidance", () => {
 			[{ "browser.relay": true }, "0"],
 			[{ "browser.relay": false }, "1"],
 		] as const) {
-			if (env === undefined) delete process.env.PI_BROWSER_RELAY;
-			else process.env.PI_BROWSER_RELAY = env;
+			if (env === undefined) delete process.env.SCIENT_AGENT_BROWSER_RELAY;
+			else process.env.SCIENT_AGENT_BROWSER_RELAY = env;
 			const session = sessionWith(settings);
 			const onRelay = resolveBrowserKind({ action: "open" }, session).kind === "relay";
 			const guidance = createBrowserPrelude(session).guidance;
@@ -156,9 +156,9 @@ describe("resolveBrowserKind in a subagent", () => {
 
 	it("skips the relay, Tern and cmux the parent would use for an open without app", () => {
 		expect(resolveBrowserKind({ action: "open" }, subagent({ "browser.relay": true }), pane).kind).toBe("headless");
-		expect(resolveBrowserKind({ action: "open" }, subagent({}), { ...pane, PI_BROWSER_RELAY: "1" }).kind).toBe(
-			"headless",
-		);
+		expect(
+			resolveBrowserKind({ action: "open" }, subagent({}), { ...pane, SCIENT_AGENT_BROWSER_RELAY: "1" }).kind,
+		).toBe("headless");
 		expect(
 			resolveBrowserKind(
 				{ action: "open" },
@@ -190,24 +190,25 @@ describe("resolveBrowserKind in a subagent", () => {
 		expect(resolveBrowserKind({ action: "open", app: "tern" }, session, pane).kind).toBe("tern");
 		expect(resolveBrowserKind({ action: "open", target: "docs" }, session, pane).kind).toBe("tern");
 		expect(
-			resolveBrowserKind({ action: "open", app: "relay" }, session, { ...pane, PI_BROWSER_RELAY: "0" }).kind,
+			resolveBrowserKind({ action: "open", app: "relay" }, session, { ...pane, SCIENT_AGENT_BROWSER_RELAY: "0" })
+				.kind,
 		).toBe("headless");
 	});
 
 	it("gets no relay guidance, since its open without app stays out of the user's Chrome", () => {
-		const saved = process.env.PI_BROWSER_RELAY;
-		delete process.env.PI_BROWSER_RELAY;
+		const saved = process.env.SCIENT_AGENT_BROWSER_RELAY;
+		delete process.env.SCIENT_AGENT_BROWSER_RELAY;
 		try {
 			const guidance = createBrowserPrelude(subagent({ "browser.relay": true })).guidance;
 			expect(guidance).toBe(createBrowserPrelude(subagent({ "browser.relay": false })).guidance);
 		} finally {
-			if (saved !== undefined) process.env.PI_BROWSER_RELAY = saved;
+			if (saved !== undefined) process.env.SCIENT_AGENT_BROWSER_RELAY = saved;
 		}
 	});
 });
 
-describe("relay-only sessions (PI_BROWSER_RELAY=only)", () => {
-	const only = { PI_BROWSER_RELAY: "only" };
+describe("relay-only sessions (SCIENT_AGENT_BROWSER_RELAY=only)", () => {
+	const only = { SCIENT_AGENT_BROWSER_RELAY: "only" };
 	const sessionAt = (taskDepth: number): ToolSession =>
 		({
 			cwd: process.cwd(),
@@ -233,8 +234,8 @@ describe("relay-only sessions (PI_BROWSER_RELAY=only)", () => {
 	});
 
 	it("tells the model the user's Chrome is the only browser", () => {
-		const saved = process.env.PI_BROWSER_RELAY;
-		process.env.PI_BROWSER_RELAY = "only";
+		const saved = process.env.SCIENT_AGENT_BROWSER_RELAY;
+		process.env.SCIENT_AGENT_BROWSER_RELAY = "only";
 		try {
 			for (const depth of [0, 1]) {
 				const guidance = createBrowserPrelude(sessionAt(depth)).guidance;
@@ -243,8 +244,8 @@ describe("relay-only sessions (PI_BROWSER_RELAY=only)", () => {
 				expect(guidance).not.toContain('app: "auto"');
 			}
 		} finally {
-			if (saved === undefined) delete process.env.PI_BROWSER_RELAY;
-			else process.env.PI_BROWSER_RELAY = saved;
+			if (saved === undefined) delete process.env.SCIENT_AGENT_BROWSER_RELAY;
+			else process.env.SCIENT_AGENT_BROWSER_RELAY = saved;
 		}
 	});
 });

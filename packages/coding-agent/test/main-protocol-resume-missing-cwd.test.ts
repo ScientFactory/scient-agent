@@ -58,9 +58,9 @@ const QUIET_FLAGS = ["--no-extensions", "--no-skills", "--no-rules", "--no-tools
 
 /** Variables a test or `runRootCommand` sets; each is put back after every test. */
 const ENV_KEYS = [
-	"PI_CODING_AGENT_DIR",
-	"PI_PROFILE",
-	"OMP_PROFILE",
+	"SCIENT_AGENT_DIR",
+	"SCIENT_AGENT_PROFILE_FALLBACK",
+	"SCIENT_AGENT_PROFILE",
 	"PI_NO_PTY",
 	"PI_NO_TITLE",
 	"GIT_CONFIG_GLOBAL",
@@ -69,7 +69,7 @@ const ENV_KEYS = [
 	"GIT_AUTHOR_EMAIL",
 	"GIT_COMMITTER_NAME",
 	"GIT_COMMITTER_EMAIL",
-	"OMP_WORKTREE_DIR",
+	"SCIENT_AGENT_WORKTREE_DIR",
 ] as const;
 
 let tempDir: TempDir;
@@ -298,7 +298,7 @@ describe.skipIf(process.platform === "win32")("a removed worktree is still moved
 			GIT_AUTHOR_EMAIL: "test@example.com",
 			GIT_COMMITTER_NAME: "Test",
 			GIT_COMMITTER_EMAIL: "test@example.com",
-			OMP_WORKTREE_DIR: path.join(root, "wt-base"),
+			SCIENT_AGENT_WORKTREE_DIR: path.join(root, "wt-base"),
 		});
 		repo = path.join(root, "repo");
 		await fs.promises.mkdir(repo);

@@ -22,9 +22,9 @@ describe("Claude plugin MCP timeout compatibility", () => {
 		clearClaudePluginRootsCache();
 		clearFsCache();
 		originalHome = process.env.HOME;
-		originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfileEnv = process.env.OMP_PROFILE;
-		originalPiProfileEnv = process.env.PI_PROFILE;
+		originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
+		originalOmpProfileEnv = process.env.SCIENT_AGENT_PROFILE;
+		originalPiProfileEnv = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
 		delete process.env.CLAUDE_CONFIG_DIR;
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "claude-plugins-test-"));
@@ -32,7 +32,7 @@ describe("Claude plugin MCP timeout compatibility", () => {
 		process.env.HOME = tempDir;
 		vi.spyOn(os, "homedir").mockReturnValue(tempDir);
 		// Point the agent dir at a temp dir so user-scope discovery (native MCP
-		// config, skills, etc.) cannot read the real ~/.omp/agent profile.
+		// config, skills, etc.) cannot read the real ~/.scient-agent/agent profile.
 		setAgentDir(testAgentDir);
 		enableProvider("claude-plugins");
 	});
@@ -45,12 +45,12 @@ describe("Claude plugin MCP timeout compatibility", () => {
 		// so restore every env var it can touch before rebuilding the resolver.
 		if (originalHome === undefined) delete process.env.HOME;
 		else process.env.HOME = originalHome;
-		if (originalOmpProfileEnv === undefined) delete process.env.OMP_PROFILE;
-		else process.env.OMP_PROFILE = originalOmpProfileEnv;
-		if (originalPiProfileEnv === undefined) delete process.env.PI_PROFILE;
-		else process.env.PI_PROFILE = originalPiProfileEnv;
-		if (originalAgentDirEnv === undefined) delete process.env.PI_CODING_AGENT_DIR;
-		else process.env.PI_CODING_AGENT_DIR = originalAgentDirEnv;
+		if (originalOmpProfileEnv === undefined) delete process.env.SCIENT_AGENT_PROFILE;
+		else process.env.SCIENT_AGENT_PROFILE = originalOmpProfileEnv;
+		if (originalPiProfileEnv === undefined) delete process.env.SCIENT_AGENT_PROFILE_FALLBACK;
+		else process.env.SCIENT_AGENT_PROFILE_FALLBACK = originalPiProfileEnv;
+		if (originalAgentDirEnv === undefined) delete process.env.SCIENT_AGENT_DIR;
+		else process.env.SCIENT_AGENT_DIR = originalAgentDirEnv;
 		if (originalClaudeConfigDir === undefined) delete process.env.CLAUDE_CONFIG_DIR;
 		else process.env.CLAUDE_CONFIG_DIR = originalClaudeConfigDir;
 		__resetDirsFromEnvForTests();
@@ -65,8 +65,8 @@ describe("Claude plugin MCP timeout compatibility", () => {
 	 */
 	async function installPluginWithTimeout(timeout: unknown): Promise<void> {
 		const pluginPath = path.join(tempDir, "plugins", "sap-fiori-mcp-server");
-		const registryPath = path.join(tempDir, ".omp", "plugins", "installed_plugins.json");
-		await fs.mkdir(path.join(tempDir, ".omp", "plugins"), { recursive: true });
+		const registryPath = path.join(tempDir, ".scient-agent", "plugins", "installed_plugins.json");
+		await fs.mkdir(path.join(tempDir, ".scient-agent", "plugins"), { recursive: true });
 		await fs.mkdir(pluginPath, { recursive: true });
 		await fs.writeFile(
 			path.join(pluginPath, ".mcp.json"),

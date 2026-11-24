@@ -67,7 +67,9 @@ const EXTENSION_ID = "a".repeat(32);
 
 it("links the native host with its extension id and says hello only once linked", () => {
 	const { linkRequests, postedBeforeLinked, sent } = runProbe({ downloads: true });
-	expect(linkRequests).toEqual([{ host: "sh.omp.browser", first: { t: "link", extensionId: EXTENSION_ID } }]);
+	expect(linkRequests).toEqual([
+		{ host: "com.scientfactory.agent.browser", first: { t: "link", extensionId: EXTENSION_ID } },
+	]);
 	expect(postedBeforeLinked).toEqual([{ t: "link", extensionId: EXTENSION_ID }]);
 	expect(sent[0]?.t).toBe("hello");
 });

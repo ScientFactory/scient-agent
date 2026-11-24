@@ -33,18 +33,18 @@ describe("extension manifest discovery through linked directories", () => {
 		resetSettingsForTest();
 		clearFsCache();
 		originalHome = process.env.HOME;
-		originalAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
-		originalOmpProfileEnv = process.env.OMP_PROFILE;
-		originalPiProfileEnv = process.env.PI_PROFILE;
+		originalAgentDirEnv = process.env.SCIENT_AGENT_DIR;
+		originalOmpProfileEnv = process.env.SCIENT_AGENT_PROFILE;
+		originalPiProfileEnv = process.env.SCIENT_AGENT_PROFILE_FALLBACK;
 		root = await fs.mkdtemp(path.join(os.tmpdir(), "omp-extension-symlinks-"));
 		home = path.join(root, "home");
 		project = path.join(root, "project");
 		shared = path.join(root, "shared");
 		process.env.HOME = home;
 		vi.spyOn(os, "homedir").mockReturnValue(home);
-		setAgentDir(path.join(home, ".omp", "agent"));
+		setAgentDir(path.join(home, ".scient-agent", "agent"));
 		await Promise.all([
-			fs.mkdir(path.join(home, ".omp", "agent", "extensions"), { recursive: true }),
+			fs.mkdir(path.join(home, ".scient-agent", "agent", "extensions"), { recursive: true }),
 			fs.mkdir(path.join(home, ".gemini", "extensions"), { recursive: true }),
 			fs.mkdir(shared, { recursive: true }),
 			fs.mkdir(path.join(project, ".git"), { recursive: true }),
@@ -57,9 +57,9 @@ describe("extension manifest discovery through linked directories", () => {
 		clearFsCache();
 		vi.restoreAllMocks();
 		restoreEnvValue("HOME", originalHome);
-		restoreEnvValue("OMP_PROFILE", originalOmpProfileEnv);
-		restoreEnvValue("PI_PROFILE", originalPiProfileEnv);
-		restoreEnvValue("PI_CODING_AGENT_DIR", originalAgentDirEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE", originalOmpProfileEnv);
+		restoreEnvValue("SCIENT_AGENT_PROFILE_FALLBACK", originalPiProfileEnv);
+		restoreEnvValue("SCIENT_AGENT_DIR", originalAgentDirEnv);
 		__resetDirsFromEnvForTests();
 		await removeWithRetries(root);
 	});
@@ -68,7 +68,7 @@ describe("extension manifest discovery through linked directories", () => {
 		let extensionsDir: string;
 
 		beforeEach(() => {
-			extensionsDir = path.join(home, ".omp", "agent", "extensions");
+			extensionsDir = path.join(home, ".scient-agent", "agent", "extensions");
 		});
 
 		test.skipIf(!SYMLINKS_USABLE)("discovers an extension package linked into the extensions dir", async () => {

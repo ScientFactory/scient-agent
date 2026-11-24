@@ -2166,11 +2166,11 @@ document.getElementById("rerender").addEventListener("pointerdown", () => {
 		// `pageToo` also changes the page itself, which still confirms the click.
 		const outcome = async (pageToo: boolean): Promise<string> => {
 			await page.setContent(`<div inert><button id="inert">Inert</button></div><p id="clock">0</p>
-<omp-overlay></omp-overlay>
+<scient-agent-overlay></scient-agent-overlay>
 <script>
 addEventListener("pointerdown", () => {
-	document.querySelector("omp-overlay").remove();
-	const host = document.createElement("OMP-OVERLAY");
+	document.querySelector("scient-agent-overlay").remove();
+	const host = document.createElement("SCIENT-AGENT-OVERLAY");
 	document.body.append(host);
 	host.attachShadow({ mode: "closed" }).innerHTML = "<div>pointer</div>";
 	host.setAttribute("data-state", "pressed");
@@ -2186,7 +2186,7 @@ addEventListener("pointerdown", () => {
 			);
 			await handle.dispose();
 			// The host changed while the click was watched.
-			expect(await page.evaluate(`document.querySelector("omp-overlay").dataset.state`)).toBe("pressed");
+			expect(await page.evaluate(`document.querySelector("scient-agent-overlay").dataset.state`)).toBe("pressed");
 			return result;
 		};
 		try {

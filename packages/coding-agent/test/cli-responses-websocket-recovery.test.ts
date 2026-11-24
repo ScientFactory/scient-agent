@@ -82,7 +82,7 @@ async function withCli(
 		PATH: process.env.PATH ?? "/usr/bin:/bin",
 		HOME: home,
 		USERPROFILE: home,
-		PI_CODING_AGENT_DIR: agentDir,
+		SCIENT_AGENT_DIR: agentDir,
 		XDG_CONFIG_HOME: path.join(xdg, "config"),
 		XDG_CACHE_HOME: path.join(xdg, "cache"),
 		XDG_DATA_HOME: path.join(xdg, "data"),
@@ -93,7 +93,9 @@ async function withCli(
 		SHELL: "/bin/sh",
 		NO_COLOR: "1",
 		TERM: "dumb",
-		...(process.env.PI_NATIVES_DIR ? { PI_NATIVES_DIR: process.env.PI_NATIVES_DIR } : {}),
+		...(process.env.SCIENT_AGENT_NATIVES_DIR
+			? { SCIENT_AGENT_NATIVES_DIR: process.env.SCIENT_AGENT_NATIVES_DIR }
+			: {}),
 	};
 	const client = new RpcClient({
 		provider: "openai",
@@ -318,7 +320,7 @@ describe("real CLI Responses WebSocket recovery", () => {
 				});
 			} catch (error) {
 				await Bun.write(
-					"/tmp/omp-responses-cli-426-failure.json",
+					"/tmp/scient-agent-responses-cli-426-failure.json",
 					JSON.stringify(
 						{
 							error: String(error),

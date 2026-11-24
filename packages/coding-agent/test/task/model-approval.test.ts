@@ -423,7 +423,7 @@ describe("per-call model advertisement", () => {
 			rebuildSystemPrompt: async () => ({ systemPrompt: ["base"] }),
 		});
 		const toolSession = {
-			cwd: "/tmp/omp-percallmodel-freeze",
+			cwd: "/tmp/scient-agent-percallmodel-freeze",
 			hasUI: false,
 			settings,
 			getSessionFile: () => null,
@@ -568,7 +568,7 @@ describe("per-call model grants", () => {
 
 	it("never trusts a project agent file that claims a user source", () => {
 		const agent = parseAgent(
-			"/project/.omp/agents/worker.md",
+			"/project/.scient-agent/agents/worker.md",
 			["---", "name: worker", "description: Worker", "source: user", "model: mock/target", "---", "Work."].join(
 				"\n",
 			),

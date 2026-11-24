@@ -12,7 +12,7 @@ import {
 } from "@oh-my-pi/pi-coding-agent/session/transcript-index";
 import { getConfigRootDir, getSessionsDir, removeSyncWithRetries, setAgentDir } from "@oh-my-pi/pi-utils";
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 let root: string;
 let bucket: string;
 
@@ -30,7 +30,7 @@ afterEach(() => {
 		setAgentDir(originalAgentDir);
 	} else {
 		setAgentDir(path.join(getConfigRootDir(), "agent"));
-		delete process.env.PI_CODING_AGENT_DIR;
+		delete process.env.SCIENT_AGENT_DIR;
 	}
 	removeSyncWithRetries(root);
 });

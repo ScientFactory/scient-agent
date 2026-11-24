@@ -79,7 +79,7 @@ export const DISASM_BACKENDS: Record<DisasmBackendId, DisasmBackend> = {
 		databaseName: name => `${name}.bndb`,
 		isDatabasePath: p => path.extname(p).toLowerCase() === ".bndb",
 		workerScript: binjaWorker,
-		workerStageDir: "omp-binja-worker",
+		workerStageDir: "scient-agent-binja-worker",
 		interrupt: "signal",
 		projectAlias: false,
 	},

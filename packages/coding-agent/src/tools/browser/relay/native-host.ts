@@ -83,14 +83,19 @@ export async function runNativeHost(): Promise<void> {
 
 /**
  * Starts `command` in `cwd` with an environment for a headless panel session: the browser tool drives the user's
- * Chrome through the relay and nothing else (`PI_BROWSER_RELAY=only`), whatever the configured default: the user
- * watching the panel sees every tab the session opens. `PI_SESSION_ORIGIN=chrome` marks its sessions as the panel's,
+ * Chrome through the relay and nothing else (`SCIENT_AGENT_BROWSER_RELAY=only`), whatever the configured default: the user
+ * watching the panel sees every tab the session opens. `SCIENT_AGENT_SESSION_ORIGIN=chrome` marks its sessions as the panel's,
  * which keeps them out of the terminal's resume picker and `--continue`.
  */
 export function spawnRpcChild(command: readonly string[], cwd: string, relayUrl: string): RpcChild {
 	const child = Bun.spawn([...command], {
 		cwd,
-		env: { ...process.env, PI_BROWSER_RELAY: "only", PI_PANEL_RELAY_URL: relayUrl, PI_SESSION_ORIGIN: "chrome" },
+		env: {
+			...process.env,
+			SCIENT_AGENT_BROWSER_RELAY: "only",
+			SCIENT_AGENT_PANEL_RELAY_URL: relayUrl,
+			SCIENT_AGENT_SESSION_ORIGIN: "chrome",
+		},
 		stdin: "pipe",
 		stdout: "pipe",
 		stderr: "pipe",

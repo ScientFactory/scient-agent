@@ -119,7 +119,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 		// Scoped search: scope dir (`searchPath`) is below cwd, and the grouped
 		// display paths are cwd-relative. Resolving against searchPath would double
 		// the `src` prefix (`/proj/src/src/...`).
-		const projectRoot = path.resolve("/tmp/omp-project");
+		const projectRoot = path.resolve("/tmp/scient-agent-project");
 		const srcRoot = path.join(projectRoot, "src");
 		const interactiveModePath = path.join(srcRoot, "interactive-mode.ts");
 		const result = {
@@ -146,7 +146,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 	it("resolves scoped ast-grep links against cwd, not the (sub)scope path", async () => {
 		cfgTuiHyperlinks.override(settings, "always");
 		const theme = (await getThemeByName("dark"))!;
-		const projectRoot = path.resolve("/tmp/omp-project");
+		const projectRoot = path.resolve("/tmp/scient-agent-project");
 		const srcRoot = path.join(projectRoot, "src");
 		const interactiveModePath = path.join(srcRoot, "interactive-mode.ts");
 		const result = {
@@ -175,7 +175,7 @@ describe("tool output OSC 8 file:// hyperlinks", () => {
 	it("links the edit header to the absolute details.path even when the arg path is relative", async () => {
 		cfgTuiHyperlinks.override(settings, "always");
 		const theme = (await getThemeByName("dark"))!;
-		const editPath = path.resolve("/tmp/omp-project/src/a.ts");
+		const editPath = path.resolve("/tmp/scient-agent-project/src/a.ts");
 		const rendered = editToolRenderer
 			.renderResult(
 				{

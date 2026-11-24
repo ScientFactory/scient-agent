@@ -20,7 +20,7 @@ export type BrowserRelayAction = (typeof BROWSER_RELAY_ACTIONS)[number];
 /** Parsed browser-relay command and options. */
 export interface BrowserRelayCommandArgs {
 	action: BrowserRelayAction;
-	/** Install target directory; defaults to ~/.omp/browser-relay/extension. */
+	/** Install target directory; defaults to ~/.scient-agent/browser-relay/extension. */
 	dir?: string;
 	/** Install into real Chrome profiles (default true; `--no-chrome` falls back to the manual steps). */
 	chrome?: boolean;

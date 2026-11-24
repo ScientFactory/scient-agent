@@ -111,12 +111,12 @@
 			]
 		},
 		{
-			"source": "Managed skill: `SKILL.md` in isolated `~/.omp/agent/managed-skills`; surfaced as a normal skill in future sessions.",
+			"source": "Managed skill: `SKILL.md` in isolated `~/.scient-agent/agent/managed-skills`; surfaced as a normal skill in future sessions.",
 			"origin": "tools/manage-skill.md",
 			"variants": [
-				"Managed skill: `SKILL.md` in isolated `~/.omp/agent/managed-skills`; presented as a normal skill in future sessions.",
-				"Managed skill: `SKILL.md` in isolated `~/.omp/agent/managed-skills`; surfaced as a regular skill in future sessions.",
-				"Managed skill: `SKILL.md` in isolated `~/.omp/agent/managed-skills`; appears as a normal skill in future sessions."
+				"Managed skill: `SKILL.md` in isolated `~/.scient-agent/agent/managed-skills`; presented as a normal skill in future sessions.",
+				"Managed skill: `SKILL.md` in isolated `~/.scient-agent/agent/managed-skills`; surfaced as a regular skill in future sessions.",
+				"Managed skill: `SKILL.md` in isolated `~/.scient-agent/agent/managed-skills`; appears as a normal skill in future sessions."
 			]
 		},
 		{
@@ -340,13 +340,13 @@
 			]
 		},
 		{
-			"source": "- Approvals ONLY via `approve()`; NEVER edit `.omp/ratchet/<flow>/_state.json` by hand.",
+			"source": "- Approvals ONLY via `approve()`; NEVER edit `.scient-agent/ratchet/<flow>/_state.json` by hand.",
 			"origin": "ratchet-kickoff.md",
 			"variants": [
-				"- Approvals ONLY through `approve()`; NEVER modify `.omp/ratchet/<flow>/_state.json` manually.",
-				"- Approvals ONLY via `approve()`; NEVER change `.omp/ratchet/<flow>/_state.json` by hand.",
-				"- Approvals ONLY using `approve()`; NEVER edit `.omp/ratchet/<flow>/_state.json` by hand.",
-				"- Approvals ONLY via `approve()`; NEVER hand-edit `.omp/ratchet/<flow>/_state.json`."
+				"- Approvals ONLY through `approve()`; NEVER modify `.scient-agent/ratchet/<flow>/_state.json` manually.",
+				"- Approvals ONLY via `approve()`; NEVER change `.scient-agent/ratchet/<flow>/_state.json` by hand.",
+				"- Approvals ONLY using `approve()`; NEVER edit `.scient-agent/ratchet/<flow>/_state.json` by hand.",
+				"- Approvals ONLY via `approve()`; NEVER hand-edit `.scient-agent/ratchet/<flow>/_state.json`."
 			]
 		},
 		{
@@ -3388,21 +3388,21 @@
 			]
 		},
 		{
-			"source": "Managed skills: `SKILL.md` in isolated `~/.omp/agent/managed-skills`; surfaced in future sessions like other skills.",
+			"source": "Managed skills: `SKILL.md` in isolated `~/.scient-agent/agent/managed-skills`; surfaced in future sessions like other skills.",
 			"origin": "system/autolearn-guidance.md",
 			"variants": [
-				"Managed skills: `SKILL.md` lives in isolated `~/.omp/agent/managed-skills`; surfaced in future sessions like other skills.",
-				"Managed skills: `SKILL.md` inside isolated `~/.omp/agent/managed-skills`; surfaced in future sessions like the other skills.",
-				"Managed skills: `SKILL.md` stored in isolated `~/.omp/agent/managed-skills`; surfaced in future sessions like other skills."
+				"Managed skills: `SKILL.md` lives in isolated `~/.scient-agent/agent/managed-skills`; surfaced in future sessions like other skills.",
+				"Managed skills: `SKILL.md` inside isolated `~/.scient-agent/agent/managed-skills`; surfaced in future sessions like the other skills.",
+				"Managed skills: `SKILL.md` stored in isolated `~/.scient-agent/agent/managed-skills`; surfaced in future sessions like other skills."
 			]
 		},
 		{
-			"source": "Isolation: managed skills ONLY writable skills. NEVER edit user-authored skills in `~/.omp/agent/skills` or `.omp/skills`.",
+			"source": "Isolation: managed skills ONLY writable skills. NEVER edit user-authored skills in `~/.scient-agent/agent/skills` or `.scient-agent/skills`.",
 			"origin": "system/autolearn-guidance.md",
 			"variants": [
-				"Isolation: managed skills are the ONLY writable skills. NEVER edit user-authored skills in `~/.omp/agent/skills` or `.omp/skills`.",
-				"Isolation: only managed skills are writable. NEVER edit user-authored skills found in `~/.omp/agent/skills` or `.omp/skills`.",
-				"Isolation: managed skills ONLY are writable skills. NEVER edit skills authored by users in `~/.omp/agent/skills` or `.omp/skills`."
+				"Isolation: managed skills are the ONLY writable skills. NEVER edit user-authored skills in `~/.scient-agent/agent/skills` or `.scient-agent/skills`.",
+				"Isolation: only managed skills are writable. NEVER edit user-authored skills found in `~/.scient-agent/agent/skills` or `.scient-agent/skills`.",
+				"Isolation: managed skills ONLY are writable skills. NEVER edit skills authored by users in `~/.scient-agent/agent/skills` or `.scient-agent/skills`."
 			]
 		},
 		{
@@ -7572,13 +7572,13 @@
 			]
 		},
 		{
-			"source": "  1. the user's Chrome through the relay (`browser.relay` setting; `PI_BROWSER_RELAY=1`/`=0` overrides it)",
+			"source": "  1. the user's Chrome through the relay (`browser.relay` setting; `SCIENT_AGENT_BROWSER_RELAY=1`/`=0` overrides it)",
 			"origin": "tools/browser.md",
 			"variants": [
-				"  the user's Chrome via the relay (`browser.relay` setting; `PI_BROWSER_RELAY=1`/`=0` overrides it)",
-				"  the user's Chrome routed through the relay (`browser.relay` setting; `PI_BROWSER_RELAY=1`/`=0` takes precedence)",
-				"  the user's Chrome by way of the relay (`browser.relay` setting; overridden by `PI_BROWSER_RELAY=1`/`=0`)",
-				"  the user's Chrome through the relay (`browser.relay` setting; `PI_BROWSER_RELAY=1`/`=0` overrides that setting)"
+				"  the user's Chrome via the relay (`browser.relay` setting; `SCIENT_AGENT_BROWSER_RELAY=1`/`=0` overrides it)",
+				"  the user's Chrome routed through the relay (`browser.relay` setting; `SCIENT_AGENT_BROWSER_RELAY=1`/`=0` takes precedence)",
+				"  the user's Chrome by way of the relay (`browser.relay` setting; overridden by `SCIENT_AGENT_BROWSER_RELAY=1`/`=0`)",
+				"  the user's Chrome through the relay (`browser.relay` setting; `SCIENT_AGENT_BROWSER_RELAY=1`/`=0` overrides that setting)"
 			]
 		},
 		{
@@ -8970,12 +8970,12 @@
 			]
 		},
 		{
-			"source": "`r = ratchet(\"inbox-routing\")` binds a flow at `.omp/ratchet/<flow>/`. Every method is async and returns plain data.",
+			"source": "`r = ratchet(\"inbox-routing\")` binds a flow at `.scient-agent/ratchet/<flow>/`. Every method is async and returns plain data.",
 			"origin": "tools/ratchet.md",
 			"variants": [
-				"`r = ratchet(\"inbox-routing\")` binds a flow under `.omp/ratchet/<flow>/`. Every method is async and returns plain data.",
-				"`r = ratchet(\"inbox-routing\")` binds a flow at `.omp/ratchet/<flow>/`. Each method is async and returns plain data.",
-				"`r = ratchet(\"inbox-routing\")` binds a flow to `.omp/ratchet/<flow>/`. Every method is async and returns plain data."
+				"`r = ratchet(\"inbox-routing\")` binds a flow under `.scient-agent/ratchet/<flow>/`. Every method is async and returns plain data.",
+				"`r = ratchet(\"inbox-routing\")` binds a flow at `.scient-agent/ratchet/<flow>/`. Each method is async and returns plain data.",
+				"`r = ratchet(\"inbox-routing\")` binds a flow to `.scient-agent/ratchet/<flow>/`. Every method is async and returns plain data."
 			]
 		},
 		{

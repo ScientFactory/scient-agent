@@ -199,7 +199,7 @@ describe.skipIf(process.platform === "win32")("a module under a path that contai
 		].join("\n");
 		const child = Bun.spawn([process.execPath, "-e", probe], {
 			cwd: path.join(import.meta.dir, "..", ".."),
-			env: { ...process.env, PI_CODING_AGENT_DIR: agentDir },
+			env: { ...process.env, SCIENT_AGENT_DIR: agentDir },
 			stdout: "pipe",
 			stderr: "pipe",
 		});

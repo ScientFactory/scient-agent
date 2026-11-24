@@ -580,12 +580,12 @@ async fn omp_receives_its_url_arguments_as_written() {
 	fs::create_dir(&docs).expect("provider directory");
 	fs::write(docs.join("a.txt"), b"alpha\n").expect("document");
 	let bin = tempfile::tempdir().expect("program directory");
-	let omp = bin.path().join("omp");
+	let omp = bin.path().join("scient-agent");
 	fs::write(&omp, b"#!/bin/sh\nprintf '%s\\n' \"$@\" \"ref=$REF\"\n").expect("stand-in omp");
 	fs::set_permissions(&omp, fs::Permissions::from_mode(0o755)).expect("executable stand-in");
 	let script = format!(
-		"PATH='{bin}':$PATH; REF=virtual://docs/a.txt omp read virtual://docs/a.txt:1-2 \
-		 --from=virtual://docs/a.txt; nice omp read virtual://docs; '{omp}' read \
+		"PATH='{bin}':$PATH; REF=virtual://docs/a.txt scient-agent read virtual://docs/a.txt:1-2 \
+		 --from=virtual://docs/a.txt; nice scient-agent read virtual://docs; '{omp}' read \
 		 @virtual://docs/a.txt",
 		bin = bin.path().display(),
 		omp = omp.display(),

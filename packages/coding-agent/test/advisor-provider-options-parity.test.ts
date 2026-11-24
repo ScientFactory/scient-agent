@@ -59,7 +59,7 @@ describe("AgentSession advisor provider-options parity", () => {
 		authStorage = createInMemoryAuthStorage();
 		authStorage.keys.setRuntime("anthropic", "test-key");
 		// An isolated discovery cache keeps the bundled catalog authoritative; the
-		// developer's `~/.omp` models.db can drop models these tests select.
+		// developer's `~/.scient-agent` models.db can drop models these tests select.
 		cacheDir = TempDir.createSync("@pi-advisor-parity-cache-");
 		modelRegistry = new ModelRegistry(authStorage, cacheDir.join("models.yml"), {
 			cacheDbPath: cacheDir.join("models.db"),

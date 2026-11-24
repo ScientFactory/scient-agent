@@ -119,7 +119,7 @@ export const OVERLAY_PROTOCOL_VERSION = 1;
  * Tag name of the page overlay's host element, the only node the overlay ever adds to a page (everything else lives
  * in its closed shadow root). A click's delivery check ignores mutations of this element.
  */
-export const OVERLAY_HOST_TAG = "omp-overlay";
+export const OVERLAY_HOST_TAG = "scient-agent-overlay";
 
 /** Hello capability of an extension whose side panel sends {@link PanelCall}s. */
 export const PANEL_PROTOCOL_VERSION = 1;
@@ -314,7 +314,7 @@ export type ExtToRelayMessage =
 	  };
 
 /** Native messaging host name registered by `omp browser-relay install`. */
-export const NATIVE_HOST = "sh.omp.browser";
+export const NATIVE_HOST = "com.scientfactory.agent.browser";
 
 /**
  * Extension → native host. The first message picks what the port is for:

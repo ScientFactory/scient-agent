@@ -9,7 +9,7 @@ import { loadDailyActivity } from "../src/stats/activity-client";
 import type { StatsActivityWorkerOutbound } from "../src/stats/activity-protocol";
 
 // The activity worker resolves stats.db from the environment it inherits, so the
-// temp agent directory goes through PI_CONFIG_DIR, and XDG overrides are cleared
+// temp agent directory goes through SCIENT_AGENT_CONFIG_DIR, and XDG overrides are cleared
 // so the default profile cannot redirect it to a shared XDG data dir.
 const XDG_KEYS = ["XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"] as const;
 const originalAgentDir = getAgentDir();
@@ -18,12 +18,12 @@ let tempDir: TempDir | undefined;
 
 beforeEach(() => {
 	tempDir = TempDir.createSync("@omp-stats-activity-lock-");
-	for (const key of [...XDG_KEYS, "PI_CONFIG_DIR", STATS_BUSY_TIMEOUT_MS_ENV]) {
+	for (const key of [...XDG_KEYS, "SCIENT_AGENT_CONFIG_DIR", STATS_BUSY_TIMEOUT_MS_ENV]) {
 		originalEnv[key] = process.env[key];
 		delete process.env[key];
 	}
 	const configDir = path.relative(os.homedir(), tempDir.join("config"));
-	process.env.PI_CONFIG_DIR = configDir;
+	process.env.SCIENT_AGENT_CONFIG_DIR = configDir;
 	setAgentDir(path.join(os.homedir(), configDir, "agent"));
 });
 

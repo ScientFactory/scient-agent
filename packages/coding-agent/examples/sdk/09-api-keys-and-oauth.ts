@@ -11,8 +11,8 @@ import {
 	SessionManager,
 } from "@oh-my-pi/pi-coding-agent";
 
-// Default: discoverAuthStorage() uses ~/.omp/agent/agent.db
-// ModelRegistry loads built-in + custom models from ~/.omp/agent/models.yml
+// Default: discoverAuthStorage() uses ~/.scient-agent/agent/agent.db
+// ModelRegistry loads built-in + custom models from ~/.scient-agent/agent/models.yml
 const authStorage = await discoverAuthStorage();
 const modelRegistry = new ModelRegistry(authStorage);
 

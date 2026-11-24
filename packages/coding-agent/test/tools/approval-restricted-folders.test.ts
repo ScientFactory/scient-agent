@@ -147,11 +147,13 @@ describe("restricted folder resolution", () => {
 
 	it("names a folder through ~, a symlink, or (on Windows) different case", () => {
 		const read = pathTool("read", "read", cwd);
-		const home = path.join(os.homedir(), ".omp-restricted-probe", "file.txt");
+		const home = path.join(os.homedir(), ".scient-agent-restricted-probe", "file.txt");
 		const probe: AgentTool = { ...read, approvalCacheTargets: () => [approvalTargetKey(cwd, home)!] };
 		expect(
-			resolveApproval(probe, {}, "yolo", {}, undefined, { restrictedFolders: ["~/.omp-restricted-probe"], cwd })
-				.policy,
+			resolveApproval(probe, {}, "yolo", {}, undefined, {
+				restrictedFolders: ["~/.scient-agent-restricted-probe"],
+				cwd,
+			}).policy,
 		).toBe("prompt");
 
 		if (process.platform === "win32") {

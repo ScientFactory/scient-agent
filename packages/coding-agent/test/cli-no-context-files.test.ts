@@ -28,7 +28,7 @@ const MARKERS = [
 	EXTRA_CLAUDE_MARKER,
 	NESTED_LISTING,
 ];
-const ENV_KEYS = ["PI_CODING_AGENT_DIR", "OMP_PROFILE", "PI_PROFILE"] as const;
+const ENV_KEYS = ["SCIENT_AGENT_DIR", "SCIENT_AGENT_PROFILE", "SCIENT_AGENT_PROFILE_FALLBACK"] as const;
 
 describe("--no-context-files", () => {
 	let tempDir: TempDir;
@@ -41,14 +41,14 @@ describe("--no-context-files", () => {
 		tempDir = await TempDir.create("@cli-no-context-files-");
 		// User-level discovery reads the process-global agent dir and home: point both at the
 		// fixture so neither run picks up the developer's own config.
-		setAgentDir(tempDir.join("home/.omp/agent"));
+		setAgentDir(tempDir.join("home/.scient-agent/agent"));
 		homedirSpy = spyOn(os, "homedir").mockReturnValue(tempDir.join("home"));
 		await Promise.all([
 			Bun.write(tempDir.join("project/AGENTS.md"), `${PRIMARY_MARKER}\n`),
 			Bun.write(tempDir.join(`project/${NESTED_DIR}/AGENTS.md`), "nested\n"),
 			Bun.write(tempDir.join("extra/AGENTS.md"), `${EXTRA_ROOT_MARKER}\n@imported.md\n`),
 			Bun.write(tempDir.join("extra/imported.md"), `${IMPORTED_MARKER}\n`),
-			Bun.write(tempDir.join("home/.omp/agent/AGENTS.md"), `${USER_AGENTS_MARKER}\n`),
+			Bun.write(tempDir.join("home/.scient-agent/agent/AGENTS.md"), `${USER_AGENTS_MARKER}\n`),
 			Bun.write(tempDir.join("extra-claude/CLAUDE.md"), `${EXTRA_CLAUDE_MARKER}\n`),
 		]);
 		authStorage = await AuthStorage.create(tempDir.join("auth.db"));

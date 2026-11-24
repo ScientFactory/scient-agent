@@ -71,7 +71,7 @@ describe("hostCommandUrls", () => {
 	it("leaves omp's own URLs, message text, and what nothing backs as written", async () => {
 		for (const command of [
 			"omp read 'skill://tdd:1-14' local://x.md",
-			"sudo /usr/local/bin/omp read local://x.md",
+			"sudo /usr/local/bin/scient-agent read local://x.md",
 			"curl https://example.com/a.txt -H 'Referer: https://example.com/?next=local://x'",
 			"log.sh 'local://handover.md is ready for review'",
 			"bm read memory://notes/startup local://nope/missing.md",

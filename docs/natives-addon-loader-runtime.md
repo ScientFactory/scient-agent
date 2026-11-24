@@ -17,7 +17,7 @@ A successful call is not memoized by JS. Repeated calls rely on `openNativeAddon
 - `platformTag`: `${platform}-${process.arch}`;
 - package version (the expected addon release, subject to the pre-sentinel compatibility exception below);
 - package-local `nativeDir` and the directory of `process.execPath`;
-- `nativesDir`: `PI_NATIVES_DIR` first (trimmed, `~`-expanded, and normalized; empty or relative values are ignored), then `$XDG_DATA_HOME/omp/natives` only when `$XDG_DATA_HOME/omp` exists, otherwise `~/.omp/natives`;
+- `nativesDir`: `SCIENT_AGENT_NATIVES_DIR` first (trimmed, `~`-expanded, and normalized; empty or relative values are ignored), then `$XDG_DATA_HOME/omp/natives` only when `$XDG_DATA_HOME/omp` exists, otherwise `~/.scient-agent/natives`;
 - `versionedDir`: `<nativesDir>/<packageVersion>`;
 - legacy compiled-binary directory: `%LOCALAPPDATA%/omp` (or `~/AppData/Local/omp`) on Windows, `~/.local/bin` elsewhere;
 - workspace/install/compiled mode, optional leaf directory, Windows staging policy, CPU variant, filenames, and ordered candidates.
@@ -103,7 +103,7 @@ Extraction errors are accumulated; the loader continues to ordinary candidates.
 For each candidate:
 
 1. Emit a startup marker when enabled.
-2. Open `candidate` with `openNativeAddon`, which calls `process.dlopen` once per path. Bun's `require` cannot load a module from a path that contains `?`, which a `HOME`, `PI_NATIVES_DIR` or install directory can hold; `dlopen` takes the path as it is. A failed open records `dlopen`'s reason for the candidate, caches nothing, and the next candidate is tried.
+2. Open `candidate` with `openNativeAddon`, which calls `process.dlopen` once per path. Bun's `require` cannot load a module from a path that contains `?`, which a `HOME`, `SCIENT_AGENT_NATIVES_DIR` or install directory can hold; `dlopen` takes the path as it is. A failed open records `dlopen`'s reason for the candidate, caches nothing, and the next candidate is tried.
 3. Unless this is workspace development, require `__piNativesBuildVersion()` to return the package version. The build pipeline writes that version into a fixed 64-byte slot (`PI_NATIVES_VERSION_STAMP:<version>` + NUL padding) after linking (`scripts/stamp-native-version.ts`, called from every `scripts/bazel-natives.ts` install, the local cargo build, and the Nix package build), so a release bump edits no Rust input. Addons published before the stamp expose a per-release `__piNativesV<version_with_underscores>` export instead; those are still read as their release for diagnosis.
 4. Call `__ompInstallTokioRuntime()` if the addon provides it.
 5. Best-effort remove valid semantic-version cache directories older than the current version.

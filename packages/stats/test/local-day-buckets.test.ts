@@ -17,10 +17,10 @@ type DaySeries = Record<"beforeRollup" | "afterRollup", Record<"series" | "cost"
  */
 async function serverDaySeries(tz: string, timestamps: number[]): Promise<DaySeries> {
 	using temp = TempDir.createSync("@pi-stats-local-day-");
-	// Stats DB location follows PI_CONFIG_DIR / XDG_DATA_HOME, so isolate both.
+	// Stats DB location follows SCIENT_AGENT_CONFIG_DIR / XDG_DATA_HOME, so isolate both.
 	const env: Record<string, string | undefined> = {
 		...process.env,
-		PI_CONFIG_DIR: path.relative(os.homedir(), temp.join("config")),
+		SCIENT_AGENT_CONFIG_DIR: path.relative(os.homedir(), temp.join("config")),
 		TZ: tz,
 	};
 	for (const key of ["XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"]) delete env[key];

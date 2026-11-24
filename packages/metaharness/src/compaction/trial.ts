@@ -95,7 +95,7 @@ export interface TrialConfig {
 	gatewayToken: string;
 	/** Image the container starts from: the cleanroom task image or a baseline's fork image. */
 	image: string;
-	/** omp settings installed as `~/.omp/agent/config.yml` ({@link agentConfigYaml}). */
+	/** omp settings installed as `~/.scient-agent/agent/config.yml` ({@link agentConfigYaml}). */
 	configYaml: string;
 	/** Session file inside the image to resume; absent starts a new session on the task prompt. */
 	resumeSession?: string;
@@ -628,10 +628,10 @@ async function startContainer(
 	// A fork image carries the baseline's /logs (its segment logs would be re-read as ours)
 	// and the stale single-writer lock of the session it captured mid-run.
 	await host.sh(
-		`docker exec -u root ${shq(container)} sh -c ${shq(`rm -rf /logs ${SESSION_DIR}/.*.lock*; mkdir -p /logs ${AGENT_HOME}/.omp/agent && chown -R ${AGENT_USER}: /logs ${AGENT_HOME}`)}`,
+		`docker exec -u root ${shq(container)} sh -c ${shq(`rm -rf /logs ${SESSION_DIR}/.*.lock*; mkdir -p /logs ${AGENT_HOME}/.scient-agent/agent && chown -R ${AGENT_USER}: /logs ${AGENT_HOME}`)}`,
 	);
 	await host.sh(
-		`docker exec ${shq(container)} cp ${SUPPORT_DIR}/config.yml ${SUPPORT_DIR}/models.yml ${AGENT_HOME}/.omp/agent/`,
+		`docker exec ${shq(container)} cp ${SUPPORT_DIR}/config.yml ${SUPPORT_DIR}/models.yml ${AGENT_HOME}/.scient-agent/agent/`,
 	);
 	await host.sh(
 		`docker exec -d ${shq(container)} python3 ${SUPPORT_DIR}/gw-relay.py ${GATEWAY_SOCKET_DIR}/gw.sock ${RELAY_PORT}`,

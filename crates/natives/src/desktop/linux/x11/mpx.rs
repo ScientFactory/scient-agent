@@ -89,12 +89,12 @@ const WARM_UP_SETTLE: Duration = Duration::from_millis(120);
 /// Master names that encode an owner incarnation (see [`Owner`]). omp
 /// versions that removed pairs also remove every `v1.` master whose creator
 /// has died, which is now a held pair's normal state; new pairs are `v2.`.
-const OWNER_PREFIX: &str = "OMP MPX v2.";
+const OWNER_PREFIX: &str = "SCIENT MPX v2.";
 /// Two pairs leave room for real-device hotplug even after concurrent sessions.
 const MAX_PAIRS: usize = 2;
 /// Master pointer property naming the session that holds the pair.
 #[cfg(test)]
-const HOLDER_PROPERTY: &str = "_OMP_MPX_HOLDER";
+const HOLDER_PROPERTY: &str = "_SCIENT_MPX_HOLDER";
 /// How long a session's end waits for the server to drop its unplugged slaves.
 const UNPLUG_TIMEOUT: Duration = Duration::from_secs(1);
 /// Holder property value of a pair no session holds.

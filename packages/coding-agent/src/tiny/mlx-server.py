@@ -46,7 +46,7 @@ DOWNLOAD_PATTERNS = (
     "*.safetensors.index.json",
     "*.tiktoken",
 )
-COMPLETE_MARKER = ".omp-complete.json"
+COMPLETE_MARKER = ".scient-agent-complete.json"
 PROGRESS_INTERVAL_S = 0.1
 CHUNK_BYTES = 1 << 20
 

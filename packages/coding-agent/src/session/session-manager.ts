@@ -1134,7 +1134,7 @@ export class SessionManager {
 
 	#suppressBreadcrumb = false;
 	/**
-	 * Client this process serves, from `PI_SESSION_ORIGIN` (the Chrome extension's native host sets `chrome`): stamped
+	 * Client this process serves, from `SCIENT_AGENT_SESSION_ORIGIN` (the Chrome extension's native host sets `chrome`): stamped
 	 * on every session file the manager starts, and such a process writes no terminal breadcrumb, so `--continue`
 	 * in a terminal never picks its sessions.
 	 */
@@ -1172,7 +1172,7 @@ export class SessionManager {
 		this.#persist = persist;
 		this.#storage = storage;
 		this.#blobs = new BlobStore(getBlobsDir());
-		this.#origin = parseSessionOrigin($env.PI_SESSION_ORIGIN);
+		this.#origin = parseSessionOrigin($env.SCIENT_AGENT_SESSION_ORIGIN);
 
 		if (persist && sessionDir) this.#storage.ensureDirSync(this.#sessionDir);
 	}

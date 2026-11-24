@@ -11,7 +11,7 @@ const CLIENT: ModuleClient = { connectionId: "transcripts-test", pid: process.pi
 // The transcripts module uses no core services.
 const CONTEXT = {} as ModuleContext;
 
-const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+const originalAgentDir = process.env.SCIENT_AGENT_DIR;
 let root: string;
 
 beforeEach(() => {
@@ -26,7 +26,7 @@ afterEach(async () => {
 		setAgentDir(originalAgentDir);
 	} else {
 		setAgentDir(path.join(getConfigRootDir(), "agent"));
-		delete process.env.PI_CODING_AGENT_DIR;
+		delete process.env.SCIENT_AGENT_DIR;
 	}
 	removeSyncWithRetries(root);
 });

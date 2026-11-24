@@ -123,7 +123,7 @@ fn is_omp(word: &[u8]) -> bool {
 		.rsplit(|&b| b == b'/' || (cfg!(windows) && b == b'\\'))
 		.next()
 		.unwrap_or(word);
-	name == b"omp" || (cfg!(windows) && name.eq_ignore_ascii_case(b"omp.exe"))
+	name == b"scient-agent" || (cfg!(windows) && name.eq_ignore_ascii_case(b"scient-agent.exe"))
 }
 
 /// Whether the environment variable `name` holds a URL to resolve. `PWD`

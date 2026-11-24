@@ -1,7 +1,7 @@
 """omp Binary Ninja worker: drives one headless BinaryView over an NDJSON socket protocol.
 
 Launched as `worker.py --socket PATH` (Unix socket) or `worker.py --port-file PATH` (loopback TCP;
-the bound port is written to PATH). The omp daemon connects, sends `{"token": $OMP_DISASM_WORKER_TOKEN}`
+the bound port is written to PATH). The omp daemon connects, sends `{"token": $SCIENT_AGENT_DISASM_WORKER_TOKEN}`
 as its first line, then speaks:
 
 Request:   {"id": int, "method": str, "params": dict}
@@ -112,7 +112,7 @@ class _Transport:
     ORPHAN_S = 600.0
 
     def __init__(self, args):
-        self._token = os.environ.pop("OMP_DISASM_WORKER_TOKEN", "")
+        self._token = os.environ.pop("SCIENT_AGENT_DISASM_WORKER_TOKEN", "")
         self._listener = _listen(args)
         # Set by SIGTERM: the main loop saves and exits once the running request (if any) finishes.
         self._terminate = False

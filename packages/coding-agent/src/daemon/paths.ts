@@ -5,7 +5,7 @@ import { ipcEndpoint } from "@oh-my-pi/pi-natives";
 import { getDaemonDir, hasFsCode, isEacces, isEisdir, isEnoent } from "@oh-my-pi/pi-utils";
 import { DAEMON_DIR_ENV, DAEMON_TCP_ENV } from "./protocol";
 
-/** Runtime directory of the daemon: `OMP_DAEMON_DIR`, else the profile-independent `run/daemon`. */
+/** Runtime directory of the daemon: `SCIENT_AGENT_DAEMON_DIR`, else the profile-independent `run/daemon`. */
 export function daemonDir(): string {
 	return process.env[DAEMON_DIR_ENV] || getDaemonDir();
 }
@@ -49,7 +49,7 @@ export function moduleStateDir(kind: string): string {
 	return path.join(daemonDir(), "modules", kind);
 }
 
-/** Loopback TCP address from `OMP_DAEMON_TCP=host:port`; undefined when unset. Throws when malformed. */
+/** Loopback TCP address from `SCIENT_AGENT_DAEMON_TCP=host:port`; undefined when unset. Throws when malformed. */
 export function daemonTcpAddress(): { host: string; port: number } | undefined {
 	const raw = process.env[DAEMON_TCP_ENV]?.trim();
 	if (!raw) return undefined;

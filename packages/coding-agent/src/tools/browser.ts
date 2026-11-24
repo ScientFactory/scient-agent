@@ -177,7 +177,7 @@ interface BrowserPreludeDetails {
  * a cmux surface, then omp's own browser ({@link ownBrowserKind}). `app: "auto"`
  * is that chain without the relay. Tern and cmux are automatic only while no
  * other omp owns the terminal, and none of the user's own surfaces (relay, Tern,
- * cmux) is automatic for a subagent. With `PI_BROWSER_RELAY=only` (a session
+ * cmux) is automatic for a subagent. With `SCIENT_AGENT_BROWSER_RELAY=only` (a session
  * started from the extension's side panel) every open, a subagent's included,
  * goes to the relay, and any `app` but `"relay"` throws. `app: "tern"` and `app: "webkit"` are explicit:
  * they throw when Tern or omp's WebKit host is unavailable.
@@ -195,7 +195,7 @@ export function resolveBrowserKind(
 			);
 		}
 		const relayKind = resolveRelayKind(
-			{ url: env.PI_PANEL_RELAY_URL ?? cfgBrowserRelayUrl.get(session.settings) },
+			{ url: env.SCIENT_AGENT_PANEL_RELAY_URL ?? cfgBrowserRelayUrl.get(session.settings) },
 			env,
 		);
 		if (relayKind) return relayKind;
@@ -215,7 +215,7 @@ export function resolveBrowserKind(
 		return { kind: "spawned", path: exe, args };
 	}
 	const relayUrl = cfgBrowserRelayUrl.get(session.settings);
-	// Explicit app: "relay" wins over every setting; PI_BROWSER_RELAY stays the
+	// Explicit app: "relay" wins over every setting; SCIENT_AGENT_BROWSER_RELAY stays the
 	// final kill switch (a relay that is down would otherwise brick the tool).
 	if (app === "relay") {
 		const relayKind = resolveRelayKind({ settingEnabled: true, url: relayUrl }, env);

@@ -37,10 +37,10 @@ for await (const bytes of Bun.stdin.stream()) {
 			protocol = 2;
 			await out(JSON.stringify({ id: command.id, type: "response", command: "negotiate_protocol", success: true, data: { protocolVersion: 2 } }));
 		} else if (command.type === "echo") {
-			await out(JSON.stringify({ type: "response", command: "echo", success: true, data: { cwd: process.cwd(), relay: process.env.PI_BROWSER_RELAY, protocol } }));
+			await out(JSON.stringify({ type: "response", command: "echo", success: true, data: { cwd: process.cwd(), relay: process.env.SCIENT_AGENT_BROWSER_RELAY, protocol } }));
 		} else if (command.type === "browser") {
-			const response = await fetch(process.env.PI_PANEL_RELAY_URL + "/json/version");
-			await out(JSON.stringify({ type: "response", command: "browser", data: { url: process.env.PI_PANEL_RELAY_URL, status: response.status } }));
+			const response = await fetch(process.env.SCIENT_AGENT_PANEL_RELAY_URL + "/json/version");
+			await out(JSON.stringify({ type: "response", command: "browser", data: { url: process.env.SCIENT_AGENT_PANEL_RELAY_URL, status: response.status } }));
 		} else if (command.type === "big") {
 			await out(JSON.stringify({ type: "message_update", text: "é".repeat(600_000) }));
 		} else if (command.type === "chunked") {

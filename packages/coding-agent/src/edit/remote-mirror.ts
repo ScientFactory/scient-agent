@@ -25,7 +25,7 @@ export function isRemoteTextWritable(spec: SchemeSpec | undefined): boolean {
 export async function writeRemoteMirror(url: string, content: string): Promise<string> {
 	const root = await fs.realpath(os.tmpdir());
 	const name = path.posix.basename(new URL(url).pathname) || "file";
-	const mirror = path.join(root, "omp-remote-edit", Bun.hash(url).toString(16), name);
+	const mirror = path.join(root, "scient-agent-remote-edit", Bun.hash(url).toString(16), name);
 	await Bun.write(mirror, content);
 	mirrors.set(mirror, url);
 	return mirror;

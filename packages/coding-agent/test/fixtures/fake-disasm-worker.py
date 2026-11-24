@@ -1,7 +1,7 @@
 """Fake disassembler worker for the daemon `disasm` module tests (test/daemon/disasm-module.test.ts).
 
 Speaks the worker socket protocol `src/disasm/supervisor.ts` drives: listens on `--socket PATH`
-(or `--port-file PATH`), requires `{"token": $OMP_DISASM_WORKER_TOKEN}` as the first line of every
+(or `--port-file PATH`), requires `{"token": $SCIENT_AGENT_DISASM_WORKER_TOKEN}` as the first line of every
 connection (a newer connection replaces the previous one, as after a daemon restart), then answers
 NDJSON `{"id", "method", "params"}` with `{"id", "ok": true, "result", "dirty"}` or
 `{"id", "ok": false, "error": {"type", "message"}}`.
@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 
-TOKEN = os.environ.pop("OMP_DISASM_WORKER_TOKEN", "")
+TOKEN = os.environ.pop("SCIENT_AGENT_DISASM_WORKER_TOKEN", "")
 JOURNAL = os.environ.get("FAKE_DISASM_JOURNAL", "")
 ORPHAN_S = float(os.environ.get("FAKE_DISASM_ORPHAN_S", "60"))
 

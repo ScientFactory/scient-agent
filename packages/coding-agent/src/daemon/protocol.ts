@@ -18,11 +18,11 @@ export const DAEMON_PROTOCOL_VERSION = 1;
 /** Hidden CLI selector that runs the daemon. */
 export const DAEMON_WORKER_ARG = "__omp_worker_daemon";
 /** `host:port`; makes the daemon listen on, and clients dial, loopback TCP instead of the local IPC endpoint. */
-export const DAEMON_TCP_ENV = "OMP_DAEMON_TCP";
+export const DAEMON_TCP_ENV = "SCIENT_AGENT_DAEMON_TCP";
 /** Runtime directory override, for smoke tests and isolated consumers. */
-export const DAEMON_DIR_ENV = "OMP_DAEMON_DIR";
+export const DAEMON_DIR_ENV = "SCIENT_AGENT_DAEMON_DIR";
 /** Set by a re-exec'ing daemon for its successor: path of nothing, presence means "restore from the store". */
-export const DAEMON_RESUME_ENV = "OMP_DAEMON_RESUME";
+export const DAEMON_RESUME_ENV = "SCIENT_AGENT_DAEMON_RESUME";
 /** Fixed dimensions negotiated with every supervised PTY. */
 export const DAEMON_PTY_COLUMNS = 120;
 export const DAEMON_PTY_ROWS = 40;

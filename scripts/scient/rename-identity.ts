@@ -304,7 +304,10 @@ const NAMES: Record<string, [from: string, to: string][]> = {
 	// The Codex client version record lives under the XDG cache folder the app names.
 	"packages/catalog/test/codex-client-version-xdg.test.ts": [
 		['path.join(xdgCache, "omp")', `path.join(xdgCache, "${COMMAND}")`],
-		['process.env.XDG_CACHE_HOME!, "omp", "codex-client-version.json"', `process.env.XDG_CACHE_HOME!, "${COMMAND}", "codex-client-version.json"`],
+		[
+			'process.env.XDG_CACHE_HOME!, "omp", "codex-client-version.json"',
+			`process.env.XDG_CACHE_HOME!, "${COMMAND}", "codex-client-version.json"`,
+		],
 		["$XDG_CACHE_HOME/omp", `$XDG_CACHE_HOME/${COMMAND}`],
 	],
 	"packages/coding-agent/src/mcp/oauth-flow.ts": [['client_name: "Codex"', `client_name: "${PRODUCT}"`]],

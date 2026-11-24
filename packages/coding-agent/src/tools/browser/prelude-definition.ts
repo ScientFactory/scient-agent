@@ -32,7 +32,7 @@ function browserX11Guidance(settings: Settings, platform: NodeJS.Platform = proc
 
 /**
  * What the relay guidance tells the model: `only` when the relay is the session's only browser
- * (`PI_BROWSER_RELAY=only`), `default` when an open without `app` goes to the relay and `app: "auto"` to `fallback`.
+ * (`SCIENT_AGENT_BROWSER_RELAY=only`), `default` when an open without `app` goes to the relay and `app: "auto"` to `fallback`.
  */
 export type BrowserRelayGuidance = { mode: "only" } | { mode: "default"; fallback: BrowserKind };
 

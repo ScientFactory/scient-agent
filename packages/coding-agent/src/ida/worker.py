@@ -1,7 +1,7 @@
 """omp IDA worker: drives one idalib database over an NDJSON socket protocol.
 
 Launched as `worker.py --socket PATH` (Unix socket) or `worker.py --port-file PATH` (loopback TCP;
-the bound port is written to PATH). The omp daemon connects, sends `{"token": $OMP_DISASM_WORKER_TOKEN}`
+the bound port is written to PATH). The omp daemon connects, sends `{"token": $SCIENT_AGENT_DISASM_WORKER_TOKEN}`
 as its first line, then speaks:
 
 Request:  {"id": int, "method": str, "params": dict}
@@ -51,7 +51,7 @@ def _listen():
     raise SystemExit("usage: worker.py --socket PATH | --port-file PATH")
 
 
-_TOKEN = os.environ.pop("OMP_DISASM_WORKER_TOKEN", "")
+_TOKEN = os.environ.pop("SCIENT_AGENT_DISASM_WORKER_TOKEN", "")
 _listener = _listen()
 # Set by SIGTERM: the main loop saves and exits once the running request (if any) finishes.
 _terminate = False

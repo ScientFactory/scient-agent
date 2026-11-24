@@ -19,7 +19,7 @@ export default class BrowserRelay extends Command {
 
 	static flags = {
 		dir: Flags.string({
-			description: "Extension install directory (install; default ~/.omp/browser-relay/extension)",
+			description: "Extension install directory (install; default ~/.scient-agent/browser-relay/extension)",
 		}),
 		"no-chrome": Flags.boolean({
 			description: "Skip the unattended install into Chrome and print the manual steps",

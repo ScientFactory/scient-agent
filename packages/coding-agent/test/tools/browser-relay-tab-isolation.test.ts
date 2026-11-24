@@ -931,7 +931,7 @@ describe.skipIf(!CHROMIUM_AVAILABLE)("owned tab recovery", () => {
 			mode: "attach",
 			browserWSEndpoint: launched.wsEndpoint,
 			safeDir: getPuppeteerDir(),
-			uploadDir: "/tmp/omp-uploads-test",
+			uploadDir: "/tmp/scient-agent-uploads-test",
 			page: { kind: "owned", targetId: target._targetId },
 			recover: true,
 		};

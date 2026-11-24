@@ -43,27 +43,30 @@ describe("describeAuthBrokerStartupError", () => {
 		// Both recovery routes the reporter asked for: start it, or disable it.
 		expect(message).toContain("omp auth-broker serve");
 		expect(message).toContain("omp config reset auth.broker.url");
-		expect(message).toContain("OMP_AUTH_BROKER_URL");
+		expect(message).toContain("SCIENT_AGENT_AUTH_BROKER_URL");
 	});
 
 	it("names the configured broker URL when it can be resolved", async () => {
-		const prevUrl = process.env.OMP_AUTH_BROKER_URL;
-		const prevToken = process.env.OMP_AUTH_BROKER_TOKEN;
-		process.env.OMP_AUTH_BROKER_URL = "http://127.0.0.1:8765";
-		process.env.OMP_AUTH_BROKER_TOKEN = "test-token";
+		const prevUrl = process.env.SCIENT_AGENT_AUTH_BROKER_URL;
+		const prevToken = process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN;
+		process.env.SCIENT_AGENT_AUTH_BROKER_URL = "http://127.0.0.1:8765";
+		process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = "test-token";
 		try {
 			const message = await describeAuthBrokerStartupError(new AuthBrokerError("connection refused"));
 			expect(message).toContain("http://127.0.0.1:8765");
 		} finally {
-			if (prevUrl === undefined) delete process.env.OMP_AUTH_BROKER_URL;
-			else process.env.OMP_AUTH_BROKER_URL = prevUrl;
-			if (prevToken === undefined) delete process.env.OMP_AUTH_BROKER_TOKEN;
-			else process.env.OMP_AUTH_BROKER_TOKEN = prevToken;
+			if (prevUrl === undefined) delete process.env.SCIENT_AGENT_AUTH_BROKER_URL;
+			else process.env.SCIENT_AGENT_AUTH_BROKER_URL = prevUrl;
+			if (prevToken === undefined) delete process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN;
+			else process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = prevToken;
 		}
 	});
 
 	it("passes through a missing-token message unchanged", async () => {
-		const err = new MissingApiKeyError(undefined, "OMP_AUTH_BROKER_URL is set but no bearer token is available.");
+		const err = new MissingApiKeyError(
+			undefined,
+			"SCIENT_AGENT_AUTH_BROKER_URL is set but no bearer token is available.",
+		);
 		expect(await describeAuthBrokerStartupError(err)).toBe(err.message);
 	});
 
@@ -130,13 +133,13 @@ describe("discoverAuthStorage with a broker that is down", () => {
 			});
 			using agentDir = TempDir.createSync("@omp-broker-down-");
 			const env = {
-				OMP_AUTH_BROKER_URL: process.env.OMP_AUTH_BROKER_URL,
-				OMP_AUTH_BROKER_TOKEN: process.env.OMP_AUTH_BROKER_TOKEN,
-				OMP_AUTH_BROKER_SNAPSHOT_TTL_MS: process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS,
+				SCIENT_AGENT_AUTH_BROKER_URL: process.env.SCIENT_AGENT_AUTH_BROKER_URL,
+				SCIENT_AGENT_AUTH_BROKER_TOKEN: process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN,
+				SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS: process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS,
 			};
-			process.env.OMP_AUTH_BROKER_URL = server.url.toString();
-			process.env.OMP_AUTH_BROKER_TOKEN = "test-token";
-			process.env.OMP_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
+			process.env.SCIENT_AGENT_AUTH_BROKER_URL = server.url.toString();
+			process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN = "test-token";
+			process.env.SCIENT_AGENT_AUTH_BROKER_SNAPSHOT_TTL_MS = "0";
 			const previous = setInteractiveHost(interactive);
 			let stderr = "";
 			vi.spyOn(process.stderr, "write").mockImplementation((chunk: unknown) => {

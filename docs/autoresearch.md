@@ -115,12 +115,12 @@ ASI <key>=<value>
 
 ## The results store
 
-`OMP_AUTORESEARCH_DB_DIR` **relocates the directory holding a local SQLite file. It does not select a backend.** `resolveAutoresearchPaths` in `autoresearch/storage.ts` is the only code that reads the variable, and the only thing it does is join the override directory with the project key instead of the default root. There is no driver registry and no remote option: `AutoresearchStorage` is a concrete class over `bun:sqlite`, reached through `openAutoresearchStorage` and `openAutoresearchStorageIfExists`.
+`SCIENT_AGENT_AUTORESEARCH_DB_DIR` **relocates the directory holding a local SQLite file. It does not select a backend.** `resolveAutoresearchPaths` in `autoresearch/storage.ts` is the only code that reads the variable, and the only thing it does is join the override directory with the project key instead of the default root. There is no driver registry and no remote option: `AutoresearchStorage` is a concrete class over `bun:sqlite`, reached through `openAutoresearchStorage` and `openAutoresearchStorageIfExists`.
 
 **Set it to an absolute path with no surrounding whitespace.** The value is passed straight to `path.join`: unlike the neighbouring overrides in the environment-variable reference it is not trimmed, `~` is not expanded, and it need not be absolute. Three other spellings, each measured against this code:
 
 - A **relative** value such as `bench-db` puts the database and the artifact directory in the same tree under the process working directory, and a later process finds them.
-- A value beginning with a **literal tilde** does the same under a directory named `~`; nothing is created at the home-expanded path. In a shell that takes `OMP_AUTORESEARCH_DB_DIR='~/bench-db'`, since an unquoted `~/bench-db` is expanded before omp sees it.
+- A value beginning with a **literal tilde** does the same under a directory named `~`; nothing is created at the home-expanded path. In a shell that takes `SCIENT_AGENT_AUTORESEARCH_DB_DIR='~/bench-db'`, since an unquoted `~/bench-db` is expanded before omp sees it.
 - A **leading space** separates the two halves of the open, because trimming turns an otherwise-relative path into an absolute one. `mkdirSync` creates the directory under a path component that is a single space, while SQLite opens the whitespace-trimmed path: with no directory there the open fails with `unable to open database file`; with one, it succeeds there instead. The database then sits at the trimmed path while `storage.projectDir` keeps the space, so run logs and the database land in different trees, and `fs.existsSync(dbPath)` — the probe in `openAutoresearchStorageIfExists` — finds nothing. The two hooks and `run_experiment`, `log_experiment` and `update_notes` then behave as though no experiment existed, which is worse than it sounds: the hooks hand the agent the Phase 1 setup prompt, and the obedient next step is `init_experiment`, which goes through `openAutoresearchStorage` instead. That has no existence probe, so it opens the trimmed path, finds the stored session through `getActiveSessionForBranch`, skips the harness requirement, and **rewrites the goal, cap, scope, off-limits, constraints and metric definition of the experiment that was already there**, abandoning any pending run. `/autoresearch clear` likewise finds that session through `getActiveSession` and closes it, and resets the worktree when the conditions in [Clearing](#clearing) are met. Either call repopulates the cache under the untrimmed key, so the probing readers find the database again for the rest of that process.
 
 No validation rejects any of these values and nothing reports the divergence, so treat the third as a defect rather than a quirk.
@@ -132,7 +132,7 @@ Layout, per Git repository root (or the working directory when there is no repos
 | `<dir>/<project-key>.db` | The SQLite database: sessions and runs. |
 | `<dir>/<project-key>/runs/NNNN/benchmark.log` | Captured output of run `NNNN`, zero-padded to four digits. |
 
-`<dir>` is `OMP_AUTORESEARCH_DB_DIR` when set, otherwise the `autoresearch` subdirectory of omp's state root — `~/.omp/autoresearch` by default, but a named profile or an existing XDG state root moves it (`getAutoresearchDbPath`, `getAutoresearchProjectDir` in `packages/utils/src/dirs.ts`). The encoding is not collision-free for pathological roots (`/a/b` and `/a-b` collide) and is fixed by compatibility with existing state.
+`<dir>` is `SCIENT_AGENT_AUTORESEARCH_DB_DIR` when set, otherwise the `autoresearch` subdirectory of omp's state root — `~/.scient-agent/autoresearch` by default, but a named profile or an existing XDG state root moves it (`getAutoresearchDbPath`, `getAutoresearchProjectDir` in `packages/utils/src/dirs.ts`). The encoding is not collision-free for pathological roots (`/a/b` and `/a-b` collide) and is fixed by compatibility with existing state.
 
 Other properties of the store a caller should know:
 
@@ -163,7 +163,7 @@ Both tables use the SQLite rowid alias `id`. Run ids are the user-visible run nu
 
 ## See also
 
-- [`OMP_AUTORESEARCH_DB_DIR`](./environment-variables.md) — the directory override, in the environment-variable reference.
+- [`SCIENT_AGENT_AUTORESEARCH_DB_DIR`](./environment-variables.md) — the directory override, in the environment-variable reference.
 - [Sessions](./session.md) — the `autoresearch-control` session entry this mode records and replays.
 - [Extensions](./extensions.md) and [Hooks](./hooks.md) — the `before_agent_start` / `agent_end` machinery the loop is built on.
 - [Slash command internals](./slash-command-internals.md) — how `/autoresearch` is dispatched.

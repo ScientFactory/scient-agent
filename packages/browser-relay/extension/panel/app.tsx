@@ -883,7 +883,7 @@ export function App({ worker, windowId }: { worker: WorkerClient; windowId: numb
 			meta: "copy command",
 			disabled: sessionId === undefined,
 			onSelect: () => {
-				const command = `omp --resume ${sessionId}`;
+				const command = `scient-agent --resume ${sessionId}`;
 				void navigator.clipboard.writeText(command).then(
 					() => notify("info", `Copied “${command}”. Paste it in a terminal.`),
 					error => notify("error", `Couldn’t copy: ${errorText(error)}`),

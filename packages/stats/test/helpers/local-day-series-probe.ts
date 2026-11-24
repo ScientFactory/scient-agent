@@ -3,7 +3,7 @@
  * timezone the process started with (bun test pins only JS `Date`), so the
  * parent test spawns this script with `TZ` set and parses its JSON output.
  *
- * The parent passes an isolated `PI_CONFIG_DIR` (and no `XDG_*_HOME`); the
+ * The parent passes an isolated `SCIENT_AGENT_CONFIG_DIR` (and no `XDG_*_HOME`); the
  * stats database resolves from that config root.
  *
  * argv: <isolated root> <timestamps as JSON array>

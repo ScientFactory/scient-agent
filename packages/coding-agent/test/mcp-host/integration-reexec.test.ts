@@ -71,7 +71,7 @@ describe.skipIf(process.platform === "win32")("MCP across a daemon re-exec", () 
 	});
 
 	// Past the harness's 10s lock wait: a daemon stuck mid-exec is killed before the next test swaps
-	// `OMP_DAEMON_DIR`, instead of a timed-out teardown restoring the env and removing the dir under it.
+	// `SCIENT_AGENT_DAEMON_DIR`, instead of a timed-out teardown restoring the env and removing the dir under it.
 	afterEach(async () => {
 		if (previousGrace === undefined) delete process.env[DAEMON_RESUME_LEASE_GRACE_ENV];
 		else process.env[DAEMON_RESUME_LEASE_GRACE_ENV] = previousGrace;

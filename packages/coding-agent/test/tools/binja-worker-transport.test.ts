@@ -127,7 +127,7 @@ describe.skipIf(!PYTHON)("Binary Ninja worker transport", () => {
 				PYTHONPATH: STUB,
 				PYTHONUNBUFFERED: "1",
 				PYTHONIOENCODING: "utf-8",
-				OMP_DISASM_WORKER_TOKEN: TOKEN,
+				SCIENT_AGENT_DISASM_WORKER_TOKEN: TOKEN,
 			},
 			stdout: "ignore",
 			stderr: Bun.file(tmp.join("worker.log")),
