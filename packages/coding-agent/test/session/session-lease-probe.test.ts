@@ -123,7 +123,7 @@ describe("session lease probe", () => {
 		expect(probes).toBeGreaterThan(sawHeld);
 	}, 60_000);
 
-	it("`omp session lease --json` lists held ids and treats free and garbage ids as not held", async () => {
+	it("`scient-agent session lease --json` lists held ids and treats free and garbage ids as not held", async () => {
 		using tempDir = TempDir.createSync("@omp-lease-cli-");
 		const heldId = uniqueId("held");
 		// Not a plain token, so claim and probe must agree on the hashed lease name.

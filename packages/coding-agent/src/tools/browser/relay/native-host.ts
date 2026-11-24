@@ -73,7 +73,7 @@ export async function runNativeHost(): Promise<void> {
 		spawn: (cwd, relayUrl) => spawnRpcChild(command, cwd, relayUrl),
 		relayPort: 0,
 		log: message => {
-			process.stderr.write(`omp native host: ${message}\n`);
+			process.stderr.write(`Scient Agent native host: ${message}\n`);
 		},
 	});
 	// Deliver the final `exit` frame, then leave: nothing else may keep the host alive once Chrome is gone.
@@ -262,7 +262,7 @@ export async function serveNativeHost(io: NativeHostIo): Promise<void> {
 			t: "exit",
 			code: null,
 			stderr:
-				"Chrome is running an older omp extension worker. Reload omp at chrome://extensions, then reopen the side panel.",
+				"Chrome is running an older Scient Agent extension worker. Reload Scient Agent at chrome://extensions, then reopen the side panel.",
 		});
 		return;
 	}

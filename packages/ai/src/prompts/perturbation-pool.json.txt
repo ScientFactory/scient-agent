@@ -192,12 +192,12 @@
 			]
 		},
 		{
-			"source": "OMP-native repository security scans: plan, start, inspect, cancel, validate.",
+			"source": "Scient Agent-native repository security scans: plan, start, inspect, cancel, validate.",
 			"origin": "tools/security-scan.md",
 			"variants": [
-				"OMP-native repository security scans: plan, launch, inspect, cancel, validate.",
-				"OMP-native repository security scans: plan, start, examine, cancel, validate.",
-				"OMP-native repository security scans: plan, initiate, inspect, cancel, validate."
+				"Scient Agent-native repository security scans: plan, launch, inspect, cancel, validate.",
+				"Scient Agent-native repository security scans: plan, start, examine, cancel, validate.",
+				"Scient Agent-native repository security scans: plan, initiate, inspect, cancel, validate."
 			]
 		},
 		{
@@ -273,7 +273,7 @@
 			]
 		},
 		{
-			"source": "You are omp's trusted coding assistant.\n\n",
+			"source": "You are Scient's trusted research and coding assistant.\n\n",
 			"origin": "system/system-prompt.md",
 			"variants": [
 				""
@@ -1316,12 +1316,12 @@
 			]
 		},
 		{
-			"source": "cfg://: omp settings; ONLY when the user asks about/to change them. cfg://<ns> namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes need user approval (unanswered → error, move on); after session-only write, ask whether to save.",
+			"source": "cfg://: agent settings; ONLY when the user asks about/to change them. cfg://<ns> namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes need user approval (unanswered → error, move on); after session-only write, ask whether to save.",
 			"origin": "internal-urls/cfg.md",
 			"variants": [
-				"cfg://: omp settings; ONLY when the user asks about them or to change them. cfg://<ns> namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes need user approval (unanswered → error, move on); after a session-only write, ask whether to save.",
-				"cfg://: omp settings; ONLY when the user asks about or to change them. cfg://<ns> names a namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes need user approval (unanswered → error, move on); after session-only write, ask whether to save.",
-				"cfg://: omp settings; ONLY when the user asks about/to change them. cfg://<ns> namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes require user approval (unanswered → error, move on); after session-only write, ask whether to save."
+				"cfg://: agent settings; ONLY when the user asks about them or to change them. cfg://<ns> namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes need user approval (unanswered → error, move on); after a session-only write, ask whether to save.",
+				"cfg://: agent settings; ONLY when the user asks about or to change them. cfg://<ns> names a namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes need user approval (unanswered → error, move on); after session-only write, ask whether to save.",
+				"cfg://: agent settings; ONLY when the user asks about/to change them. cfg://<ns> namespace; cfg://<ns>/<key> value/type/default/source; write sets session-only, …/save persists; writes require user approval (unanswered → error, move on); after session-only write, ask whether to save."
 			]
 		},
 		{
@@ -5533,12 +5533,12 @@
 			]
 		},
 		{
-			"source": "`tools` holds a subagent's tool results: file contents, search hits and command output, each under a `» <tool> <intent>` line that is omp's marker, not output. A rule reads `tools` only by naming it, never matches a marker, and matches only the lines one command prints about its progress. Every rule is checked against all output, not only the samples: one that matches unrelated lines is rejected.",
+			"source": "`tools` holds a subagent's tool results: file contents, search hits and command output, each under a `» <tool> <intent>` line that is Scient Agent's marker, not output. A rule reads `tools` only by naming it, never matches a marker, and matches only the lines one command prints about its progress. Every rule is checked against all output, not only the samples: one that matches unrelated lines is rejected.",
 			"origin": "system/job-widget-system.md",
 			"variants": [
-				"`tools` contains a subagent's tool results: file contents, search hits and command output, each beneath a `» <tool> <intent>` line that is omp's marker, not output. A rule reads `tools` only by naming it, never matches a marker, and matches only the lines a single command prints about its progress. Every rule gets checked against all output, not just the samples: one that matches unrelated lines is rejected.",
-				"`tools` carries a subagent's tool results: file contents, search hits and command output, each under a `» <tool> <intent>` line that is omp's marker, not output. A rule reads `tools` only by naming it, never matches a marker, and matches only the lines one command prints about its own progress. Every rule is tested against all output, not only the samples: a rule matching unrelated lines is rejected.",
-				"`tools` holds a subagent's tool results: file contents, search hits and command output, each beneath a `» <tool> <intent>` line that is omp's marker, not output. A rule reads `tools` only when it names it, never matches a marker, and matches only the lines a single command prints about its progress. Each rule is checked against all output, not merely the samples: one that matches unrelated lines gets rejected."
+				"`tools` contains a subagent's tool results: file contents, search hits and command output, each beneath a `» <tool> <intent>` line that is Scient Agent's marker, not output. A rule reads `tools` only by naming it, never matches a marker, and matches only the lines a single command prints about its progress. Every rule gets checked against all output, not just the samples: one that matches unrelated lines is rejected.",
+				"`tools` carries a subagent's tool results: file contents, search hits and command output, each under a `» <tool> <intent>` line that is Scient Agent's marker, not output. A rule reads `tools` only by naming it, never matches a marker, and matches only the lines one command prints about its own progress. Every rule is tested against all output, not only the samples: a rule matching unrelated lines is rejected.",
+				"`tools` holds a subagent's tool results: file contents, search hits and command output, each beneath a `» <tool> <intent>` line that is Scient Agent's marker, not output. A rule reads `tools` only when it names it, never matches a marker, and matches only the lines a single command prints about its progress. Each rule is checked against all output, not merely the samples: one that matches unrelated lines gets rejected."
 			]
 		},
 		{
@@ -5721,11 +5721,11 @@
 			]
 		},
 		{
-			"source": "- Assume technical reader; don't narrate obvious steps or over-explain basics.",
+			"source": "- Match the reader's expertise; explain unfamiliar concepts when needed.",
 			"origin": "system/personalities/default.md",
 			"variants": [
-				"- Write for a technical audience: no narrating evident steps, no over-explaining basics.",
-				"- Presume technical expertise; do not spell out obvious steps or belabor basics."
+				"- Write for the reader's level of expertise. Explain unfamiliar ideas as needed.",
+				"- Adapt to what the reader knows and explain concepts that may be new to them."
 			]
 		},
 		{
@@ -5909,11 +5909,11 @@
 			]
 		},
 		{
-			"source": "- MUST assume reader technical; warmth NEVER means dumbing down.",
+			"source": "- Match the reader's expertise; warmth NEVER means sacrificing precision.",
 			"origin": "system/personalities/friendly.md",
 			"variants": [
-				"- MUST treat the reader as technical; warmth NEVER implies dumbing down.",
-				"- MUST assume a technical reader; warmth NEVER equals dumbing down."
+				"- Adapt to the reader's expertise and stay precise even when writing warmly.",
+				"- Write at the reader's level and keep the explanation both warm and precise."
 			]
 		},
 		{
@@ -6250,21 +6250,21 @@
 			]
 		},
 		{
-			"source": "Coordinate an OMP-native software-security scan.",
+			"source": "Coordinate a Scient Agent-native software-security scan.",
 			"origin": "security/scan-coordinator.md",
 			"variants": [
-				"Coordinate a software-security scan native to OMP.",
-				"Coordinate an OMP-native scan for software security.",
-				"Coordinate a software-security scan built for OMP."
+				"Coordinate a software-security scan native to Scient Agent.",
+				"Coordinate a Scient Agent-native scan for software security.",
+				"Coordinate a software-security scan built for Scient Agent."
 			]
 		},
 		{
-			"source": "OMP only harness. Built-in `task`: delegate bounded file review to bundled `security-reviewer`; reconcile workers' structured findings.",
+			"source": "Scient Agent only harness. Built-in `task`: delegate bounded file review to bundled `security-reviewer`; reconcile workers' structured findings.",
 			"origin": "security/scan-coordinator.md",
 			"variants": [
-				"OMP-only harness. Built-in `task`: delegate bounded file review to the bundled `security-reviewer`; reconcile workers' structured findings.",
-				"OMP only harness. Built-in `task`: hand bounded file review to bundled `security-reviewer`; reconcile workers' structured findings.",
-				"OMP-only harness. Built-in `task`: delegate bounded file review to bundled `security-reviewer`; reconcile the workers' structured findings."
+				"Scient Agent-only harness. Built-in `task`: delegate bounded file review to the bundled `security-reviewer`; reconcile workers' structured findings.",
+				"Scient Agent only harness. Built-in `task`: hand bounded file review to bundled `security-reviewer`; reconcile workers' structured findings.",
+				"Scient Agent-only harness. Built-in `task`: delegate bounded file review to bundled `security-reviewer`; reconcile the workers' structured findings."
 			]
 		},
 		{
@@ -6304,12 +6304,12 @@
 			]
 		},
 		{
-			"source": "<!-- Derived from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to OMP AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME instructions intentionally omitted. -->",
+			"source": "<!-- Derived from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to Scient Agent AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME instructions intentionally omitted. -->",
 			"origin": "security/scan-coordinator.md",
 			"variants": [
-				"<!-- Derived from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to OMP AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME guidance deliberately omitted. -->",
-				"<!-- Adapted from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to OMP AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME instructions intentionally omitted. -->",
-				"<!-- Derived from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to OMP AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME instructions left out on purpose. -->"
+				"<!-- Derived from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to Scient Agent AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME guidance deliberately omitted. -->",
+				"<!-- Adapted from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to Scient Agent AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME instructions intentionally omitted. -->",
+				"<!-- Derived from openai/codex-security f22d4a36f26d16287bcdfd707b369116e02a08c3: sdk/typescript/_bundled_plugin/skills/security-scan/SKILL.md and finding-discovery/SKILL.md. Ported to Scient Agent AgentSession/task semantics; Codex workspace, plugin, app-server, and CODEX_HOME instructions left out on purpose. -->"
 			]
 		},
 		{
@@ -7199,12 +7199,12 @@
 			]
 		},
 		{
-			"source": "`cloud_pull`: cloud findings → canonical OMP security store, available through `security://`.",
+			"source": "`cloud_pull`: cloud findings → canonical Scient Agent security store, available through `security://`.",
 			"origin": "tools/security-scan.md",
 			"variants": [
-				"`cloud_pull`: cloud findings → the canonical OMP security store, available through `security://`.",
-				"`cloud_pull`: cloud findings → canonical OMP security store, accessible through `security://`.",
-				"`cloud_pull`: moves cloud findings → canonical OMP security store, available through `security://`."
+				"`cloud_pull`: cloud findings → the canonical Scient Agent security store, available through `security://`.",
+				"`cloud_pull`: cloud findings → canonical Scient Agent security store, accessible through `security://`.",
+				"`cloud_pull`: moves cloud findings → canonical Scient Agent security store, available through `security://`."
 			]
 		},
 		{
@@ -7280,12 +7280,12 @@
 			]
 		},
 		{
-			"source": "  - a Tern window's browser blocks (`tab`: the omp tab holding one), or",
+			"source": "  - a Tern window's browser blocks (`tab`: the Scient Agent tab holding one), or",
 			"origin": "tools/browser.md",
 			"variants": [
-				"  - the browser blocks of a Tern window (`tab`: the omp tab that holds one), or",
-				"  - browser blocks from a Tern window (`tab`: the omp tab containing one), or",
-				"  - a Tern window's browser blocks (`tab`: the omp tab that holds one), or"
+				"  - the browser blocks of a Tern window (`tab`: the Scient Agent tab that holds one), or",
+				"  - browser blocks from a Tern window (`tab`: the Scient Agent tab containing one), or",
+				"  - a Tern window's browser blocks (`tab`: the Scient Agent tab that holds one), or"
 			]
 		},
 		{
@@ -7582,13 +7582,13 @@
 			]
 		},
 		{
-			"source": "  5. omp's own browser: headless WebKit when installed, downloaded first when no browser is (off with the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
+			"source": "  5. Scient Agent's own browser: headless WebKit when installed, downloaded first when no browser is (off with the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
 			"origin": "tools/browser.md",
 			"variants": [
-				"  omp's own browser: headless WebKit when installed, downloaded first when there is no browser (off with the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
-				"  omp's own browser: headless WebKit if installed, downloaded first when no browser exists (disabled by the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
-				"  omp's own browser: headless WebKit when present, downloaded first when there is none (turned off by the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
-				"  omp's own browser: headless WebKit where installed, downloaded first when no browser is found (off via the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),"
+				"  Scient Agent's own browser: headless WebKit when installed, downloaded first when there is no browser (off with the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
+				"  Scient Agent's own browser: headless WebKit if installed, downloaded first when no browser exists (disabled by the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
+				"  Scient Agent's own browser: headless WebKit when present, downloaded first when there is none (turned off by the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),",
+				"  Scient Agent's own browser: headless WebKit where installed, downloaded first when no browser is found (off via the `browser.webkit` setting or `PI_BROWSER_WEBKIT=0`),"
 			]
 		},
 		{
@@ -7602,13 +7602,13 @@
 			]
 		},
 		{
-			"source": "  - `\"own\"` (omp's own browser: WebKit when installed, else Chromium; skips the relay, `browser.cdpUrl`, Tern and cmux)",
+			"source": "  - `\"own\"` (Scient Agent's own browser: WebKit when installed, else Chromium; skips the relay, `browser.cdpUrl`, Tern and cmux)",
 			"origin": "tools/browser.md",
 			"variants": [
-				"  `\"own\"` (omp's own browser: WebKit when installed, else Chromium; skips the relay, `browser.cdpUrl`, Tern and cmux)",
-				"  `\"own\"` (omp's own browser: WebKit if installed, otherwise Chromium; bypasses the relay, `browser.cdpUrl`, Tern and cmux)",
-				"  `\"own\"` (omp's own browser: WebKit when present, else Chromium; leaves out the relay, `browser.cdpUrl`, Tern and cmux)",
-				"  `\"own\"` (omp's own browser: WebKit where installed, otherwise Chromium; skips relay, `browser.cdpUrl`, Tern and cmux)"
+				"  `\"own\"` (Scient Agent's own browser: WebKit when installed, else Chromium; skips the relay, `browser.cdpUrl`, Tern and cmux)",
+				"  `\"own\"` (Scient Agent's own browser: WebKit if installed, otherwise Chromium; bypasses the relay, `browser.cdpUrl`, Tern and cmux)",
+				"  `\"own\"` (Scient Agent's own browser: WebKit when present, else Chromium; leaves out the relay, `browser.cdpUrl`, Tern and cmux)",
+				"  `\"own\"` (Scient Agent's own browser: WebKit where installed, otherwise Chromium; skips relay, `browser.cdpUrl`, Tern and cmux)"
 			]
 		},
 		{
@@ -7632,13 +7632,13 @@
 			]
 		},
 		{
-			"source": "  - or an executable path to launch (Chromium-family browsers use an omp-owned profile unless `argv` supplies `--user-data-dir`)",
+			"source": "  - or an executable path to launch (Chromium-family browsers use an agent-owned profile unless `argv` supplies `--user-data-dir`)",
 			"origin": "tools/browser.md",
 			"variants": [
-				"  or an executable path to launch (Chromium-family browsers use an omp-owned profile unless `argv` supplies `--user-data-dir`)",
-				"  or an executable path to launch (browsers in the Chromium family get an omp-owned profile unless `argv` provides `--user-data-dir`)",
-				"  or a path to an executable to launch (Chromium-family browsers take an omp-owned profile unless `--user-data-dir` comes from `argv`)",
-				"  or an executable path for launching (Chromium-family browsers adopt an omp-owned profile unless `--user-data-dir` is supplied through `argv`)"
+				"  or an executable path to launch (Chromium-family browsers use an agent-owned profile unless `argv` supplies `--user-data-dir`)",
+				"  or an executable path to launch (browsers in the Chromium family get an agent-owned profile unless `argv` provides `--user-data-dir`)",
+				"  or a path to an executable to launch (Chromium-family browsers take an agent-owned profile unless `--user-data-dir` comes from `argv`)",
+				"  or an executable path for launching (Chromium-family browsers adopt an agent-owned profile unless `--user-data-dir` is supplied through `argv`)"
 			]
 		},
 		{
@@ -7661,12 +7661,12 @@
 			]
 		},
 		{
-			"source": "WebKit (open result: `omp's headless WebKit browser`, or `omp's WebKit browser (in a window)` when shown):",
+			"source": "WebKit (open result: `scient-agent's headless WebKit browser`, or `scient-agent's WebKit browser (in a window)` when shown):",
 			"origin": "tools/browser.md",
 			"variants": [
-				"WebKit (the open result reads `omp's headless WebKit browser`, or `omp's WebKit browser (in a window)` when it is shown):",
-				"WebKit (open result shows `omp's headless WebKit browser`, or `omp's WebKit browser (in a window)` if shown):",
-				"WebKit (open result: `omp's headless WebKit browser`, else `omp's WebKit browser (in a window)` while shown):"
+				"WebKit (the open result reads `scient-agent's headless WebKit browser`, or `scient-agent's WebKit browser (in a window)` when it is shown):",
+				"WebKit (open result shows `scient-agent's headless WebKit browser`, or `scient-agent's WebKit browser (in a window)` if shown):",
+				"WebKit (open result: `scient-agent's headless WebKit browser`, else `scient-agent's WebKit browser (in a window)` while shown):"
 			]
 		},
 		{
@@ -7717,12 +7717,12 @@
 			]
 		},
 		{
-			"source": "Relay (`app: \"relay\"`: the user's Chrome through the omp relay):",
+			"source": "Relay (`app: \"relay\"`: the user's Chrome through the browser relay):",
 			"origin": "tools/browser.md",
 			"variants": [
-				"Relay (`app: \"relay\"`: the user's Chrome by way of the omp relay):",
-				"Relay (`app: \"relay\"`: the Chrome of the user, through the omp relay):",
-				"Relay (`app: \"relay\"`: the user's Chrome via the omp relay):"
+				"Relay (`app: \"relay\"`: the user's Chrome by way of the browser relay):",
+				"Relay (`app: \"relay\"`: the Chrome of the user, through the browser relay):",
+				"Relay (`app: \"relay\"`: the user's Chrome via the browser relay):"
 			]
 		},
 		{
@@ -7821,13 +7821,13 @@
 			]
 		},
 		{
-			"source": "  - Those omp opened close when the session ends, unless `persist: true`,",
+			"source": "  - Those Scient Agent opened close when the session ends, unless `persist: true`,",
 			"origin": "tools/browser.md",
 			"variants": [
-				"  Those omp opened close when the session ends, unless `persist: true`,",
-				"  The ones omp opened close at session end, except when `persist: true`,",
-				"  Any that omp opened close once the session ends, unless `persist: true` is set,",
-				"  On session end, those that omp opened close, unless `persist: true` is in effect,"
+				"  Those Scient Agent opened close when the session ends, unless `persist: true`,",
+				"  The ones Scient Agent opened close at session end, except when `persist: true`,",
+				"  Any that Scient Agent opened close once the session ends, unless `persist: true` is set,",
+				"  On session end, those that Scient Agent opened close, unless `persist: true` is in effect,"
 			]
 		},
 		{
@@ -8033,12 +8033,12 @@
 			]
 		},
 		{
-			"source": "- While it holds, macOS hides every key from omp, so the user's Escape does not stop takeover input and their typing does not stop a call with `UserIntervened`.",
+			"source": "- While it holds, macOS hides every key from Scient Agent, so the user's Escape does not stop takeover input and their typing does not stop a call with `UserIntervened`.",
 			"origin": "tools/computer-secure-input.md",
 			"variants": [
-				"- For as long as it holds, macOS conceals every key from omp, so the user's Escape does not halt takeover input and their typing does not halt a call with `UserIntervened`.",
-				"- While held, macOS hides all keys from omp, so the user's Escape does not stop takeover input and their typing does not stop a call with `UserIntervened`.",
-				"- While it is held, macOS hides every key from omp, so the user's Escape cannot stop takeover input and their typing cannot stop a call with `UserIntervened`."
+				"- For as long as it holds, macOS conceals every key from Scient Agent, so the user's Escape does not halt takeover input and their typing does not halt a call with `UserIntervened`.",
+				"- While held, macOS hides all keys from Scient Agent, so the user's Escape does not stop takeover input and their typing does not stop a call with `UserIntervened`.",
+				"- While it is held, macOS hides every key from Scient Agent, so the user's Escape cannot stop takeover input and their typing cannot stop a call with `UserIntervened`."
 			]
 		},
 		{
@@ -9818,12 +9818,12 @@
 			]
 		},
 		{
-			"source": "- Databases appear in `omp ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references are saved/released on session disposal or conversation/backend change; resumable children retain theirs until explicit close or disposal.",
+			"source": "- Databases appear in `scient-agent ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references are saved/released on session disposal or conversation/backend change; resumable children retain theirs until explicit close or disposal.",
 			"origin": "tools/dsm.md",
 			"variants": [
-				"- Databases show in `omp ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references are saved or released on session disposal or a conversation/backend change; resumable children keep theirs until explicit close or disposal.",
-				"- Databases appear in `omp ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references get saved/released on session disposal or conversation/backend change; resumable children retain theirs until explicit close or disposal.",
-				"- Databases appear in `omp ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. On session disposal or a conversation/backend change, owner references are saved or released; resumable children retain theirs until explicit close or disposal."
+				"- Databases show in `scient-agent ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references are saved or released on session disposal or a conversation/backend change; resumable children keep theirs until explicit close or disposal.",
+				"- Databases appear in `scient-agent ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references get saved/released on session disposal or conversation/backend change; resumable children retain theirs until explicit close or disposal.",
+				"- Databases appear in `scient-agent ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. On session disposal or a conversation/backend change, owner references are saved or released; resumable children retain theirs until explicit close or disposal."
 			]
 		},
 		{
@@ -10043,12 +10043,12 @@
 			]
 		},
 		{
-			"source": "- Orderly `omp ps stop` saves; a crash, forced kill, or unresponsive timeout loses changes since the last save.",
+			"source": "- Orderly `scient-agent ps stop` saves; a crash, forced kill, or unresponsive timeout loses changes since the last save.",
 			"origin": "tools/dsm.md",
 			"variants": [
-				"- An orderly `omp ps stop` saves; a crash, forced kill, or unresponsive timeout loses changes since the last save.",
-				"- Orderly `omp ps stop` saves; a crash, forced kill, or unresponsive timeout loses everything since the last save.",
-				"- `omp ps stop`, when orderly, saves; a crash, forced kill, or unresponsive timeout loses changes since the last save."
+				"- An orderly `scient-agent ps stop` saves; a crash, forced kill, or unresponsive timeout loses changes since the last save.",
+				"- Orderly `scient-agent ps stop` saves; a crash, forced kill, or unresponsive timeout loses everything since the last save.",
+				"- `scient-agent ps stop`, when orderly, saves; a crash, forced kill, or unresponsive timeout loses changes since the last save."
 			]
 		},
 		{
@@ -10910,12 +10910,12 @@
 			]
 		},
 		{
-			"source": "- Relay tabs omp opened close when the session ends. For a page you leave open for the user, pass `persist: true` to `open`;",
+			"source": "- Relay tabs Scient Agent opened close when the session ends. For a page you leave open for the user, pass `persist: true` to `open`;",
 			"origin": "tools/browser-core.md",
 			"variants": [
-				"- Relay tabs opened by omp close at session end. For a page you leave open for the user, pass `persist: true` to `open`;",
-				"- Relay tabs that omp opened close when the session ends. For a page left open for the user, pass `persist: true` to `open`;",
-				"- Relay tabs omp opened close on session end. For a page you keep open for the user, pass `persist: true` to `open`;"
+				"- Relay tabs opened by Scient Agent close at session end. For a page you leave open for the user, pass `persist: true` to `open`;",
+				"- Relay tabs that Scient Agent opened close when the session ends. For a page left open for the user, pass `persist: true` to `open`;",
+				"- Relay tabs Scient Agent opened close on session end. For a page you keep open for the user, pass `persist: true` to `open`;"
 			]
 		},
 		{
@@ -11294,12 +11294,12 @@
 			]
 		},
 		{
-			"source": "Publish current OMP-native security scan's canonical result.",
+			"source": "Publish current Scient Agent-native security scan's canonical result.",
 			"origin": "tools/security-publish.md",
 			"variants": [
-				"Publish the canonical result of the current OMP-native security scan.",
-				"Publish the OMP-native security scan's current canonical result.",
-				"Publish the current OMP-native security scan and its canonical result."
+				"Publish the canonical result of the current Scient Agent-native security scan.",
+				"Publish the Scient Agent-native security scan's current canonical result.",
+				"Publish the current Scient Agent-native security scan and its canonical result."
 			]
 		},
 		{
@@ -11321,12 +11321,12 @@
 			]
 		},
 		{
-			"source": "Tool: validates, fingerprints, assigns OMP-owned IDs, writes canonical security store, creates SARIF.",
+			"source": "Tool: validates, fingerprints, assigns Scient Agent-owned IDs, writes canonical security store, creates SARIF.",
 			"origin": "tools/security-publish.md",
 			"variants": [
-				"Tool: validates, fingerprints, assigns IDs owned by OMP, writes the canonical security store, creates SARIF.",
-				"Tool: validates, fingerprints, assigns OMP-owned IDs, writes the canonical security store, and creates SARIF.",
-				"Tool: validates, fingerprints, assigns IDs owned by OMP, writes canonical security store, creates SARIF."
+				"Tool: validates, fingerprints, assigns IDs owned by Scient Agent, writes the canonical security store, creates SARIF.",
+				"Tool: validates, fingerprints, assigns Scient Agent-owned IDs, writes the canonical security store, and creates SARIF.",
+				"Tool: validates, fingerprints, assigns IDs owned by Scient Agent, writes canonical security store, creates SARIF."
 			]
 		},
 		{
@@ -16541,13 +16541,13 @@
 			]
 		},
 		{
-			"source": "- No `target`: a new name opens omp's own background tab, leaving the user's tab alone (an outdated relay extension selects it instead).",
+			"source": "- No `target`: a new name opens Scient Agent's own background tab, leaving the user's tab alone (an outdated relay extension selects it instead).",
 			"origin": "tools/browser.md",
 			"variants": [
-				"- With no `target`: a fresh name launches omp's own background tab, leaving the user's tab untouched (an old relay extension picks that one instead).",
-				"- Absent a `target`: a new name spawns omp's own background tab, so the user's tab stays as is (a stale relay extension selects it rather).",
-				"- When there is no `target`: a new name opens omp's own background tab and leaves the user's tab be (an outdated relay extension picks it instead).",
-				"- No `target` present: a new name brings up omp's own background tab, keeping the user's tab untouched (an outmoded relay extension selects it instead)."
+				"- With no `target`: a fresh name launches Scient Agent's own background tab, leaving the user's tab untouched (an old relay extension picks that one instead).",
+				"- Absent a `target`: a new name spawns Scient Agent's own background tab, so the user's tab stays as is (a stale relay extension selects it rather).",
+				"- When there is no `target`: a new name opens Scient Agent's own background tab and leaves the user's tab be (an outdated relay extension picks it instead).",
+				"- No `target` present: a new name brings up Scient Agent's own background tab, keeping the user's tab untouched (an outmoded relay extension selects it instead)."
 			]
 		},
 		{
@@ -16640,11 +16640,11 @@
 			]
 		},
 		{
-			"source": "- No Tern window can host a PiP → omp's own browser.",
+			"source": "- No Tern window can host a PiP → Scient Agent's own browser.",
 			"origin": "tools/browser.md",
 			"variants": [
-				"- Since no Tern window can host a PiP → omp's own browser.",
-				"- Any Tern window is unable to host a PiP → omp's own browser."
+				"- Since no Tern window can host a PiP → Scient Agent's own browser.",
+				"- Any Tern window is unable to host a PiP → Scient Agent's own browser."
 			]
 		},
 		{
@@ -16715,13 +16715,13 @@
 			]
 		},
 		{
-			"source": "- Closing releases the managed tab and closes pages omp opened, never borrowed pages or adopted Tern blocks.",
+			"source": "- Closing releases the managed tab and closes pages Scient Agent opened, never borrowed pages or adopted Tern blocks.",
 			"origin": "tools/browser.md",
 			"variants": [
-				"- Closing frees the managed tab and shuts pages omp opened, never borrowed pages or adopted Tern blocks.",
-				"- Closing releases the managed tab and closes pages omp opened, but never borrowed pages or adopted Tern blocks.",
-				"- Shutting down frees the managed tab and closes omp-opened pages, never borrowed pages or adopted Tern blocks.",
-				"- Closing frees the managed tab and closes pages omp opened, never adopted Tern blocks or borrowed pages."
+				"- Closing frees the managed tab and shuts pages Scient Agent opened, never borrowed pages or adopted Tern blocks.",
+				"- Closing releases the managed tab and closes pages Scient Agent opened, but never borrowed pages or adopted Tern blocks.",
+				"- Shutting down frees the managed tab and closes pages Scient Agent opened, never borrowed pages or adopted Tern blocks.",
+				"- Closing frees the managed tab and closes pages Scient Agent opened, never adopted Tern blocks or borrowed pages."
 			]
 		},
 		{
@@ -17127,12 +17127,12 @@
 			]
 		},
 		{
-			"source": "- omp decides from the user's setting when input takes over their pointer and keyboard; you never choose it and need not ask the user about it.",
+			"source": "- Scient Agent decides from the user's setting when input takes over their pointer and keyboard; you never choose it and need not ask the user about it.",
 			"origin": "system/computer-use.md",
 			"variants": [
-				"- omp decides, from the user's setting, when input takes control of their pointer and keyboard; you never choose this and need not ask the user.",
-				"- When input takes over the user's pointer and keyboard is decided by omp from the user's setting; you never choose it, nor do you need to ask the user.",
-				"- omp decides when input takes over the user's pointer and keyboard, based on the user's setting; that choice is never yours and you need not ask the user."
+				"- Scient Agent decides, from the user's setting, when input takes control of their pointer and keyboard; you never choose this and need not ask the user.",
+				"- When input takes over the user's pointer and keyboard is decided by Scient Agent from the user's setting; you never choose it, nor do you need to ask the user.",
+				"- Scient Agent decides when input takes over the user's pointer and keyboard, based on the user's setting; that choice is never yours and you need not ask the user."
 			]
 		},
 		{
@@ -17194,21 +17194,21 @@
 			]
 		},
 		{
-			"source": "  - It does not change delivery, which omp decides from the user's setting (below).",
+			"source": "  - It does not change delivery, which Scient Agent decides from the user's setting (below).",
 			"origin": "tools/computer.md",
 			"variants": [
-				"  - It leaves delivery unchanged, and omp decides that from the user's setting (below).",
-				"  - It does not alter delivery, which omp determines from the user's setting (below).",
-				"  - Delivery is not changed by it; omp decides delivery from the user's setting (below)."
+				"  - It leaves delivery unchanged, and Scient Agent decides that from the user's setting (below).",
+				"  - It does not alter delivery, which Scient Agent determines from the user's setting (below).",
+				"  - Delivery is not changed by it; Scient Agent decides delivery from the user's setting (below)."
 			]
 		},
 		{
-			"source": "- omp, never you, decides whether an input call takes over (real pointer and keyboard input, which the user's Escape stops), from the user's setting;",
+			"source": "- Scient Agent, never you, decides whether an input call takes over (real pointer and keyboard input, which the user's Escape stops), from the user's setting;",
 			"origin": "tools/computer.md",
 			"variants": [
-				"- omp, never you, decides from the user's setting whether an input call takes over (real pointer and keyboard input, which the user's Escape halts);",
-				"- From the user's setting, omp, never you, decides whether an input call takes over (real pointer and keyboard input, which the user's Escape stops);",
-				"- Whether an input call takes over (real pointer and keyboard input, which the user's Escape stops) is decided by omp, never you, from the user's setting;"
+				"- Scient Agent, never you, decides from the user's setting whether an input call takes over (real pointer and keyboard input, which the user's Escape halts);",
+				"- From the user's setting, Scient Agent, never you, decides whether an input call takes over (real pointer and keyboard input, which the user's Escape stops);",
+				"- Whether an input call takes over (real pointer and keyboard input, which the user's Escape stops) is decided by Scient Agent, never you, from the user's setting;"
 			]
 		},
 		{
@@ -17238,13 +17238,13 @@
 			]
 		},
 		{
-			"source": "  - When a background route is unavailable, omp reruns that call in takeover, hands the keyboard back to the user's window and says what it did in the output",
+			"source": "  - When a background route is unavailable, Scient Agent reruns that call in takeover, hands the keyboard back to the user's window and says what it did in the output",
 			"origin": "tools/computer.md",
 			"variants": [
-				"  - When a background route is unavailable, omp reruns that call in takeover, returns the keyboard to the user's window and says what it did in the output",
-				"  - If a background route is unavailable, omp reruns that call in takeover, hands the keyboard back to the user's window, and states what it did in the output",
-				"  - When no background route is available, omp reruns that call in takeover, hands the keyboard back to the user's window and says in the output what it did",
-				"  - When a background route is unavailable, omp reruns that call in takeover and hands the keyboard back to the user's window, saying what it did in the output"
+				"  - When a background route is unavailable, Scient Agent reruns that call in takeover, returns the keyboard to the user's window and says what it did in the output",
+				"  - If a background route is unavailable, Scient Agent reruns that call in takeover, hands the keyboard back to the user's window, and states what it did in the output",
+				"  - When no background route is available, Scient Agent reruns that call in takeover, hands the keyboard back to the user's window and says in the output what it did",
+				"  - When a background route is unavailable, Scient Agent reruns that call in takeover and hands the keyboard back to the user's window, saying what it did in the output"
 			]
 		},
 		{
@@ -17289,6 +17289,14 @@
 				"Anything else the assignment requires can be done now; NEVER start `sleep` jobs to wait longer.",
 				"Whatever else the assignment needs can be done now; NEVER start `sleep` jobs in order to wait longer.",
 				"Anything else needed by the assignment can be done now; NEVER start `sleep` jobs so as to wait longer."
+			]
+		},
+		{
+			"source": "`start`: plan → background Scient Agent job.",
+			"origin": "tools/security-scan.md",
+			"variants": [
+				"`start`: run plan as a background Scient Agent job.",
+				"`start`: plan → Scient Agent job in the background."
 			]
 		}
 	]

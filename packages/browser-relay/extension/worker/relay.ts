@@ -122,7 +122,7 @@ export function setBusy(reason: string, busy: boolean): void {
 
 /** Ask the relay for something the side panel needs; rejects when the link ends or the relay takes too long. */
 export function callRelay(call: PanelCall): Promise<unknown> {
-	if (!link) return Promise.reject(new Error("omp relay is not connected"));
+	if (!link) return Promise.reject(new Error("Scient Agent relay is not connected"));
 	return link.calls.start(call, post);
 }
 
@@ -139,7 +139,7 @@ export function relayStatus(): RelayStatus {
 async function setBadge(connected: boolean): Promise<void> {
 	try {
 		await chrome.action.setBadgeText({ text: connected ? "on" : "" });
-		await chrome.action.setTitle({ title: connected ? "omp · Terminal browser relay connected" : "omp · Terminal browser relay disconnected" });
+		await chrome.action.setTitle({ title: connected ? "Scient Agent · Terminal browser relay connected" : "Scient Agent · Terminal browser relay disconnected" });
 		await chrome.action.setBadgeBackgroundColor({
 			color: connected ? "#1a7f37" : "#8b8b8b",
 		});
@@ -262,7 +262,7 @@ export function connectChatRelay(port: chrome.runtime.Port): { receive(line: str
 
 /** A relay listens for this browser: start a new epoch and say hello. */
 function linked(): void {
-	if (link) unlinked("omp relay changed");
+	if (link) unlinked("Scient Agent relay changed");
 	clearLinkDeadline();
 	reconnectDelay = RECONNECT_MIN_MS;
 	hostError = undefined;
@@ -357,8 +357,8 @@ export function connectRelay(): void {
 		const hadLink = link !== null;
 		unlinked(
 			detail
-				? `omp native host disconnected: ${detail}`
-				: "omp native host disconnected",
+				? `Scient Agent native host disconnected: ${detail}`
+				: "Scient Agent native host disconnected",
 		);
 		// A port that never linked was refused by the browser (host missing, blocked by policy): `unlinked` reported
 		// nothing, so publish the browser's reason. A linked host's exit ("Native host has exited.") is no such refusal.

@@ -283,7 +283,7 @@ class ChromeBackedExtension {
 	}
 }
 
-describe("relay tabs Chrome detaches omp from", () => {
+describe("relay tabs Chrome detaches Scient Agent from", () => {
 	let chromium: Browser | undefined;
 	let site: Bun.Server<undefined> | undefined;
 	let relay: RelayServer | undefined;
@@ -483,7 +483,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 					if (mode === "refused") {
 						// Chrome refused the re-adoption over another extension's frame: the open fails, the tab stays.
 						if (!("error" in outcome)) throw new Error("expected open to fail");
-						expect(String(outcome.error)).toContain("omp kept the tab open");
+						expect(String(outcome.error)).toContain("Scient Agent kept the tab open");
 						expect(getTab(name)).toBeDefined();
 						expect(page?.isClosed()).toBe(false);
 						return;
@@ -561,7 +561,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 			await evaluating;
 			await ext.chromeDetach("target_closed");
 			const failure = String(await stalled);
-			expect(failure).toContain("Chrome detached omp from this tab (target_closed) during this call");
+			expect(failure).toContain("Chrome detached Scient Agent from this tab (target_closed) during this call");
 			expect(failure).toContain("password manager");
 			expect(failure).toContain("may already have landed");
 			expect(failure).toContain("reattached to the same tab");
@@ -581,7 +581,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 			await evaluating;
 			await ext.chromeDetach("target_closed");
 			const failure = String(await stalled);
-			expect(failure).toContain("Chrome detached omp from this tab (target_closed) during this call");
+			expect(failure).toContain("Chrome detached Scient Agent from this tab (target_closed) during this call");
 			expect(failure).toContain("reattached to the same tab");
 			expect((await invoke(readMark)).value).toBe("kept");
 		},
@@ -609,7 +609,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 				await evaluating;
 				await ext.chromeDetach("target_closed");
 				expect(String(await stalled)).toContain(
-					"Chrome detached omp from this tab (target_closed) during this call",
+					"Chrome detached Scient Agent from this tab (target_closed) during this call",
 				);
 				expect(signal.aborted).toBe(true);
 			} finally {
@@ -631,13 +631,13 @@ describe("relay tabs Chrome detaches omp from", () => {
 			await handled;
 			const next = await invoke(readMark);
 			expect(next.value).toBe("kept");
-			expect(next.text).toContain("Chrome had detached omp from this tab since the last call");
+			expect(next.text).toContain("Chrome had detached Scient Agent from this tab since the last call");
 		},
 		60_000,
 	);
 
 	it.skipIf(!CHROMIUM_AVAILABLE)(
-		"runs a call on the re-adopted tab when Chrome detached omp before its code started",
+		"runs a call on the re-adopted tab when Chrome detached Scient Agent before its code started",
 		async () => {
 			const ext = await openRelayTab();
 			// A user agent set by an earlier call is reapplied before each call's code starts.
@@ -649,7 +649,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 			const result = await next;
 			expect(result.value).toBe("kept");
 			expect(result.text).toContain(
-				"omp reattached to the same tab on a new worker, without reloading it, and then ran this call",
+				"Scient Agent reattached to the same tab on a new worker, without reloading it, and then ran this call",
 			);
 		},
 		60_000,
@@ -675,7 +675,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 				await compiling.promise;
 				await ext.chromeDetach("target_closed");
 				expect(String(await next)).toContain(
-					"Chrome detached omp from this tab (target_closed) before this call, so its code did not run",
+					"Chrome detached Scient Agent from this tab (target_closed) before this call, so its code did not run",
 				);
 				// The compile finishing after the detach must not evaluate the cell late. The runtime awaits the
 				// compile before this test does, so its evaluation, if any, has run once this await returns.
@@ -727,12 +727,12 @@ describe("relay tabs Chrome detaches omp from", () => {
 			await evaluating;
 			await ext.chromeDetach("target_closed");
 			const failure = String(await stalled);
-			expect(failure).toContain("Chrome detached omp from this tab (target_closed) during this call");
-			expect(failure).toContain("omp kept the tab open");
+			expect(failure).toContain("Chrome detached Scient Agent from this tab (target_closed) during this call");
+			expect(failure).toContain("Scient Agent kept the tab open");
 			expect(getTab(name)).toBeDefined();
 			// While the frame stays, each call says so and the tab stays.
 			const refused = String(await invoke(readMark).catch((error: unknown) => error));
-			expect(refused).toContain("Chrome still keeps omp out of tab");
+			expect(refused).toContain("Chrome still keeps Scient Agent out of tab");
 			expect(getTab(name)).toBeDefined();
 			// An open of the same tab re-adopts it too, rather than reporting it reused with no worker driving it.
 			const reopened = String(
@@ -740,13 +740,13 @@ describe("relay tabs Chrome detaches omp from", () => {
 					(error: unknown) => error,
 				),
 			);
-			expect(reopened).toContain("Chrome still keeps omp out of tab");
+			expect(reopened).toContain("Chrome still keeps Scient Agent out of tab");
 			expect(getTab(name)).toBeDefined();
 			// Once it is gone, the next call reattaches to the same page, its state intact, and says so.
 			ext.refuseAttach = undefined;
 			const later = await invoke(readMark);
 			expect(later.value).toBe("kept");
-			expect(later.text).toContain("Chrome had kept omp out of this tab");
+			expect(later.text).toContain("Chrome had kept Scient Agent out of this tab");
 		},
 		60_000,
 	);
@@ -765,7 +765,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 			const stalled = invoke({ action: "run", ...HANG }).catch((error: unknown) => error);
 			await evaluating;
 			await ext.chromeDetach("target_closed");
-			expect(String(await stalled)).toContain("omp kept the tab open");
+			expect(String(await stalled)).toContain("Scient Agent kept the tab open");
 			const attempts = ext.attachAttempts;
 			const started = Date.now();
 			await invoke({ action: "open", app: "relay", url: pageUrl, dialogs: "accept", timeout: 20 });
@@ -778,7 +778,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 	);
 
 	it.skipIf(!CHROMIUM_AVAILABLE).each(["release", "release keeping the page"] as const)(
-		"lets go of a tab Chrome keeps omp out of (%s)",
+		"lets go of a tab Chrome keeps Scient Agent out of (%s)",
 		async mode => {
 			await openRelayTab("", mode === "release");
 			const ext = extension!;
@@ -787,7 +787,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 			const stalled = invoke({ action: "run", ...HANG }).catch((error: unknown) => error);
 			await evaluating;
 			await ext.chromeDetach("target_closed");
-			expect(String(await stalled)).toContain("omp kept the tab open");
+			expect(String(await stalled)).toContain("Scient Agent kept the tab open");
 			// Chrome's close event can reach this test's Puppeteer connection after the supervisor's close reply.
 			const closed = Promise.withResolvers<void>();
 			page!.once("close", closed.resolve);
@@ -810,7 +810,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 			await evaluating;
 			await ext.chromeDetach("target_closed");
 			const failure = String(await stalled);
-			expect(failure).toContain("Chrome detached omp from this tab (target_closed) during this call");
+			expect(failure).toContain("Chrome detached Scient Agent from this tab (target_closed) during this call");
 			expect(failure).toContain("could not reattach");
 			const later = String(await invoke(readMark).catch((error: unknown) => error));
 			expect(later).toContain("could not reattach");
@@ -836,7 +836,7 @@ describe("relay tabs Chrome detaches omp from", () => {
 				await evaluating;
 				await ext.chromeDetach("canceled_by_user");
 				const failure = String(await stalled);
-				expect(failure).toContain("Chrome detached omp from this tab (canceled_by_user) during this call");
+				expect(failure).toContain("Chrome detached Scient Agent from this tab (canceled_by_user) during this call");
 				expect(failure).toContain("The user cancelled Chrome's debugging bar");
 				expect(failure).toContain("navigate it in Chrome, then open it again");
 				expect(failure).not.toContain("password manager");

@@ -166,14 +166,14 @@ describe("relay extension self-update decisions", () => {
 		expect(bridge.ready).toBe(true);
 	});
 
-	it("leaves an extension installed by this omp or a newer one alone", () => {
+	it("leaves an extension installed by this Scient Agent or a newer one alone", () => {
 		const { bridge, calls } = bridgeWithUpdater();
 		hello(bridge, new FakeExtSocket(), { ompVersion: VERSION });
 		hello(bridge, new FakeExtSocket(), { ompVersion: "999.0.0" });
 		expect(calls).toEqual([]);
 	});
 
-	it("leaves an extension with no omp version stamp alone", () => {
+	it("leaves an extension with no Scient Agent version stamp alone", () => {
 		const { bridge, calls } = bridgeWithUpdater();
 		hello(bridge, new FakeExtSocket(), { ompVersion: "" });
 		hello(bridge, new FakeExtSocket(), { ompVersion: "dev" });
@@ -309,7 +309,7 @@ describe("relay extension self-update decisions", () => {
 		expect(socket.reloads).toBe(1);
 	});
 
-	it("waits out a tab create and its close when the client left mid-create, so the tab omp opened is closed", async () => {
+	it("waits out a tab create and its close when the client left mid-create, so the tab Scient Agent opened is closed", async () => {
 		const { bridge, calls, finish } = bridgeWithUpdater();
 		const conn = bridge.cdpConnected(FAKE_CDP);
 		const socket = new FakeExtSocket();
@@ -433,7 +433,7 @@ describe("reloading into the installed folder", () => {
 		return { bridge, installed, writes };
 	}
 
-	it("reloads an extension running another build of this omp version, once per running build", async () => {
+	it("reloads an extension running another build of this Scient Agent version, once per running build", async () => {
 		const { bridge, writes } = bridgeWithFolder({
 			ompVersion: VERSION,
 			ompBuild: "rebuilt",
@@ -481,7 +481,7 @@ describe("reloading into the installed folder", () => {
 		expect(socket.reloads).toBe(1);
 	});
 
-	it("never reloads an extension whose folder omp does not manage", async () => {
+	it("never reloads an extension whose folder Scient Agent does not manage", async () => {
 		const { bridge } = bridgeWithFolder(null);
 		const socket = new FakeExtSocket();
 		hello(bridge, socket, { ompVersion: VERSION, ompBuild: "anything" });
@@ -503,7 +503,7 @@ describe("Chrome's unpacked extension id", () => {
 	});
 });
 
-describe("writing the omp extension", () => {
+describe("writing the Scient Agent extension", () => {
 	let home: TempDir;
 
 	beforeEach(async () => {

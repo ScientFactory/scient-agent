@@ -308,7 +308,7 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions)
 	if (kind.kind === "relay") {
 		if (!kind.cdpUrl)
 			throw new ToolError(
-				"No local omp browser relay found. Open Chrome with the omp extension, or configure browser.relayUrl.",
+				"No local Scient Agent browser relay found. Open Chrome with the Scient Agent extension, or configure browser.relayUrl.",
 			);
 		const cdpUrl = normalizeConnectedCdpUrl(kind.cdpUrl);
 		// The omp extension's native host serves the relay while Chrome runs; nothing here starts it.
@@ -322,21 +322,21 @@ async function openBrowserHandle(kind: BrowserKind, opts: AcquireBrowserOptions)
 		}
 		if (outcome === "unreachable") {
 			throw new ToolError(
-				`Nothing serves the omp browser relay at ${cdpUrl}: Chrome is not running with the omp extension. Open Chrome; if the extension is loaded, run \`omp browser-relay install\` to register its native host.`,
+				`Nothing serves the Scient Agent browser relay at ${cdpUrl}: Chrome is not running with the Scient Agent extension. Open Chrome; if the extension is loaded, run \`scient-agent browser-relay install\` to register its native host.`,
 			);
 		}
 		if (outcome === "no-extension") {
 			throw new ToolError(
-				`The omp browser relay at ${cdpUrl} is up, but its browser never said hello. Reload the omp extension in Chrome.`,
+				`The Scient Agent browser relay at ${cdpUrl} is up, but its browser never said hello. Reload the Scient Agent extension in Chrome.`,
 			);
 		}
 		if (outcome === "outdated-relay") {
 			throw new ToolError(
-				`The browser relay at ${cdpUrl} comes from an older omp. Run \`omp browser-relay install\` with this omp, then reload the omp extension in Chrome.`,
+				`The browser relay at ${cdpUrl} comes from an older Scient Agent. Run \`scient-agent browser-relay install\` with this Scient Agent, then reload the Scient Agent extension in Chrome.`,
 			);
 		}
 		if (outcome === "outdated-extension") {
-			throw new ToolError(`The omp extension is out of date. ${UPDATE_RELAY_EXTENSION}`);
+			throw new ToolError(`The Scient Agent extension is out of date. ${UPDATE_RELAY_EXTENSION}`);
 		}
 		const puppeteer = await loadPuppeteer();
 		const browser = await connectPuppeteer(puppeteer, {

@@ -87,7 +87,7 @@ export class RpcSessions {
 		let started = false;
 		let relay: { receive(line: string): void; close(): void } | undefined;
 		const timer = setTimeout(() => {
-			ready.reject(new Error(`omp native host did not start omp within ${READY_TIMEOUT_MS / 1000}s`));
+			ready.reject(new Error(`Scient Agent native host did not start Scient Agent within ${READY_TIMEOUT_MS / 1000}s`));
 			port.disconnect();
 			this.#live.delete(info.sessionKey);
 		}, READY_TIMEOUT_MS);
@@ -97,7 +97,7 @@ export class RpcSessions {
 			this.#live.delete(info.sessionKey);
 			clearTimeout(timer);
 			if (!started) {
-				ready.reject(new Error(stderr.trim() || `omp native host exited (${code ?? "disconnected"})`));
+				ready.reject(new Error(stderr.trim() || `Scient Agent native host exited (${code ?? "disconnected"})`));
 				return;
 			}
 			info.exited = { code, stderr };
@@ -143,7 +143,7 @@ export class RpcSessions {
 		});
 		port.onDisconnect.addListener(() => {
 			relay?.close();
-			exit(null, chrome.runtime.lastError?.message ?? "omp native host disconnected");
+			exit(null, chrome.runtime.lastError?.message ?? "Scient Agent native host disconnected");
 		});
 		const open: ToNativeHost = { t: "open", cwd: options.cwd, extensionId: chrome.runtime.id };
 		port.postMessage(open);

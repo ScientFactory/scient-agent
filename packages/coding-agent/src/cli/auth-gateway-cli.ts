@@ -354,7 +354,7 @@ async function runServe(flags: AuthGatewayCommandArgs["flags"]): Promise<void> {
 	const brokerConfig = await resolveAuthBrokerConfig();
 	if (!brokerConfig) {
 		throw new Error(
-			"`omp auth-gateway serve` requires SCIENT_AGENT_AUTH_BROKER_URL (or `auth.broker.url`/`auth.broker.token` in config.yml). The gateway is itself a broker client.",
+			"`scient-agent auth-gateway serve` requires SCIENT_AGENT_AUTH_BROKER_URL (or `auth.broker.url`/`auth.broker.token` in config.yml). The gateway is itself a broker client.",
 		);
 	}
 	if (flags.clients !== undefined && flags.noAuth) {
@@ -608,7 +608,7 @@ async function runStatus(flags: AuthGatewayCommandArgs["flags"]): Promise<void> 
 			);
 			if (!tokenPresent) {
 				process.stdout.write(
-					"Run `omp auth-gateway token` or `omp auth-gateway serve` to create a bearer token.\n",
+					"Run `scient-agent auth-gateway token` or `scient-agent auth-gateway serve` to create a bearer token.\n",
 				);
 			}
 		}
@@ -854,7 +854,7 @@ async function runCheck(flags: AuthGatewayCommandArgs["flags"]): Promise<void> {
 	const brokerConfig = await resolveAuthBrokerConfig();
 	if (!brokerConfig) {
 		throw new Error(
-			"`omp auth-gateway check` requires SCIENT_AGENT_AUTH_BROKER_URL (or `auth.broker.url`/`auth.broker.token` in config.yml). It probes the same credentials the gateway would serve.",
+			"`scient-agent auth-gateway check` requires SCIENT_AGENT_AUTH_BROKER_URL (or `auth.broker.url`/`auth.broker.token` in config.yml). It probes the same credentials the gateway would serve.",
 		);
 	}
 

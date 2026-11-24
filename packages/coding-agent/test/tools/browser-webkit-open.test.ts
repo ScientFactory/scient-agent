@@ -102,12 +102,12 @@ function stubChromium() {
 	return preflight;
 }
 
-describe("browser.open on omp's WebKit host", () => {
+describe("browser.open on Scient Agent's WebKit host", () => {
 	it("opens each tab as one block of a single host and seeds its identity once, per session", async () => {
 		const host = await useFakeHost();
 		const sessionA = makeSession("session-a");
 		const text = await open(sessionA, "wk-a1");
-		expect(text).toStartWith('Opened tab "wk-a1" on omp\'s headless WebKit browser');
+		expect(text).toStartWith('Opened tab "wk-a1" on Scient Agent\'s headless WebKit browser');
 		// The host reports its views as not shown; that is not the Tern "not on screen" situation.
 		expect(text).not.toContain("Not on screen");
 		await open(sessionA, "wk-a2");
@@ -143,7 +143,7 @@ describe("browser.open on omp's WebKit host", () => {
 		const host = await useFakeHost(mode);
 		const preflight = stubChromium();
 		const text = await open(makeSession("session-fallback"), "wk-fallback");
-		expect(text).toStartWith('Opened tab "wk-fallback" on omp\'s headless Chromium');
+		expect(text).toStartWith('Opened tab "wk-fallback" on Scient Agent\'s headless Chromium');
 		expect(text).toContain("opened Chromium instead");
 		expect(text).toContain(reason);
 		// The driver is shared with Tern; nothing a WebKit tab reports may call the backend Tern.
@@ -201,15 +201,15 @@ describe("browser.open on omp's WebKit host", () => {
 		}
 	});
 
-	it("opens omp's WebKit browser when Tern, chosen automatically, cannot show one", async () => {
+	it("opens Scient Agent's WebKit browser when Tern, chosen automatically, cannot show one", async () => {
 		const host = await useFakeHost();
 		// A Tern pane whose daemon is gone.
 		process.env.TERN_PANE_SOCKET = `${host.dir}/no-tern.sock`;
 		process.env.TERN_PANE = "3";
 		const text = await open(makeSession("session-tern"), "wk-after-tern");
-		expect(text).toStartWith('Opened tab "wk-after-tern" on omp\'s headless WebKit browser');
+		expect(text).toStartWith('Opened tab "wk-after-tern" on Scient Agent\'s headless WebKit browser');
 		expect(text).toContain("Tern cannot show a browser here");
-		expect(text).toContain("opened omp's WebKit browser instead");
+		expect(text).toContain("opened Scient Agent's WebKit browser instead");
 	});
 
 	it("goes on to Chromium when neither Tern nor the WebKit host can open the tab", async () => {
@@ -218,11 +218,11 @@ describe("browser.open on omp's WebKit host", () => {
 		process.env.TERN_PANE_SOCKET = `${host.dir}/no-tern.sock`;
 		process.env.TERN_PANE = "3";
 		const text = await open(makeSession("session-chain"), "wk-chain");
-		expect(text).toStartWith('Opened tab "wk-chain" on omp\'s headless Chromium');
+		expect(text).toStartWith('Opened tab "wk-chain" on Scient Agent\'s headless Chromium');
 		// Both notes say where the tab ended up, not where the first fallback meant to go.
 		expect(text).toMatch(/Tern cannot show a browser here \(.*\); opened Chromium instead/);
 		expect(text).toMatch(
-			/omp's WebKit browser could not take this open \(.*exited with code 3.*\); opened Chromium instead/,
+			/Scient Agent's WebKit browser could not take this open \(.*exited with code 3.*\); opened Chromium instead/,
 		);
 	});
 

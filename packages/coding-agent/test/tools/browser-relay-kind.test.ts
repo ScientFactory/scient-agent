@@ -116,13 +116,13 @@ describe("browser prelude relay guidance", () => {
 				settings: {},
 				env: { TERN_PANE_SOCKET: "/tmp/tern.sock", TERN_PANE: "1" },
 				kind: "tern",
-				says: "omp's own Tern picture-in-picture instead",
+				says: "Scient Agent's own Tern picture-in-picture instead",
 			},
 			{
 				settings: {},
 				env: { CMUX_SOCKET_PATH: "/tmp/cmux.sock" },
 				kind: "cmux",
-				says: "omp's own cmux browser surface instead",
+				says: "Scient Agent's own cmux browser surface instead",
 			},
 		];
 		for (const { settings, env, kind, says } of cases) {
@@ -228,7 +228,7 @@ describe("relay-only sessions (SCIENT_AGENT_BROWSER_RELAY=only)", () => {
 	it("refuses any other app", () => {
 		for (const app of ["auto", "own", "http://127.0.0.1:9222"]) {
 			expect(() => resolveBrowserKind({ action: "open", app }, sessionAt(0), only)).toThrow(
-				"This session drives the user's Chrome through the omp extension and has no other browser",
+				"This session drives the user's Chrome through the Scient Agent extension and has no other browser",
 			);
 		}
 	});

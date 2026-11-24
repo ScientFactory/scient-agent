@@ -581,7 +581,7 @@ export class RpcPanelSession implements PanelSession {
 		try {
 			this.#applyFrame(frame);
 		} catch (error) {
-			console.warn("omp panel: failed to apply rpc frame", frame.type, error);
+			console.warn("Scient Agent panel: failed to apply rpc frame", frame.type, error);
 		}
 	}
 
@@ -830,7 +830,7 @@ export class RpcPanelSession implements PanelSession {
 	#endExited(exited: NonNullable<RpcSessionInfo["exited"]>): void {
 		const tail = exited.stderr.trim().split("\n").slice(-3).join("\n");
 		const code = exited.code === null ? "a signal" : `code ${exited.code}`;
-		this.#end(tail ? `omp exited with ${code}: ${tail}` : `omp exited with ${code}`);
+		this.#end(tail ? `Scient Agent exited with ${code}: ${tail}` : `Scient Agent exited with ${code}`);
 	}
 
 	#end(reason: string): void {

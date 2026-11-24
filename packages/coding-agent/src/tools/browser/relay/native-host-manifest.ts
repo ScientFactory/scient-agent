@@ -72,7 +72,7 @@ function resolveHost(options: RelayNativeHostOptions): {
 function manifestText(launcher: string, extensionIds: readonly string[]): string {
 	const manifest = {
 		name: NATIVE_HOST,
-		description: "omp browser native messaging host",
+		description: "Scient Agent browser native messaging host",
 		path: launcher,
 		type: "stdio",
 		allowed_origins: [...new Set(extensionIds)].sort().map(id => `chrome-extension://${id}/`),
@@ -108,7 +108,7 @@ export async function registerRelayNativeHost(extensionIds: readonly string[]): 
 	if (process.platform !== "win32" || !manifest) return;
 	const result = await $`reg.exe add ${CHROME_REGISTRY_KEY} /ve /t REG_SZ /d ${manifest} /f`.quiet().nothrow();
 	if (result.exitCode !== 0) {
-		throw new Error(`Could not register the omp native messaging host: ${result.stderr.toString().trim()}`);
+		throw new Error(`Could not register the Scient Agent native messaging host: ${result.stderr.toString().trim()}`);
 	}
 }
 

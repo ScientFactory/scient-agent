@@ -255,7 +255,7 @@ export function Editor(props: EditorProps): ReactNode {
 				className="pn-editor"
 				role="textbox"
 				aria-multiline="true"
-				aria-label="Message omp"
+				aria-label="Message Scient Agent"
 				aria-disabled={props.disabled}
 				contentEditable={props.disabled ? false : "plaintext-only"}
 				suppressContentEditableWarning

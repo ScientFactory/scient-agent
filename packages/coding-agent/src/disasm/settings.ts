@@ -50,7 +50,7 @@ export const cfgDisasmMaxOpen = register({
 		group: "Disassembler",
 		label: "Max Open Databases",
 		description:
-			"Most databases open at once per project (each is a disasm unit in omp ps, labelled with its backend and binary); opening another evicts an unreferenced idle one. Close retained dsm handles when done",
+			"Most databases open at once per project (each is a disasm unit in scient-agent ps, labelled with its backend and binary); opening another evicts an unreferenced idle one. Close retained dsm handles when done",
 		options: [
 			{ value: "2", label: "2" },
 			{ value: "4", label: "4" },

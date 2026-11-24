@@ -813,13 +813,13 @@ export const cfgComputerTakeover = register({
 				value: "foreground",
 				label: "Foreground",
 				description:
-					"omp, never the agent, decides: take over input to a window already in front of you, and a call whose background route is unavailable; stay in the background otherwise",
+					"Scient Agent, never the agent, decides: take over input to a window already in front of you, and a call whose background route is unavailable; stay in the background otherwise",
 			},
 			{
 				value: "always",
 				label: "Always",
 				description:
-					"omp, never the agent, decides: take over every window and element input call, bringing the target forward for that call and then returning focus to your app",
+					"Scient Agent, never the agent, decides: take over every window and element input call, bringing the target forward for that call and then returning focus to your app",
 			},
 			{
 				value: "refuse",
@@ -961,7 +961,7 @@ export const cfgSecurityEnabled = register({
 		group: "Available Tools",
 		label: "Security",
 		description:
-			"Enable OMP-native security scan planning, execution, and the read-only security:// resource namespace",
+			"Enable Scient Agent-native security scan planning, execution, and the read-only security:// resource namespace",
 	},
 });
 

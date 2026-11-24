@@ -652,7 +652,7 @@ export const cfgTuiMouse = register({
 		label: "Mouse Click-to-Focus",
 		get description() {
 			const shift = formatKeyHint("shift");
-			return `Capture mouse clicks in the main session so live subagent cards and HUD rows focus on click, with a hover highlight on the target, and clicks on extension-owned links reach their extension (the link-hint key picks them without the mouse). Native text selection becomes ${shift}+drag while on, and mouse capture stops wheel scrolling — the terminal reports wheel ticks to omp instead — so scroll with the terminal's keyboard scrollback keys, or turn this off`;
+			return `Capture mouse clicks in the main session so live subagent cards and HUD rows focus on click, with a hover highlight on the target, and clicks on extension-owned links reach their extension (the link-hint key picks them without the mouse). Native text selection becomes ${shift}+drag while on, and mouse capture stops wheel scrolling — the terminal reports wheel ticks to Scient Agent instead — so scroll with the terminal's keyboard scrollback keys, or turn this off`;
 		},
 	},
 });
@@ -1292,7 +1292,7 @@ export const cfgStartupCheckUpdate = register({
 		tab: "interaction",
 		group: "Startup & Updates",
 		label: "Check for Updates",
-		description: "Check for omp updates on startup",
+		description: "Check for Scient Agent updates on startup",
 	},
 });
 
@@ -1305,7 +1305,7 @@ export const cfgUpdateChannel = register({
 		tab: "interaction",
 		group: "Startup & Updates",
 		label: "Update Channel",
-		description: "Update channel used by omp update and the startup update check",
+		description: "Update channel used by scient-agent update and the startup update check",
 		options: [
 			{ value: "stable", label: "Stable" },
 			{ value: "canary", label: "Canary" },
@@ -1327,7 +1327,7 @@ export const cfgUpdateAuto = register({
 		tab: "interaction",
 		group: "Startup & Updates",
 		label: "Auto Update",
-		description: "Install omp updates in the background on startup; the next launch runs the new version",
+		description: "Install Scient Agent updates in the background on startup; the next launch runs the new version",
 	},
 });
 

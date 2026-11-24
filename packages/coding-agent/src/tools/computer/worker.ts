@@ -761,7 +761,7 @@ async function sendInput(
 	const mode = context.snapshot.takeover;
 	if (takeover !== undefined && !modelChoosesTakeover(mode)) {
 		throw new ToolError(
-			`${method} with takeover: ${takeover}: the user's computer.takeover setting is "${mode}", under which omp decides when input takes over; nothing was sent. Call it without takeover.`,
+			`${method} with takeover: ${takeover}: the user's computer.takeover setting is "${mode}", under which Scient Agent decides when input takes over; nothing was sent. Call it without takeover.`,
 		);
 	}
 	if (takeover === undefined && (await takesOver(session, context, target))) {

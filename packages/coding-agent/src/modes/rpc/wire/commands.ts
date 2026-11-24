@@ -268,7 +268,7 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	},
 	{
 		name: "get_model_picker",
-		doc: "Model picker rows ordered and ranked as omp's session model picker shows them; a query starting with `@` lists quick roles.",
+		doc: "Model picker rows ordered and ranked as Scient Agent's session model picker shows them; a query starting with `@` lists quick roles.",
 		params: {
 			"query?": doc("string", "Search text; blank browses every model, `provider/` limits matches to a provider."),
 			"limit?": doc("number.integer", "Most rows to return; default 100."),
@@ -278,7 +278,7 @@ export const rpcCommands: readonly RpcCommandSpec[] = [
 	{
 		name: "set_thinking_level",
 		doc: "Set the thinking level.",
-		params: { level: doc("ConfiguredThinkingLevel", "`auto` lets omp pick the effort per turn.") },
+		params: { level: doc("ConfiguredThinkingLevel", "`auto` lets Scient Agent pick the effort per turn.") },
 	},
 	{
 		name: "cycle_thinking_level",

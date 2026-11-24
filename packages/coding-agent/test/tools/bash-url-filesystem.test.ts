@@ -139,7 +139,7 @@ describe("bash internal URLs through the shell filesystem", () => {
 		expect(text).toContain("skill://nope/tool.js\nlocal://12.log; local://data.txt is the evidence\n");
 	});
 
-	it.skipIf(process.platform === "win32")("hands omp every URL as written, selectors included", async () => {
+	it.skipIf(process.platform === "win32")("hands Scient Agent every URL as written, selectors included", async () => {
 		const script = path.join(tempDir, "argv.js");
 		await fs.writeFile(script, "console.log(process.argv.slice(2).join('\\n'));\n");
 		await fs.mkdir(localRoot, { recursive: true });
@@ -152,7 +152,9 @@ describe("bash internal URLs through the shell filesystem", () => {
 			},
 		);
 
-		const { text, isError } = await run(`PATH="$PWD:$PATH" omp read local://data.txt:1-1 --from=local://data.txt`);
+		const { text, isError } = await run(
+			`PATH="$PWD:$PATH" scient-agent read local://data.txt:1-1 --from=local://data.txt`,
+		);
 
 		expect(isError).toBeUndefined();
 		expect(text).toContain("read\nlocal://data.txt:1-1\n--from=local://data.txt\n");

@@ -1362,7 +1362,7 @@ export class UiHelpers {
 	showNewVersionNotification(newVersion: string): void {
 		const title = "Update Available";
 		const prefix = `New version ${newVersion} is available. Run: `;
-		const command = "omp update";
+		const command = "scient-agent update";
 		const native = noticeRow(
 			"info",
 			[

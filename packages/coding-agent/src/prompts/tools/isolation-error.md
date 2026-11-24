@@ -4,7 +4,7 @@ Merge failed: {{message}}{{#if captureError}}; patch capture failed: {{captureEr
 The agent's commits are preserved on branch {{rescueBranch}} — merge or cherry-pick it manually.
 {{/if}}
 {{#if retainedDir}}
-Isolation workspace retained at {{retainedDir}} — recover the changes from it; `omp worktree clear` reclaims it once this session has exited.
+Isolation workspace retained at {{retainedDir}} — recover the changes from it; `scient-agent worktree clear` reclaims it once this session has exited.
 {{#if sidecarMissing}}
 Its mount metadata is missing, so unmount {{retainedDir}} manually before clearing.
 {{/if}}
@@ -12,14 +12,14 @@ Its mount metadata is missing, so unmount {{retainedDir}} manually before cleari
 {{/when}}
 {{#when kind "==" "patch-capture-failed"}}
 Patch capture failed: {{message}}.
-Isolation workspace retained at {{retainedDir}} — recover the changes from it; `omp worktree clear` reclaims it once this session has exited.
+Isolation workspace retained at {{retainedDir}} — recover the changes from it; `scient-agent worktree clear` reclaims it once this session has exited.
 {{#if sidecarMissing}}
 Its mount metadata is missing, so unmount {{retainedDir}} manually before clearing.
 {{/if}}
 {{/when}}
 {{#when kind "==" "nested-capture-failed"}}
 Nested patch capture failed: {{message}}.
-Isolation workspace retained at {{retainedDir}} — recover the changes from it; `omp worktree clear` reclaims it once this session has exited.
+Isolation workspace retained at {{retainedDir}} — recover the changes from it; `scient-agent worktree clear` reclaims it once this session has exited.
 {{#if sidecarMissing}}
 Its mount metadata is missing, so unmount {{retainedDir}} manually before clearing.
 {{/if}}

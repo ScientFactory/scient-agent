@@ -144,7 +144,7 @@ function replyAfter(session: PanelSession, from: number): Promise<string> {
 			// The turn's entries can land a beat after `working` clears; wait for them.
 			if (text !== "") finish(() => resolve(text));
 		};
-		const timer = window.setTimeout(() => finish(() => reject(new Error("omp did not answer in time"))), 300_000);
+		const timer = window.setTimeout(() => finish(() => reject(new Error("Scient Agent did not answer in time"))), 300_000);
 		const unsubscribe = session.subscribe(check);
 	});
 }
@@ -220,7 +220,7 @@ function SecondaryTab(props: { session: RpcSessionInfo; onOpen(): void }): React
 				<div className="pn-empty-tile">
 					<OmpMark size={22} />
 				</div>
-				<div className="pn-secondary-title">omp is working in another tab</div>
+				<div className="pn-secondary-title">Scient Agent is working in another tab</div>
 				<div className="pn-secondary-name">{props.session.title}</div>
 				<button type="button" className="sh-btn sh-btn-primary pn-btn pn-btn--open" onClick={props.onOpen}>
 					Open chat
@@ -572,7 +572,7 @@ export function App({ worker, windowId }: { worker: WorkerClient; windowId: numb
 				const tabIds = [...new Set([...(before?.tabIds ?? []), ...promptTabIds])];
 				updateConversation(target.id, { tabIds, groupId: before?.groupId });
 				if (tabIds.length > 0) {
-					const groupTitle = `omp · ${target.getSnapshot().state?.sessionName ?? target.title}`;
+					const groupTitle = `Scient Agent · ${target.getSnapshot().state?.sessionName ?? target.title}`;
 					worker.request("groupTabs", { tabIds, title: groupTitle, groupId: before?.groupId }).then(
 						({ groupId }) => updateConversation(target.id, { tabIds, groupId }),
 						error => notify("warning", `Couldn’t group the conversation’s tabs: ${errorText(error)}`),
@@ -809,7 +809,7 @@ export function App({ worker, windowId }: { worker: WorkerClient; windowId: numb
 			return {
 				key: `exit-${session.id}`,
 				tone: "error",
-				message: `omp exited${exited.code === null ? "" : ` (code ${exited.code})`}${detail === "" ? "." : `: ${detail}`}`,
+				message: `Scient Agent exited${exited.code === null ? "" : ` (code ${exited.code})`}${detail === "" ? "." : `: ${detail}`}`,
 				action: { label: "New chat", run: () => show(null, null) },
 			};
 		}
@@ -939,7 +939,7 @@ export function App({ worker, windowId }: { worker: WorkerClient; windowId: numb
 				onOpenRpc={openRpc}
 				onNewIn={cwd => {
 					startRpc(cwd, basename(cwd), activeTab === null ? [] : [activeTab.tabId]).catch(error =>
-						setStrip({ tone: "error", message: `Couldn’t start omp in ${cwd}: ${errorText(error)}` }),
+						setStrip({ tone: "error", message: `Couldn’t start Scient Agent in ${cwd}: ${errorText(error)}` }),
 					);
 				}}
 				onNewChat={newChat}

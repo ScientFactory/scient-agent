@@ -75,7 +75,7 @@ function closedByExitRecovery(persisted: Message[]): Message[] {
 	return [...persisted, ...createInterruptedToolResults(branch), abort];
 }
 
-describe("AgentSession.restoreInterruptedTurn (omp --restore)", () => {
+describe("AgentSession.restoreInterruptedTurn (scient-agent --restore)", () => {
 	let tempDir: TempDir;
 	let authStorage: AuthStorage;
 	let modelRegistry: ModelRegistry;
@@ -228,7 +228,7 @@ describe("AgentSession.restoreInterruptedTurn (omp --restore)", () => {
 		await session.waitForIdle();
 
 		expect(replayedText()).toContain("bg_1");
-		expect(replayedText()).toContain("Previous OMP process exited");
+		expect(replayedText()).toContain("Previous Scient Agent process exited");
 		expect(replayedText()).toContain("outcome is unknown");
 		expect(replayedText()).toContain("verify before rerunning");
 		expect(replayedText()).not.toContain("Nothing to wait for");

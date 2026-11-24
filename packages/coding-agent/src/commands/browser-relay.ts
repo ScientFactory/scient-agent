@@ -31,8 +31,8 @@ export default class BrowserRelay extends Command {
 	};
 
 	static examples = [
-		"omp browser-relay install    # install the omp extension, register it in Chrome and add its native host",
-		"omp browser-relay sync       # sync every registered extension directory",
+		"scient-agent browser-relay install    # install the Scient Agent extension, register it in Chrome and add its native host",
+		"scient-agent browser-relay sync       # sync every registered extension directory",
 	];
 
 	async run(): Promise<void> {

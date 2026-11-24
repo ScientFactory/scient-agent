@@ -48,7 +48,7 @@ afterEach(async () => {
 });
 
 describe("browser relay install registry", () => {
-	it("uses the same registry path across omp profiles", () => {
+	it("uses the same registry path across Scient Agent profiles", () => {
 		const previous = getActiveProfile();
 		try {
 			setProfile(undefined);
@@ -276,7 +276,7 @@ describe("Chrome native host install", () => {
 			for (const target of targets) {
 				expect(await Bun.file(target).json()).toEqual({
 					name: "com.scientfactory.agent.browser",
-					description: "omp browser native messaging host",
+					description: "Scient Agent browser native messaging host",
 					path: path.join(dir, platform === "win32" ? "native-host.cmd" : "native-host"),
 					type: "stdio",
 					allowed_origins: [
@@ -292,7 +292,7 @@ describe("Chrome native host install", () => {
 		"execs a source launcher with quoted arguments and discards Chrome's transport arguments",
 		async () => {
 			const dir = home.join("relay");
-			const source = home.join("omp's launcher.ts");
+			const source = home.join("Scient Agent's launcher.ts");
 			await Bun.write(source, "process.stdout.write(JSON.stringify(process.argv.slice(2)));\n");
 			await writeRelayNativeHost([], {
 				platform: "linux",
@@ -310,7 +310,7 @@ describe("Chrome native host install", () => {
 it.skipIf(process.platform === "win32")(
 	"invokes the verified new executable to sync and does not fail the update on a nonzero sync exit",
 	async () => {
-		const launcher = home.join("new omp launcher");
+		const launcher = home.join("new Scient Agent launcher");
 		await Bun.write(launcher, '#!/bin/sh\nprintf "%s\\n" "$@" > "$0.args"\nexit 7\n');
 		await fs.chmod(launcher, 0o700);
 		await syncRelayAfterVerifiedUpdate(launcher);

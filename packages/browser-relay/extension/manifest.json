@@ -1,8 +1,8 @@
 {
 	"manifest_version": 3,
-	"name": "omp",
+	"name": "Scient Agent",
 	"version": "0.2.0",
-	"description": "omp in Chrome: a side panel for omp sessions that drive your real tabs through the local omp relay.",
+	"description": "Scient Agent in Chrome: a side panel for Scient Agent sessions that drive your real tabs through the local Scient Agent relay.",
 	"author": "Stencil Labs, Inc.",
 	"homepage_url": "https://omp.sh",
 	"minimum_chrome_version": "120",
@@ -28,7 +28,7 @@
 		"default_path": "panel.html"
 	},
 	"action": {
-		"default_title": "omp",
+		"default_title": "Scient Agent",
 		"default_icon": {
 			"16": "icons/omp-16.png",
 			"32": "icons/omp-32.png",
@@ -44,7 +44,7 @@
 	},
 	"commands": {
 		"toggle-side-panel": {
-			"description": "Open omp",
+			"description": "Open Scient Agent",
 			"suggested_key": {
 				"default": "Ctrl+E",
 				"mac": "Command+E"

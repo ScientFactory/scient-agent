@@ -74,7 +74,7 @@ class AgentMesh {
 			return Promise.resolve({
 				to: address,
 				outcome: "failed",
-				error: `No omp instance with pid ${to.pid} in this project.`,
+				error: `No Scient Agent instance with pid ${to.pid} in this project.`,
 			});
 		}
 		const id = crypto.randomUUID();

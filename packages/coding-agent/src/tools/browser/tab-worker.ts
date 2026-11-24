@@ -1320,7 +1320,7 @@ class PageSessionLostError extends ToolError {
 		readonly closed: boolean,
 	) {
 		super(
-			`omp lost its connection to this tab's page (${reason}) ${when === "during" ? "during this call" : "before this call, so its code did not run"}`,
+			`Scient Agent lost its connection to this tab's page (${reason}) ${when === "during" ? "during this call" : "before this call, so its code did not run"}`,
 		);
 	}
 }
@@ -1333,7 +1333,7 @@ class DebuggerDetachedError extends ToolError {
 		readonly when: "during" | "before",
 	) {
 		super(
-			`Chrome detached omp from this tab (${reason}) ${when === "during" ? "during this call" : "before this call, so its code did not run"}`,
+			`Chrome detached Scient Agent from this tab (${reason}) ${when === "during" ? "during this call" : "before this call, so its code did not run"}`,
 		);
 	}
 }
@@ -2065,7 +2065,9 @@ export class WorkerCore {
 		const run = this.#started ? this.#unanswered : null;
 		if (!run) return;
 		this.#unanswered = null;
-		run.ac.abort(postmortem.markExpectedCleanupError(new ToolAbortError("Chrome detached omp from this tab")));
+		run.ac.abort(
+			postmortem.markExpectedCleanupError(new ToolAbortError("Chrome detached Scient Agent from this tab")),
+		);
 		const error = new DebuggerDetachedError(reason, run.codeStarted ? "during" : "before");
 		this.#sendResult({ id: run.id, ok: false, error: errorPayload(error) });
 	};
@@ -2741,7 +2743,7 @@ export class WorkerCore {
 	#refuseOnRelay(helper: string, domain: string): void {
 		if (!this.#relay) return;
 		throw new ToolError(
-			`${helper} is not supported through the omp browser relay: Chrome's extension debugger API gives it no ${domain} domain. Open the page in omp's own browser (app: "chromium") to use it.`,
+			`${helper} is not supported through the Scient Agent browser relay: Chrome's extension debugger API gives it no ${domain} domain. Open the page in Scient Agent's own browser (app: "chromium") to use it.`,
 		);
 	}
 

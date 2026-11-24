@@ -46,7 +46,7 @@ export function loadRelayExtension(): Promise<RelayExtensionBundle> {
 				.catch((error: unknown) => {
 					if (!isEnoent(error)) throw error;
 					throw new Error(
-						`This omp checkout has not built the omp extension (${GENERATED_EXTENSION} is missing). Run \`bun run gen:relay-extension\` at the repository root.`,
+						`This Scient Agent checkout has not built the Scient Agent extension (${GENERATED_EXTENSION} is missing). Run \`bun run gen:relay-extension\` at the repository root.`,
 					);
 				});
 	loading = pending;
@@ -75,7 +75,7 @@ export async function relayExtensionFiles(
 	const manifest = assets["manifest.json"];
 	const script = assets["background.js"];
 	if (typeof manifest !== "string" || typeof script !== "string")
-		throw new Error("The omp extension lacks manifest.json or background.js");
+		throw new Error("The Scient Agent extension lacks manifest.json or background.js");
 	const files: ExtensionFiles = {
 		"manifest.json": stampRelayExtensionManifest(manifest, ompVersion),
 		"background.js": stampRelayExtensionScript(script, ompVersion, build),

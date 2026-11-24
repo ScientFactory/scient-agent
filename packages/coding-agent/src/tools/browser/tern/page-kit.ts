@@ -1137,7 +1137,7 @@ Object.defineProperty(globalThis, "__ompTernKit", { value: kit, configurable: tr
 
 // Page-side frame announcement, plain JS under the same rules as KIT_BODY.
 const FRAME_ANNOUNCE_BODY = String.raw`
-// Child frames announce their index path so omp can address them by name.
+// Child frames announce their index path so Scient Agent can address them by name.
 if (window !== window.parent) {
 	const path = [];
 	try {

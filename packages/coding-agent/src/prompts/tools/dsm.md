@@ -13,7 +13,7 @@ The `dsm` object exists in JavaScript and Python Eval; it is not a standalone to
 - Every `open` or `get` owns one independent reference. `close()` releases only that reference; the final release closes the database. Child close/disposal cannot close another owner's live reference.
 - `db.handle()` returns a printable reference bound to this live database incarnation. Pass that exact string in a child's task/context; the child MUST `await dsm.open(handle)` and close its returned handle in `finally`. Keep the parent's reference until the children finish.
 - Portable handles work from any project on the same machine, even when a child's cwd/worktree differs. The selected backend must match; an expired handle never creates or reopens a database.
-- Databases appear in `omp ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references are saved/released on session disposal or conversation/backend change; resumable children retain theirs until explicit close or disposal.
+- Databases appear in `scient-agent ps` labelled `<Backend label> <ref>` (`IDA …`, `Ghidra …`, `Binary Ninja …`); unit ids are UUIDs. Owner references are saved/released on session disposal or conversation/backend change; resumable children retain theirs until explicit close or disposal.
 - Handles expose `id`, `backend`, `ref`, `path`, and `info`. Closed references require another `dsm.open(path or handle)` or `dsm.get(id)`.
 
 JavaScript:
@@ -71,5 +71,5 @@ await db.close(save=True)
 - Binary Ninja exec code MUST wait with `wait_analysis()`; NEVER call `bv.update_analysis_and_wait()` (cannot be interrupted) or `bv.abort_analysis()` (permanently degrades the open database).
 - Dirty databases autosave after ~10 s idle; `save()` forces it. `close()` requests saving by default; the final release honors any owner's save request. Unsaved changes are discarded only if every released reference chose `save: false`.
 - An `exec` counts as a possible edit: a saving close after one can rewrite the database file even when the code only read. Close with `save: false` after read-only work on a file that must stay byte-identical.
-- Orderly `omp ps stop` saves; a crash, forced kill, or unresponsive timeout loses changes since the last save.
+- Orderly `scient-agent ps stop` saves; a crash, forced kill, or unresponsive timeout loses changes since the last save.
 </critical>

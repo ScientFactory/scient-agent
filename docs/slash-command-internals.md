@@ -36,7 +36,7 @@ The capability registry loads enabled providers in parallel, consumes their resu
 
 Current slash-command providers and priorities:
 
-1. `native` (OMP) — priority `100`
+1. `native` (Scient Agent) — priority `100`
 2. `omp-plugins` (extension packages) — priority `90`
 3. `claude` — priority `80`
 4. `claude-plugins` — priority `70`
@@ -120,11 +120,11 @@ Both sides are loaded then flattened in user-first order, so **user OpenCode com
 
 ## `claude-plugins` provider (`claude-plugins.ts`)
 
-Loads roots via `listClaudePluginRoots(...)`, which reads the active Claude config directory's `plugins/installed_plugins.json`, the active OMP plugins directory's `installed_plugins.json` (profile/XDG-aware), and the nearest project `.scient-agent/plugins/installed_plugins.json`. Claude-origin user roots require `claude` or `claude-plugins` user opt-in; OMP and explicit local roots do not. Disabled registry entries and Claude `enabledPlugins: false` entries are excluded.
+Loads roots via `listClaudePluginRoots(...)`, which reads the active Claude config directory's `plugins/installed_plugins.json`, the active Scient Agent plugins directory's `installed_plugins.json` (profile/XDG-aware), and the nearest project `.scient-agent/plugins/installed_plugins.json`. Claude-origin user roots require `claude` or `claude-plugins` user opt-in; Scient Agent and explicit local roots do not. Disabled registry entries and Claude `enabledPlugins: false` entries are excluded.
 
 For each root it normally scans `<pluginRoot>/commands/*.md`. Manifest `commands`/`slash-commands` entries can instead select directories or individual Markdown files; the first populated key wins. Command names are prefixed with the plugin name when one is present: `<plugin>:<command>`.
 
-Across the three registries, roots are merged by precedence rather than sorted: `--plugin-dir` injected roots come first, then project-scoped entries (which shadow user entries for the same plugin id), then user entries, with the OMP registry authoritative over Claude's for the same plugin id. Within each registry, per-plugin entry order from the JSON data is preserved; there is no additional sort step.
+Across the three registries, roots are merged by precedence rather than sorted: `--plugin-dir` injected roots come first, then project-scoped entries (which shadow user entries for the same plugin id), then user entries, with the Scient Agent registry authoritative over Claude's for the same plugin id. Within each registry, per-plugin entry order from the JSON data is preserved; there is no additional sort step.
 
 ## `agents` provider (`agents.ts`)
 
@@ -188,7 +188,7 @@ Slash command state is refreshed:
 - when the editor component is swapped
 - by explicit plugin reload flows such as `/reload-plugins`
 - when session command-metadata notifications arrive, including live settings changes, skill management, and MCP prompt updates (autocomplete rebuilds from current session state)
-- after `/wt` ran a new worktree's `post-checkout` hook (linked git worktree or ovnfs checkout): once the move and `worktree.cleanSource` are done and reported, `/wt` runs the hook with the arguments `git worktree add` gives it (`vcs.runPostCheckoutHook`, the helper behind `omp worktree add`) and then refreshes session skills/commands, so they include what the hook added. A failing hook keeps the worktree and shows a warning; the hook cannot be cancelled. An ovnfs checkout has its own git dir without `hooks/`: only a hook found through `core.hooksPath` runs there, not one in the source repo's `.git/hooks`
+- after `/wt` ran a new worktree's `post-checkout` hook (linked git worktree or ovnfs checkout): once the move and `worktree.cleanSource` are done and reported, `/wt` runs the hook with the arguments `git worktree add` gives it (`vcs.runPostCheckoutHook`, the helper behind `scient-agent worktree add`) and then refreshes session skills/commands, so they include what the hook added. A failing hook keeps the worktree and shows a warning; the hook cannot be cancelled. An ovnfs checkout has its own git dir without `hooks/`: only a hook found through `core.hooksPath` runs there, not one in the source repo's `.git/hooks`
 
 There is no continuous file watcher for command directories.
 
@@ -305,7 +305,7 @@ TUI and ACP/RPC dispatch the shared built-in registry before `session.prompt(...
 - Invalid slash command items (missing name/path/content or invalid level) are dropped by capability validation.
 - Frontmatter parse failures:
    - items explicitly marked `level: "native"` and bundled templates: fatal parse error bubbles
-   - discovered user/project commands (including the native OMP provider): warning + fallback key/value parse
+   - discovered user/project commands (including the native Scient Agent provider): warning + fallback key/value parse
 - Extension/custom command handler exceptions are caught and reported via extension error channel (or logger fallback for custom commands without extension runner), and treated as handled (no unintended fallback execution).
 
 ## 10) Built-in command note: `/pause`
@@ -554,11 +554,11 @@ The schema applies only to structured runs: `task.structured` on, or `structured
 
 1. nearest project `.scient-agent/agents/*.md`
 2. user `~/.scient-agent/agent/agents/*.md`
-3. `agents/` of enabled OMP extension packages
+3. `agents/` of enabled Scient Agent extension packages
 4. Claude marketplace plugin agents
 5. the bundled `reviewer`
 
-Item 4 applies only with the `claude-plugins` provider enabled. User-scope roots from the foreign `~/.claude/plugins` tree also need the `claude` or `claude-plugins` user source. Claude-dialect plugin agents (foreign Claude roots and packages whose manifest declares the Claude format) drop their frontmatter `model`. OMP-native and Agent-Plugins-standard packages keep it. For a Claude-dialect `reviewer`, set `task.agentModelOverrides.reviewer` instead.
+Item 4 applies only with the `claude-plugins` provider enabled. User-scope roots from the foreign `~/.claude/plugins` tree also need the `claude` or `claude-plugins` user source. Claude-dialect plugin agents (foreign Claude roots and packages whose manifest declares the Claude format) drop their frontmatter `model`. Scient Agent-native and Agent-Plugins-standard packages keep it. For a Claude-dialect `reviewer`, set `task.agentModelOverrides.reviewer` instead.
 
 The name comes from the frontmatter, not the file name. The replacement is the whole definition. Nothing merges with the bundled file, so restate `tools`, `spawns`, `model`, and `output` if the replacement needs them. To change only the model, set `task.agentModelOverrides.reviewer` instead. See [filesystem and plugin discovery](./task-agent-discovery.md#filesystem-and-plugin-discovery) and [merge and collision rules](./task-agent-discovery.md#merge-and-collision-rules).
 

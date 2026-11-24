@@ -305,7 +305,11 @@ describe.skipIf(!runtime)("Binary Ninja worker", () => {
 			});
 			expect(worker.needsSave).toBe(true);
 			expect(
-				await worker.request<{ ea: string }>("comment", { target: "omp_kept", text: "omp note", repeatable: true }),
+				await worker.request<{ ea: string }>("comment", {
+					target: "omp_kept",
+					text: "Scient Agent note",
+					repeatable: true,
+				}),
 			).toEqual({ ea: `0x${edited[0]}` });
 			const prototype = { target: "omp_kept", decl: "int omp_kept(int a, char *b);" };
 			expect(await worker.request<SetTypeResult>("set_type", prototype)).toEqual({
@@ -352,7 +356,7 @@ describe.skipIf(!runtime)("Binary Ninja worker", () => {
 			expect(failed.value).toBeNull();
 			expect(failed.error).toContain("RuntimeError: boom");
 			expect((await exec(worker, "[name for _, name in functions('^omp_')], func('omp_kept').comment")).value).toBe(
-				"(['omp_kept'], 'omp note')",
+				"(['omp_kept'], 'Scient Agent note')",
 			);
 
 			// An interrupt ends the running exec with the interrupt error, reverts it, and the worker carries on.
@@ -389,7 +393,7 @@ describe.skipIf(!runtime)("Binary Ninja worker", () => {
 					`func(0x${inside}).start == 0x${inside}`,
 				].join(", "),
 			);
-			expect(persisted.value).toBe(`('omp note', 'uint32_t', '0x${dataStart}', True)`);
+			expect(persisted.value).toBe(`('Scient Agent note', 'uint32_t', '0x${dataStart}', True)`);
 			// A name Binary Ninja generated has no symbol and no cached IL after a reopen; it still opens both ways.
 			const cold = await view(worker, "pseudocode", untouched[1]);
 			expect(cold).toStartWith(`// ${untouched[1]} @ 0x${untouched[0]}-0x`);

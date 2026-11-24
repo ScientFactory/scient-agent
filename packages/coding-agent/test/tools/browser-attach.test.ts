@@ -965,7 +965,7 @@ describe("pickElectronTarget", () => {
 
 				const exit = await rejectionOf(prelude.invoke({ action: "run", name, code: END_WORKER }, context));
 				expect(exit instanceof Error ? exit.message : String(exit)).toContain(
-					"the tab's page closed with it, so omp is opening a new page for the tab on a new worker",
+					"the tab's page closed with it, so Scient Agent is opening a new page for the tab on a new worker",
 				);
 				const after = await prelude.invoke(
 					{
@@ -990,7 +990,7 @@ describe("pickElectronTarget", () => {
 
 	// Launches real headless Chromium; skipped where Chrome's system libraries are absent.
 	test.skipIf(!CHROMIUM_AVAILABLE)(
-		"releases a connection-scoped tab whose page closed outside omp instead of re-creating it",
+		"releases a connection-scoped tab whose page closed outside Scient Agent instead of re-creating it",
 		async () => {
 			const launched = sharedHeadless;
 			if (!launched || !("browser" in launched)) throw new Error("Expected a shared Puppeteer browser");
@@ -1011,7 +1011,9 @@ describe("pickElectronTarget", () => {
 				const error = await rejectionOf(
 					prelude.invoke({ action: "run", name, code: "return await tab.evaluate(() => 1);" }, context),
 				);
-				expect(error instanceof Error ? error.message : String(error)).toContain("page closed outside omp");
+				expect(error instanceof Error ? error.message : String(error)).toContain(
+					"page closed outside Scient Agent",
+				);
 				expect(listTabs().map(tab => tab.name)).not.toContain(name);
 				expect((await launched.browser.pages()).some(candidate => candidate.url() === url)).toBe(false);
 			} finally {

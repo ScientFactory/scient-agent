@@ -360,9 +360,9 @@ describe("rpc panel session", () => {
 			sessions: [{ ...INFO, exited: { code: 1, stderr: "boom\nfatal: no provider\n" } }],
 		});
 		expect(session.getSnapshot()).toMatchObject({ phase: "ended", working: false });
-		expect(session.getSnapshot().endedReason).toBe("omp exited with code 1: boom\nfatal: no provider");
-		await expect(models).rejects.toThrow("omp exited with code 1");
-		await expect(session.abort()).rejects.toThrow("omp exited");
+		expect(session.getSnapshot().endedReason).toBe("Scient Agent exited with code 1: boom\nfatal: no provider");
+		await expect(models).rejects.toThrow("Scient Agent exited with code 1");
+		await expect(session.abort()).rejects.toThrow("Scient Agent exited");
 
 		session.close();
 		expect(worker.closed).toEqual(["s1"]);

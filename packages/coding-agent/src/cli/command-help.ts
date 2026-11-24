@@ -1,7 +1,7 @@
 import type { CommandMetadata } from "@oh-my-pi/pi-utils/cli";
 
 export const acpHelp = {
-	description: "Run omp as an ACP (Agent Client Protocol) server over stdio",
+	description: "Run Scient Agent as an ACP (Agent Client Protocol) server over stdio",
 } satisfies CommandMetadata;
 
 export const agentsHelp = { description: "Manage bundled task agents" } satisfies CommandMetadata;
@@ -16,7 +16,7 @@ export const authHelp = {
 } satisfies CommandMetadata;
 
 export const authBrokerHelp = {
-	description: "Manage the omp auth-broker (credential vault)",
+	description: "Manage the Scient Agent auth-broker (credential vault)",
 } satisfies CommandMetadata;
 
 export const authGatewayHelp = {
@@ -31,7 +31,7 @@ export const benchHelp = {
 
 /** Root help description for managing omp's Chrome extension and relay. */
 export const browserRelayHelp = {
-	description: "Install or sync the omp Chrome extension; its native host serves the browser relay",
+	description: "Install or sync the Scient Agent Chrome extension; its native host serves the browser relay",
 } satisfies CommandMetadata;
 
 export const cleanseHelp = {
@@ -133,7 +133,7 @@ export const searchHelp = { description: "Test web search providers" } satisfies
 
 export const sessionHelp = {
 	description:
-		"Hand a session to another machine (pack, unpack, moved) or check which sessions a running omp owns (lease)",
+		"Hand a session to another machine (pack, unpack, moved) or check which sessions a running Scient Agent owns (lease)",
 } satisfies CommandMetadata;
 
 export const shareHelp = {
@@ -175,7 +175,7 @@ export const sshHelp = { description: "Manage SSH host configurations" } satisfi
 export const statsHelp = { description: "View usage statistics" } satisfies CommandMetadata;
 
 export const streamHelp = {
-	description: "Broadcast local omp session screens and chat to your public live channel",
+	description: "Broadcast local scient-agent session screens and chat to your public live channel",
 } satisfies CommandMetadata;
 
 export const tinyModelsHelp = {

@@ -97,14 +97,14 @@ function Connection({ relay }: { relay: RelayStatus | null }): ReactNode {
 			</div>
 			{relay !== null && !relay.connected && relay.hostError !== undefined && (
 				<p className="pn-set-note">
-					omp native host unavailable: {relay.hostError} If it is not installed, run{" "}
-					<code>omp browser-relay install</code>.
+					Scient Agent native host unavailable: {relay.hostError} If it is not installed, run{" "}
+					<code>scient-agent browser-relay install</code>.
 				</p>
 			)}
 			{relay !== null && !relay.connected && relay.hostError === undefined && (
 				<p className="pn-set-note">
-					Still connecting? The omp native host may be missing: run{" "}
-					<code>omp browser-relay install</code>.
+					Still connecting? The Scient Agent native host may be missing: run{" "}
+					<code>scient-agent browser-relay install</code>.
 				</p>
 			)}
 		</Section>
@@ -219,7 +219,7 @@ function KeyboardSection(): ReactNode {
 	return (
 		<Section title="Keyboard">
 			<div className="pn-set-row">
-				<span>Open omp</span>
+				<span>Open Scient Agent</span>
 				<span className="pn-set-row-end">
 					{binding === null ? null : binding === "" ? (
 						<span className="pn-set-hint">Not set</span>
@@ -295,7 +295,7 @@ function Installs({
 							running !== undefined &&
 							install.version !== null &&
 							install.version !== running && (
-								<span className="pn-set-hint">Reloads when omp is idle</span>
+								<span className="pn-set-hint">Reloads when Scient Agent is idle</span>
 							)}
 					</span>
 					<span className="pn-mono pn-set-version">
@@ -305,7 +305,7 @@ function Installs({
 			))}
 			{installs !== null && installs.length === 0 && (
 				<p className="pn-set-note">
-					No folders registered. Run <code>omp browser-relay install</code> to
+					No folders registered. Run <code>scient-agent browser-relay install</code> to
 					register this one.
 				</p>
 			)}
@@ -348,7 +348,7 @@ export function SettingsSheet(props: {
 						label="New chats"
 						value={settings.newChat}
 						options={[
-							{ value: "attach", label: "Attach to newest omp" },
+							{ value: "attach", label: "Attach to newest Scient Agent" },
 							{ value: "panel", label: "New panel session" },
 						]}
 						onChange={(newChat) => update({ newChat })}
@@ -383,7 +383,7 @@ export function SettingsSheet(props: {
 				</div>
 				<ToggleRow
 					label="Page overlay"
-					hint="Working tag, Stop and Open omp on the page"
+					hint="Working tag, Stop and Open Scient Agent on the page"
 					checked={settings.overlay.enabled}
 					onChange={(enabled) => overlay({ enabled })}
 				/>

@@ -942,7 +942,7 @@ describe("RPC form dialog", () => {
 	});
 
 	it.each([
-		["omp's timer fires", 5, undefined],
+		["Scient Agent's timer fires", 5, undefined],
 		["the host reports its own timeout", undefined, { cancelled: true, timedOut: true }],
 	])("submits the form's defaults when %s", async (_case, timeout, response) => {
 		const pendingRequests = new Map<string, PendingExtensionRequest>();
@@ -1038,7 +1038,7 @@ describe("RPC ask dialog", () => {
 	});
 
 	it.each([
-		["omp's timer fires", 5, undefined],
+		["Scient Agent's timer fires", 5, undefined],
 		["the host reports its own timeout", undefined, { cancelled: true, timedOut: true }],
 	])("answers every question with its recommended option when %s", async (_case, timeout, response) => {
 		const pendingRequests = new Map<string, PendingExtensionRequest>();

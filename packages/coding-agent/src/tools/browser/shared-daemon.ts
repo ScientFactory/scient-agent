@@ -193,7 +193,7 @@ export async function ensureSharedBrowser(opts: {
 		// start restores the stale session; the claim holder starts Chrome instead.
 		if (!claim) {
 			throw new ToolError(
-				`Shared browser daemon unavailable: ${reason ? `${reason}, and ` : ""}another omp process held the shared browser profile while starting Chrome. \`omp ps\` lists the ${name} unit.`,
+				`Shared browser daemon unavailable: ${reason ? `${reason}, and ` : ""}another Scient Agent process held the shared browser profile while starting Chrome. \`scient-agent ps\` lists the ${name} unit.`,
 			);
 		}
 		await seedOwnedProfilePreferences(userDataDir);
@@ -208,7 +208,7 @@ export async function ensureSharedBrowser(opts: {
 		);
 		if (typeof started !== "string") return started;
 		throw new ToolError(
-			`Shared browser daemon unavailable: ${reason ? `${reason}; its replacement failed: ` : ""}${started}. \`omp ps\` lists the ${name} unit.`,
+			`Shared browser daemon unavailable: ${reason ? `${reason}; its replacement failed: ` : ""}${started}. \`scient-agent ps\` lists the ${name} unit.`,
 		);
 	} finally {
 		claim?.release();
@@ -307,7 +307,7 @@ export async function restartSharedBrowser(unit: UnitSnapshot, signal?: AbortSig
 	const userDataDir = sharedBrowserProfileDir(unit.scope.dir, unit.key);
 	const client = await daemonClient();
 	const claim = await claimProfile(userDataDir, signal);
-	if (!claim) throw new Error(`${unit.key} is being started by another omp process; try again shortly`);
+	if (!claim) throw new Error(`${unit.key} is being started by another Scient Agent process; try again shortly`);
 	try {
 		const stopped = (await client.request({ op: "stop", unit: unit.id, timeoutMs: STOP_TIMEOUT_MS }, signal)).unit;
 		if (isLiveUnit(stopped)) {

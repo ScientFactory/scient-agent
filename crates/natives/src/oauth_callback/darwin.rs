@@ -189,7 +189,7 @@ fn info_plist(context: &Context) -> String {
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>omp OAuth Callback</string>
+	<string>Scient Agent OAuth Callback</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -202,7 +202,7 @@ fn info_plist(context: &Context) -> String {
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>CFBundleURLName</key>
-			<string>omp OAuth Callback</string>
+			<string>Scient Agent OAuth Callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array><string>{}</string></array>
 		</dict>
@@ -411,11 +411,14 @@ fn remove_own_registration(
 		 &after,
 		 ApplicationState::Found { bundle_id, .. } if bundle_id == &snapshot.bundle_id
 	) {
-		bail!("macOS still resolves {} URLs to the temporary omp application", context.scheme);
+		bail!(
+			"macOS still resolves {} URLs to the temporary Scient Agent application",
+			context.scheme
+		);
 	}
 	if !same_application(&after, expected_handler) {
 		bail!(
-			"the external {} URL handler changed while removing the omp application",
+			"the external {} URL handler changed while removing the Scient Agent application",
 			context.scheme
 		);
 	}
@@ -525,7 +528,7 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 	let expected_after = match &before {
 		ApplicationState::Found { app_path, bundle_id } if bundle_id == &record.bundle_id => {
 			if app_path != &record.app_path {
-				bail!("legacy omp callback bundle resolves to an unexpected application path");
+				bail!("legacy Scient Agent callback bundle resolves to an unexpected application path");
 			}
 			if record.previous_handler.is_empty() {
 				unregister_application(context, &record.app_path)?;
@@ -534,7 +537,7 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 					 &after,
 					 ApplicationState::Found { bundle_id, .. } if bundle_id == &record.bundle_id
 				) {
-					bail!("macOS still uses the legacy omp callback application");
+					bail!("macOS still uses the legacy Scient Agent callback application");
 				}
 				after
 			} else {
@@ -556,13 +559,13 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 				unregister_application(context, &record.app_path)?;
 				let after = query_scheme(context, &record.scheme)?;
 				if !same_application(&after, &restored) {
-					bail!("legacy URL handler changed while unregistering the omp application");
+					bail!("legacy URL handler changed while unregistering the Scient Agent application");
 				}
 				after
 			}
 		},
 		ApplicationState::Found { bundle_id, .. } if bundle_id.starts_with(BUNDLE_PREFIX) => {
-			bail!("an unrelated omp callback application owns the legacy URL scheme")
+			bail!("an unrelated Scient Agent callback application owns the legacy URL scheme")
 		},
 		ApplicationState::Absent | ApplicationState::Found { .. } => {
 			unregister_application(context, &record.app_path)?;
@@ -579,7 +582,7 @@ fn recover_legacy_registration(context: &Context) -> Result<()> {
 		 &expected_after,
 		 ApplicationState::Found { bundle_id, .. } if bundle_id == &record.bundle_id
 	) {
-		bail!("macOS still resolves the legacy omp callback application");
+		bail!("macOS still resolves the legacy Scient Agent callback application");
 	}
 	match fs::remove_dir_all(&record.app_path) {
 		Ok(()) => {},
@@ -613,7 +616,8 @@ pub(super) fn prepare(context: &Context) -> Result<Snapshot> {
 			&& bundle_id.starts_with(BUNDLE_PREFIX)
 		{
 			bail!(
-				"stale omp callback handler {bundle_id} has no recovery journal; remove it and retry"
+				"stale Scient Agent callback handler {bundle_id} has no recovery journal; remove it \
+				 and retry"
 			);
 		}
 		// scient(SA-ROOT): begin - Never take over Oh My Pi's sign-in helper.
@@ -683,7 +687,7 @@ pub(super) fn restore(context: &Context, snapshot: &Snapshot) -> Result<()> {
 	let own_active = match &active {
 		ApplicationState::Found { app_path, bundle_id } if bundle_id == &snapshot.bundle_id => {
 			if app_path != &snapshot.app_path {
-				bail!("active omp callback bundle has an unexpected application path");
+				bail!("active Scient Agent callback bundle has an unexpected application path");
 			}
 			true
 		},
@@ -733,7 +737,7 @@ pub(super) fn restore(context: &Context, snapshot: &Snapshot) -> Result<()> {
 					 &after,
 					 ApplicationState::Found { bundle_id, .. } if bundle_id == &snapshot.bundle_id
 				) {
-					bail!("macOS still resolves URLs to the temporary omp application");
+					bail!("macOS still resolves URLs to the temporary Scient Agent application");
 				}
 				remove_transaction_applications(context, snapshot)
 			},

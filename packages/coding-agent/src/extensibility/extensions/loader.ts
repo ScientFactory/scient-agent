@@ -377,7 +377,7 @@ class ConcreteExtensionAPI implements ExtensionAPI, IExtensionRuntime {
 			);
 		}
 		if (id === NATIVE_TODO_BACKEND) {
-			throw new Error(`Todo backend id "${id}" is reserved for omp's own todo list`);
+			throw new Error(`Todo backend id "${id}" is reserved for Scient Agent's own todo list`);
 		}
 		for (const field of ["label", "description"] as const) {
 			const text = definition[field];

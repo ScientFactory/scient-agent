@@ -8,5 +8,5 @@ import cliNotices from "../../THIRD-PARTY-NOTICES.txt" with { type: "text" };
  */
 export function formatLicenseOutput(): string {
 	const sections = [license, cliNotices, nativesNotices].map(text => text.trimEnd());
-	return `OMP License and Third-Party Notices\n\n${sections.join("\n\n")}\n`;
+	return `Scient Agent License and Third-Party Notices\n\n${sections.join("\n\n")}\n`;
 }

@@ -23,7 +23,7 @@ const LABEL_EXIT_MS = 150;
 const LABEL_ENTER_DELAY_MS = 210;
 const LABEL_ENTER_MS = 250;
 
-const STOP_FAILED = "Stop didn’t reach omp — open the panel";
+const STOP_FAILED = "Stop didn’t reach Scient Agent — open the panel";
 
 function button(className: string, label: string, ...children: (Node | string)[]): HTMLButtonElement {
 	const node = el("button", className, ...children);
@@ -94,14 +94,14 @@ export class Presence {
 		});
 		const stopGlyph = el("span", "stop-glyph");
 		stopGlyph.setAttribute("aria-hidden", "true");
-		this.#stop = button("stop", "Stop omp", stopGlyph, this.#stopText);
+		this.#stop = button("stop", "Stop Scient Agent", stopGlyph, this.#stopText);
 		this.#stop.addEventListener("click", () => this.#pressStop());
 		this.#live.append(this.#liveText);
 		this.#tag.setAttribute("role", "group");
 		this.#tag.setAttribute("aria-label", "omp");
 		this.#tag.append(
 			ompMark(),
-			el("span", "tag-label", el("span", "tag-title", "omp is working"), this.#live),
+			el("span", "tag-label", el("span", "tag-title", "Scient Agent is working"), this.#live),
 			this.#move,
 			this.#openButton(),
 			this.#stop,
@@ -111,9 +111,9 @@ export class Presence {
 		dot.setAttribute("aria-hidden", "true");
 		this.#ask.setAttribute("role", "group");
 		this.#ask.setAttribute("aria-label", "omp");
-		this.#ask.append(dot, "omp needs you", this.#openButton());
+		this.#ask.append(dot, "Scient Agent needs you", this.#openButton());
 
-		const open = button("", "Open omp", panelIcon(), el("span", "tip", "Open omp"));
+		const open = button("", "Open Scient Agent", panelIcon(), el("span", "tip", "Open Scient Agent"));
 		open.addEventListener("click", () => this.#emit("open"));
 		const dismiss = button("", "Dismiss", icon(svg("path", { d: "M4 4l8 8M12 4l-8 8" })), el("span", "tip", "Dismiss"));
 		dismiss.addEventListener("click", () => {
@@ -187,7 +187,7 @@ export class Presence {
 	}
 
 	#openButton(): HTMLButtonElement {
-		const open = button("open", "Open omp", "Open omp");
+		const open = button("open", "Open Scient Agent", "Open Scient Agent");
 		open.addEventListener("click", () => this.#emit("open"));
 		return open;
 	}
@@ -213,7 +213,7 @@ export class Presence {
 			lead.setAttribute("aria-hidden", "true");
 			this.#pillLead.classList.toggle("on", !working);
 			this.#pillLead.replaceChildren(lead);
-			this.#pillText.textContent = working ? "omp is working in this group" : "omp needs you in this group";
+			this.#pillText.textContent = working ? "Scient Agent is working in this group" : "Scient Agent needs you in this group";
 		}
 	}
 

@@ -38,7 +38,7 @@ export const cfgBrowserRelay = register({
 		group: "Grep & Browser",
 		label: "Browser Relay",
 		description:
-			'Drive your own Chrome tabs through the omp browser relay. Install the extension once (`omp browser-relay install`); its native host serves the relay while Chrome runs. Takes precedence over Browser CDP URL; set SCIENT_AGENT_BROWSER_RELAY=0 or SCIENT_AGENT_BROWSER_RELAY=1 to override, or SCIENT_AGENT_BROWSER_RELAY=only to make it the only browser (sessions started from the extension\'s side panel). Subagents skip it unless an open passes app: "relay" or the relay is the only browser.',
+			'Drive your own Chrome tabs through the Scient Agent browser relay. Install the extension once (`scient-agent browser-relay install`); its native host serves the relay while Chrome runs. Takes precedence over Browser CDP URL; set SCIENT_AGENT_BROWSER_RELAY=0 or SCIENT_AGENT_BROWSER_RELAY=1 to override, or SCIENT_AGENT_BROWSER_RELAY=only to make it the only browser (sessions started from the extension\'s side panel). Subagents skip it unless an open passes app: "relay" or the relay is the only browser.',
 	},
 });
 
@@ -64,7 +64,7 @@ export const cfgBrowserHeadless = register({
 		group: "Grep & Browser",
 		label: "Headless Browser",
 		description:
-			"Run the browser without a window (disable to show it). omp's WebKit tabs gain or lose their windows at once where the engine ships its viewer (macOS); elsewhere a visible browser is Chromium, launched in the new mode by the next open.",
+			"Run the browser without a window (disable to show it). Scient Agent's WebKit tabs gain or lose their windows at once where the engine ships its viewer (macOS); elsewhere a visible browser is Chromium, launched in the new mode by the next open.",
 	},
 });
 
@@ -90,7 +90,7 @@ export const cfgBrowserTern = register({
 		group: "Grep & Browser",
 		label: "Tern Browser",
 		description:
-			'Inside a Tern pane, open browser tabs as picture-in-pictures over omp\'s pane (native web view) instead of omp\'s own headless browser; falls back to that browser when no Tern window can host them. Subagents skip it unless an open passes app: "tern". An explicit app, the relay and Browser CDP URL take precedence; app "own" opts one open out. Set PI_BROWSER_TERN=0 or PI_BROWSER_TERN=1 to override.',
+			'Inside a Tern pane, open browser tabs as picture-in-pictures over Scient Agent\'s pane (native web view) instead of Scient Agent\'s own headless browser; falls back to that browser when no Tern window can host them. Subagents skip it unless an open passes app: "tern". An explicit app, the relay and Browser CDP URL take precedence; app "own" opts one open out. Set PI_BROWSER_TERN=0 or PI_BROWSER_TERN=1 to override.',
 	},
 });
 
@@ -103,7 +103,7 @@ export const cfgBrowserWebKit = register({
 		group: "Grep & Browser",
 		label: "WebKit Browser",
 		description:
-			'Open browser tabs in omp\'s own headless WebKit engine instead of managed Chromium when the engine is installed (omp downloads it to ~/.o2/lib/abkit before Chrome for Testing when no browser is installed; see Browser WebKit Path). Chromium still opens a visible browser where the engine ships no viewer, and tabs the engine fails to start; an explicit app, the relay, Browser CDP URL, Tern and cmux take precedence; app "chromium" opts one open out. Set PI_BROWSER_WEBKIT=0 or PI_BROWSER_WEBKIT=1 to override.',
+			'Open browser tabs in Scient Agent\'s own headless WebKit engine instead of managed Chromium when the engine is installed (Scient Agent downloads it to ~/.o2/lib/abkit before Chrome for Testing when no browser is installed; see Browser WebKit Path). Chromium still opens a visible browser where the engine ships no viewer, and tabs the engine fails to start; an explicit app, the relay, Browser CDP URL, Tern and cmux take precedence; app "chromium" opts one open out. Set PI_BROWSER_WEBKIT=0 or PI_BROWSER_WEBKIT=1 to override.',
 	},
 });
 
@@ -116,7 +116,7 @@ export const cfgBrowserWebKitPath = register({
 		group: "Grep & Browser",
 		label: "Browser WebKit Path",
 		description:
-			"omp's WebKit engine: its host executable, or an ABKit engine directory (which holds it as ABHost; ABHost.exe on Windows). If unset, omp runs the installed engine, ~/.o2/lib/abkit/ABHost (ABHost.exe on Windows). Supports ~. PI_BROWSER_WEBKIT_PATH overrides it.",
+			"Scient Agent's WebKit engine: its host executable, or an ABKit engine directory (which holds it as ABHost; ABHost.exe on Windows). If unset, Scient Agent runs the installed engine, ~/.o2/lib/abkit/ABHost (ABHost.exe on Windows). Supports ~. PI_BROWSER_WEBKIT_PATH overrides it.",
 	},
 });
 
@@ -129,7 +129,7 @@ export const cfgBrowserFreezeOnTurnEnd = register({
 		group: "Grep & Browser",
 		label: "Freeze Browser Tabs On Turn End",
 		description:
-			"Freeze OMP-owned headless Chromium tabs when a turn settles so animated pages stop burning CPU/GPU while idle (WebKit tabs draw nothing unless asked). Tabs unfreeze automatically on next use; pass persist:true on open to opt a tab out.",
+			"Freeze Scient Agent-owned headless Chromium tabs when a turn settles so animated pages stop burning CPU/GPU while idle (WebKit tabs draw nothing unless asked). Tabs unfreeze automatically on next use; pass persist:true on open to opt a tab out.",
 	},
 });
 
@@ -142,7 +142,7 @@ export const cfgBrowserIdleCloseSec = register({
 		group: "Grep & Browser",
 		label: "Browser Idle Close Timeout",
 		description:
-			"Close OMP-owned headless browser tabs and Tern browser picture-in-pictures idle longer than this many seconds (0 = never; session dispose still reaps). Never touches relay/CDP/spawned browsers or other sessions' tabs.",
+			"Close Scient Agent-owned headless browser tabs and Tern browser picture-in-pictures idle longer than this many seconds (0 = never; session dispose still reaps). Never touches relay/CDP/spawned browsers or other sessions' tabs.",
 		options: [
 			{ value: "0", label: "Never" },
 			{ value: "900", label: "15 minutes" },

@@ -82,7 +82,7 @@ export async function resolveUnit(client: DaemonClient, name: string, target: Ps
 	if (byId) return byId;
 	const matches = units.filter(unit => unit.key === name || unitName(unit) === name);
 	if (matches.length === 1) return matches[0];
-	if (matches.length === 0) throw new Error(`No unit named ${name}. Run \`omp ps --all\` to list units.`);
+	if (matches.length === 0) throw new Error(`No unit named ${name}. Run \`scient-agent ps --all\` to list units.`);
 	const projectDir = await targetProjectDir(target);
 	const preferred = matches.filter(unit => inView(unit, false, projectDir));
 	if (preferred.length === 1) return preferred[0];

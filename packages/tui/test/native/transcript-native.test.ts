@@ -786,7 +786,7 @@ describe("native transcript", () => {
 			}
 		});
 
-		it("strips control sequences from omp's own summary on a plain compact row", () => {
+		it("strips control sequences from Scient Agent's own summary on a plain compact row", () => {
 			// Regression guard: a bash command's escape sequence reaching the terminal through the compact head.
 			setTranscriptPresenters([block => (block.type === "toolCall" ? "compact" : undefined)]);
 			const tool = new ToolExecutionComponent("bash", { command: "echo \x1b[?1049hboom\tx" }, {}, undefined, ui);
@@ -998,7 +998,7 @@ describe("native transcript", () => {
 
 describe("background job output notice", () => {
 	it("draws one icon row natively with the full output lines beneath it", async () => {
-		const long = `02 INTERP: NOT RECORDED, omp quit resuming it (its screen, with --keep: ${"x".repeat(120)})`;
+		const long = `02 INTERP: NOT RECORDED, Scient Agent quit resuming it (its screen, with --keep: ${"x".repeat(120)})`;
 		const report = { id: "bg_5", type: "bash", pattern: "^\\d\\d ", lines: [long, "03 shell: 43 KB"] };
 		const block = buildAsyncNotifyBlock(
 			createCustomMessage(

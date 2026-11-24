@@ -462,7 +462,7 @@ describe("todo backend", () => {
 		expect(order).toEqual(["replace", "shutdown"]);
 	});
 
-	it("a backend that never answers holds dispose no longer than the session_shutdown budget, after which omp stops waiting for its call", async () => {
+	it("a backend that never answers holds dispose no longer than the session_shutdown budget, after which Scient Agent stops waiting for its call", async () => {
 		const backend = tracker();
 		const order: string[] = [];
 		const { session } = await open(

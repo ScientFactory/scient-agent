@@ -565,7 +565,9 @@ export class PsTopComponent implements Component {
 						text("No units", { role: "omp.app.empty-title" }),
 						text([
 							span(
-								this.#board?.daemon ? "The omp daemon runs nothing here. " : "The omp daemon is not running. ",
+								this.#board?.daemon
+									? "The Scient Agent daemon runs nothing here. "
+									: "The Scient Agent daemon is not running. ",
 								"muted",
 							),
 							span(this.#all ? "Nothing runs anywhere." : "Show every scope with ", "muted"),
@@ -670,7 +672,7 @@ export class PsTopComponent implements Component {
 
 	#header(width: number, title: string): string {
 		const age = this.#lastRefresh ? `updated ${formatDuration(Date.now() - this.#lastRefresh)} ago` : "updating…";
-		const left = ` ${chalk.bold("omp ps")} ${chalk.dim("·")} ${title}`;
+		const left = ` ${chalk.bold("scient-agent ps")} ${chalk.dim("·")} ${title}`;
 		const right = chalk.dim(age);
 		const pad = Math.max(1, width - Bun.stringWidth(left) - Bun.stringWidth(right) - 1);
 		return truncateToWidth(`${left}${" ".repeat(pad)}${right}`, width);

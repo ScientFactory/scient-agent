@@ -937,7 +937,7 @@ export function Composer(props: ComposerProps): ReactNode {
 						<button
 							type="button"
 							className="pn-stop"
-							aria-label="Stop omp"
+							aria-label="Stop Scient Agent"
 							data-tip="Stop"
 							data-tip-side="above"
 							onClick={props.onStop}

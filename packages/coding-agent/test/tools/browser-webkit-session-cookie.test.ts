@@ -46,7 +46,7 @@ afterAll(async () => {
 	server.stop(true);
 });
 
-describe.skipIf(!ENGINE_INSTALLED)("omp's WebKit browser on a plain-http site", () => {
+describe.skipIf(!ENGINE_INSTALLED)("Scient Agent's WebKit browser on a plain-http site", () => {
 	test("sends the session cookie a login answer set back with the next request", async () => {
 		const session: ToolSession = {
 			cwd: process.cwd(),

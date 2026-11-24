@@ -41,7 +41,7 @@ const MODELS_YML = `providers:
 
 const READ_CLI_URL = new URL("../src/cli/read-cli.ts", import.meta.url).href;
 
-describe("omp read <image>?q=", () => {
+describe("scient-agent read <image>?q=", () => {
 	it("resolves a vision model instead of failing with the registry guard", async () => {
 		const tempDir = TempDir.createSync("@pi-read-cli-imgq-");
 		try {

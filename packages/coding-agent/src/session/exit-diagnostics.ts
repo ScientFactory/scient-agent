@@ -345,7 +345,7 @@ export function createInterruptedToolResults(
 					text:
 						context === "fork"
 							? "The parent session may still be running this tool; its outcome is unknown."
-							: "Previous OMP process exited before this tool returned; its outcome is unknown.",
+							: "Previous Scient Agent process exited before this tool returned; its outcome is unknown.",
 				},
 			],
 			isError: true,
@@ -495,7 +495,7 @@ export function describePendingToolCalls(entries: readonly SessionEntry[]): stri
 	if (pending.length === 0) return undefined;
 	const formatted = pending.map(formatPendingToolCall).join(", ");
 	const noun = pending.length === 1 ? "tool call" : "tool calls";
-	return `Previous session ended while ${pending.length} ${noun} remained pending: ${formatted}. The prior OMP process exited before recording tool result(s).`;
+	return `Previous session ended while ${pending.length} ${noun} remained pending: ${formatted}. The prior Scient Agent process exited before recording tool result(s).`;
 }
 
 interface InterruptedBashJob {
@@ -589,7 +589,7 @@ export function restoreTerminatedBashJobs(
 		manager.publishFailed(
 			"bash",
 			job.label,
-			`Previous OMP process exited before background job ${job.id} delivered its final result; its outcome is unknown. Its subprocess may still be running or may have partially completed — verify before rerunning.`,
+			`Previous Scient Agent process exited before background job ${job.id} delivered its final result; its outcome is unknown. Its subprocess may still be running or may have partially completed — verify before rerunning.`,
 			{ id: job.id, ownerId },
 		);
 	}

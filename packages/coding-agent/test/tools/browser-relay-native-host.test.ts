@@ -292,7 +292,7 @@ describe("native host relay link", () => {
 		expect(await waitForRelayExtension(cdpUrl)).toBe("unreachable");
 	}, 20_000);
 
-	it("gives way only to a newer omp's restart, and then exits so Chrome starts the next host", async () => {
+	it("gives way only to a newer Scient Agent's restart, and then exits so Chrome starts the next host", async () => {
 		const port = await findFreeCdpPort();
 		const cdpUrl = `http://127.0.0.1:${port}`;
 		const host = await startHost(port);

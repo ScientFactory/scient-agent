@@ -105,7 +105,7 @@ class RoomUnit implements ModuleUnit {
 						receipt: {
 							to,
 							outcome: "failed",
-							error: `No omp instance with pid ${message.toPid} in this project.`,
+							error: `No Scient Agent instance with pid ${message.toPid} in this project.`,
 						},
 					});
 					return;

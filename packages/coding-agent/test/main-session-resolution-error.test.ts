@@ -117,7 +117,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 			).rejects.toMatchObject({
 				name: "SessionResolutionError",
 				message: 'Session "019ea530-0000-7000-0000-000000000000" not found.',
-				hint: expect.stringContaining("omp --resume"),
+				hint: expect.stringContaining("scient-agent --resume"),
 			});
 
 			// Confirm it's the exported class so `runRootCommand`'s `instanceof` check works.
@@ -148,7 +148,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 			).rejects.toMatchObject({
 				name: "SessionResolutionError",
 				message: `Session "${missingId}" not found.`,
-				hint: expect.stringContaining("omp --resume"),
+				hint: expect.stringContaining("scient-agent --resume"),
 			});
 		} finally {
 			await fsp.rm(cwd, { recursive: true, force: true });
@@ -170,7 +170,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 			).rejects.toMatchObject({
 				name: "SessionResolutionError",
 				message: `Session "${missingId}" not found.`,
-				hint: expect.stringContaining("omp --resume"),
+				hint: expect.stringContaining("scient-agent --resume"),
 			});
 		} finally {
 			await fsp.rm(cwd, { recursive: true, force: true });
@@ -189,7 +189,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 			).rejects.toMatchObject({
 				name: "SessionResolutionError",
 				message: 'Session "019ea530-0000-7000-0000-000000000000" not found.',
-				hint: expect.stringContaining("omp --resume"),
+				hint: expect.stringContaining("scient-agent --resume"),
 			});
 		} finally {
 			vi.restoreAllMocks();
@@ -328,7 +328,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 			).rejects.toMatchObject({
 				name: "SessionResolutionError",
 				message: `Session "${missingPath}" not found.`,
-				hint: expect.stringContaining("omp --resume"),
+				hint: expect.stringContaining("scient-agent --resume"),
 			});
 			await expect(fsp.readdir(sessionDir)).resolves.toEqual([]);
 		} finally {
@@ -401,7 +401,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 			).rejects.toMatchObject({
 				name: "SessionResolutionError",
 				message: `Session "${forkId}" not found.`,
-				hint: expect.stringContaining("omp --resume"),
+				hint: expect.stringContaining("scient-agent --resume"),
 			});
 			await expect(fsp.readdir(sessionDir)).resolves.toEqual([]);
 		} finally {
@@ -422,7 +422,7 @@ describe("createSessionManager — missing session (#2084)", () => {
 			).rejects.toMatchObject({
 				name: "SessionResolutionError",
 				message: `Session "${enotdirChild}" not found.`,
-				hint: expect.stringContaining("omp --resume"),
+				hint: expect.stringContaining("scient-agent --resume"),
 			});
 			await expect(fsp.readdir(sessionDir)).resolves.toEqual([]);
 		} finally {

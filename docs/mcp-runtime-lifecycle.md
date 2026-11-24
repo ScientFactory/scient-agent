@@ -22,7 +22,7 @@ A session never spawns an MCP server, opens an HTTP connection to one, or perfor
 - **Headless/SDK**: awaits `discoverAndLoadMCPTools()`. Print mode then waits for every configured server to list tools or fail before its first prompt, bounded by `OMP_MCP_TIMEOUT_MS` (default 30 s; `0` waits indefinitely); `OMP_MCP_REQUIRE_READY=1` exits 1 instead of warning.
 - **Interactive** (`hasUI: true`): constructs `MCPManager` at once and runs `discoverAndConnect()` in the background. The first turn waits up to 1.5 s for it.
 
-Sessions that bind process state hold `holdSharedMcp(mcp.shared)` for their lifetime; that hold decides whether links attach to the daemon or to the in-process host. With no hold (embedders, tests, `omp read`) the in-process host is used.
+Sessions that bind process state hold `holdSharedMcp(mcp.shared)` for their lifetime; that hold decides whether links attach to the daemon or to the in-process host. With no hold (embedders, tests, `scient-agent read`) the in-process host is used.
 
 Discovery failures are isolated: a config discovery exception yields an empty tool set and one synthetic `.mcp.json` error; a failing server yields an entry in the `errors` map while the others continue.
 
