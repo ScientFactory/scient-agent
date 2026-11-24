@@ -4,7 +4,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { strict as assert } from "node:assert";
-import { RpcClient } from "../../packages/coding-agent/src/modes/rpc/rpc-client";
+import { ptree, readJsonl } from "@oh-my-pi/pi-utils";
+import type { RpcReadyFrame, RpcResponse } from "../../packages/coding-agent/src/modes/rpc/rpc-types";
+import { RpcClient, type RpcClientOptions } from "../../packages/coding-agent/src/modes/rpc/rpc-client";
 
 const candidate = process.argv[2];
 const previous = process.argv[3];
@@ -129,9 +131,10 @@ const env = {
 	NO_PROXY: "127.0.0.1,localhost,::1",
 };
 let active: RpcClient | undefined;
-const client = (binary: string, extra: string[] = []) =>
+const client = (binary: string, extra: string[] = [], spawn?: RpcClientOptions["spawn"]) =>
 	new RpcClient({
 		command: [binary],
+		spawn,
 		cwd,
 		env,
 		provider: "alignment-proof",
@@ -153,12 +156,33 @@ try {
 	await active.stop();
 	fs.cpSync(state, path.join(root, "pre-upgrade-state"), { recursive: true });
 	phase = "upgrade";
-	active = client(candidate, ["--session", oldState.sessionFile]);
+	// RpcClient keeps the negotiated version private. Keep a copy of this short session's wire exchange.
+	let handshake!: ReadableStream<Uint8Array>;
+	active = client(candidate, ["--session", oldState.sessionFile], args => {
+		const child = ptree.spawn([candidate, ...args], { cwd, env: { ...Bun.env, ...env }, stdin: "pipe" });
+		const [stdout, copy] = child.stdout.tee();
+		handshake = copy;
+		return {
+			stdin: child.stdin,
+			stdout,
+			exited: child.exited,
+			peekStderr: () => child.peekStderr(),
+			kill: (signal, graceMs) => child.kill(signal, graceMs),
+		};
+	});
 	await active.start();
 	assert.ok(JSON.stringify(await active.getMessages()).includes("OLD_SESSION_PROOF"));
 	await active.promptAndWait("Continue the restored session", undefined, 30000);
 	assert.ok(JSON.stringify(await active.getMessages()).includes("UPGRADED_SESSION_PROOF"));
 	await active.stop();
+	let negotiatedV2 = false;
+	for await (const frame of readJsonl<RpcReadyFrame | RpcResponse>(handshake)) {
+		if (frame.type === "ready")
+			assert.ok(frame.supportedProtocolVersions?.includes(2), "candidate ready frame must offer RPC v2");
+		if (frame.type === "response" && frame.command === "negotiate_protocol" && frame.success)
+			negotiatedV2 = frame.data.protocolVersion === 2;
+	}
+	assert.ok(negotiatedV2, "candidate must negotiate RPC v2");
 	// Verify only a clean pre-upgrade snapshot rollback, never claim reverse-schema migration.
 	phase = "rollback";
 	active = new RpcClient({
@@ -196,6 +220,7 @@ try {
 	console.log(
 		JSON.stringify({
 			passed: [
+				"candidate-rpc-v2-negotiation",
 				"old-session-resume-and-continue",
 				"pre-upgrade-snapshot-rollback",
 				"native-skill-text",
