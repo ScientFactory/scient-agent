@@ -283,6 +283,44 @@ jobs:
               path: release/
               if-no-files-found: error
 
+   # What a shipped Scient Desktop needs from this build, checked against the
+   # latest published release: RPC protocol v2, and the threads that release
+   # wrote resumed and continued. Version numbers carry no compatibility rule;
+   # this job is the rule, and a release waits for it.
+   compatibility:
+      name: Check compatibility with the latest release
+      needs: build
+      runs-on: ubuntu-22.04
+      timeout-minutes: 30
+      steps:
+         - uses: actions/checkout@v7
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: 1.4.4
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile --ignore-scripts
+
+         - uses: actions/download-artifact@v8
+           with:
+              name: scient-agent-linux-x64
+              path: candidate
+
+         - name: Download the latest published release
+           env:
+              GH_TOKEN: ${{ github.token }}
+           run: gh release download --repo "$GITHUB_REPOSITORY" --pattern scient-agent-linux-x64 --dir previous
+
+         - name: Check
+           run: |
+              candidate="$PWD/candidate/scient-agent-linux-x64"
+              previous="$PWD/previous/scient-agent-linux-x64"
+              chmod +x "$candidate" "$previous"
+              # Scient Desktop drives a release that names itself and offers RPC v2.
+              "$candidate" --runtime-info | bun -e 'const info = JSON.parse(await Bun.stdin.text()); if (info.product !== "scient-agent" || !info.rpcProtocolVersions.includes(2)) { console.error(info); process.exit(1); }'
+              bun scripts/scient/capability-check.ts "$candidate" "$previous"
+
    # Oh My Pi's own tests, run as its CI runs them, on Scient's tree: a change
    # Scient makes must not break what upstream's tests hold.
    natives-linux:
@@ -598,7 +636,7 @@ jobs:
       name: Draft release
       # Job conditions cannot read workflow env, so this repeats RELEASE.
       if: github.event_name == 'workflow_dispatch' && inputs.release
-      needs: [release-version, build, verify-macos, compress, divergence, upstream-tests]
+      needs: [release-version, build, verify-macos, compress, divergence, upstream-tests, compatibility]
       runs-on: ubuntu-24.04
       permissions:
          contents: write
@@ -698,7 +736,7 @@ jobs:
    passed:
       name: CI passed
       if: always()
-      needs: [release-version, build, natives-linux, upstream-tests, divergence, sign-macos, verify-macos, compress]
+      needs: [release-version, build, natives-linux, upstream-tests, divergence, sign-macos, verify-macos, compress, compatibility]
       runs-on: ubuntu-24.04
       timeout-minutes: 5
       steps:
