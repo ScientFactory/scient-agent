@@ -550,6 +550,19 @@
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/codex-plugins.test.ts test/scient/codex-plugins-oauth.test.ts test/scient/mcp-host-command.test.ts"
 			]
+		},
+		"SA-DAEMON-OPEN-LEASE": {
+			"status": "active",
+			"contract": "A daemon client whose connection closes while its open is still waiting for the unit to be created (its own creation or another client's) does not leave the unit pinned: the lease taken after disconnected() already ran is dropped as disconnected() would drop it, with the reconnect grace and the module's released() hook, and the closed connection keeps no lease record. Offered to Oh My Pi as can1357/oh-my-pi#20263. At the next alignment, retire this contract as upstreamed if Oh My Pi merged that fix, or replace it with Oh My Pi's own fix if it fixed this differently.",
+			"owned": [
+				"packages/coding-agent/test/scient/daemon-open-lease.test.ts"
+			],
+			"upstream": [
+				"packages/coding-agent/src/daemon/units.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/coding-agent test test/scient/daemon-open-lease.test.ts"
+			]
 		}
 	}
 }
