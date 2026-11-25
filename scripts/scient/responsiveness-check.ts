@@ -42,6 +42,19 @@ const STUB_MODELS = `providers:
         maxTokens: 1024
 `;
 
+/** `promise`'s value, or `fallback` once `ms` passed; the timer never outlives the race. */
+async function within<T, F>(promise: Promise<T>, ms: number, fallback: F): Promise<T | F> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<F>(resolve => (timer = setTimeout(() => resolve(fallback), ms))),
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 interface Launch {
 	readonly label: string;
 	readonly args: (home: string) => string[];
@@ -126,7 +139,7 @@ async function check(launch: Launch): Promise<string | undefined> {
 	});
 	const fail = (reason: string) => `${launch.label}: ${reason}\nstderr: ${stderr.slice(-800)}`;
 	try {
-		const isReady = await Promise.race([ready.promise, Bun.sleep(30_000).then(() => false)]);
+		const isReady = await within(ready.promise, 30_000, false);
 		const readyMs = performance.now() - started;
 		if (!isReady) return fail(exited ? "the agent exited before it was ready." : "no ready within 30 s.");
 		if (readyMs > MAX_READY_MS) return fail(`ready took ${Math.round(readyMs)} ms (at most ${MAX_READY_MS} ms).`);
@@ -137,7 +150,7 @@ async function check(launch: Launch): Promise<string | undefined> {
 			answers.set(id, reply.resolve);
 			const sent = performance.now();
 			child.stdin.write(`${JSON.stringify({ id, type: "get_state" })}\n`);
-			const frame = await Promise.race([reply.promise, Bun.sleep(30_000).then(() => undefined)]);
+			const frame = await within(reply.promise, 30_000, undefined);
 			const took = performance.now() - sent;
 			slowest = Math.max(slowest, took);
 			if (exited) return fail("the agent exited while it was being sampled.");
@@ -150,16 +163,32 @@ async function check(launch: Launch): Promise<string | undefined> {
 				);
 			await Bun.sleep(SAMPLE_EVERY_MS);
 		}
+		if (exited) return fail("the agent exited while it was being sampled.");
 		if (!/capability:(?:mcps|skills):codex-plugins:start/.test(stderr))
 			return fail("Codex plugin discovery never ran, so this check proved nothing.");
+		// On Windows the discovery asks Windows where Codex's policy is; that lookup must have run.
+		if (process.platform === "win32" && !stderr.includes("codex-plugins:windows-policy:start"))
+			return fail("the Windows policy lookup never ran, so this check proved nothing.");
+		child.stdin.end();
+		const code = await within(child.exited, 15_000, "running" as const);
+		if (code !== 0)
+			return fail(
+				code === "running" ? "the agent did not exit after stdin closed." : `the agent exited with code ${code}.`,
+			);
 		console.log(
 			`${launch.label}: ready in ${Math.round(readyMs)} ms; the slowest of ${SAMPLES} get_state answers took ${Math.round(slowest)} ms.`,
 		);
 		return undefined;
 	} finally {
 		child.stdin.end();
-		const ended = await Promise.race([child.exited.then(() => true), Bun.sleep(15_000).then(() => false)]);
-		if (!ended) child.kill("SIGKILL");
+		if (
+			!(await within(
+				child.exited.then(() => true),
+				15_000,
+				false,
+			))
+		)
+			child.kill("SIGKILL");
 		await child.exited;
 		await Promise.all([stdoutDone, stderrDone]);
 		fs.rmSync(scratch, { recursive: true, force: true });
