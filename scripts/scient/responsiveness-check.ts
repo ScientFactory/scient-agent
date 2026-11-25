@@ -167,8 +167,11 @@ async function check(launch: Launch): Promise<string | undefined> {
 		if (!/capability:(?:mcps|skills):codex-plugins:start/.test(stderr))
 			return fail("Codex plugin discovery never ran, so this check proved nothing.");
 		// On Windows the discovery asks Windows where Codex's policy is; that lookup must have run.
-		if (process.platform === "win32" && !stderr.includes("codex-plugins:windows-policy:start"))
+		if (process.platform === "win32" && !stderr.includes("codex-plugins:windows-policy:spawned"))
 			return fail("the Windows policy lookup never ran, so this check proved nothing.");
+		// The runners carry no Codex policy, so a working lookup answers; a broken one fails closed unseen.
+		if (process.platform === "win32" && !stderr.includes("codex-plugins:windows-policy:answered"))
+			return fail("the Windows policy lookup gave no usable answer.");
 		child.stdin.end();
 		const code = await within(child.exited, 15_000, "running" as const);
 		if (code !== 0)
