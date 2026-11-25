@@ -3,10 +3,11 @@
  * Checks that a built Scient Agent starts in time and keeps answering its host
  * while it starts, under the environment Scient Desktop launches it with:
  * Claude and Codex plugin sources on, and a Codex config present so plugin
- * discovery runs. It launches twice, as Desktop's runtime qualification does
- * (no skills, tools or session) and as a Desktop conversation does (skills on,
- * so their discovery runs before `ready`). Desktop gives up on an agent that
- * is not ready in time or stops answering.
+ * discovery runs. It launches twice in one home: first as Desktop's runtime
+ * qualification does (no skills, tools or session) in the fresh home, then as a
+ * Desktop conversation does (skills on, so their discovery runs before `ready`)
+ * in the home that first launch set up, as a user's conversations find it.
+ * Desktop gives up on an agent that is not ready in time or stops answering.
  *
  *   bun scripts/scient/responsiveness-check.ts <path-to-scient-agent>
  */
@@ -20,8 +21,6 @@ if (!executable || !fs.existsSync(executable)) {
 	process.exit(2);
 }
 
-/** Scient Desktop 0.6.34 waits this long for `ready`. */
-const MAX_READY_MS = 8_000;
 /** After `ready`: this many `get_state` requests, this far apart, each answered within the limit. */
 const SAMPLES = 24;
 const SAMPLE_EVERY_MS = 250;
@@ -58,19 +57,27 @@ async function within<T, F>(promise: Promise<T>, ms: number, fallback: F): Promi
 interface Launch {
 	readonly label: string;
 	readonly args: (home: string) => string[];
+	/** How long Scient Desktop waits for `ready` there. */
+	readonly maxReadyMs: number;
 }
 
 const LAUNCHES: Launch[] = [
 	{
 		label: "Desktop's runtime qualification",
 		args: () => ["--no-session", "--no-tools", "--no-extensions", "--no-skills", "--no-rules"],
+		// A first launch pays for unpacking the native addon and writing the model catalog.
+		maxReadyMs: 30_000,
 	},
-	{ label: "a Desktop conversation", args: home => ["--session-dir", path.join(home, "session")] },
+	{
+		label: "a Desktop conversation",
+		args: home => ["--session-dir", path.join(home, "session")],
+		// Scient Desktop 0.6.34's deadline.
+		maxReadyMs: 8_000,
+	},
 ];
 
-async function check(launch: Launch): Promise<string | undefined> {
-	const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "scient-agent-responsiveness-"));
-	const home = path.join(scratch, "home");
+/** Writes the Desktop-like home both launches share. */
+function prepareHome(home: string): void {
 	const agentDir = path.join(home, "scient-agent", "agent");
 	fs.mkdirSync(agentDir, { recursive: true });
 	fs.mkdirSync(path.join(home, "session"), { recursive: true });
@@ -83,6 +90,9 @@ async function check(launch: Launch): Promise<string | undefined> {
 	fs.writeFileSync(path.join(agentDir, "models.yml"), STUB_MODELS);
 	fs.mkdirSync(path.join(home, ".codex"), { recursive: true });
 	fs.writeFileSync(path.join(home, ".codex", "config.toml"), "[features]\nplugins = true\n");
+}
+
+async function check(launch: Launch, home: string): Promise<string | undefined> {
 	const env: Record<string, string> = {
 		PATH: process.env.PATH ?? "/usr/bin:/bin",
 		LANG: process.env.LANG ?? "en_US.UTF-8",
@@ -142,7 +152,8 @@ async function check(launch: Launch): Promise<string | undefined> {
 		const isReady = await within(ready.promise, 30_000, false);
 		const readyMs = performance.now() - started;
 		if (!isReady) return fail(exited ? "the agent exited before it was ready." : "no ready within 30 s.");
-		if (readyMs > MAX_READY_MS) return fail(`ready took ${Math.round(readyMs)} ms (at most ${MAX_READY_MS} ms).`);
+		if (readyMs > launch.maxReadyMs)
+			return fail(`ready took ${Math.round(readyMs)} ms (at most ${launch.maxReadyMs} ms).`);
 		let slowest = 0;
 		for (let sample = 0; sample < SAMPLES; sample++) {
 			const id = `state-${sample}`;
@@ -201,14 +212,20 @@ async function check(launch: Launch): Promise<string | undefined> {
 			child.kill("SIGKILL");
 		await child.exited;
 		await Promise.all([stdoutDone, stderrDone]);
-		fs.rmSync(scratch, { recursive: true, force: true });
 	}
 }
 
 const failures: string[] = [];
-for (const launch of LAUNCHES) {
-	const failure = await check(launch);
-	if (failure) failures.push(failure);
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "scient-agent-responsiveness-"));
+try {
+	const home = path.join(scratch, "home");
+	prepareHome(home);
+	for (const launch of LAUNCHES) {
+		const failure = await check(launch, home);
+		if (failure) failures.push(failure);
+	}
+} finally {
+	fs.rmSync(scratch, { recursive: true, force: true });
 }
 if (failures.length > 0) {
 	console.error(failures.join("\n\n"));
