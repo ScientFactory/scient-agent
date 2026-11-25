@@ -370,46 +370,57 @@ interface WindowsPolicyProbe {
 	requirementsPath: string | null;
 }
 
-let windowsProbe: WindowsPolicyProbe | null | undefined;
+let windowsProbe: Promise<WindowsPolicyProbe | null> | undefined;
+
+/** PowerShell can take half a minute to start on a cold machine; past this the policy is unreadable. */
+const WINDOWS_POLICY_PROBE_TIMEOUT_MS = 30_000;
 
 /**
  * What Codex reads from Windows itself to find its policy: the ProgramData known folder (not the
  * `ProgramData` variable anyone can set) and the 64-bit `HKLM\SOFTWARE\Policies\OpenAI\Codex`
  * `RequirementsPath`, through .NET's calls to the same system APIs; null when they cannot be read.
+ * The query runs asynchronously: a blocked event loop stops the agent answering its host.
  */
-function probeWindowsPolicy(): WindowsPolicyProbe | null {
-	if (windowsProbe !== undefined) return windowsProbe;
-	// Any error stops the script with no output, so only a lookup that succeeded reports no policy.
-	const script = [
-		"$ErrorActionPreference = 'Stop'",
-		"try { $key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64').OpenSubKey('SOFTWARE\\Policies\\OpenAI\\Codex')",
-		"$path = if ($key) { $key.GetValue('RequirementsPath') } else { $null }",
-		"$data = [Environment]::GetFolderPath('CommonApplicationData')",
-		"[Console]::Out.Write((@{ ok = $true; programData = $data; requirementsPath = $path } | ConvertTo-Json -Compress)) } catch { exit 1 }",
-	].join("; ");
-	let probe: unknown = null;
-	try {
-		const query = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
-			stdout: "pipe",
-			stderr: "ignore",
-		});
-		probe = query.exitCode === 0 ? JSON.parse(query.stdout.toString()) : null;
-	} catch {}
-	windowsProbe =
-		isRecord(probe) &&
-		probe.ok === true &&
-		typeof probe.programData === "string" &&
-		path.win32.isAbsolute(probe.programData) &&
-		(probe.requirementsPath == null || typeof probe.requirementsPath === "string")
+function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
+	windowsProbe ??= (async () => {
+		// Any error stops the script with no output, so only a lookup that succeeded reports no policy.
+		const script = [
+			"$ErrorActionPreference = 'Stop'",
+			"try { $key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64').OpenSubKey('SOFTWARE\\Policies\\OpenAI\\Codex')",
+			"$path = if ($key) { $key.GetValue('RequirementsPath') } else { $null }",
+			"$data = [Environment]::GetFolderPath('CommonApplicationData')",
+			"[Console]::Out.Write((@{ ok = $true; programData = $data; requirementsPath = $path } | ConvertTo-Json -Compress)) } catch { exit 1 }",
+		].join("; ");
+		let probe: unknown = null;
+		try {
+			const query = Bun.spawn(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
+				stdin: "ignore",
+				stdout: "pipe",
+				stderr: "ignore",
+			});
+			const timer = setTimeout(() => query.kill(), WINDOWS_POLICY_PROBE_TIMEOUT_MS);
+			try {
+				const [stdout, exitCode] = await Promise.all([new Response(query.stdout).text(), query.exited]);
+				probe = exitCode === 0 ? JSON.parse(stdout) : null;
+			} finally {
+				clearTimeout(timer);
+			}
+		} catch {}
+		return isRecord(probe) &&
+			probe.ok === true &&
+			typeof probe.programData === "string" &&
+			path.win32.isAbsolute(probe.programData) &&
+			(probe.requirementsPath == null || typeof probe.requirementsPath === "string")
 			? { programData: probe.programData, requirementsPath: (probe.requirementsPath as string | null) ?? null }
 			: null;
+	})();
 	return windowsProbe;
 }
 
 /** Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in the ProgramData known folder on Windows. */
-function systemDir(): string {
+async function systemDir(): Promise<string> {
 	if (!IS_WINDOWS) return "/etc/codex";
-	return path.join(probeWindowsPolicy()?.programData ?? "C:\\ProgramData", "OpenAI", "Codex");
+	return path.join((await probeWindowsPolicy())?.programData ?? "C:\\ProgramData", "OpenAI", "Codex");
 }
 
 /**
@@ -419,9 +430,9 @@ function systemDir(): string {
  * as Codex refuses to assume it absent.
  */
 async function managedPolicy(): Promise<string | undefined> {
-	const files = [path.join(systemDir(), "requirements.toml")];
+	const files = [path.join(await systemDir(), "requirements.toml")];
 	if (IS_WINDOWS) {
-		const probe = probeWindowsPolicy();
+		const probe = await probeWindowsPolicy();
 		if (probe === null) return "Windows cannot say where Codex's organization policy is";
 		if (probe.requirementsPath !== null) {
 			return `Codex is managed by an organization policy (Group Policy RequirementsPath ${probe.requirementsPath})`;
@@ -595,14 +606,15 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 		}
 		home = await fs.realpath(env.CODEX_HOME);
 	}
+	// Without a user config there is nothing to load, and the policy lookup can stay unrun.
+	const user = await readToml(path.join(home, "config.toml"), warnings);
+	if (user === null) return none(env);
 	const policy = await managedPolicy();
 	if (policy !== undefined) {
 		warnings.push(`[codex-plugins] ${policy}, which Scient Agent cannot apply; no Codex plugins load`);
 		return none(env);
 	}
-	const user = await readToml(path.join(home, "config.toml"), warnings);
-	if (user === null) return none(env);
-	const system = await readToml(path.join(systemDir(), "config.toml"), warnings);
+	const system = await readToml(path.join(await systemDir(), "config.toml"), warnings);
 	const merged = mergeLayers(system ?? {}, user);
 	// `[features] plugins = false` turns every plugin off in Codex.
 	if (isRecord(merged.features) && "plugins" in merged.features && merged.features.plugins !== true) {

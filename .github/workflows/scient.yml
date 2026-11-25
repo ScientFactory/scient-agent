@@ -265,6 +265,9 @@ jobs:
          - name: Check state isolation
            run: bun scripts/scient/isolation-check.ts "$BINARY"
 
+         - name: Check the agent answers while it starts under Desktop's environment
+           run: bun scripts/scient/responsiveness-check.ts "$BINARY"
+
          - name: Package
            run: |
               name="scient-agent-${{ matrix.id }}"
@@ -595,6 +598,9 @@ jobs:
 
          - name: Check state isolation
            run: bun scripts/scient/isolation-check.ts "$BINARY"
+
+         - name: Check the agent answers while it starts under Desktop's environment
+           run: bun scripts/scient/responsiveness-check.ts "$BINARY"
 
    # Each binary's zstd copy, about 40% of its size, which Scient Desktop
    # downloads first. Made from the bytes the release publishes (signed, for
