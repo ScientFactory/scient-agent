@@ -372,17 +372,22 @@ interface WindowsPolicyProbe {
 
 let windowsProbe: Promise<WindowsPolicyProbe | null> | undefined;
 
-/** PowerShell can take half a minute to start on a cold machine; past this the policy is unreadable. */
-const WINDOWS_POLICY_PROBE_TIMEOUT_MS = 30_000;
+/** A PowerShell that has not answered by then is killed. */
+const WINDOWS_POLICY_PROBE_TIMEOUT_MS = 60_000;
+/**
+ * How long one discovery waits for the probe. Skill discovery runs before the agent reports
+ * ready, and PowerShell can take half a minute to start on a cold machine.
+ */
+const WINDOWS_POLICY_WAIT_MS = 3_000;
 
 /**
  * What Codex reads from Windows itself to find its policy: the ProgramData known folder (not the
  * `ProgramData` variable anyone can set) and the 64-bit `HKLM\SOFTWARE\Policies\OpenAI\Codex`
  * `RequirementsPath`, through .NET's calls to the same system APIs; null when they cannot be read.
- * The query runs asynchronously: a blocked event loop stops the agent answering its host.
+ * One query runs at a time and never blocks the event loop; a failed one is asked again next time.
  */
 function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
-	windowsProbe ??= (async () => {
+	windowsProbe ??= (async (): Promise<WindowsPolicyProbe | null> => {
 		// Any error stops the script with no output, so only a lookup that succeeded reports no policy.
 		const script = [
 			"$ErrorActionPreference = 'Stop'",
@@ -397,14 +402,11 @@ function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
 				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "ignore",
+				timeout: WINDOWS_POLICY_PROBE_TIMEOUT_MS,
+				killSignal: "SIGKILL",
 			});
-			const timer = setTimeout(() => query.kill(), WINDOWS_POLICY_PROBE_TIMEOUT_MS);
-			try {
-				const [stdout, exitCode] = await Promise.all([new Response(query.stdout).text(), query.exited]);
-				probe = exitCode === 0 ? JSON.parse(stdout) : null;
-			} finally {
-				clearTimeout(timer);
-			}
+			const [stdout, exitCode] = await Promise.all([new Response(query.stdout).text(), query.exited]);
+			probe = exitCode === 0 ? JSON.parse(stdout) : null;
 		} catch {}
 		return isRecord(probe) &&
 			probe.ok === true &&
@@ -413,11 +415,30 @@ function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
 			(probe.requirementsPath == null || typeof probe.requirementsPath === "string")
 			? { programData: probe.programData, requirementsPath: (probe.requirementsPath as string | null) ?? null }
 			: null;
-	})();
+	})().then(result => {
+		if (result === null) windowsProbe = undefined;
+		return result;
+	});
 	return windowsProbe;
 }
 
-/** Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in the ProgramData known folder on Windows. */
+/** The probe's answer for one discovery, or "pending" while it has not answered within the wait. */
+async function windowsPolicyForDiscovery(): Promise<WindowsPolicyProbe | null | "pending"> {
+	let timer: NodeJS.Timeout | undefined;
+	const waited = new Promise<"pending">(resolve => {
+		timer = setTimeout(() => resolve("pending"), WINDOWS_POLICY_WAIT_MS);
+	});
+	try {
+		return await Promise.race([probeWindowsPolicy(), waited]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+/**
+ * Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in the ProgramData known folder on
+ * Windows. Read only after `managedPolicy` found the probe's answer.
+ */
 async function systemDir(): Promise<string> {
 	if (!IS_WINDOWS) return "/etc/codex";
 	return path.join((await probeWindowsPolicy())?.programData ?? "C:\\ProgramData", "OpenAI", "Codex");
@@ -430,6 +451,8 @@ async function systemDir(): Promise<string> {
  * as Codex refuses to assume it absent.
  */
 async function managedPolicy(): Promise<string | undefined> {
+	if (IS_WINDOWS && (await windowsPolicyForDiscovery()) === "pending")
+		return "Windows has not yet said where Codex's organization policy is";
 	const files = [path.join(await systemDir(), "requirements.toml")];
 	if (IS_WINDOWS) {
 		const probe = await probeWindowsPolicy();
