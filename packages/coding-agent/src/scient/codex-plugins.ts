@@ -394,29 +394,38 @@ function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
 			"try { $key = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64').OpenSubKey('SOFTWARE\\Policies\\OpenAI\\Codex')",
 			"$path = if ($key) { $key.GetValue('RequirementsPath') } else { $null }",
 			"$data = [Environment]::GetFolderPath('CommonApplicationData')",
-			"[Console]::Out.Write((@{ ok = $true; programData = $data; requirementsPath = $path } | ConvertTo-Json -Compress)) } catch { exit 1 }",
+			"$json = @{ ok = $true; programData = $data; requirementsPath = $path } | ConvertTo-Json -Compress",
+			// UTF-8 bytes, not the console's code page, which would garble a non-ASCII folder name.
+			"$bytes = [System.Text.Encoding]::UTF8.GetBytes($json); $out = [Console]::OpenStandardOutput(); $out.Write($bytes, 0, $bytes.Length); $out.Flush() } catch { exit 1 }",
 		].join("; ");
 		let probe: unknown = null;
-		let query: Bun.Subprocess<"ignore", "pipe", "ignore"> | undefined;
-		logger.startupMarker("codex-plugins:windows-policy:start");
 		try {
-			query = Bun.spawn(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
+			const query = Bun.spawn(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
 				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "ignore",
-				timeout: WINDOWS_POLICY_PROBE_TIMEOUT_MS,
-				killSignal: "SIGKILL",
 			});
-			// A lookup still running must not keep the agent alive at exit.
+			logger.startupMarker("codex-plugins:windows-policy:spawned");
+			// Neither a running lookup nor its deadline may keep the agent alive at exit.
 			query.unref();
-			const [stdout, exitCode] = await Promise.all([new Response(query.stdout).text(), query.exited]);
-			probe = exitCode === 0 ? JSON.parse(stdout) : null;
-		} catch {
-			// One lookup at a time: a retry starts only once this PowerShell is gone.
-			query?.kill("SIGKILL");
-			await query?.exited.catch(() => undefined);
-		}
-		logger.startupMarker("codex-plugins:windows-policy:done");
+			const kill = () => {
+				try {
+					query.kill("SIGKILL");
+				} catch {}
+			};
+			const deadline = setTimeout(kill, WINDOWS_POLICY_PROBE_TIMEOUT_MS);
+			deadline.unref();
+			try {
+				const [bytes, exitCode] = await Promise.all([new Response(query.stdout).arrayBuffer(), query.exited]);
+				probe = exitCode === 0 ? JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) : null;
+			} catch {
+				// One lookup at a time: a retry starts only once this PowerShell is gone.
+				kill();
+				await query.exited.catch(() => undefined);
+			} finally {
+				clearTimeout(deadline);
+			}
+		} catch {}
 		return isRecord(probe) &&
 			probe.ok === true &&
 			typeof probe.programData === "string" &&
@@ -424,10 +433,17 @@ function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
 			(probe.requirementsPath == null || typeof probe.requirementsPath === "string")
 			? { programData: probe.programData, requirementsPath: (probe.requirementsPath as string | null) ?? null }
 			: null;
-	})().then(result => {
-		if (result === null) windowsProbe = undefined;
-		return result;
-	});
+	})().then(
+		result => {
+			logger.startupMarker(`codex-plugins:windows-policy:${result === null ? "unanswered" : "answered"}`);
+			if (result === null) windowsProbe = undefined;
+			return result;
+		},
+		() => {
+			windowsProbe = undefined;
+			return null;
+		},
+	);
 	return windowsProbe;
 }
 
