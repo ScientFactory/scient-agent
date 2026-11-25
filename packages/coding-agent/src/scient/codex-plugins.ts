@@ -397,17 +397,26 @@ function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
 			"[Console]::Out.Write((@{ ok = $true; programData = $data; requirementsPath = $path } | ConvertTo-Json -Compress)) } catch { exit 1 }",
 		].join("; ");
 		let probe: unknown = null;
+		let query: Bun.Subprocess<"ignore", "pipe", "ignore"> | undefined;
+		logger.startupMarker("codex-plugins:windows-policy:start");
 		try {
-			const query = Bun.spawn(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
+			query = Bun.spawn(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
 				stdin: "ignore",
 				stdout: "pipe",
 				stderr: "ignore",
 				timeout: WINDOWS_POLICY_PROBE_TIMEOUT_MS,
 				killSignal: "SIGKILL",
 			});
+			// A lookup still running must not keep the agent alive at exit.
+			query.unref();
 			const [stdout, exitCode] = await Promise.all([new Response(query.stdout).text(), query.exited]);
 			probe = exitCode === 0 ? JSON.parse(stdout) : null;
-		} catch {}
+		} catch {
+			// One lookup at a time: a retry starts only once this PowerShell is gone.
+			query?.kill("SIGKILL");
+			await query?.exited.catch(() => undefined);
+		}
+		logger.startupMarker("codex-plugins:windows-policy:done");
 		return isRecord(probe) &&
 			probe.ok === true &&
 			typeof probe.programData === "string" &&
@@ -435,13 +444,18 @@ async function windowsPolicyForDiscovery(): Promise<WindowsPolicyProbe | null | 
 	}
 }
 
+type CodexSystem = { readonly dir: string; readonly windows?: WindowsPolicyProbe } | { readonly unknown: string };
+
 /**
- * Codex's system folder: `/etc/codex`, or `OpenAI\Codex` in the ProgramData known folder on
- * Windows. Read only after `managedPolicy` found the probe's answer.
+ * Codex's system folder for one discovery: `/etc/codex`, or `OpenAI\Codex` in the ProgramData
+ * known folder on Windows, from a single bounded probe answer used for every system file.
  */
-async function systemDir(): Promise<string> {
-	if (!IS_WINDOWS) return "/etc/codex";
-	return path.join((await probeWindowsPolicy())?.programData ?? "C:\\ProgramData", "OpenAI", "Codex");
+async function codexSystem(): Promise<CodexSystem> {
+	if (!IS_WINDOWS) return { dir: "/etc/codex" };
+	const probe = await windowsPolicyForDiscovery();
+	if (probe === "pending") return { unknown: "Windows has not yet said where Codex's organization policy is" };
+	if (probe === null) return { unknown: "Windows cannot say where Codex's organization policy is" };
+	return { dir: path.join(probe.programData, "OpenAI", "Codex"), windows: probe };
 }
 
 /**
@@ -450,15 +464,12 @@ async function systemDir(): Promise<string> {
  * undefined when none is present. A policy location that cannot be checked counts as present,
  * as Codex refuses to assume it absent.
  */
-async function managedPolicy(): Promise<string | undefined> {
-	if (IS_WINDOWS && (await windowsPolicyForDiscovery()) === "pending")
-		return "Windows has not yet said where Codex's organization policy is";
-	const files = [path.join(await systemDir(), "requirements.toml")];
-	if (IS_WINDOWS) {
-		const probe = await probeWindowsPolicy();
-		if (probe === null) return "Windows cannot say where Codex's organization policy is";
-		if (probe.requirementsPath !== null) {
-			return `Codex is managed by an organization policy (Group Policy RequirementsPath ${probe.requirementsPath})`;
+async function managedPolicy(system: CodexSystem): Promise<string | undefined> {
+	if ("unknown" in system) return system.unknown;
+	const files = [path.join(system.dir, "requirements.toml")];
+	if (system.windows) {
+		if (system.windows.requirementsPath !== null) {
+			return `Codex is managed by an organization policy (Group Policy RequirementsPath ${system.windows.requirementsPath})`;
 		}
 	} else {
 		// Codex ignores a leftover managed_config.toml on Windows.
@@ -632,12 +643,13 @@ async function listCodexPlugins(ctx: LoadContext): Promise<PluginList> {
 	// Without a user config there is nothing to load, and the policy lookup can stay unrun.
 	const user = await readToml(path.join(home, "config.toml"), warnings);
 	if (user === null) return none(env);
-	const policy = await managedPolicy();
-	if (policy !== undefined) {
+	const codex = await codexSystem();
+	const policy = await managedPolicy(codex);
+	if (policy !== undefined || "unknown" in codex) {
 		warnings.push(`[codex-plugins] ${policy}, which Scient Agent cannot apply; no Codex plugins load`);
 		return none(env);
 	}
-	const system = await readToml(path.join(await systemDir(), "config.toml"), warnings);
+	const system = await readToml(path.join(codex.dir, "config.toml"), warnings);
 	const merged = mergeLayers(system ?? {}, user);
 	// `[features] plugins = false` turns every plugin off in Codex.
 	if (isRecord(merged.features) && "plugins" in merged.features && merged.features.plugins !== true) {
