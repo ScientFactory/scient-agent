@@ -399,6 +399,8 @@ function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
 			"$bytes = [System.Text.Encoding]::UTF8.GetBytes($json); $out = [Console]::OpenStandardOutput(); $out.Write($bytes, 0, $bytes.Length); $out.Flush() } catch { exit 1 }",
 		].join("; ");
 		let probe: unknown = null;
+		// Why no answer came, for the startup marker.
+		let failure = "an unusable answer";
 		try {
 			const query = Bun.spawn(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], {
 				stdin: "ignore",
@@ -406,36 +408,43 @@ function probeWindowsPolicy(): Promise<WindowsPolicyProbe | null> {
 				stderr: "ignore",
 			});
 			logger.startupMarker("codex-plugins:windows-policy:spawned");
-			// Neither a running lookup nor its deadline may keep the agent alive at exit.
-			query.unref();
 			const kill = () => {
 				try {
 					query.kill("SIGKILL");
 				} catch {}
 			};
+			// The deadline may not keep the agent alive at exit.
 			const deadline = setTimeout(kill, WINDOWS_POLICY_PROBE_TIMEOUT_MS);
 			deadline.unref();
 			try {
 				const [bytes, exitCode] = await Promise.all([new Response(query.stdout).arrayBuffer(), query.exited]);
-				probe = exitCode === 0 ? JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) : null;
-			} catch {
+				if (exitCode === 0) probe = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+				else failure = `exit code ${exitCode}`;
+			} catch (error) {
+				failure = `a failed read (${String(error).slice(0, 80)})`;
 				// One lookup at a time: a retry starts only once this PowerShell is gone.
 				kill();
 				await query.exited.catch(() => undefined);
 			} finally {
 				clearTimeout(deadline);
 			}
-		} catch {}
-		return isRecord(probe) &&
+		} catch (error) {
+			failure = `no PowerShell (${String(error).slice(0, 80)})`;
+		}
+		const answer =
+			isRecord(probe) &&
 			probe.ok === true &&
 			typeof probe.programData === "string" &&
 			path.win32.isAbsolute(probe.programData) &&
 			(probe.requirementsPath == null || typeof probe.requirementsPath === "string")
-			? { programData: probe.programData, requirementsPath: (probe.requirementsPath as string | null) ?? null }
-			: null;
+				? { programData: probe.programData, requirementsPath: (probe.requirementsPath as string | null) ?? null }
+				: null;
+		logger.startupMarker(
+			answer ? "codex-plugins:windows-policy:answered" : `codex-plugins:windows-policy:unanswered after ${failure}`,
+		);
+		return answer;
 	})().then(
 		result => {
-			logger.startupMarker(`codex-plugins:windows-policy:${result === null ? "unanswered" : "answered"}`);
 			if (result === null) windowsProbe = undefined;
 			return result;
 		},
