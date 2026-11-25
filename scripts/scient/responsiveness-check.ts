@@ -170,8 +170,15 @@ async function check(launch: Launch): Promise<string | undefined> {
 		if (process.platform === "win32" && !stderr.includes("codex-plugins:windows-policy:spawned"))
 			return fail("the Windows policy lookup never ran, so this check proved nothing.");
 		// The runners carry no Codex policy, so a working lookup answers; a broken one fails closed unseen.
-		if (process.platform === "win32" && !stderr.includes("codex-plugins:windows-policy:answered"))
-			return fail("the Windows policy lookup gave no usable answer.");
+		// It runs in the background and may outlast the sampling on a cold machine.
+		if (process.platform === "win32") {
+			const outcome = /codex-plugins:windows-policy:(answered|unanswered)/;
+			for (let waited = 0; !outcome.test(stderr) && waited < 45_000 && !exited; waited += 250) await Bun.sleep(250);
+			if (!stderr.includes("codex-plugins:windows-policy:answered"))
+				return fail(
+					`the Windows policy lookup gave no usable answer (${stderr.match(/codex-plugins:windows-policy:[^\n]+/g)?.join("; ") ?? "no outcome"}).`,
+				);
+		}
 		child.stdin.end();
 		const code = await within(child.exited, 15_000, "running" as const);
 		if (code !== 0)
