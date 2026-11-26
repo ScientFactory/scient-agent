@@ -33,6 +33,8 @@
 				"scripts/scient/isolation-check.ts",
 				"scripts/scient/capability-check.ts",
 				"scripts/scient/responsiveness-check.ts",
+				"scripts/scient/native-workflow-key.ts",
+				"scripts/scient/native-workflow-key.test.ts",
 				"scripts/scient/divergence-check.ts",
 				"scripts/scient/divergence-check.test.ts",
 				"scripts/scient/divergences.json",

@@ -162,6 +162,7 @@ jobs:
                  echo "SDKROOT=${SDKROOT:-} DEVELOPER_DIR=${DEVELOPER_DIR:-} MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-}"
                  xcodebuild -version 2>/dev/null || true
                  cc --version 2>/dev/null | head -1 || true
+                 bun scripts/scient/native-workflow-key.ts
               } > "$RUNNER_TEMP/native-env.txt"
               cat "$RUNNER_TEMP/native-env.txt"
               digest="$(sha256sum < "$RUNNER_TEMP/native-env.txt" 2>/dev/null || shasum -a 256 < "$RUNNER_TEMP/native-env.txt")"
@@ -174,7 +175,7 @@ jobs:
               path: |
                  packages/natives/native/*.node
                  packages/natives/native/index.d.ts
-              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', 'scripts/scient/native-workflow-key.ts') }}
 
          - name: Regenerate the addon's runtime exports
            if: steps.native-cache.outputs.cache-hit == 'true'
@@ -226,13 +227,14 @@ jobs:
          # Saved as its own step, not post-job, so a failed second variant can
          # never leave a half-built set under the key the next run would hit.
          - name: Save the native addon for the next run
+           id: save-native
            if: steps.native-cache.outputs.cache-hit != 'true'
            uses: actions/cache/save@v6
            with:
               path: |
                  packages/natives/native/*.node
                  packages/natives/native/index.d.ts
-              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
+              key: scient-native-node-v1-${{ matrix.id }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', 'scripts/scient/native-workflow-key.ts') }}
 
          # Scient's own tests, and the packages whose state layout differs by
          # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).
@@ -359,6 +361,7 @@ jobs:
                  echo "SDKROOT=${SDKROOT:-} DEVELOPER_DIR=${DEVELOPER_DIR:-} MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-}"
                  xcodebuild -version 2>/dev/null || true
                  cc --version 2>/dev/null | head -1 || true
+                 bun scripts/scient/native-workflow-key.ts
               } > "$RUNNER_TEMP/native-env.txt"
               cat "$RUNNER_TEMP/native-env.txt"
               digest="$(sha256sum < "$RUNNER_TEMP/native-env.txt" 2>/dev/null || shasum -a 256 < "$RUNNER_TEMP/native-env.txt")"
@@ -371,7 +374,7 @@ jobs:
               path: |
                  packages/natives/native/*.node
                  packages/natives/native/index.d.ts
-              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
+              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', 'scripts/scient/native-workflow-key.ts') }}
 
          - name: Cache Rust compilation
            if: steps.native-cache.outputs.cache-hit != 'true'
@@ -393,13 +396,14 @@ jobs:
               PI_NATIVE_X64_VARIANT=modern bun run build:native
 
          - name: Save the native addon for the next run
+           id: save-native
            if: steps.native-cache.outputs.cache-hit != 'true'
            uses: actions/cache/save@v6
            with:
               path: |
                  packages/natives/native/*.node
                  packages/natives/native/index.d.ts
-              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', '.github/workflows/scient.yml') }}
+              key: scient-native-node-v1-linux-x64-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts', 'bun.lock', 'scripts/scient/native-workflow-key.ts') }}
 
          - uses: actions/upload-artifact@v7
            with:
