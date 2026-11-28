@@ -94,7 +94,7 @@ import { askFormOnAskCard } from "../../scient/rpc-form";
 import { claimRpcInput, readRpcInputFrames } from "./rpc-input";
 // scient(SA-AUTH): begin - A host sees and signs out stored sign-ins, and finds one made elsewhere.
 import { reloadSignIns } from "../../scient/reload-sign-ins";
-import { listSignInProviders, signOutOverRpc } from "../../scient/sign-in-providers";
+import { listSignInProviders, signInStoreId, signOutOverRpc } from "../../scient/sign-in-providers";
 // scient(SA-AUTH): end
 // scient(SA-NEXT-MESSAGE): begin - A host shows the agent's prediction of the user's next message.
 import { RpcNextMessagePredictor } from "../../scient/next-message";
@@ -3147,7 +3147,11 @@ export async function runRpcMode(session: AgentSession, options: RpcModeOptions 
 
 			case "logout": {
 				// scient(SA-AUTH): begin - A host signs out an entry's stored sign-ins; a broker's stay with the broker.
-				if (command.credentialId === undefined || session.modelRegistry.authStorage.credentials.heldByBroker) {
+				const storeId = typeof command.providerId === "string" ? signInStoreId(command.providerId) : undefined;
+				if (
+					command.credentialId === undefined ||
+					(storeId !== undefined && session.modelRegistry.authStorage.credentials.heldByBrokerFor(storeId))
+				) {
 					const signOut = await signOutOverRpc(session.modelRegistry, command.providerId);
 					return "error" in signOut ? error(id, "logout", signOut.error) : success(id, "logout", signOut.data);
 				}

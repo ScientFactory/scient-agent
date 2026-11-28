@@ -37,6 +37,9 @@ import { AuthBrokerUnservedProviderError, type RemoteAuthCredentialStore } from 
 export interface HybridAuthCredentialStoreOptions {
 	broker: RemoteAuthCredentialStore;
 	local: SqliteAuthCredentialStore;
+	// scient(SA-AUTH-BROKER-UNIX): begin - an automatic broker may share a single provider.
+	sharedProvider?: string;
+	// scient(SA-AUTH-BROKER-UNIX): end
 }
 
 /**
@@ -60,11 +63,17 @@ export interface HybridAuthCredentialStoreOptions {
 export class HybridAuthCredentialStore implements AuthCredentialStore {
 	readonly #broker: RemoteAuthCredentialStore;
 	readonly #local: SqliteAuthCredentialStore;
+	// scient(SA-AUTH-BROKER-UNIX): begin - no other provider leaves this app.
+	readonly #sharedProvider: string | undefined;
+	// scient(SA-AUTH-BROKER-UNIX): end
 	#localProviders: Set<string>;
 
 	constructor(opts: HybridAuthCredentialStoreOptions) {
 		this.#broker = opts.broker;
 		this.#local = opts.local;
+		// scient(SA-AUTH-BROKER-UNIX): begin - retain the provider filter across reloads.
+		this.#sharedProvider = opts.sharedProvider;
+		// scient(SA-AUTH-BROKER-UNIX): end
 		this.#localProviders = new Set(opts.local.listBrokerLocalProviders());
 	}
 
@@ -86,12 +95,36 @@ export class HybridAuthCredentialStore implements AuthCredentialStore {
 		this.#local.acknowledgeLocalChanges();
 	}
 
+	// scient(SA-AUTH-BROKER-UNIX): begin - limit the broker side of this split.
+	#usesLocal(provider: string): boolean {
+		return (
+			(this.#sharedProvider !== undefined && provider !== this.#sharedProvider) || this.#localProviders.has(provider)
+		);
+	}
+
+	holdsProviderOnBroker(provider: string): boolean {
+		return !this.#usesLocal(provider);
+	}
+	// scient(SA-AUTH-BROKER-UNIX): end
 	listAuthCredentials(provider?: string): StoredAuthCredential[] {
 		if (provider !== undefined) {
-			return this.#localProviders.has(provider)
+			// scient(SA-AUTH-BROKER-UNIX): begin - a nonshared provider reads from its app.
+			return this.#usesLocal(provider)
 				? this.#local.listAuthCredentials(provider).map(toHybridRow)
 				: this.#broker.listAuthCredentials(provider);
+			// scient(SA-AUTH-BROKER-UNIX): end
 		}
+		// scient(SA-AUTH-BROKER-UNIX): begin - merge the single shared provider with all private local rows.
+		if (this.#sharedProvider !== undefined) {
+			const rows = this.#usesLocal(this.#sharedProvider)
+				? []
+				: this.#broker.listAuthCredentials(this.#sharedProvider);
+			for (const row of this.#local.listAuthCredentials()) {
+				if (this.#usesLocal(row.provider)) rows.push(toHybridRow(row));
+			}
+			return rows;
+		}
+		// scient(SA-AUTH-BROKER-UNIX): end
 		const rows = this.#broker.listAuthCredentials().filter(row => !this.#localProviders.has(row.provider));
 		for (const local of this.#localProviders) {
 			for (const row of this.#local.listAuthCredentials(local)) rows.push(toHybridRow(row));
@@ -104,7 +137,16 @@ export class HybridAuthCredentialStore implements AuthCredentialStore {
 	}
 
 	async listDisabledCredentials(provider?: string, signal?: AbortSignal): Promise<DisabledCredentialSummary[]> {
-		if (provider !== undefined && this.#localProviders.has(provider)) {
+		// scient(SA-AUTH-BROKER-UNIX): begin - only look up shared disabled credentials remotely.
+		if (provider === undefined && this.#sharedProvider !== undefined) {
+			const summaries = await this.listDisabledCredentials(this.#sharedProvider, signal);
+			for (const row of await this.#local.listDisabledCredentials()) {
+				if (row.provider !== this.#sharedProvider) summaries.push(toHybridRow(row));
+			}
+			return summaries;
+		}
+		if (provider !== undefined && this.#usesLocal(provider)) {
+			// scient(SA-AUTH-BROKER-UNIX): end
 			return (await this.#local.listDisabledCredentials(provider)).map(toHybridRow);
 		}
 		const broker = await this.#broker.listDisabledCredentials(provider, signal);
@@ -165,7 +207,9 @@ export class HybridAuthCredentialStore implements AuthCredentialStore {
 		provider: string,
 		write: (store: AuthCredentialStore) => Promise<StoredAuthCredential[]>,
 	): Promise<StoredAuthCredential[]> {
-		if (!this.#localProviders.has(provider)) {
+		// scient(SA-AUTH-BROKER-UNIX): begin - only the designated provider writes to the broker.
+		if (!this.#usesLocal(provider)) {
+			// scient(SA-AUTH-BROKER-UNIX): end
 			try {
 				return await write(this.#broker);
 			} catch (error) {
@@ -177,7 +221,9 @@ export class HybridAuthCredentialStore implements AuthCredentialStore {
 	}
 
 	async deleteAuthCredentials(provider: string, disabledCause: string): Promise<void> {
-		if (!this.#localProviders.has(provider)) return this.#broker.deleteAuthCredentials(provider, disabledCause);
+		// scient(SA-AUTH-BROKER-UNIX): begin - do not route another provider's sign-out to the shared store.
+		if (!this.#usesLocal(provider)) return this.#broker.deleteAuthCredentials(provider, disabledCause);
+		// scient(SA-AUTH-BROKER-UNIX): end
 		await this.#local.deleteAuthCredentials(provider, disabledCause);
 		this.#returnToBrokerIfEmpty(provider);
 	}
@@ -263,10 +309,20 @@ export class HybridAuthCredentialStore implements AuthCredentialStore {
 	}
 
 	recordObservedUsage(entries: ObservedUsageEntry[], client?: ClientUsageIdentity): void {
+		// scient(SA-AUTH-BROKER-UNIX): begin - do not send unrelated model usage to the shared broker.
+		if (this.#sharedProvider !== undefined) {
+			const shared = entries.filter(entry => entry.provider === this.#sharedProvider);
+			if (shared.length > 0) this.#broker.recordObservedUsage(shared, client);
+			return;
+		}
+		// scient(SA-AUTH-BROKER-UNIX): end
 		this.#broker.recordObservedUsage(entries, client);
 	}
 
 	invalidateUsageCache(provider?: string, signal?: AbortSignal): Promise<void> {
+		// scient(SA-AUTH-BROKER-UNIX): begin - this broker does not manage other providers' usage.
+		if (this.#sharedProvider && provider !== undefined && provider !== this.#sharedProvider) return Promise.resolve();
+		// scient(SA-AUTH-BROKER-UNIX): end
 		return this.#broker.invalidateUsageCache(provider, signal);
 	}
 
@@ -288,9 +344,12 @@ export class HybridAuthCredentialStore implements AuthCredentialStore {
 	}
 
 	async fetchUsageReports(signal?: AbortSignal, provider?: Provider): Promise<UsageReport[] | null> {
-		if (provider !== undefined && this.#localProviders.has(provider)) return [];
-		const reports = await this.#broker.fetchUsageReports(signal, provider);
-		return reports && reports.filter(report => !this.#localProviders.has(report.provider));
+		// scient(SA-AUTH-BROKER-UNIX): begin - read only this store's shared provider usage.
+		const requested = provider ?? this.#sharedProvider;
+		if (requested !== undefined && this.#usesLocal(requested)) return [];
+		const reports = await this.#broker.fetchUsageReports(signal, requested);
+		return reports && reports.filter(report => !this.#usesLocal(report.provider));
+		// scient(SA-AUTH-BROKER-UNIX): end
 	}
 
 	async getUsageReport(
@@ -298,11 +357,15 @@ export class HybridAuthCredentialStore implements AuthCredentialStore {
 		credential: OAuthCredential,
 		signal?: AbortSignal,
 	): Promise<UsageReport | null> {
-		return this.#localProviders.has(provider) ? null : this.#broker.getUsageReport(provider, credential, signal);
+		// scient(SA-AUTH-BROKER-UNIX): begin - this broker does not manage local usage reports.
+		return this.#usesLocal(provider) ? null : this.#broker.getUsageReport(provider, credential, signal);
+		// scient(SA-AUTH-BROKER-UNIX): end
 	}
 
 	ingestUsageReport(provider: Provider, credential: OAuthCredential, report: UsageReport): boolean {
-		return !this.#localProviders.has(provider) && this.#broker.ingestUsageReport(provider, credential, report);
+		// scient(SA-AUTH-BROKER-UNIX): begin - this broker does not manage local usage reports.
+		return !this.#usesLocal(provider) && this.#broker.ingestUsageReport(provider, credential, report);
+		// scient(SA-AUTH-BROKER-UNIX): end
 	}
 
 	async markCredentialSuspect(credentialId: number, opts?: { signal?: AbortSignal }): Promise<void> {

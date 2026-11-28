@@ -9,6 +9,9 @@
 import { type } from "@oh-my-pi/omptype";
 import { isRecord, readSseEvents } from "@oh-my-pi/pi-utils";
 import type { AuthCredential, DisabledCredentialSummary, OAuthRefreshReason } from "../auth-storage";
+// scient(SA-AUTH-BROKER-UNIX): begin - select the private transport for all broker requests.
+import { brokerTransport } from "../scient/auth-broker-unix";
+// scient(SA-AUTH-BROKER-UNIX): end
 import type {
 	ClientUsageReportRequest,
 	ClientUsageReportResponse,
@@ -154,11 +157,16 @@ export class AuthBrokerClient {
 	readonly #fetch: typeof fetch;
 
 	constructor(opts: AuthBrokerClientOptions) {
-		this.#baseUrl = opts.url.replace(/\/+$/, "");
+		// scient(SA-AUTH-BROKER-UNIX): begin - Unix requests never fall back to TCP.
+		const transport = brokerTransport(opts.url, opts.fetchImpl ?? fetch);
+		this.#baseUrl = transport.url.replace(/\/+$/, "");
+		// scient(SA-AUTH-BROKER-UNIX): end
 		this.#token = opts.token;
 		this.#timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 		this.#maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
-		this.#fetch = opts.fetchImpl ?? fetch;
+		// scient(SA-AUTH-BROKER-UNIX): begin - carry the transport for ordinary and streaming requests.
+		this.#fetch = transport.fetch;
+		// scient(SA-AUTH-BROKER-UNIX): end
 	}
 
 	healthz(signal?: AbortSignal): Promise<HealthzResponse> {

@@ -229,6 +229,9 @@ class RemoteCredentials implements CredentialsApi {
 	get heldByBroker(): boolean {
 		return this.#remote.callSync("credentials.heldByBroker");
 	}
+	heldByBrokerFor(provider: string): boolean {
+		return this.#remote.callSync("credentials.heldByBrokerFor", provider);
+	}
 	// scient(SA-AUTH): end
 	onGeneration(listener: (generation: number) => void): () => void {
 		return remoteUnsubscribe(this.#remote.callSync("credentials.onGeneration", listener));

@@ -17,6 +17,7 @@ describe("--runtime-info", () => {
 			buildId: BUILD_ID,
 			hostCommands: ["apps", "dictate", "mcp"],
 			enableSources: ["claude-plugins", "codex-plugins"],
+			authBrokerTransports: process.platform === "win32" ? ["http"] : ["http", "unix"],
 		});
 	});
 });

@@ -29,7 +29,9 @@ export default class AuthBroker extends Command {
 
 	static flags = {
 		json: Flags.boolean({ description: "Output JSON" }),
-		bind: Flags.string({ description: "Bind address for `serve` (host:port)", char: "b" }),
+		// scient(SA-AUTH-BROKER-UNIX): begin - advertise the private local transport.
+		bind: Flags.string({ description: "Bind address for `serve` (host:port or unix:/absolute/path)", char: "b" }),
+		// scient(SA-AUTH-BROKER-UNIX): end
 		regenerate: Flags.boolean({ description: "Regenerate the bearer token" }),
 		via: Flags.string({
 			description: "SSH user@host for remote login (login --via=user@host)",

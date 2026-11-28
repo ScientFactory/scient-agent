@@ -805,6 +805,10 @@ export class CredentialPool implements CredentialsApi {
 		return this.#store.refreshSnapshot !== undefined;
 	}
 
+	heldByBrokerFor(provider: string): boolean {
+		return this.#store.holdsProviderOnBroker?.(provider) ?? this.heldByBroker;
+	}
+
 	// scient(SA-AUTH): end
 	/**
 	 * Disable the credential with the given id and emit a

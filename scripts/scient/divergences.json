@@ -73,7 +73,7 @@
 		},
 		"SA-PRODUCT": {
 			"status": "active",
-			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps, the Scient commands a host may run (hostCommands) and the plugin sources a host may add with SCIENT_AGENT_ENABLE_SOURCES (enableSources).",
+			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps, the Scient commands a host may run (hostCommands), the plugin sources it may enable (enableSources) and the supported auth broker transports (authBrokerTransports).",
 			"owned": [
 				"scient.json",
 				"scripts/scient/stamp-build-id.ts",
@@ -195,6 +195,29 @@
 			],
 			"verification": [
 				"bun --cwd=packages/coding-agent test test/scient/sign-in-providers.test.ts test/scient/reload-sign-ins.test.ts"
+			]
+		},
+		"SA-AUTH-BROKER-UNIX": {
+			"status": "active",
+			"contract": "A launch-env-only dev default shares ChatGPT over a Unix socket in a private directory without redirects, an HTTP proxy or TCP fallback. The server exposes only ChatGPT OAuth rows. Explicit brokers take precedence, and other provider sign-ins stay local.",
+			"owned": [
+				"packages/ai/src/scient/auth-broker-unix.ts",
+				"packages/ai/test/scient/auth-broker-unix.test.ts",
+				"packages/coding-agent/src/scient/start-auth-broker.ts"
+			],
+			"upstream": [
+				"packages/ai/src/auth-broker/client.ts",
+				"packages/ai/src/auth-broker/discover.ts",
+				"packages/ai/src/auth-broker/hybrid-store.ts",
+				"packages/ai/src/auth-broker/server.ts",
+				"packages/ai/src/auth/store.ts",
+				"packages/ai/src/auth/usage.ts",
+				"packages/coding-agent/src/cli/auth-broker-cli.ts",
+				"packages/coding-agent/src/commands/auth-broker.ts",
+				"packages/coding-agent/src/session/auth-broker-config.ts"
+			],
+			"verification": [
+				"bun --cwd=packages/ai test test/scient/auth-broker-unix.test.ts test/auth-broker-wire.test.ts"
 			]
 		},
 		"SA-WORKER": {

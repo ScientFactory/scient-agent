@@ -116,7 +116,9 @@ let cachedConfigPromise: Promise<AuthBrokerClientConfig | null> | null = null;
  * retried. Concurrent callers share one in-flight resolution.
  */
 export function resolveAuthBrokerConfig(): Promise<AuthBrokerClientConfig | null> {
-	const key = `${process.env.SCIENT_AGENT_AUTH_BROKER_URL ?? ""}\u0000${process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN ?? ""}\u0000${getAgentDir()}`;
+	// scient(SA-AUTH-BROKER-UNIX): begin - the dev default is a broker configuration input.
+	const key = `${process.env.SCIENT_AGENT_AUTH_BROKER_URL ?? ""}\u0000${process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN ?? ""}\u0000${process.env.SCIENT_AGENT_DEV_CHATGPT_BROKER_URL ?? ""}\u0000${getAgentDir()}`;
+	// scient(SA-AUTH-BROKER-UNIX): end
 	if (cachedConfigPromise && cachedConfigKey === key) return cachedConfigPromise;
 	const promise = resolveAuthBrokerConfigShared({
 		agentDir: getAgentDir(),
@@ -141,6 +143,9 @@ export function resolveAuthBrokerConfig(): Promise<AuthBrokerClientConfig | null
 export async function credentialStoreLabel(provider: string): Promise<string> {
 	const broker = await resolveAuthBrokerConfig();
 	if (!broker) return getAgentDbPath();
+	// scient(SA-AUTH-BROKER-UNIX): begin - show local storage for a provider outside the dev broker scope.
+	if (broker.sharedProvider && provider !== broker.sharedProvider) return getAgentDbPath();
+	// scient(SA-AUTH-BROKER-UNIX): end
 	const local = await SqliteAuthCredentialStore.open(getAgentDbPath());
 	try {
 		return local.listBrokerLocalProviders().includes(provider) ? getAgentDbPath() : `auth broker ${broker.url}`;
@@ -224,7 +229,14 @@ export function createAuthStorageSettingsSync(
 			cachedConfigPromise = null;
 			cachedConfigKey = null;
 			const next = await resolveAuthBrokerConfigShared(resolveOptions);
-			if (previous?.url === next?.url && previous?.token === next?.token) return;
+			// scient(SA-AUTH-BROKER-UNIX): begin - explicit and scoped default configs may have the same token and endpoint.
+			if (
+				previous?.url === next?.url &&
+				previous?.token === next?.token &&
+				previous?.sharedProvider === next?.sharedProvider
+			)
+				return;
+			// scient(SA-AUTH-BROKER-UNIX): end
 			const { store, sourceLabel } = await openAuthCredentialStore({ brokerConfig: next, agentDir });
 			await authStorage.replaceStore(store, { sourceLabel });
 			activeBroker = Promise.resolve(next);

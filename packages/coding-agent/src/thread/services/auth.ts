@@ -193,6 +193,7 @@ function serveAuthStorage(state: PeerAuthState): RpcServe<AuthStorage, AuthStora
 		"credentials.generation": storage => storage.credentials.generation,
 		// scient(SA-AUTH): begin - A broker's sign-ins stay with the broker, in a worker too.
 		"credentials.heldByBroker": storage => storage.credentials.heldByBroker,
+		"credentials.heldByBrokerFor": (storage, provider) => storage.credentials.heldByBrokerFor(provider),
 		// scient(SA-AUTH): end
 		"credentials.onGeneration": (storage, listener) =>
 			trackWorkerSubscription(

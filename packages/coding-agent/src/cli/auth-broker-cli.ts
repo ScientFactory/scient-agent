@@ -40,6 +40,9 @@ import { setTransports as setLoggerTransports } from "@oh-my-pi/pi-utils/logger"
 import { $ } from "bun";
 import { refreshManagedMcpOAuthCredential } from "../mcp/oauth-credentials";
 import { isManagedMCPOAuthCredentialId, mcpOAuthServerUrlFromCredentialId } from "../mcp/oauth-flow";
+// scient(SA-AUTH-BROKER-UNIX): begin - the Unix CLI owns token placement and restart recovery.
+import { startCliAuthBroker } from "../scient/start-auth-broker";
+// scient(SA-AUTH-BROKER-UNIX): end
 import {
 	applyUnpausedProviders,
 	resolveAuthBrokerConfig,
@@ -153,19 +156,24 @@ async function runServe(flags: AuthBrokerCommandArgs["flags"]): Promise<void> {
 	postmortem.exitCleanlyOnStopSignals();
 
 	const bind = flags.bind ?? DEFAULT_AUTH_BROKER_BIND;
-	const token = await ensureToken();
+	// scient(SA-AUTH-BROKER-UNIX): begin - the listener setup resolves its matching token.
+	// scient(SA-AUTH-BROKER-UNIX): end
 	const dbPath = getAgentDbPath();
 	applyUnpausedProviders(await resolveEffectiveSettings());
 	const store = await SqliteAuthCredentialStore.open(dbPath);
 	const storage = createBrokerAuthStorage(store);
 	await storage.credentials.reload();
-	const handle = startAuthBroker({
-		storage,
-		bind,
-		bearerTokens: [token],
-		trustProxyHeaders: flags.trustProxyHeaders,
-		version: VERSION,
-	});
+	// scient(SA-AUTH-BROKER-UNIX): begin - prepare the CLI listener and its matching token together.
+	const handle = await startCliAuthBroker(bind, ensureToken, token =>
+		startAuthBroker({
+			storage,
+			bind,
+			bearerTokens: [token],
+			trustProxyHeaders: flags.trustProxyHeaders,
+			version: VERSION,
+		}),
+	);
+	// scient(SA-AUTH-BROKER-UNIX): end
 	logger.info("auth-broker listening", { url: handle.url });
 	logger.info("auth-broker bearer token loaded", { path: getTokenFilePath(), mode: "0600" });
 
@@ -520,7 +528,9 @@ async function runImport(flags: AuthBrokerCommandArgs["flags"]): Promise<void> {
 	}
 
 	const brokerConfig = await resolveAuthBrokerConfig();
-	if (brokerConfig) {
+	// scient(SA-AUTH-BROKER-UNIX): begin - automatic dev sharing is not an import destination.
+	if (brokerConfig && !brokerConfig.sharedProvider) {
+		// scient(SA-AUTH-BROKER-UNIX): end
 		const client = new AuthBrokerClient({ url: brokerConfig.url, token: brokerConfig.token });
 		for (const entry of entries) {
 			try {
@@ -599,7 +609,9 @@ function brokerAlreadyHas(
 
 async function runMigrate(flags: AuthBrokerCommandArgs["flags"]): Promise<void> {
 	const brokerConfig = await resolveAuthBrokerConfig();
-	if (!brokerConfig) {
+	// scient(SA-AUTH-BROKER-UNIX): begin - bulk migration requires an explicitly configured broker.
+	if (!brokerConfig || brokerConfig.sharedProvider) {
+		// scient(SA-AUTH-BROKER-UNIX): end
 		throw new Error(
 			"SCIENT_AGENT_AUTH_BROKER_URL must be set (or `auth.broker.url` in config.yml). `migrate` uploads local credentials to a configured broker.",
 		);
