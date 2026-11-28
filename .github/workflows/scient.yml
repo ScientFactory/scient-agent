@@ -82,7 +82,7 @@ jobs:
          - uses: oven-sh/setup-bun@v2
            if: env.RELEASE == 'true'
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          - id: check
            name: Check the version
@@ -115,7 +115,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          # Before any step changes a tracked file, so a clean checkout is not reported dirty.
          - name: Stamp the build id
@@ -303,7 +303,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          - name: Install dependencies
            run: bun install --frozen-lockfile --ignore-scripts
@@ -343,7 +343,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          - name: Install the Rust toolchain
            run: rustup show active-toolchain || rustup toolchain install
@@ -438,7 +438,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          - name: Install dependencies
            run: bun install --frozen-lockfile
@@ -474,7 +474,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          # The checker parses with the locked @babel/parser: without an install, Bun
          # would fetch whatever version is newest when the job runs.
@@ -570,7 +570,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          - uses: actions/download-artifact@v8
            with:
@@ -664,7 +664,7 @@ jobs:
 
          - uses: oven-sh/setup-bun@v2
            with:
-              bun-version: 1.4.4
+              bun-version: 1.4.5
 
          # The run takes an hour or more; a release may have been published meanwhile.
          - name: Check the version is still next
