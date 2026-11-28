@@ -1,0 +1,147 @@
+name: Scient Agent native addons
+
+on:
+   workflow_call:
+      inputs:
+         target:
+            type: string
+            required: true
+         runner:
+            type: string
+            required: true
+         bun-version:
+            type: string
+            required: true
+
+defaults:
+   run:
+      # Windows runners default to PowerShell.
+      shell: bash
+
+jobs:
+   native:
+      name: Native addon (${{ matrix.variant }})
+      runs-on: ${{ inputs.runner }}
+      timeout-minutes: 90
+      strategy:
+         fail-fast: false
+         matrix:
+            variant: ${{ fromJSON(endsWith(inputs.target, '-x64') && '["baseline","modern"]' || '["default"]') }}
+      env:
+         PI_NATIVE_X64_VARIANT: ${{ matrix.variant != 'default' && matrix.variant || '' }}
+      steps:
+         - uses: actions/checkout@v7
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: ${{ inputs.bun-version }}
+
+         - name: Check the build host matches its target
+           env:
+              EXPECTED_TARGET: ${{ inputs.target }}
+           run: |
+              # shellcheck disable=SC2016
+              bun -e '
+                const os = process.platform === "win32" ? "windows" : process.platform;
+                const actual = os + "-" + process.arch;
+                if (actual !== process.env.EXPECTED_TARGET) {
+                  console.error("Expected " + process.env.EXPECTED_TARGET + " build host, got " + actual);
+                  process.exit(1);
+                }
+              '
+
+         - name: Install build tools
+           run: |
+              case "$RUNNER_OS" in
+                 macOS) brew install ninja ;;
+                 Linux) sudo apt-get update && sudo apt-get install -y ninja-build ;;
+                 Windows) choco install ninja -y --no-progress ;;
+              esac
+              rustup show active-toolchain || rustup toolchain install
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         # The native addon is a pure function of the inputs hashed below and
+         # the build environment named after them, and most changes never
+         # touch them (24 of the last 30 merged PRs). An exact cache hit
+         # reuses the `.node` file a previous run built from the same inputs
+         # instead of recompiling pi-natives, which takes 12-48 minutes per
+         # leg: cargo's own cache cannot do this, because a fresh checkout's
+         # mtimes always mark the workspace crates dirty. No restore keys:
+         # anything but an exact hit rebuilds. The generated declarations a
+         # build installs are cached with the addon. Consumers generate runtime
+         # exports from those declarations after downloading the artifact.
+         - name: Name the native build environment
+           id: native-env
+           run: |
+              {
+                 echo "image=${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}"
+                 rustc -vV
+                 echo "bun=$(bun --version)"
+                 echo "RUSTFLAGS=${RUSTFLAGS:-} profile=${OMP_NATIVE_CARGO_PROFILE:-} features=${OMP_NATIVE_FEATURES:-}"
+                 echo "SDKROOT=${SDKROOT:-} DEVELOPER_DIR=${DEVELOPER_DIR:-} MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-}"
+                 xcodebuild -version 2>/dev/null || true
+                 cc --version 2>/dev/null | head -1 || true
+                 bun scripts/scient/native-workflow-key.ts
+              } > "$RUNNER_TEMP/native-env.txt"
+              cat "$RUNNER_TEMP/native-env.txt"
+              digest="$(sha256sum < "$RUNNER_TEMP/native-env.txt" 2>/dev/null || shasum -a 256 < "$RUNNER_TEMP/native-env.txt")"
+              echo "name=$(printf %s "$digest" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+         - name: Reuse the native addon for unchanged Rust inputs
+           id: native-cache
+           uses: actions/cache/restore@v6
+           with:
+              path: |
+                 packages/natives/native/*.node
+                 packages/natives/native/index.d.ts
+              key: scient-native-node-v2-${{ inputs.target }}-${{ matrix.variant }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', 'scripts/scient/native-workflow-key.ts') }}
+
+         # On a miss, cargo still reuses the dependency compilation a previous
+         # run cached; only the workspace crates rebuild.
+         - name: Cache Rust compilation
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+           with:
+              prefix-key: scient-native-v2
+              key: ${{ inputs.target }}-${{ matrix.variant }}-${{ hashFiles('packages/natives/scripts/**', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/stamp-native-version.ts') }}
+              env-vars: CARGO CC CFLAGS CXX CMAKE RUST SDKROOT MACOSX_DEPLOYMENT_TARGET ImageOS ImageVersion
+              cache-bin: false
+              cache-on-failure: true
+              # Saves only from main: per-PR copies of ~900 MB each once ate
+              # most of the 10 GB cache quota. PRs restore main's entry.
+              save-if: ${{ github.ref == 'refs/heads/main' }}
+
+         - name: Build the native addon
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           run: bun run build:native
+
+         # The `local` profile keeps symbol tables and debug information, which
+         # make the shipped binary 2-8 MB bigger and each unpacked addon 29-78 MB
+         # bigger. Oh My Pi strips its release addons the same way.
+         - name: Strip the native addons
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           run: bun scripts/scient/strip-native.ts
+
+         # Each key belongs to one variant. A failure on the other variant
+         # leaves this cache entry complete.
+         - name: Save the native addon for the next run
+           id: save-native
+           if: steps.native-cache.outputs.cache-hit != 'true'
+           uses: actions/cache/save@v6
+           with:
+              path: |
+                 packages/natives/native/*.node
+                 packages/natives/native/index.d.ts
+              key: scient-native-node-v2-${{ inputs.target }}-${{ matrix.variant }}-${{ steps.native-env.outputs.name }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'package.json', 'packages/natives/package.json', 'packages/natives/scripts/**', 'packages/natives/native/version-sentinel.js', 'scripts/bazel-natives.ts', 'scripts/host-detect.ts', 'scripts/scient/native-variant.ts', 'scripts/scient/strip-native.ts', 'scripts/stamp-native-version.ts', 'bun.lock', 'scripts/scient/native-workflow-key.ts') }}
+
+         - uses: actions/upload-artifact@v7
+           with:
+              name: natives-${{ inputs.target }}-${{ matrix.variant }}
+              path: |
+                 packages/natives/native/*.node
+                 packages/natives/native/index.d.ts
+              if-no-files-found: error
+              retention-days: 1
+              compression-level: 0

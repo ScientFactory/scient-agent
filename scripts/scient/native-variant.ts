@@ -1,5 +1,5 @@
 /**
- * Scient's workflow builds both x86-64 native addons on one runner, the
+ * Scient's workflow builds two x86-64 native addons, the
  * `modern` (AVX2) one and the `baseline` one for processors without AVX2.
  * `PI_NATIVE_X64_VARIANT` (`baseline` or `modern`) names the one to build in
  * place of the host's own detection.

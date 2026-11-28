@@ -1,0 +1,343 @@
+name: Scient Agent platform
+
+on:
+   workflow_call:
+      inputs:
+         target:
+            type: string
+            required: true
+         runner:
+            type: string
+            required: true
+         bun-version:
+            type: string
+            required: true
+         signed-runner:
+            type: string
+         version:
+            type: string
+         developer-id:
+            type: boolean
+            required: true
+      secrets:
+         CSC_LINK:
+            required: false
+         CSC_KEY_PASSWORD:
+            required: false
+         APPLE_API_KEY:
+            required: false
+         APPLE_API_KEY_ID:
+            required: false
+         APPLE_API_ISSUER:
+            required: false
+
+env:
+   RELEASE: ${{ inputs.version != '' }}
+   DEVELOPER_ID: ${{ inputs.developer-id }}
+
+defaults:
+   run:
+      # Windows runners default to PowerShell.
+      shell: bash
+
+jobs:
+   native:
+      name: Build the native addons
+      # The caller already built Linux x64 for compatibility and upstream's tests.
+      if: inputs.target != 'linux-x64'
+      uses: ./.github/workflows/scient-native.yml
+      with:
+         target: ${{ inputs.target }}
+         runner: ${{ inputs.runner }}
+         bun-version: ${{ inputs.bun-version }}
+
+   build:
+      name: Build and check
+      needs: native
+      if: ${{ !cancelled() && (needs.native.result == 'success' || (inputs.target == 'linux-x64' && needs.native.result == 'skipped')) }}
+      runs-on: ${{ inputs.runner }}
+      timeout-minutes: 40
+      steps:
+         - uses: actions/checkout@v7
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: ${{ inputs.bun-version }}
+
+         # Before any step changes a tracked file, so a clean checkout is not reported dirty.
+         - name: Stamp the build id
+           run: bun scripts/scient/stamp-build-id.ts
+
+         # The release's version goes into this checkout only; main is never bumped.
+         - name: Stamp the release version
+           if: env.RELEASE == 'true'
+           env:
+              VERSION: ${{ inputs.version }}
+           run: bun scripts/scient/release-version.ts --stamp "$VERSION"
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Download both x64 native addons
+           if: endsWith(inputs.target, '-x64')
+           uses: actions/download-artifact@v8
+           with:
+              pattern: natives-${{ inputs.target }}-*
+              path: ${{ runner.temp }}/native-artifacts
+
+         # download-artifact extracts a single match directly into its path.
+         - name: Download the ARM64 native addon
+           if: endsWith(inputs.target, '-arm64')
+           uses: actions/download-artifact@v8
+           with:
+              name: natives-${{ inputs.target }}-default
+              path: ${{ runner.temp }}/native-artifacts/natives-${{ inputs.target }}-default
+
+         - name: Install native addons from this run
+           run: bash scripts/scient/install-native.sh "$RUNNER_TEMP/native-artifacts" "${{ inputs.target }}"
+
+         - name: Check the generated commits and types
+           if: inputs.target == 'darwin-arm64'
+           run: |
+              bun scripts/scient/rename-identity.ts --check
+              bun scripts/scient/rename-wording.ts --check
+              bun run check:ts
+
+         # Scient's own tests, and the packages whose state layout differs by
+         # platform. Oh My Pi's whole suite runs on Linux (upstream-tests).
+         - name: Test Scient's code
+           if: inputs.target == 'darwin-arm64'
+           run: |
+              # Each file in its own process, as upstream runs it: some of its tests spy on fs globally.
+              bun --cwd=packages/utils test --parallel
+              bun --cwd=packages/natives test --parallel --preload "$GITHUB_WORKSPACE/scripts/scient/macos-spelling-ready.ts"
+              bun --cwd=packages/coding-agent test test/scient
+              bun --cwd=packages/ai test test/scient
+              bun test scripts/scient
+
+         - name: Build the binary
+           run: |
+              bun --cwd=packages/coding-agent run build
+              binary=packages/coding-agent/dist/scient-agent
+              [ -f "$binary.exe" ] && binary="$binary.exe"
+              echo "BINARY=$binary" >> "$GITHUB_ENV"
+              "$binary" --version < /dev/null
+
+         - name: Check the build reports the release version
+           if: env.RELEASE == 'true'
+           env:
+              VERSION: ${{ inputs.version }}
+           run: |
+              version="$("$BINARY" --version < /dev/null)"
+              test "$version" = "scient-agent/$VERSION"
+
+         - name: Check state isolation
+           run: bun scripts/scient/isolation-check.ts "$BINARY"
+
+         - name: Check the agent answers while it starts under Desktop's environment
+           run: bun scripts/scient/responsiveness-check.ts "$BINARY"
+
+         - name: Package
+           run: |
+              name="scient-agent-${{ inputs.target }}"
+              [ "${{ runner.os }}" = "Windows" ] && name="$name.exe"
+              mkdir -p release
+              cp "$BINARY" "release/$name"
+              # A macOS build is checksummed once it is signed (sign-macos).
+              [ "${{ runner.os }}" = "macOS" ] && exit 0
+              # shellcheck disable=SC2016
+              bun -e 'const [file] = process.argv.slice(1); const hash = new Bun.CryptoHasher("sha256"); hash.update(await Bun.file(file).arrayBuffer()); console.log(`${hash.digest("hex")}  ${file.split("/").pop()}`);' "release/$name" > "release/$name.sha256"
+              cat "release/$name.sha256"
+
+         - uses: actions/upload-artifact@v7
+           with:
+              # The release collects `scient-agent-*` artifacts only, so an
+              # unsigned macOS build can never be published.
+              name: ${{ runner.os == 'macOS' && 'unsigned-' || '' }}scient-agent-${{ inputs.target }}
+              path: release/
+              if-no-files-found: error
+
+   # What a shipped Scient Desktop needs from this build, checked against the
+   # latest published release: live RPC v2 negotiation, and the threads that release
+   # wrote resumed and continued. Version numbers carry no compatibility rule;
+   # this job is the rule, and a release waits for it.
+   compatibility:
+      name: Check compatibility with the latest release
+      needs: build
+      if: inputs.target == 'linux-x64'
+      runs-on: ubuntu-22.04
+      timeout-minutes: 30
+      steps:
+         - uses: actions/checkout@v7
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: ${{ inputs.bun-version }}
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile --ignore-scripts
+
+         - uses: actions/download-artifact@v8
+           with:
+              pattern: natives-linux-x64-*
+              path: ${{ runner.temp }}/native-artifacts
+
+         - name: Install native addons from this run
+           run: bash scripts/scient/install-native.sh "$RUNNER_TEMP/native-artifacts" "linux-x64"
+
+         - uses: actions/download-artifact@v8
+           with:
+              name: scient-agent-linux-x64
+              path: candidate
+
+         - name: Download the latest published release
+           env:
+              GH_TOKEN: ${{ github.token }}
+           run: gh release download --repo "$GITHUB_REPOSITORY" --pattern scient-agent-linux-x64 --dir previous
+
+         - name: Check
+           run: |
+              candidate="$PWD/candidate/scient-agent-linux-x64"
+              previous="$PWD/previous/scient-agent-linux-x64"
+              chmod +x "$candidate" "$previous"
+              # Scient Desktop drives a release that names itself and offers RPC v2.
+              "$candidate" --runtime-info | bun -e 'const info = JSON.parse(await Bun.stdin.text()); if (info.product !== "scient-agent" || !info.rpcProtocolVersions.includes(2)) { console.error(info); process.exit(1); }'
+              bun scripts/scient/capability-check.ts "$candidate" "$previous"
+
+   sign-macos:
+      name: Sign
+      needs: build
+      if: inputs.signed-runner != ''
+      # Upstream's signer runs on Linux: it fetches a pinned linux-musl rcodesign.
+      runs-on: ubuntu-22.04
+      timeout-minutes: 120
+      steps:
+         - uses: actions/checkout@v7
+
+         - uses: actions/download-artifact@v8
+           with:
+              name: unsigned-scient-agent-${{ inputs.target }}
+              path: release
+
+         - name: Sign ad hoc
+           if: env.DEVELOPER_ID != 'true'
+           run: bash scripts/ci-macos-sign.sh "release/scient-agent-${{ inputs.target }}"
+
+         - name: Sign with the Developer ID and notarize
+           if: env.DEVELOPER_ID == 'true'
+           # The same secrets, in the same form, as Scient Desktop's release.
+           env:
+              CSC_LINK: ${{ secrets.CSC_LINK }}
+              CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+              APPLE_API_KEY_TEXT: ${{ secrets.APPLE_API_KEY }}
+              APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+              APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+           run: |
+              for name in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY_TEXT APPLE_API_KEY_ID APPLE_API_ISSUER; do
+                 if [ -z "${!name}" ]; then
+                    echo "::error::Developer ID signing needs the Apple signing secrets ($name is missing); an ad-hoc signed binary is not publishable."
+                    exit 1
+                 fi
+              done
+              # scripts/ci-macos-sign.sh takes the certificate and the key as base64.
+              APPLE_CERTIFICATE_P12="$CSC_LINK" \
+              APPLE_CERTIFICATE_PASSWORD="$CSC_KEY_PASSWORD" \
+              APPLE_API_KEY="$(printf '%s' "$APPLE_API_KEY_TEXT" | base64 | tr -d '\n')" \
+              APPLE_API_ISSUER_ID="$APPLE_API_ISSUER" \
+                 bash scripts/ci-macos-sign.sh "release/scient-agent-${{ inputs.target }}"
+
+         - name: Checksum
+           working-directory: release
+           run: sha256sum "scient-agent-${{ inputs.target }}" | tee "scient-agent-${{ inputs.target }}.sha256"
+
+         - uses: actions/upload-artifact@v7
+           with:
+              name: scient-agent-${{ inputs.target }}
+              path: release/
+              if-no-files-found: error
+
+   # Runs the exact signed bytes the release publishes on their own platform.
+   verify-macos:
+      name: Check signed build
+      needs: sign-macos
+      if: inputs.signed-runner != ''
+      runs-on: ${{ inputs.signed-runner }}
+      timeout-minutes: 30
+      steps:
+         - uses: actions/checkout@v7
+
+         - uses: oven-sh/setup-bun@v2
+           with:
+              bun-version: ${{ inputs.bun-version }}
+
+         - uses: actions/download-artifact@v8
+           with:
+              name: scient-agent-${{ inputs.target }}
+              path: release
+
+         - name: Check the signature
+           run: |
+              (cd release && shasum -a 256 -c "scient-agent-${{ inputs.target }}.sha256")
+              binary="release/scient-agent-${{ inputs.target }}"
+              chmod +x "$binary"
+              echo "BINARY=$binary" >> "$GITHUB_ENV"
+              codesign --verify --strict --verbose=2 "$binary"
+              info="$(codesign -dvvv "$binary" 2>&1)"
+              echo "$info"
+              if [ "$DEVELOPER_ID" = "true" ] && grep -qE "flags=.*adhoc|Signature=adhoc" <<< "$info"; then
+                 echo "::error::$binary is ad-hoc signed; Developer ID signing did not run."
+                 exit 1
+              fi
+              "$binary" --version < /dev/null
+
+         - name: Check the build reports the release version
+           if: env.RELEASE == 'true'
+           env:
+              VERSION: ${{ inputs.version }}
+           run: |
+              version="$("$BINARY" --version < /dev/null)"
+              test "$version" = "scient-agent/$VERSION"
+
+         - name: Check state isolation
+           run: bun scripts/scient/isolation-check.ts "$BINARY"
+
+         - name: Check the agent answers while it starts under Desktop's environment
+           run: bun scripts/scient/responsiveness-check.ts "$BINARY"
+
+   # Compress exactly the bytes used for release, including macOS signing.
+   compress:
+      name: Compress the binary
+      needs: [build, sign-macos]
+      if: ${{ !cancelled() && needs.build.result == 'success' && (needs.sign-macos.result == 'success' || (inputs.signed-runner == '' && needs.sign-macos.result == 'skipped')) }}
+      runs-on: ubuntu-24.04
+      timeout-minutes: 30
+      steps:
+         - uses: actions/download-artifact@v8
+           with:
+              name: scient-agent-${{ inputs.target }}
+              path: release
+
+         - name: Compress and verify round trip
+           working-directory: release
+           env:
+              TARGET: ${{ inputs.target }}
+           run: |
+              set -euo pipefail
+              binary="scient-agent-$TARGET"
+              if [[ "$TARGET" == windows-* ]]; then binary="$binary.exe"; fi
+              sha256sum -c "$binary.sha256"
+              mkdir ../compressed
+              # A window of 2^27 (128 MiB): Desktop refuses a copy that needs more.
+              zstd -q -19 --long=27 -T0 "$binary" -o "../compressed/$binary.zst"
+              unpacked="$(zstd -q -d --long=27 -c "../compressed/$binary.zst" | sha256sum | cut -d' ' -f1)"
+              if [ "$unpacked" != "$(cut -d' ' -f1 "$binary.sha256")" ]; then
+                 echo "::error::$binary.zst does not unpack to $binary."
+                 exit 1
+              fi
+              (cd ../compressed && sha256sum "$binary.zst" | tee "$binary.zst.sha256")
+
+         - uses: actions/upload-artifact@v7
+           with:
+              name: scient-agent-compressed-${{ inputs.target }}
+              path: compressed/
+              if-no-files-found: error
