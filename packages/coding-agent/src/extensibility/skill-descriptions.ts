@@ -14,6 +14,9 @@ import {
 	prompt,
 	toError,
 } from "@oh-my-pi/pi-utils";
+// scient(SA-HINT-STORE): begin - Backport the SQLite initialization lock from Oh My Pi 19.2.1.
+import { withFileLockSync } from "@oh-my-pi/pi-utils";
+// scient(SA-HINT-STORE): end
 import type { ModelRegistry } from "../config/model-registry";
 import {
 	resolveConfiguredModelPatterns,
@@ -321,19 +324,23 @@ export class SkillDescriptionStore {
 	 */
 	static open(dbPath: string = resolveSkillDescriptionsDbPath()): SkillDescriptionStore {
 		fs.mkdirSync(path.dirname(dbPath), { recursive: true, mode: 0o700 });
-		const db = new Database(dbPath, { create: true });
-		try {
-			// Install before any lock-taking statement (SQLite cache contention, #2421).
-			db.run("PRAGMA busy_timeout = 100");
-			db.run("PRAGMA journal_mode=WAL");
-			db.run("PRAGMA synchronous=NORMAL");
-			db.run("CREATE TABLE IF NOT EXISTS skill_descriptions (key TEXT PRIMARY KEY, description TEXT NOT NULL)");
-			if (process.platform !== "win32") fs.chmodSync(dbPath, 0o600);
-			return new SkillDescriptionStore(dbPath, db);
-		} catch (error) {
-			db.close();
-			throw error;
-		}
+		// scient(SA-HINT-STORE): begin - Serialize first opens switching the same database to WAL.
+		return withFileLockSync(dbPath, () => {
+			const db = new Database(dbPath, { create: true });
+			try {
+				// Install before any lock-taking statement (SQLite cache contention, #2421).
+				db.run("PRAGMA busy_timeout = 100");
+				db.run("PRAGMA journal_mode=WAL");
+				db.run("PRAGMA synchronous=NORMAL");
+				db.run("CREATE TABLE IF NOT EXISTS skill_descriptions (key TEXT PRIMARY KEY, description TEXT NOT NULL)");
+				if (process.platform !== "win32") fs.chmodSync(dbPath, 0o600);
+				return new SkillDescriptionStore(dbPath, db);
+			} catch (error) {
+				db.close();
+				throw error;
+			}
+		});
+		// scient(SA-HINT-STORE): end
 	}
 
 	/** @throws on SQLite errors. */

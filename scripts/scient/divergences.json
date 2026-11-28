@@ -71,6 +71,12 @@
 				"bun test scripts/scient/release-version.test.ts"
 			]
 		},
+		"SA-HINT-STORE": {
+			"status": "active",
+			"contract": "Concurrent first opens of the skill hint cache serialize WAL initialization so neither session loses its cache to SQLITE_BUSY. This backports Oh My Pi commit 6756add71f5e93755993ecf6bfb89694d83c2626. Drop the hook when aligning to 19.2.1 or later.",
+			"upstream": ["packages/coding-agent/src/extensibility/skill-descriptions.ts"],
+			"verification": ["bun --cwd=packages/coding-agent test test/daemon/mutex-module.test.ts"]
+		},
 		"SA-PRODUCT": {
 			"status": "active",
 			"contract": "Scient Agent reports its own release: scient.json names the product, its version and the exact Oh My Pi release; --version, the startup screen, completions and the User-Agent report the version, and --runtime-info reports all of it with the build id Scient's workflow stamps, the Scient commands a host may run (hostCommands) and the plugin sources a host may add with SCIENT_AGENT_ENABLE_SOURCES (enableSources).",
