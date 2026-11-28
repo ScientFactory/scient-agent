@@ -68,7 +68,6 @@ export const BROKER_SIGN_OUT_REFUSAL =
 
 /** The agent's sign-in list, as a host shows it. */
 export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[] {
-	const heldByBroker = authStorage.credentials.heldByBroker;
 	return getOAuthProviders().map(provider => {
 		const storeId = provider.storeCredentialsAs ?? provider.id;
 		const emails = [
@@ -86,7 +85,7 @@ export function listSignInProviders(authStorage: AuthStorage): RpcLoginProvider[
 			available: provider.available,
 			authenticated: authStorage.keys.source(storeId) !== undefined,
 			kind: signInKind(provider.id),
-			stored: !heldByBroker && authStorage.credentials.has(storeId),
+			stored: !authStorage.credentials.heldByBrokerFor(storeId) && authStorage.credentials.has(storeId),
 			store: storeId,
 			...(emails.length > 0 ? { emails } : {}),
 		};
@@ -112,7 +111,7 @@ export async function removeStoredSignIn(
 ): Promise<boolean> {
 	const storeId = signInStoreId(providerId);
 	if (storeId === undefined) return false;
-	if (authStorage.credentials.heldByBroker) throw new Error(BROKER_SIGN_OUT_REFUSAL);
+	if (authStorage.credentials.heldByBrokerFor(storeId)) throw new Error(BROKER_SIGN_OUT_REFUSAL);
 	await authStorage.credentials.revalidate();
 	await authStorage.credentials.remove(storeId);
 	// `remove` clears this process's copy whatever the store did. Read the store again.
@@ -135,7 +134,6 @@ export type RpcSignOut = { data: { providerId: string } } | { error: string };
  */
 export async function signOutOverRpc(registry: ModelRegistry, providerId: unknown): Promise<RpcSignOut> {
 	if (typeof providerId !== "string") return { error: "providerId must be a string" };
-	if (registry.authStorage.credentials.heldByBroker) return { error: BROKER_SIGN_OUT_REFUSAL };
 	try {
 		if (!(await removeStoredSignIn(registry.authStorage, providerId))) {
 			return { error: `Unknown sign-in provider: ${providerId}` };

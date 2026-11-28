@@ -150,6 +150,7 @@ export type AuthStorageProtocol = {
 	"credentials.generation": RpcMethod<[], number>;
 	// scient(SA-AUTH): begin - A broker's sign-ins stay with the broker, in a worker too.
 	"credentials.heldByBroker": RpcMethod<[], boolean>;
+	"credentials.heldByBrokerFor": RpcMethod<[provider: string], boolean>;
 	// scient(SA-AUTH): end
 	/** Returns a sync unsubscribe (`rpcSync`). */
 	"credentials.onGeneration": RpcMethod<[listener: (generation: number) => void], () => void>;

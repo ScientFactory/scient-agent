@@ -896,6 +896,7 @@ export interface CredentialsApi {
 	 * configuration, which can disagree with it after a failed switch.
 	 */
 	readonly heldByBroker: boolean;
+	heldByBrokerFor(provider: string): boolean;
 	// scient(SA-AUTH): end
 	/**
 	 * Get credential for a provider (first entry if multiple).

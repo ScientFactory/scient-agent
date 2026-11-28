@@ -13,6 +13,9 @@
 import { type Type, type } from "@oh-my-pi/omptype";
 import { logger } from "@oh-my-pi/pi-utils";
 import type { AuthCredentialSnapshotEntry, AuthStorage, StoredCredentialBlock } from "../auth-storage";
+// scient(SA-AUTH-BROKER-UNIX): begin - validate a Unix listener before it serves credentials.
+import { privateBrokerSocket } from "../scient/auth-broker-unix";
+// scient(SA-AUTH-BROKER-UNIX): end
 import { parseBind } from "../utils/parse-bind";
 import { resolvePeer } from "../utils/resolve-peer";
 import { AuthBrokerRefresher, type AuthBrokerRefresherSchedule } from "./refresher";
@@ -60,7 +63,9 @@ const SSE_KEEPALIVE = TEXT_ENCODER.encode(": keepalive\n\n");
 export interface AuthBrokerServerOptions {
 	/** Underlying credential storage (wraps the local SQLite store on the broker). */
 	storage: AuthStorage;
-	/** Listen address; accepts `host:port` or just `port`. */
+	// scient(SA-AUTH-BROKER-UNIX): begin - document the second transport.
+	/** Listen address: `host:port`, just `port`, or `unix:/absolute/socket/path`. */
+	// scient(SA-AUTH-BROKER-UNIX): end
 	bind?: string;
 	/** Accept any of these bearer tokens. Empty disables auth (loopback only). */
 	bearerTokens: string[];
@@ -88,10 +93,12 @@ export interface AuthBrokerServerOptions {
 }
 
 export interface AuthBrokerServerHandle {
-	/** Bound URL (`http://host:port`). */
+	// scient(SA-AUTH-BROKER-UNIX): begin - a Unix listener has no TCP host or port.
+	/** Bound HTTP URL or `unix:/absolute/socket/path`. */
 	url: string;
-	port: number;
-	hostname: string;
+	port?: number;
+	hostname?: string;
+	// scient(SA-AUTH-BROKER-UNIX): end
 	close(): Promise<void>;
 }
 
@@ -412,9 +419,15 @@ class SnapshotSource {
 	readonly #storage: AuthStorage;
 	readonly #refresher: AuthBrokerRefresher | undefined;
 	#rows: GenerationSnapshotRows | undefined;
+	// scient(SA-AUTH-BROKER-UNIX): begin - filter the payload before publishing either wire snapshot.
+	readonly #sharedProvider: string | undefined;
+	// scient(SA-AUTH-BROKER-UNIX): end
 	#reloading: Promise<unknown> | undefined;
 
-	constructor(storage: AuthStorage, refresher: AuthBrokerRefresher | undefined) {
+	// scient(SA-AUTH-BROKER-UNIX): begin - a local dev listener exposes only ChatGPT.
+	constructor(storage: AuthStorage, refresher: AuthBrokerRefresher | undefined, sharedProvider?: string) {
+		this.#sharedProvider = sharedProvider;
+		// scient(SA-AUTH-BROKER-UNIX): end
 		this.#storage = storage;
 		this.#refresher = refresher;
 	}
@@ -423,6 +436,11 @@ class SnapshotSource {
 		return this.#storage.credentials.generation;
 	}
 
+	// scient(SA-AUTH-BROKER-UNIX): begin - apply the same snapshot scope to id-addressed routes.
+	hasCredential(id: number): boolean {
+		return this.#currentRows().credentials.some(entry => entry.id === id);
+	}
+	// scient(SA-AUTH-BROKER-UNIX): end
 	/**
 	 * Re-read the store before serving, so writes made on the broker's own store
 	 * handle outside `AuthStorage` are served too (`poll()` sees only other
@@ -469,7 +487,16 @@ class SnapshotSource {
 	#currentRows(): GenerationSnapshotRows {
 		if (this.#rows?.generation === this.#storage.credentials.generation) return this.#rows;
 		const snapshot = this.#storage.credentials.snapshot();
-		const rows: GenerationSnapshotRows = { generation: snapshot.generation, credentials: snapshot.credentials };
+		// scient(SA-AUTH-BROKER-UNIX): begin - snapshots include no out-of-scope bearer or key.
+		const rows: GenerationSnapshotRows = {
+			generation: snapshot.generation,
+			credentials: this.#sharedProvider
+				? snapshot.credentials.filter(
+						entry => entry.provider === this.#sharedProvider && entry.credential.type === "oauth",
+					)
+				: snapshot.credentials,
+		};
+		// scient(SA-AUTH-BROKER-UNIX): end
 		this.#rows = rows;
 		return rows;
 	}
@@ -808,7 +835,18 @@ function serveSnapshotStream(
 
 /** Boot the broker. Caller owns lifecycle; `handle.close()` to stop. */
 export function startAuthBroker(opts: AuthBrokerServerOptions): AuthBrokerServerHandle {
-	const bind = parseBind(opts.bind ?? DEFAULT_AUTH_BROKER_BIND);
+	// scient(SA-AUTH-BROKER-UNIX): begin - bind exactly one transport.
+	const endpoint = opts.bind ?? DEFAULT_AUTH_BROKER_BIND;
+	const socket = privateBrokerSocket(endpoint);
+	if (socket !== undefined && !opts.bearerTokens.some(token => token.length > 0)) {
+		throw new Error("Auth broker Unix listener requires a bearer token");
+	}
+	const network = socket === undefined ? parseBind(endpoint) : undefined;
+	const sharedProvider = socket === undefined ? undefined : "openai-codex";
+	// Bun supports a Unix idle timeout at runtime; its XOR options put it on TCP only.
+	const unixOptions = { unix: socket, idleTimeout: DEFAULT_SERVER_IDLE_TIMEOUT_S };
+	const unixListener: { unix?: string } = unixOptions;
+	// scient(SA-AUTH-BROKER-UNIX): end
 	const tokens = new Set<string>(opts.bearerTokens);
 	const version = opts.version;
 	const streamKeepaliveMs = opts.streamKeepaliveMs ?? DEFAULT_STREAM_KEEPALIVE_MS;
@@ -821,15 +859,18 @@ export function startAuthBroker(opts: AuthBrokerServerOptions): AuthBrokerServer
 				refreshSkewMs: opts.refreshSkewMs ?? DEFAULT_REFRESH_SKEW_MS,
 				refreshIntervalMs: opts.refreshIntervalMs ?? DEFAULT_REFRESH_INTERVAL_MS,
 			});
-	refresher?.start();
-	const snapshotSource = new SnapshotSource(opts.storage, refresher);
+	// scient(SA-AUTH-BROKER-UNIX): begin - the refresher starts only after the listener binds.
+	// scient(SA-AUTH-BROKER-UNIX): end
+	// scient(SA-AUTH-BROKER-UNIX): begin - publish only the scope of the Unix broker.
+	const snapshotSource = new SnapshotSource(opts.storage, refresher, sharedProvider);
+	// scient(SA-AUTH-BROKER-UNIX): end
 	const generationGate = new GenerationGate(opts.storage, externalChangePollMs);
 	const streamHub = new SnapshotStreamHub(opts.storage, snapshotSource);
 
 	const server = Bun.serve({
-		hostname: bind.hostname,
-		port: bind.port,
-		idleTimeout: DEFAULT_SERVER_IDLE_TIMEOUT_S,
+		// scient(SA-AUTH-BROKER-UNIX): begin - a Unix listener does not open a TCP port.
+		...(socket === undefined ? { ...network, idleTimeout: DEFAULT_SERVER_IDLE_TIMEOUT_S } : unixListener),
+		// scient(SA-AUTH-BROKER-UNIX): end
 		fetch: async (req, server): Promise<Response> => {
 			const url = new URL(req.url);
 			const pathname = url.pathname;
@@ -847,6 +888,19 @@ export function startAuthBroker(opts: AuthBrokerServerOptions): AuthBrokerServer
 					});
 					return json(401, { error: "unauthorized" });
 				}
+				// scient(SA-AUTH-BROKER-UNIX): begin - guard direct credential and reporting routes too.
+				if (sharedProvider) {
+					const credentialId = pathname.match(/^\/v1\/credential\/(\d+)\//)?.[1];
+					if (credentialId !== undefined && !snapshotSource.hasCredential(Number(credentialId))) {
+						return json(404, { error: "No shared credential with that id" });
+					}
+					if (pathname.startsWith("/v1/usage") || pathname === "/v1/credentials/disabled") {
+						const provider = url.searchParams.get("provider");
+						if (provider && provider !== sharedProvider) return json(404, { error: "Provider not shared" });
+						url.searchParams.set("provider", sharedProvider);
+					}
+				}
+				// scient(SA-AUTH-BROKER-UNIX): end
 				const peer = resolvePeer(req, socketPeer, opts.trustProxyHeaders);
 				if (req.method === "GET" && pathname === "/v1/snapshot/stream") {
 					return serveSnapshotStream(req, snapshotSource, streamHub, peer, streamKeepaliveMs);
@@ -893,6 +947,11 @@ export function startAuthBroker(opts: AuthBrokerServerOptions): AuthBrokerServer
 					// Arktype's inferred union collides the `entries` field with
 					// Array.prototype.entries; the schema already validated the shape.
 					const report = parsed.data as ClientUsageReportRequest;
+					// scient(SA-AUTH-BROKER-UNIX): begin - reject out-of-scope usage writes.
+					if (sharedProvider && report.entries.some(entry => entry.provider !== sharedProvider)) {
+						return json(403, { error: "Provider not shared" });
+					}
+					// scient(SA-AUTH-BROKER-UNIX): end
 					try {
 						const recorded = opts.storage.usage.recordClient(report);
 						if (!recorded) return json(501, { error: "broker store does not persist client usage" });
@@ -910,6 +969,9 @@ export function startAuthBroker(opts: AuthBrokerServerOptions): AuthBrokerServer
 					}
 				}
 				if (req.method === "GET" && pathname === "/v1/usage/clients") {
+					// scient(SA-AUTH-BROKER-UNIX): begin - this view includes all client history.
+					if (sharedProvider) return json(404, { error: "Client usage summary not available on the dev broker" });
+					// scient(SA-AUTH-BROKER-UNIX): end
 					const sinceMsRaw = url.searchParams.get("sinceMs");
 					const sinceMsParsed = sinceMsRaw === null ? Number.NaN : Number.parseInt(sinceMsRaw, 10);
 					const summary = opts.storage.usage.clientSummary(Number.isFinite(sinceMsParsed) ? sinceMsParsed : 0);
@@ -1055,6 +1117,11 @@ export function startAuthBroker(opts: AuthBrokerServerOptions): AuthBrokerServer
 					const parsed = await parseBody(req, credentialUploadRequestSchema);
 					if (!parsed.ok) return parsed.response;
 					const { provider, credential } = parsed.data;
+					// scient(SA-AUTH-BROKER-UNIX): begin - this listener accepts only ChatGPT OAuth sign-ins.
+					if (sharedProvider && (provider !== sharedProvider || credential.type !== "oauth")) {
+						return json(403, { error: "Provider or credential type not shared" });
+					}
+					// scient(SA-AUTH-BROKER-UNIX): end
 					try {
 						const entries = await opts.storage.credentials.upsert(provider, credential);
 						const identity =
@@ -1088,10 +1155,15 @@ export function startAuthBroker(opts: AuthBrokerServerOptions): AuthBrokerServer
 		},
 	});
 
-	const boundHost = server.hostname ?? bind.hostname;
-	const boundPort = server.port ?? bind.port;
+	// scient(SA-AUTH-BROKER-UNIX): begin - a Unix listener has no TCP address.
+	refresher?.start();
+	const boundHost = server.hostname ?? network?.hostname;
+	const boundPort = server.port ?? network?.port;
+	// scient(SA-AUTH-BROKER-UNIX): end
 	return {
-		url: `http://${boundHost}:${boundPort}`,
+		// scient(SA-AUTH-BROKER-UNIX): begin - preserve the Unix endpoint as the client address.
+		url: socket === undefined ? `http://${boundHost}:${boundPort}` : endpoint,
+		// scient(SA-AUTH-BROKER-UNIX): end
 		port: boundPort,
 		hostname: boundHost,
 		close: async () => {

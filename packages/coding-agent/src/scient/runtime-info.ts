@@ -29,6 +29,8 @@ export interface RuntimeInfo {
 	 * that does not list a source has no reader for it, so a host checks this list before it offers it.
 	 */
 	enableSources: string[];
+	/** Broker transports this executable accepts in SCIENT_AGENT_AUTH_BROKER_URL. */
+	authBrokerTransports: string[];
 }
 
 export function formatRuntimeInfo(): string {
@@ -40,6 +42,7 @@ export function formatRuntimeInfo(): string {
 		buildId: BUILD_ID,
 		hostCommands: ["apps", "dictate", "mcp"],
 		enableSources: ["claude-plugins", "codex-plugins"],
+		authBrokerTransports: process.platform === "win32" ? ["http"] : ["http", "unix"],
 	};
 	return `${JSON.stringify(info)}\n`;
 }

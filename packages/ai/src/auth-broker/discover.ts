@@ -18,6 +18,9 @@ import {
 	logger,
 	MAIN_CONFIG_FILENAMES,
 } from "@oh-my-pi/pi-utils";
+// scient(SA-AUTH-BROKER-UNIX): begin - dotenv must not choose the shared broker.
+import { getLaunchEnvValue } from "@oh-my-pi/pi-utils";
+// scient(SA-AUTH-BROKER-UNIX): end
 import { YAML } from "bun";
 import {
 	type AuthAccountPolicies,
@@ -28,6 +31,9 @@ import {
 	SqliteAuthCredentialStore,
 } from "../auth-storage";
 import * as AIError from "../error";
+// scient(SA-AUTH-BROKER-UNIX): begin - keep Unix broker credentials with their endpoint.
+import { unixBrokerCredentials } from "../scient/auth-broker-unix";
+// scient(SA-AUTH-BROKER-UNIX): end
 import { AuthBrokerClient, AuthBrokerError, type FetchSnapshotResult } from "./client";
 import { HybridAuthCredentialStore } from "./hybrid-store";
 import { type AuthBrokerAccountPool, type AuthBrokerProviderPool, RemoteAuthCredentialStore } from "./remote-store";
@@ -37,11 +43,17 @@ import { DEFAULT_SNAPSHOT_CACHE_TTL_MS, type SnapshotResponse } from "./types";
 export interface AuthBrokerClientConfig {
 	url: string;
 	token: string;
+	// scient(SA-AUTH-BROKER-UNIX): begin - the managed dev default shares only ChatGPT.
+	sharedProvider?: "openai-codex";
+	// scient(SA-AUTH-BROKER-UNIX): end
 }
 
 export interface ResolveAuthBrokerConfigOptions {
 	agentDir?: string;
 	configValueResolver?: (config: string) => Promise<string | undefined>;
+	// scient(SA-AUTH-BROKER-UNIX): begin - a host default never overrides explicit settings.
+	devChatGptBrokerUrl?: string;
+	// scient(SA-AUTH-BROKER-UNIX): end
 }
 
 export interface DiscoverAuthStorageOptions {
@@ -478,6 +490,10 @@ export async function resolveAuthBrokerConfig(
 	const resolveConfig = options.configValueResolver ?? defaultResolveConfigValue;
 
 	const envUrl = process.env.SCIENT_AGENT_AUTH_BROKER_URL;
+	// scient(SA-AUTH-BROKER-UNIX): begin - a host-assigned Unix broker ignores client token configuration.
+	const fromUnixEnv = await unixBrokerCredentials(envUrl);
+	if (fromUnixEnv) return fromUnixEnv;
+	// scient(SA-AUTH-BROKER-UNIX): end
 	const envToken = process.env.SCIENT_AGENT_AUTH_BROKER_TOKEN;
 
 	let url = envUrl && envUrl.length > 0 ? envUrl : undefined;
@@ -487,12 +503,26 @@ export async function resolveAuthBrokerConfig(
 		if (!url && fromConfig.url) {
 			const resolved = await resolveConfig(fromConfig.url);
 			if (resolved && resolved.length > 0) url = resolved;
+			// scient(SA-AUTH-BROKER-UNIX): begin - the same Unix token rule applies to a configured URL.
+			const fromUnixConfig = await unixBrokerCredentials(url);
+			if (fromUnixConfig) return fromUnixConfig;
+			// scient(SA-AUTH-BROKER-UNIX): end
 		}
 		if (fromConfig.token) {
 			const resolved = await resolveConfig(fromConfig.token);
 			if (resolved && resolved.length > 0) configToken = resolved;
 		}
 	}
+	// scient(SA-AUTH-BROKER-UNIX): begin - host discovery never overrides an explicit broker.
+	if (!url) {
+		const hostUrl = options.devChatGptBrokerUrl ?? getLaunchEnvValue("SCIENT_AGENT_DEV_CHATGPT_BROKER_URL");
+		const devBroker = await unixBrokerCredentials(hostUrl).catch((error: unknown) => {
+			logger.warn("Shared dev ChatGPT broker is unavailable; using local sign-ins", { error: String(error) });
+			return null;
+		});
+		if (devBroker) return { ...devBroker, sharedProvider: "openai-codex" };
+	}
+	// scient(SA-AUTH-BROKER-UNIX): end
 	if (!url) return null;
 
 	const token =
@@ -558,7 +588,16 @@ export async function openAuthCredentialStore(
 							path: cachePath,
 							token: brokerConfig.token,
 							url: brokerConfig.url,
-							snapshot,
+							// scient(SA-AUTH-BROKER-UNIX): begin - do not persist unrelated broker credentials in a dev app.
+							snapshot: brokerConfig.sharedProvider
+								? {
+										...snapshot,
+										credentials: snapshot.credentials.filter(
+											row => row.provider === brokerConfig.sharedProvider,
+										),
+									}
+								: snapshot,
+							// scient(SA-AUTH-BROKER-UNIX): end
 						});
 					}
 				: undefined;
@@ -582,11 +621,18 @@ export async function openAuthCredentialStore(
 			// No usable cache: block on the broker so a misconfigured/unreachable
 			// broker or revoked token fails startup with an actionable error
 			// (issue #8096) instead of yielding an empty credential store.
+			// scient(SA-AUTH-BROKER-UNIX): begin - automatic discovery must not disable existing local sign-ins.
 			initialSnapshot = await fetchInitialSnapshot(client, {
 				url: brokerConfig.url,
-				retry: options.retryUnreachableBroker === true,
+				retry: !brokerConfig.sharedProvider && options.retryUnreachableBroker === true,
 				onRetry: options.onBrokerRetry,
+			}).catch((error: unknown) => {
+				if (!brokerConfig.sharedProvider) throw error;
+				logger.warn("Shared dev ChatGPT broker could not connect; using local sign-ins", { error: String(error) });
+				return undefined;
 			});
+			if (!initialSnapshot) return openAuthCredentialStore({ ...options, brokerConfig: null });
+			// scient(SA-AUTH-BROKER-UNIX): end
 			persist?.(initialSnapshot);
 		}
 		// Fresh cache: stale-while-revalidate. The store's constructor starts its
@@ -603,7 +649,9 @@ export async function openAuthCredentialStore(
 			accountPool,
 		});
 		return {
-			store: new HybridAuthCredentialStore({ broker, local }),
+			// scient(SA-AUTH-BROKER-UNIX): begin - non-ChatGPT provider credentials stay with their own app.
+			store: new HybridAuthCredentialStore({ broker, local, sharedProvider: brokerConfig.sharedProvider }),
+			// scient(SA-AUTH-BROKER-UNIX): end
 			sourceLabel: options.sourceLabel ?? `broker ${brokerConfig.url}`,
 		};
 	}

@@ -155,6 +155,7 @@ describe("sign-in providers", () => {
 		const steps: string[] = [];
 		const watched = {
 			credentials: {
+				heldByBrokerFor: (provider: string) => auth.credentials.heldByBrokerFor(provider),
 				revalidate: async () => {
 					steps.push("revalidate");
 					await auth.credentials.revalidate();
@@ -176,6 +177,7 @@ describe("sign-in providers", () => {
 		// in-memory copy goes, and the next read of the store brings it back.
 		const stuck = {
 			credentials: {
+				heldByBrokerFor: (provider: string) => auth.credentials.heldByBrokerFor(provider),
 				revalidate: () => auth.credentials.revalidate(),
 				remove: async () => {},
 				has: (provider: string) => auth.credentials.has(provider),
@@ -190,7 +192,7 @@ describe("sign-in providers", () => {
 		// The same store, seen as a broker's snapshot.
 		const credentials = new Proxy(auth.credentials, {
 			get: (target, key) => {
-				if (key === "heldByBroker") return true;
+				if (key === "heldByBrokerFor") return (provider: string) => provider === "deepseek";
 				const value = Reflect.get(target, key, target);
 				return typeof value === "function" ? value.bind(target) : value;
 			},
@@ -243,7 +245,7 @@ describe("sign-in providers", () => {
 			});
 			const credentials = new Proxy(auth.credentials, {
 				get: (target, key) => {
-					if (key === "heldByBroker") return true;
+					if (key === "heldByBrokerFor") return (provider: string) => provider === "deepseek";
 					const value = Reflect.get(target, key, target);
 					return typeof value === "function" ? value.bind(target) : value;
 				},

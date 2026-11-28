@@ -251,7 +251,11 @@ export interface AuthCredentialStore
 		Partial<CredentialBlockStore>,
 		Partial<CredentialRefreshLeaseStore>,
 		Partial<UsageLedgerStore>,
-		Partial<CredentialUpstream> {}
+		// scient(SA-AUTH-BROKER-UNIX): begin - a hybrid store knows the actual owner of a provider.
+		Partial<CredentialUpstream> {
+	holdsProviderOnBroker?(provider: string): boolean;
+}
+// scient(SA-AUTH-BROKER-UNIX): end
 
 /** Narrow stores that implement the complete durable refresh-lease concern. */
 export function hasRefreshLeases(

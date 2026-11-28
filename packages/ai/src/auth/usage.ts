@@ -896,6 +896,13 @@ export class UsageService implements UsageApi {
 					: fetched;
 			if (reports) this.#deps.blocks.reconcileReports(reports);
 			const ownLocal = [...this.#runtimeUsageProviderOverrides.keys(), ...this.#configuredUsageProviders.keys()];
+			// scient(SA-AUTH-BROKER-UNIX): begin - normal providers kept locally can still report local usage.
+			if (this.#deps.store.holdsProviderOnBroker) {
+				for (const provider of DEFAULT_USAGE_PROVIDERS) {
+					if (!this.#deps.store.holdsProviderOnBroker(provider.id)) ownLocal.push(provider.id);
+				}
+			}
+			// scient(SA-AUTH-BROKER-UNIX): end
 			if (!reports || ownLocal.length === 0) return reports;
 
 			// The broker owns its reported providers; only extension and configured

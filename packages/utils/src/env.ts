@@ -414,6 +414,11 @@ const launchEnvSnapshot: ReadonlyMap<string, string> | undefined = explicitEnvFi
 export function getLaunchEnv(): Record<string, string> | undefined {
 	return launchEnvSnapshot && Object.fromEntries(launchEnvSnapshot);
 }
+
+/** Reads one original environment value without snapshot allocation. */
+export function getLaunchEnvValue(name: string): string | undefined {
+	return launchEnvSnapshot?.get(name);
+}
 // scient(SA-CODEX-PLUGINS): end
 for (const file of [projectEnv, agentEnv, piEnv, homeEnv]) {
 	for (const key in file) {
